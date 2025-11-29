@@ -1,34 +1,41 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 export type ShotStatus = "pending" | "generating" | "complete" | "failed";
 
 export interface Shot {
   id: string;
   order: number;
-  duration: number; // 1-10 seconds
-  
+
   // Image
   uploaded_image: string | null;
   gemini_prompt: string | null;
   generated_image: string | null;
-  
+
   // Video
   video_prompt: string;
   video_url: string | null;
   status: ShotStatus;
 }
 
+export interface ShotImageOption {
+  id: string;
+  order: number;
+  image_url: string;
+}
+
 interface ShotCardProps {
   shot: Shot;
   index: number;
   totalShots: number;
+  otherShotsWithImages: ShotImageOption[];
   onUpdate: (id: string, updates: Partial<Shot>) => void;
   onDelete: (id: string) => void;
   onMove: (index: number, direction: "up" | "down") => void;
   onGenerateImage: (id: string) => void;
   onUploadImage: (id: string, file: File) => void;
+  onCopyImageFromShot: (targetShotId: string, sourceShotId: string) => void;
   onGenerateVideo: (id: string) => void;
 }
 
@@ -36,14 +43,17 @@ export default function ShotCard({
   shot,
   index,
   totalShots,
+  otherShotsWithImages,
   onUpdate,
   onDelete,
   onMove,
   onGenerateImage,
   onUploadImage,
+  onCopyImageFromShot,
   onGenerateVideo,
 }: ShotCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCopyMenu, setShowCopyMenu] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -108,19 +118,54 @@ export default function ShotCard({
               
               {/* Interaction Overlay */}
               <div className={`absolute inset-0 bg-black/50 transition-opacity flex items-center justify-center space-x-3 text-white font-medium ${shot.uploaded_image || shot.generated_image ? 'opacity-0 group-hover:opacity-100' : 'opacity-100'}`}>
-                 <button 
+                 <button
                    onClick={() => fileInputRef.current?.click()}
                    className="hover:underline px-2 py-1"
                  >
                    Upload
                  </button>
                  <span>|</span>
-                 <button 
+                 <button
                    onClick={() => onGenerateImage(shot.id)}
                    className="hover:underline px-2 py-1"
                  >
                    Generate
                  </button>
+                 {otherShotsWithImages.length > 0 && (
+                   <>
+                     <span>|</span>
+                     <div className="relative">
+                       <button
+                         onClick={() => setShowCopyMenu(!showCopyMenu)}
+                         className="hover:underline px-2 py-1"
+                       >
+                         Copy
+                       </button>
+                       {showCopyMenu && (
+                         <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[140px] z-10">
+                           {otherShotsWithImages.map((otherShot) => (
+                             <button
+                               key={otherShot.id}
+                               onClick={() => {
+                                 onCopyImageFromShot(shot.id, otherShot.id);
+                                 setShowCopyMenu(false);
+                               }}
+                               className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                             >
+                               {/* eslint-disable-next-line @next/next/no-img-element */}
+                               <img
+                                 src={otherShot.image_url}
+                                 alt={`Shot ${otherShot.order}`}
+                                 className="w-8 h-8 object-cover rounded"
+                               />
+                               <span>Shot #{otherShot.order}</span>
+                             </button>
+                           ))}
+                         </div>
+                       )}
+                     </div>
+                   </>
+                 )}
               </div>
               
               <input 
@@ -154,27 +199,10 @@ export default function ShotCard({
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-              Duration: {shot.duration}s
-            </label>
-            <div className="flex gap-2">
-              {[4, 6, 8].map((d) => (
-                <button
-                  key={d}
-                  onClick={() => onUpdate(shot.id, { duration: d })}
-                  className={`flex-1 py-2 rounded-lg font-medium text-sm transition-colors ${
-                    shot.duration === d
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {d}s
-                </button>
-              ))}
-            </div>
+          <div className="text-xs text-gray-500">
+            Video duration: 8 seconds (fixed by Veo 3)
           </div>
-          
+
           {/* Video Generation Section */}
           <div className="mt-4 pt-4 border-t border-gray-100">
             {shot.status === "generating" ? (

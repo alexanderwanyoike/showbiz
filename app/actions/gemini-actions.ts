@@ -4,15 +4,12 @@
 const IMAGEN_MODEL = process.env.IMAGEN_MODEL || "imagen-4.0-generate-001";
 const VEO_MODEL = process.env.VEO_MODEL || "veo-3.0-generate-001";
 const API_KEY = process.env.GEMINI_API_KEY;
-const IS_MOCK_MODE = !API_KEY;
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
 export async function generateImageAction(prompt: string): Promise<string> {
-  if (IS_MOCK_MODE) {
-    console.log("Mocking Imagen Generation for prompt:", prompt);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    return `https://picsum.photos/seed/${encodeURIComponent(prompt.slice(0, 20))}/800/600`;
+  if (!API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured");
   }
 
   try {
@@ -46,44 +43,35 @@ export async function generateImageAction(prompt: string): Promise<string> {
     throw new Error("No image data found in Imagen response");
 
   } catch (error) {
-    console.error("Imagen Generation Error:", error);
-    // Fallback for demo purposes if API fails
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return `https://via.placeholder.com/800x600?text=${encodeURIComponent("Image Generation Failed")}`;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Imagen Generation Error:", errorMessage);
+    throw new Error(`Image generation failed: ${errorMessage}`);
   }
 }
 
 export async function generateVideoAction(
   prompt: string,
-  imageBase64: string | null,
-  durationSeconds: number = 8
+  imageBase64: string | null
 ): Promise<string> {
-  if (IS_MOCK_MODE) {
-    console.log("Mocking Veo Video Generation for prompt:", prompt);
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    return "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
+  if (!API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured");
   }
 
   const url = `${BASE_URL}/models/${VEO_MODEL}:predictLongRunning?key=${API_KEY}`;
 
-  // Veo only supports 4, 6, or 8 second durations
-  const validDurations = [4, 6, 8];
-  const duration = validDurations.includes(durationSeconds) ? durationSeconds : 8;
-
-  console.log(`Calling Veo API (${VEO_MODEL}) for ${duration}s video...`, prompt);
+  console.log(`Calling Veo API (${VEO_MODEL}) for video...`, prompt);
 
   try {
     // Build request body - with optional image for image-to-video
     interface VeoInstance {
       prompt: string;
-      durationSeconds: string;
       image?: {
         bytesBase64Encoded: string;
         mimeType: string;
       };
     }
 
-    const instance: VeoInstance = { prompt, durationSeconds: String(duration) };
+    const instance: VeoInstance = { prompt };
 
     // If we have an image, add it for image-to-video generation
     if (imageBase64) {
@@ -191,10 +179,9 @@ export async function generateVideoAction(
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Veo Generation Error:", errorMessage);
 
-    // Fallback to mock video
-    console.log("Using fallback mock video.");
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4";
+    // Re-throw the error instead of returning a fallback URL
+    // The fallback URL doesn't work because saveVideo expects base64 data URLs
+    throw new Error(`Video generation failed: ${errorMessage}`);
   }
 }
 
