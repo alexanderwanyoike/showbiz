@@ -51,6 +51,19 @@ function migrate() {
 
     CREATE INDEX IF NOT EXISTS idx_storyboards_project ON storyboards(project_id);
     CREATE INDEX IF NOT EXISTS idx_shots_storyboard ON shots(storyboard_id);
+
+    CREATE TABLE IF NOT EXISTS timeline_edits (
+      id TEXT PRIMARY KEY,
+      storyboard_id TEXT NOT NULL REFERENCES storyboards(id) ON DELETE CASCADE,
+      shot_id TEXT NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+      trim_in REAL NOT NULL DEFAULT 0,
+      trim_out REAL NOT NULL DEFAULT 8,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(storyboard_id, shot_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_timeline_edits_storyboard ON timeline_edits(storyboard_id);
   `);
 }
 

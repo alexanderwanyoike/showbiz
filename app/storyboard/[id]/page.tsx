@@ -4,6 +4,8 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ShotCard from "../../components/ShotCard";
+import TabNavigation from "../../components/TabNavigation";
+import TimelineEditor from "../../components/timeline/TimelineEditor";
 import {
   getStoryboard,
   updateStoryboard,
@@ -19,11 +21,13 @@ import {
   getShotImageBase64,
   copyImageFromShot,
 } from "../../actions/shot-actions";
+import { getTimelineEdits } from "../../actions/timeline-actions";
 import {
   generateImageAction,
   generateVideoAction,
 } from "../../actions/gemini-actions";
 import { videoAssembler } from "../../lib/video-assembler";
+import { TimelineEdit } from "../../lib/data/timeline-edits";
 
 interface Storyboard {
   id: string;
@@ -85,6 +89,12 @@ export default function StoryboardPage({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
 
+  // Tab State
+  const [activeTab, setActiveTab] = useState<"storyboard" | "editor">("storyboard");
+
+  // Timeline Edit State
+  const [timelineEdits, setTimelineEdits] = useState<TimelineEdit[]>([]);
+
   // Assembly State
   const [isAssembling, setIsAssembling] = useState(false);
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
@@ -103,9 +113,10 @@ export default function StoryboardPage({
   async function loadData() {
     setIsLoading(true);
     try {
-      const [storyboardData, shotsData] = await Promise.all([
+      const [storyboardData, shotsData, editsData] = await Promise.all([
         getStoryboard(id),
         getShots(id),
+        getTimelineEdits(id),
       ]);
 
       if (!storyboardData) {
@@ -115,6 +126,7 @@ export default function StoryboardPage({
 
       setStoryboard(storyboardData);
       setShots(shotsData);
+      setTimelineEdits(editsData);
       setEditedName(storyboardData.name);
     } catch (error) {
       console.error("Failed to load storyboard:", error);
@@ -393,8 +405,8 @@ export default function StoryboardPage({
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white shadow-sm p-4 sticky top-0 z-10 border-b border-gray-200">
-        <div className="max-w-5xl mx-auto">
+      <header className="bg-white shadow-sm sticky top-0 z-10 border-b border-gray-200">
+        <div className="p-4 max-w-5xl mx-auto">
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link href="/" className="hover:text-blue-600">
@@ -454,69 +466,83 @@ export default function StoryboardPage({
             </div>
           </div>
         </div>
+
+        {/* Tab Navigation */}
+        <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full relative">
-        {/* Shots */}
-        <div className="space-y-6 pb-32">
-          {shots.map((shot, index) => {
-            // Get other shots with images for the copy feature
-            const otherShotsWithImages = shots
-              .filter((s) => s.id !== shot.id && s.image_url)
-              .map((s) => ({
-                id: s.id,
-                order: s.order,
-                image_url: s.image_url!,
-              }));
+      {activeTab === "storyboard" ? (
+        <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full relative">
+          {/* Shots */}
+          <div className="space-y-6 pb-32">
+            {shots.map((shot, index) => {
+              // Get other shots with images for the copy feature
+              const otherShotsWithImages = shots
+                .filter((s) => s.id !== shot.id && s.image_url)
+                .map((s) => ({
+                  id: s.id,
+                  order: s.order,
+                  image_url: s.image_url!,
+                }));
 
-            return (
-              <ShotCard
-                key={shot.id}
-                shot={mapShotToCardData(shot)}
-                index={index}
-                totalShots={shots.length}
-                otherShotsWithImages={otherShotsWithImages}
-                onUpdate={handleUpdateShot}
-                onDelete={handleDeleteShot}
-                onMove={handleMoveShot}
-                onGenerateImage={openImageModal}
-                onUploadImage={handleUploadImage}
-                onCopyImageFromShot={handleCopyImageFromShot}
-                onGenerateVideo={handleGenerateVideo}
-              />
-            );
-          })}
+              return (
+                <ShotCard
+                  key={shot.id}
+                  shot={mapShotToCardData(shot)}
+                  index={index}
+                  totalShots={shots.length}
+                  otherShotsWithImages={otherShotsWithImages}
+                  onUpdate={handleUpdateShot}
+                  onDelete={handleDeleteShot}
+                  onMove={handleMoveShot}
+                  onGenerateImage={openImageModal}
+                  onUploadImage={handleUploadImage}
+                  onCopyImageFromShot={handleCopyImageFromShot}
+                  onGenerateVideo={handleGenerateVideo}
+                />
+              );
+            })}
 
-          {/* Add Shot Button */}
-          <button
-            onClick={handleAddShot}
-            className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
-          >
-            <span className="text-xl">+</span> Add New Shot
-          </button>
+            {/* Add Shot Button */}
+            <button
+              onClick={handleAddShot}
+              className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+            >
+              <span className="text-xl">+</span> Add New Shot
+            </button>
+          </div>
+        </main>
+      ) : (
+        <TimelineEditor
+          storyboardId={id}
+          shots={shots}
+          edits={timelineEdits}
+          onEditsChange={setTimelineEdits}
+        />
+      )}
+
+      {/* Footer Actions - only show on storyboard tab */}
+      {activeTab === "storyboard" && (
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
+            <Link
+              href={`/project/${storyboard.project_id}`}
+              className="px-6 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors text-center"
+            >
+              Back to Project
+            </Link>
+
+            <button
+              onClick={handleExport}
+              disabled={isAssembling || !allShotsComplete}
+              className="px-6 py-2.5 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 shadow-sm shadow-green-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isAssembling ? "Assembling..." : "Export Full Movie"}
+            </button>
+          </div>
         </div>
-      </main>
-
-      {/* Footer Actions */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
-          <Link
-            href={`/project/${storyboard.project_id}`}
-            className="px-6 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors text-center"
-          >
-            Back to Project
-          </Link>
-
-          <button
-            onClick={handleExport}
-            disabled={isAssembling || !allShotsComplete}
-            className="px-6 py-2.5 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 shadow-sm shadow-green-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isAssembling ? "Assembling..." : "Export Full Movie"}
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Image Generation Modal */}
       {isModalOpen && (
