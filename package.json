@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "@google/generative-ai": "^0.24.1",
     "next": "16.0.5",
     "react": "19.2.0",
     "react-dom": "19.2.0"
