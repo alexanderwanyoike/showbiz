@@ -22,7 +22,8 @@ interface TimelineEditorProps {
   onEditsChange: (edits: TimelineEdit[]) => void;
 }
 
-const PIXELS_PER_SECOND = 50;
+const ZOOM_LEVELS = [25, 50, 75, 100, 150, 200];
+const DEFAULT_ZOOM_INDEX = 1; // 50px per second
 
 export default function TimelineEditor({
   storyboardId,
@@ -33,6 +34,17 @@ export default function TimelineEditor({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const [localEdits, setLocalEdits] = useState<TimelineEdit[]>(edits);
+  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
+
+  const pixelsPerSecond = ZOOM_LEVELS[zoomIndex];
+
+  const zoomIn = useCallback(() => {
+    setZoomIndex((prev) => Math.min(prev + 1, ZOOM_LEVELS.length - 1));
+  }, []);
+
+  const zoomOut = useCallback(() => {
+    setZoomIndex((prev) => Math.max(prev - 1, 0));
+  }, []);
 
   // Sync local edits with props
   useEffect(() => {
@@ -109,7 +121,7 @@ export default function TimelineEditor({
 
   // Trim drag hook
   const { startTrim } = useTrimDrag({
-    pixelsPerSecond: PIXELS_PER_SECOND,
+    pixelsPerSecond,
     onTrimChange: handleTrimChange,
     onTrimEnd: handleTrimEnd,
   });
@@ -146,12 +158,22 @@ export default function TimelineEditor({
           e.preventDefault();
           playback.skipForward();
           break;
+        case "Equal":
+        case "NumpadAdd":
+          e.preventDefault();
+          zoomIn();
+          break;
+        case "Minus":
+        case "NumpadSubtract":
+          e.preventDefault();
+          zoomOut();
+          break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playback]);
+  }, [playback, zoomIn, zoomOut]);
 
   return (
     <div className="flex flex-col flex-1 bg-gray-900 overflow-hidden">
@@ -187,7 +209,7 @@ export default function TimelineEditor({
           {/* Timeline Ruler */}
           <TimelineRuler
             totalDuration={playback.totalDuration}
-            pixelsPerSecond={PIXELS_PER_SECOND}
+            pixelsPerSecond={pixelsPerSecond}
             currentTime={playback.currentTime}
             onSeek={playback.seek}
           />
@@ -196,7 +218,7 @@ export default function TimelineEditor({
           <div className="mt-2">
             <TimelineTrack
               clips={clips}
-              pixelsPerSecond={PIXELS_PER_SECOND}
+              pixelsPerSecond={pixelsPerSecond}
               selectedClipId={selectedClipId}
               onClipSelect={setSelectedClipId}
               onTrimStart={(e, shotId, edge, trimIn, trimOut) =>
@@ -207,11 +229,41 @@ export default function TimelineEditor({
         </div>
       </div>
 
-      {/* Help Text */}
-      <div className="flex-shrink-0 px-4 py-2 bg-gray-800 text-gray-400 text-xs border-t border-gray-700">
-        <span className="mr-4">Space: Play/Pause</span>
-        <span className="mr-4">Arrow Keys: Skip 5s</span>
-        <span>Drag clip edges to trim</span>
+      {/* Footer with Zoom Controls and Help Text */}
+      <div className="flex-shrink-0 px-4 py-2 bg-gray-800 text-gray-400 text-xs border-t border-gray-700 flex items-center justify-between">
+        <div>
+          <span className="mr-4">Space: Play/Pause</span>
+          <span className="mr-4">Arrow Keys: Skip 5s</span>
+          <span className="mr-4">+/-: Zoom</span>
+          <span>Drag clip edges to trim</span>
+        </div>
+
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={zoomOut}
+            disabled={zoomIndex === 0}
+            className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="Zoom out (-)"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+            </svg>
+          </button>
+          <span className="text-gray-300 min-w-[60px] text-center">
+            {pixelsPerSecond}px/s
+          </span>
+          <button
+            onClick={zoomIn}
+            disabled={zoomIndex === ZOOM_LEVELS.length - 1}
+            className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            title="Zoom in (+)"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );
