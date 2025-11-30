@@ -59,6 +59,7 @@ interface Shot {
   video_prompt: string | null;
   video_url: string | null;
   status: "pending" | "generating" | "complete" | "failed";
+  error_message?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -73,6 +74,7 @@ interface ShotCardData {
   video_prompt: string;
   video_url: string | null;
   status: "pending" | "generating" | "complete" | "failed";
+  error_message?: string | null;
 }
 
 function mapShotToCardData(shot: Shot): ShotCardData {
@@ -85,6 +87,7 @@ function mapShotToCardData(shot: Shot): ShotCardData {
     video_prompt: shot.video_prompt || "",
     video_url: shot.video_url,
     status: shot.status,
+    error_message: shot.error_message,
   };
 }
 
@@ -364,10 +367,11 @@ export default function StoryboardPage({
         );
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Video generation failed";
       console.error(`Video generation failed for shot ${shotId}`, error);
       setShots((prev) =>
         prev.map((s) =>
-          s.id === shotId ? { ...s, status: "failed" as const } : s
+          s.id === shotId ? { ...s, status: "failed" as const, error_message: errorMessage } : s
         )
       );
     }

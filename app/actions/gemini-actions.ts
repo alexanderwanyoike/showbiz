@@ -7,6 +7,64 @@ const API_KEY = process.env.GEMINI_API_KEY;
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
+/**
+ * Parse Google API errors and return user-friendly messages
+ */
+function parseGoogleApiError(errorText: string, statusCode?: number): string {
+  // Try to parse as JSON
+  try {
+    const errorJson = JSON.parse(errorText);
+    const message = errorJson.error?.message || "";
+    const status = errorJson.error?.status || "";
+
+    // Rate limit / quota exceeded
+    if (statusCode === 429 || status === "RESOURCE_EXHAUSTED") {
+      return "You've exceeded your API quota. Please check your Google AI billing and rate limits.";
+    }
+
+    // Content policy violations
+    if (message.includes("celebrity") || message.includes("real people")) {
+      return "Content blocked: Google doesn't allow generating videos with real people's names or likenesses. Please remove any celebrity references.";
+    }
+
+    if (message.includes("safety") || message.includes("blocked")) {
+      return "Content blocked: Your prompt was flagged by Google's safety filters. Please try a different prompt.";
+    }
+
+    // Return the actual message if we have one
+    if (message) {
+      return message;
+    }
+  } catch {
+    // Not JSON, continue with string matching
+  }
+
+  // String-based matching for non-JSON errors
+  if (errorText.includes("quota") || errorText.includes("429")) {
+    return "You've exceeded your API quota. Please check your Google AI billing and rate limits.";
+  }
+
+  if (errorText.includes("celebrity") || errorText.includes("real people")) {
+    return "Content blocked: Google doesn't allow generating videos with real people's names or likenesses.";
+  }
+
+  return errorText;
+}
+
+/**
+ * Parse RAI (Responsible AI) filter reasons from Veo response
+ */
+function parseRaiFilterReasons(pollData: Record<string, unknown>): string | null {
+  const response = pollData.response as Record<string, unknown> | undefined;
+  const generateVideoResponse = response?.generateVideoResponse as Record<string, unknown> | undefined;
+  const reasons = generateVideoResponse?.raiMediaFilteredReasons as string[] | undefined;
+
+  if (reasons && reasons.length > 0) {
+    return reasons[0];
+  }
+  return null;
+}
+
 export async function generateImageAction(prompt: string): Promise<string> {
   if (!API_KEY) {
     throw new Error("GEMINI_API_KEY is not configured");
@@ -28,7 +86,8 @@ export async function generateImageAction(prompt: string): Promise<string> {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Imagen API Error: ${response.status} ${errorText}`);
+      const userMessage = parseGoogleApiError(errorText, response.status);
+      throw new Error(userMessage);
     }
 
     const data = await response.json();
@@ -105,10 +164,11 @@ export async function generateVideoAction(
     if (!response.ok) {
       if (response.status === 404) {
         console.warn("Veo model not found (404). Your API key might not have access.");
-        throw new Error("Veo model not accessible");
+        throw new Error("Veo model not accessible. Your API key may not have access to Veo 3.");
       }
       const errorText = await response.text();
-      throw new Error(`Veo API Start Error: ${response.status} ${errorText}`);
+      const userMessage = parseGoogleApiError(errorText, response.status);
+      throw new Error(userMessage);
     }
 
     const data = await response.json();
@@ -167,9 +227,16 @@ export async function generateVideoAction(
           return videoBase64;
         }
 
+        // Check for RAI filter reasons (content policy violations)
+        const raiReason = parseRaiFilterReasons(pollData);
+        if (raiReason) {
+          console.log("Video blocked by RAI filter:", raiReason);
+          throw new Error(raiReason);
+        }
+
         // Log full response for debugging if URI not found
         console.log("Full Poll Response:", JSON.stringify(pollData, null, 2));
-        throw new Error("Video URI not found in response");
+        throw new Error("Video generation failed. Please try a different prompt.");
       }
     }
 
@@ -179,9 +246,8 @@ export async function generateVideoAction(
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Veo Generation Error:", errorMessage);
 
-    // Re-throw the error instead of returning a fallback URL
-    // The fallback URL doesn't work because saveVideo expects base64 data URLs
-    throw new Error(`Video generation failed: ${errorMessage}`);
+    // Re-throw with the clean message (already user-friendly from parseGoogleApiError)
+    throw new Error(errorMessage);
   }
 }
 

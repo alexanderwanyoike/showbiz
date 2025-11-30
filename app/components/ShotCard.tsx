@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowUp, ArrowDown, X, Upload, Sparkles, Copy, Loader2, RefreshCw, ImageIcon, Play } from "lucide-react";
+import { ArrowUp, ArrowDown, X, Upload, Sparkles, Copy, Loader2, RefreshCw, ImageIcon, Play, AlertCircle } from "lucide-react";
 import {
   Card,
 } from "@/components/ui/card";
@@ -42,6 +42,7 @@ export interface Shot {
   video_prompt: string;
   video_url: string | null;
   status: ShotStatus;
+  error_message?: string | null;
 }
 
 export interface ShotImageOption {
@@ -134,11 +135,21 @@ export default function ShotCard({
             </button>
           )}
           {shot.status === "failed" && !shot.video_url && (
-            <div className="absolute top-2 right-2 z-10">
-              <Badge variant="destructive" className="text-xs">
-                Failed
-              </Badge>
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="absolute top-2 right-2 z-10">
+                    <Badge variant="destructive" className="text-xs cursor-help">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      Failed
+                    </Badge>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="text-sm">{shot.error_message || "Video generation failed"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
 
           {/* Image Action Overlay - appears on hover */}
