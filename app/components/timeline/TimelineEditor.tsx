@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ZoomIn, ZoomOut, Download, Loader2 } from "lucide-react";
 import { TimelineEdit } from "../../lib/data/timeline-edits";
 import {
@@ -8,6 +8,7 @@ import {
   Shot,
 } from "../../lib/timeline-utils";
 import { useTimelinePlayback } from "../../hooks/useTimelinePlayback";
+import { useVideoPool } from "../../hooks/useVideoPool";
 import { useTrimDrag } from "../../hooks/useTrimDrag";
 import { updateTimelineEdit } from "../../actions/timeline-actions";
 import { videoAssembler } from "../../lib/video-assembler";
@@ -33,7 +34,6 @@ export default function TimelineEditor({
   edits,
   onEditsChange,
 }: TimelineEditorProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const [localEdits, setLocalEdits] = useState<TimelineEdit[]>(edits);
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
@@ -57,6 +57,9 @@ export default function TimelineEditor({
 
   // Build clips from shots and edits
   const clips = buildTimelineClips(shots, localEdits);
+
+  // Video pool for seamless clip transitions
+  const videoPool = useVideoPool({ clips });
 
   const handleExport = useCallback(async () => {
     if (clips.length === 0) {
@@ -87,7 +90,7 @@ export default function TimelineEditor({
   // Playback hook
   const playback = useTimelinePlayback({
     clips,
-    videoRef,
+    videoPool,
   });
 
   // Handle optimistic trim updates during drag
@@ -207,13 +210,12 @@ export default function TimelineEditor({
 
   return (
     <div className="flex flex-col flex-1 bg-muted/50 dark:bg-card overflow-hidden">
-      {/* Preview Player */}
-      <div className="flex-shrink-0 p-4">
-        <div className="max-w-2xl mx-auto">
+      {/* Preview Player - Theater Mode (large but leaves room for timeline) */}
+      <div className="flex-shrink-0 px-4 py-2 flex justify-center bg-black">
+        <div className="w-full max-h-[55vh]" style={{ aspectRatio: '16/9', maxWidth: 'calc(55vh * 16 / 9)' }}>
           <PreviewPlayer
-            ref={videoRef}
             clips={clips}
-            currentClipIndex={playback.currentClipIndex}
+            videoPool={videoPool}
           />
         </div>
       </div>

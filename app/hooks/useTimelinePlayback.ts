@@ -5,56 +5,16 @@ import {
   clipToTimelineTime,
   getTotalDuration,
 } from "../lib/timeline-utils";
+import { VideoPool } from "./useVideoPool";
 
 interface UseTimelinePlaybackOptions {
   clips: TimelineClip[];
-  videoRef: React.RefObject<HTMLVideoElement | null>;
-}
-
-/**
- * Helper to safely play video after source change
- * Waits for canplay event if source was just changed
- */
-async function safePlay(
-  video: HTMLVideoElement,
-  newSrc: string | undefined,
-  seekTime: number
-): Promise<void> {
-  if (!newSrc) return;
-
-  const currentSrcBase = video.src.split("?")[0];
-  const newSrcBase = newSrc.split("?")[0];
-  const needsSourceChange = !video.src || !currentSrcBase.includes(newSrcBase);
-
-  if (needsSourceChange) {
-    video.src = newSrc;
-
-    // Wait for video to be ready
-    await new Promise<void>((resolve) => {
-      const onCanPlay = () => {
-        video.removeEventListener("canplay", onCanPlay);
-        resolve();
-      };
-      video.addEventListener("canplay", onCanPlay);
-      video.load();
-    });
-  }
-
-  video.currentTime = seekTime;
-
-  try {
-    await video.play();
-  } catch (err) {
-    // Ignore AbortError from interrupted play requests
-    if (err instanceof Error && err.name !== "AbortError") {
-      console.error("Video play error:", err);
-    }
-  }
+  videoPool: VideoPool;
 }
 
 export function useTimelinePlayback({
   clips,
-  videoRef,
+  videoPool,
 }: UseTimelinePlaybackOptions) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -63,11 +23,15 @@ export function useTimelinePlayback({
 
   const totalDuration = getTotalDuration(clips);
 
+  // Preload next clip when current clip changes
+  useEffect(() => {
+    if (clips.length > 0 && currentClipIndex < clips.length - 1) {
+      videoPool.preloadClip(currentClipIndex + 1);
+    }
+  }, [currentClipIndex, clips.length, videoPool]);
+
   const play = useCallback(async () => {
     if (clips.length === 0) return;
-
-    const video = videoRef.current;
-    if (!video) return;
 
     // Prevent multiple concurrent play attempts
     if (pendingPlayRef.current) return;
@@ -77,22 +41,36 @@ export function useTimelinePlayback({
 
     const mapping = timelineToClipTime(currentTime, clips);
     if (mapping) {
-      const clip = clips[mapping.clipIndex];
       setCurrentClipIndex(mapping.clipIndex);
-      await safePlay(video, clip.shot.video_url ?? undefined, mapping.localTime);
+
+      // Switch to the clip (instant if preloaded)
+      const video = await videoPool.switchToClip(
+        mapping.clipIndex,
+        mapping.localTime
+      );
+
+      if (video) {
+        try {
+          await video.play();
+        } catch (err) {
+          if (err instanceof Error && err.name !== "AbortError") {
+            console.error("Video play error:", err);
+          }
+        }
+      }
     }
 
     pendingPlayRef.current = false;
-  }, [clips, currentTime, videoRef]);
+  }, [clips, currentTime, videoPool]);
 
   const pause = useCallback(() => {
     setIsPlaying(false);
     pendingPlayRef.current = false;
-    videoRef.current?.pause();
-  }, [videoRef]);
+    videoPool.getActiveVideo()?.pause();
+  }, [videoPool]);
 
   const seek = useCallback(
-    (time: number) => {
+    async (time: number) => {
       const clampedTime = Math.max(0, Math.min(time, totalDuration));
       setCurrentTime(clampedTime);
 
@@ -100,19 +78,11 @@ export function useTimelinePlayback({
       if (mapping) {
         setCurrentClipIndex(mapping.clipIndex);
 
-        const video = videoRef.current;
-        const clip = clips[mapping.clipIndex];
-
-        if (video && clip.shot.video_url) {
-          // Always update source if needed
-          if (!video.src.includes(clip.shot.video_url.split("?")[0])) {
-            video.src = clip.shot.video_url;
-          }
-          video.currentTime = mapping.localTime;
-        }
+        // Switch to the clip at the seek position
+        await videoPool.switchToClip(mapping.clipIndex, mapping.localTime);
       }
     },
-    [clips, totalDuration, videoRef]
+    [clips, totalDuration, videoPool]
   );
 
   const skipToStart = useCallback(() => {
@@ -133,7 +103,7 @@ export function useTimelinePlayback({
 
   // Update timeline time from video timeupdate events
   useEffect(() => {
-    const video = videoRef.current;
+    const video = videoPool.getActiveVideo();
     if (!video) return;
 
     const handleTimeUpdate = async () => {
@@ -161,11 +131,22 @@ export function useTimelinePlayback({
             );
             setCurrentTime(newTime);
 
-            await safePlay(
-              video,
-              nextClip.shot.video_url,
+            // Switch to preloaded clip (instant)
+            const nextVideo = await videoPool.switchToClip(
+              nextIndex,
               nextClip.edit?.trim_in ?? 0
             );
+
+            if (nextVideo) {
+              try {
+                await nextVideo.play();
+              } catch (err) {
+                if (err instanceof Error && err.name !== "AbortError") {
+                  console.error("Video play error:", err);
+                }
+              }
+            }
+
             pendingPlayRef.current = false;
           }
         } else {
@@ -186,11 +167,18 @@ export function useTimelinePlayback({
 
     video.addEventListener("timeupdate", handleTimeUpdate);
     return () => video.removeEventListener("timeupdate", handleTimeUpdate);
-  }, [isPlaying, clips, currentClipIndex, pause, totalDuration, videoRef]);
+  }, [
+    isPlaying,
+    clips,
+    currentClipIndex,
+    pause,
+    totalDuration,
+    videoPool,
+  ]);
 
   // Handle video ended event
   useEffect(() => {
-    const video = videoRef.current;
+    const video = videoPool.getActiveVideo();
     if (!video) return;
 
     const handleEnded = async () => {
@@ -203,11 +191,21 @@ export function useTimelinePlayback({
           pendingPlayRef.current = true;
           setCurrentClipIndex(nextIndex);
 
-          await safePlay(
-            video,
-            nextClip.shot.video_url,
+          const nextVideo = await videoPool.switchToClip(
+            nextIndex,
             nextClip.edit?.trim_in ?? 0
           );
+
+          if (nextVideo) {
+            try {
+              await nextVideo.play();
+            } catch (err) {
+              if (err instanceof Error && err.name !== "AbortError") {
+                console.error("Video play error:", err);
+              }
+            }
+          }
+
           pendingPlayRef.current = false;
         }
       } else {
@@ -218,7 +216,7 @@ export function useTimelinePlayback({
 
     video.addEventListener("ended", handleEnded);
     return () => video.removeEventListener("ended", handleEnded);
-  }, [isPlaying, clips, currentClipIndex, pause, totalDuration, videoRef]);
+  }, [isPlaying, clips, currentClipIndex, pause, totalDuration, videoPool]);
 
   return {
     isPlaying,
