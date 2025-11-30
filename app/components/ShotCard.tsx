@@ -1,11 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowUp, ArrowDown, X, Upload, Sparkles, Copy, Loader2, RefreshCw, ImageIcon } from "lucide-react";
+import { ArrowUp, ArrowDown, X, Upload, Sparkles, Copy, Loader2, RefreshCw, ImageIcon, Play } from "lucide-react";
 import {
   Card,
-  CardContent,
-  CardHeader,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +20,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export type ShotStatus = "pending" | "generating" | "complete" | "failed";
 
@@ -75,6 +79,7 @@ export default function ShotCard({
 }: ShotCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
+  const [showVideoDialog, setShowVideoDialog] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -85,236 +90,225 @@ export default function ShotCard({
   const hasImage = shot.uploaded_image || shot.generated_image;
 
   return (
-    <Card className="overflow-hidden transition-all hover:shadow-md">
-      {/* Shot Header */}
-      <CardHeader className="bg-muted/50 px-4 py-3 border-b border-border flex flex-row justify-between items-center space-y-0">
-        <div className="font-semibold text-foreground">Shot #{shot.order}</div>
-        <div className="flex items-center space-x-1">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onMove(index, "up")}
-                  disabled={index === 0}
-                  className="h-8 w-8"
-                >
-                  <ArrowUp className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Move Up</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onMove(index, "down")}
-                  disabled={index === totalShots - 1}
-                  className="h-8 w-8"
-                >
-                  <ArrowDown className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Move Down</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onDelete(shot.id)}
-                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 ml-2"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Delete Shot</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      </CardHeader>
-
-      <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Left Column: Image Source */}
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              Visual Source
-            </label>
-            <div className="aspect-video bg-muted rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/80 transition-colors relative overflow-hidden group">
-              {hasImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={shot.uploaded_image || shot.generated_image || ""}
-                  alt="Shot source"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="text-center p-4 pointer-events-none">
-                  <ImageIcon className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                  <span className="text-sm">Upload Image or Generate</span>
-                </div>
-              )}
-
-              {/* Interaction Overlay */}
-              <div
-                className={`absolute inset-0 bg-black/60 transition-opacity flex items-center justify-center gap-2 ${
-                  hasImage ? "opacity-0 group-hover:opacity-100" : "opacity-100"
-                }`}
-              >
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Upload className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Upload Image</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => onGenerateImage(shot.id)}
-                      >
-                        <Sparkles className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Generate with AI</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-                {otherShotsWithImages.length > 0 && (
-                  <DropdownMenu open={showCopyMenu} onOpenChange={setShowCopyMenu}>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="secondary" size="sm">
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent>Copy from Shot</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <DropdownMenuContent align="center">
-                      {otherShotsWithImages.map((otherShot) => (
-                        <DropdownMenuItem
-                          key={otherShot.id}
-                          onClick={() => {
-                            onCopyImageFromShot(shot.id, otherShot.id);
-                            setShowCopyMenu(false);
-                          }}
-                          className="flex items-center gap-2"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={otherShot.image_url}
-                            alt={`Shot ${otherShot.order}`}
-                            className="w-8 h-8 object-cover rounded"
-                          />
-                          <span>Shot #{otherShot.order}</span>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/*"
-                onChange={handleFileChange}
-              />
-            </div>
-          </div>
-          {shot.gemini_prompt && (
-            <p className="text-xs text-muted-foreground italic truncate">
-              Gen Prompt: {shot.gemini_prompt}
-            </p>
-          )}
-        </div>
-
-        {/* Right Column: Configuration */}
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              Video Prompt
-            </label>
-            <Textarea
-              className="min-h-[80px] text-sm"
-              rows={3}
-              placeholder="Describe the movement (e.g., 'Camera pans right, river flows rapidly')"
-              value={shot.video_prompt}
-              onChange={(e) => onUpdate(shot.id, { video_prompt: e.target.value })}
+    <>
+      <Card className="overflow-hidden transition-all hover:shadow-lg group py-0 gap-0">
+        {/* Image Area - 16:9 aspect ratio */}
+        <div className="aspect-video bg-muted relative overflow-hidden">
+          {hasImage ? (
+            <img
+              src={shot.uploaded_image || shot.generated_image || ""}
+              alt={`Shot ${shot.order}`}
+              className="w-full h-full object-cover"
             />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+              <ImageIcon className="h-8 w-8 mb-1 opacity-50" />
+              <span className="text-xs">No image</span>
+            </div>
+          )}
+
+          {/* Shot Number Badge - always visible */}
+          <div className="absolute top-2 left-2 z-10 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded">
+            #{shot.order}
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Video duration: 8 seconds (fixed by Veo 3)
-          </p>
+          {/* Status/Video Badge - always visible above overlay */}
+          {shot.status === "generating" && (
+            <div className="absolute top-2 right-2 z-10">
+              <Badge className="bg-primary/90 text-primary-foreground text-xs">
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                Generating
+              </Badge>
+            </div>
+          )}
+          {shot.video_url && shot.status !== "generating" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowVideoDialog(true);
+              }}
+              className="absolute top-2 right-2 z-10 bg-primary/90 hover:bg-primary text-primary-foreground text-xs px-2 py-1 rounded flex items-center gap-1 transition-colors"
+            >
+              <Play className="h-3 w-3" />
+              Video
+            </button>
+          )}
+          {shot.status === "failed" && !shot.video_url && (
+            <div className="absolute top-2 right-2 z-10">
+              <Badge variant="destructive" className="text-xs">
+                Failed
+              </Badge>
+            </div>
+          )}
 
-          {/* Video Generation Section */}
-          <div className="mt-4 pt-4 border-t border-border">
-            {shot.status === "generating" ? (
-              <div className="flex items-center justify-center py-4 text-primary">
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                <span className="text-sm font-medium">Generating video...</span>
-              </div>
-            ) : shot.video_url ? (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Badge variant="default" className="bg-primary/20 text-primary border-0">
-                    Video Generated
-                  </Badge>
+          {/* Image Action Overlay - appears on hover */}
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
-                    onClick={() => onGenerateVideo(shot.id)}
-                    className="text-xs"
+                    onClick={() => fileInputRef.current?.click()}
                   >
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                    Regenerate
+                    <Upload className="h-4 w-4" />
                   </Button>
-                </div>
-                <video src={shot.video_url} controls className="w-full rounded-lg shadow-sm" />
-              </div>
+                </TooltipTrigger>
+                <TooltipContent>Upload</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onGenerateImage(shot.id)}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Generate</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {otherShotsWithImages.length > 0 && (
+              <DropdownMenu open={showCopyMenu} onOpenChange={setShowCopyMenu}>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" size="sm">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>Copy</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <DropdownMenuContent align="center">
+                  {otherShotsWithImages.map((otherShot) => (
+                    <DropdownMenuItem
+                      key={otherShot.id}
+                      onClick={() => {
+                        onCopyImageFromShot(shot.id, otherShot.id);
+                        setShowCopyMenu(false);
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <img
+                        src={otherShot.image_url}
+                        alt={`Shot ${otherShot.order}`}
+                        className="w-8 h-8 object-cover rounded"
+                      />
+                      <span>Shot #{otherShot.order}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleFileChange}
+          />
+        </div>
+
+        {/* Content Area */}
+        <div className="p-3 space-y-2">
+          {/* Video Prompt */}
+          <Textarea
+            className="min-h-[60px] text-xs resize-none"
+            rows={2}
+            placeholder="Video prompt..."
+            value={shot.video_prompt}
+            onChange={(e) => onUpdate(shot.id, { video_prompt: e.target.value })}
+          />
+
+          {/* Actions Row */}
+          <div className="flex items-center justify-between gap-2">
+            {/* Move & Delete */}
+            <div className="flex items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onMove(index, "up")}
+                disabled={index === 0}
+                className="h-7 w-7"
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onMove(index, "down")}
+                disabled={index === totalShots - 1}
+                className="h-7 w-7"
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onDelete(shot.id)}
+                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            {/* Generate Video Button */}
+            {shot.status === "generating" ? (
+              <Button size="sm" disabled className="h-7 text-xs">
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                Generating
+              </Button>
+            ) : shot.video_url ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onGenerateVideo(shot.id)}
+                className="h-7 text-xs"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Regen
+              </Button>
             ) : (
               <Button
+                size="sm"
                 onClick={() => onGenerateVideo(shot.id)}
-                disabled={!shot.video_prompt.trim()}
-                className="w-full"
+                disabled={!hasImage || !shot.video_prompt.trim()}
+                className="h-7 text-xs"
               >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Generate Video
+                <Sparkles className="h-3 w-3 mr-1" />
+                Generate
               </Button>
-            )}
-
-            {shot.status === "failed" && (
-              <p className="text-xs text-destructive mt-2 text-center">
-                Video generation failed. Try again.
-              </p>
             )}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </Card>
+
+      {/* Video Preview Dialog */}
+      <Dialog open={showVideoDialog} onOpenChange={setShowVideoDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Shot #{shot.order} - Video Preview</DialogTitle>
+          </DialogHeader>
+          {shot.video_url && (
+            <video
+              src={shot.video_url}
+              controls
+              autoPlay
+              className="w-full rounded-lg"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

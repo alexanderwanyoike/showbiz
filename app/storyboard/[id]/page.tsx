@@ -451,9 +451,9 @@ export default function StoryboardPage({
 
       {/* Main Content */}
       {activeTab === "storyboard" ? (
-        <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full relative">
-          {/* Shots */}
-          <div className="space-y-6 pb-32">
+        <main className="flex-1 p-4 md:p-6">
+          {/* Shots Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {shots.map((shot, index) => {
               // Get other shots with images for the copy feature
               const otherShotsWithImages = shots
@@ -482,15 +482,14 @@ export default function StoryboardPage({
               );
             })}
 
-            {/* Add Shot Button */}
-            <Button
-              variant="outline"
+            {/* Add Shot Card */}
+            <button
               onClick={handleAddShot}
-              className="w-full py-6 border-2 border-dashed hover:border-primary hover:text-primary hover:bg-primary/5"
+              className="aspect-video border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
             >
-              <Plus className="h-5 w-5 mr-2" />
-              Add New Shot
-            </Button>
+              <Plus className="h-8 w-8 mb-2" />
+              <span className="text-sm font-medium">Add Shot</span>
+            </button>
           </div>
         </main>
       ) : (

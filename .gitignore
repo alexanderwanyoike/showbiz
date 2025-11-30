@@ -43,3 +43,6 @@ next-env.d.ts
 # local data and media
 /data/
 /media/
+
+# feature planning docs (personal notes)
+/features/
