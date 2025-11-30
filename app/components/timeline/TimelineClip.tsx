@@ -14,6 +14,17 @@ interface TimelineClipProps {
   ) => void;
 }
 
+// Format duration based on zoom level
+function formatDuration(duration: number, pixelsPerSecond: number): string {
+  if (pixelsPerSecond >= 150) {
+    return `${duration.toFixed(2)}s`;
+  } else if (pixelsPerSecond >= 75) {
+    return `${duration.toFixed(1)}s`;
+  } else {
+    return `${Math.round(duration)}s`;
+  }
+}
+
 export default function TimelineClip({
   clip,
   pixelsPerSecond,
@@ -24,6 +35,7 @@ export default function TimelineClip({
   const trimIn = clip.edit?.trim_in ?? 0;
   const trimOut = clip.edit?.trim_out ?? 8;
   const width = clip.effectiveDuration * pixelsPerSecond;
+  const durationLabel = formatDuration(clip.effectiveDuration, pixelsPerSecond);
 
   const handleLeftHandleMouseDown = (e: React.MouseEvent) => {
     onTrimStart(e, "in", trimIn, trimOut);
@@ -37,8 +49,8 @@ export default function TimelineClip({
     <div
       className={`relative h-full flex-shrink-0 rounded overflow-hidden cursor-pointer transition-all ${
         isSelected
-          ? "ring-2 ring-blue-500 ring-offset-1 ring-offset-gray-900"
-          : "hover:ring-1 hover:ring-gray-500"
+          ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+          : "hover:ring-1 hover:ring-muted-foreground"
       }`}
       style={{ width }}
       onClick={onClick}
@@ -61,12 +73,12 @@ export default function TimelineClip({
 
       {/* Duration Badge */}
       <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
-        {clip.effectiveDuration.toFixed(1)}s
+        {durationLabel}
       </div>
 
       {/* Left Trim Handle */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-3 bg-blue-500/50 hover:bg-blue-500/80 cursor-ew-resize flex items-center justify-center group transition-colors"
+        className="absolute left-0 top-0 bottom-0 w-3 bg-primary/50 hover:bg-primary/80 cursor-ew-resize flex items-center justify-center group transition-colors"
         onMouseDown={handleLeftHandleMouseDown}
       >
         <div className="w-0.5 h-6 bg-white/80 group-hover:bg-white rounded-full" />
@@ -74,7 +86,7 @@ export default function TimelineClip({
 
       {/* Right Trim Handle */}
       <div
-        className="absolute right-0 top-0 bottom-0 w-3 bg-blue-500/50 hover:bg-blue-500/80 cursor-ew-resize flex items-center justify-center group transition-colors"
+        className="absolute right-0 top-0 bottom-0 w-3 bg-primary/50 hover:bg-primary/80 cursor-ew-resize flex items-center justify-center group transition-colors"
         onMouseDown={handleRightHandleMouseDown}
       >
         <div className="w-0.5 h-6 bg-white/80 group-hover:bg-white rounded-full" />

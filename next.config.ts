@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "10mb",
     },
   },
+  images: {
+    localPatterns: [
+      {
+        pathname: "/api/media/**",
+      },
+    ],
+  },
   async headers() {
     return [
       {

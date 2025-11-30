@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { ZoomIn, ZoomOut, Download, Loader2 } from "lucide-react";
 import { TimelineEdit } from "../../lib/data/timeline-edits";
 import {
   buildTimelineClips,
   Shot,
-  TimelineClip,
 } from "../../lib/timeline-utils";
 import { useTimelinePlayback } from "../../hooks/useTimelinePlayback";
 import { useTrimDrag } from "../../hooks/useTrimDrag";
 import { updateTimelineEdit } from "../../actions/timeline-actions";
+import { videoAssembler } from "../../lib/video-assembler";
+import { Button } from "@/components/ui/button";
 import PreviewPlayer from "./PreviewPlayer";
 import TransportControls from "./TransportControls";
 import TimelineRuler from "./TimelineRuler";
@@ -35,6 +37,8 @@ export default function TimelineEditor({
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
   const [localEdits, setLocalEdits] = useState<TimelineEdit[]>(edits);
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportedVideoUrl, setExportedVideoUrl] = useState<string | null>(null);
 
   const pixelsPerSecond = ZOOM_LEVELS[zoomIndex];
 
@@ -53,6 +57,32 @@ export default function TimelineEditor({
 
   // Build clips from shots and edits
   const clips = buildTimelineClips(shots, localEdits);
+
+  const handleExport = useCallback(async () => {
+    if (clips.length === 0) {
+      alert("No clips to export!");
+      return;
+    }
+
+    setIsExporting(true);
+    setExportedVideoUrl(null);
+
+    try {
+      const trimmedClips = clips.map((clip) => ({
+        videoUrl: clip.shot.video_url!,
+        trimIn: clip.edit?.trim_in ?? 0,
+        trimOut: clip.edit?.trim_out ?? 8,
+      }));
+
+      const url = await videoAssembler.assembleTrimmedVideos(trimmedClips);
+      setExportedVideoUrl(url);
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to export video. Check console for details.");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [clips]);
 
   // Playback hook
   const playback = useTimelinePlayback({
@@ -176,7 +206,7 @@ export default function TimelineEditor({
   }, [playback, zoomIn, zoomOut]);
 
   return (
-    <div className="flex flex-col flex-1 bg-gray-900 overflow-hidden">
+    <div className="flex flex-col flex-1 bg-muted/50 dark:bg-card overflow-hidden">
       {/* Preview Player */}
       <div className="flex-shrink-0 p-4">
         <div className="max-w-2xl mx-auto">
@@ -189,7 +219,7 @@ export default function TimelineEditor({
       </div>
 
       {/* Transport Controls */}
-      <div className="flex-shrink-0 flex justify-center py-4 border-t border-gray-700">
+      <div className="flex-shrink-0 flex items-center justify-center gap-4 py-4 border-t border-border">
         <TransportControls
           isPlaying={playback.isPlaying}
           currentTime={playback.currentTime}
@@ -201,10 +231,37 @@ export default function TimelineEditor({
           onSkipBackward={playback.skipBackward}
           onSkipForward={playback.skipForward}
         />
+
+        {/* Export Controls */}
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleExport}
+            disabled={isExporting || clips.length === 0}
+            size="sm"
+          >
+            {isExporting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              "Export"
+            )}
+          </Button>
+
+          {exportedVideoUrl && (
+            <Button asChild variant="outline" size="sm">
+              <a href={exportedVideoUrl} download="edited-video.mp4">
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </a>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Timeline Area */}
-      <div className="flex-1 overflow-x-auto border-t border-gray-700 p-4">
+      <div className="flex-1 overflow-x-auto border-t border-border p-4">
         <div className="min-w-fit">
           {/* Timeline Ruler */}
           <TimelineRuler
@@ -230,7 +287,7 @@ export default function TimelineEditor({
       </div>
 
       {/* Footer with Zoom Controls and Help Text */}
-      <div className="flex-shrink-0 px-4 py-2 bg-gray-800 text-gray-400 text-xs border-t border-gray-700 flex items-center justify-between">
+      <div className="flex-shrink-0 px-4 py-2 bg-muted text-muted-foreground text-xs border-t border-border flex items-center justify-between">
         <div>
           <span className="mr-4">Space: Play/Pause</span>
           <span className="mr-4">Arrow Keys: Skip 5s</span>
@@ -240,29 +297,27 @@ export default function TimelineEditor({
 
         {/* Zoom Controls */}
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={zoomOut}
             disabled={zoomIndex === 0}
-            className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            title="Zoom out (-)"
+            className="h-7 w-7"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-            </svg>
-          </button>
-          <span className="text-gray-300 min-w-[60px] text-center">
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <span className="text-foreground min-w-[60px] text-center">
             {pixelsPerSecond}px/s
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={zoomIn}
             disabled={zoomIndex === ZOOM_LEVELS.length - 1}
-            className="p-1 rounded hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            title="Zoom in (+)"
+            className="h-7 w-7"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
+            <ZoomIn className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

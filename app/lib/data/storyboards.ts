@@ -43,3 +43,25 @@ export function deleteStoryboard(id: string): boolean {
   const result = stmt.run(id);
   return result.changes > 0;
 }
+
+export interface StoryboardWithPreview extends Storyboard {
+  preview_image_path: string | null;
+}
+
+export function getStoryboardsWithPreview(projectId: string): StoryboardWithPreview[] {
+  const stmt = db.prepare(`
+    SELECT
+      s.*,
+      (
+        SELECT sh.image_path
+        FROM shots sh
+        WHERE sh.storyboard_id = s.id AND sh.image_path IS NOT NULL
+        ORDER BY sh."order" ASC
+        LIMIT 1
+      ) as preview_image_path
+    FROM storyboards s
+    WHERE s.project_id = ?
+    ORDER BY s.updated_at DESC
+  `);
+  return stmt.all(projectId) as StoryboardWithPreview[];
+}

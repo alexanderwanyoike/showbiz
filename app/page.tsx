@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Plus, Film, Loader2 } from "lucide-react";
+import { Header } from "./components/Header";
 import ProjectCard from "./components/ProjectCard";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   getProjects,
   createProject,
@@ -71,87 +76,100 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <h1 className="text-2xl font-bold text-gray-900">Showbiz</h1>
-          <p className="text-gray-500 mt-1">Your AI-powered video storyboard workspace</p>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background">
+      <Header />
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
         {/* Section Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-800">Projects</h2>
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">Projects</h2>
+            <p className="text-muted-foreground text-sm mt-1">
+              Your AI-powered video storyboard workspace
+            </p>
+          </div>
           {!showNewProjectInput && (
-            <button
-              onClick={() => setShowNewProjectInput(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              + New Project
-            </button>
+            <Button onClick={() => setShowNewProjectInput(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Project
+            </Button>
           )}
         </div>
 
         {/* New Project Input */}
         {showNewProjectInput && (
-          <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="flex gap-3">
-              <input
-                type="text"
-                placeholder="Project name..."
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreateProject();
-                  if (e.key === "Escape") {
+          <Card className="mb-6">
+            <CardContent className="pt-4">
+              <div className="flex gap-3">
+                <Input
+                  type="text"
+                  placeholder="Project name..."
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreateProject();
+                    if (e.key === "Escape") {
+                      setShowNewProjectInput(false);
+                      setNewProjectName("");
+                    }
+                  }}
+                  autoFocus
+                />
+                <Button
+                  onClick={handleCreateProject}
+                  disabled={isCreating || !newProjectName.trim()}
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create"
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
                     setShowNewProjectInput(false);
                     setNewProjectName("");
-                  }
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                autoFocus
-              />
-              <button
-                onClick={handleCreateProject}
-                disabled={isCreating || !newProjectName.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isCreating ? "Creating..." : "Create"}
-              </button>
-              <button
-                onClick={() => {
-                  setShowNewProjectInput(false);
-                  setNewProjectName("");
-                }}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Loading State */}
         {isLoading ? (
-          <div className="text-center py-12 text-gray-500">Loading projects...</div>
+          <div className="text-center py-12 text-muted-foreground flex items-center justify-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading projects...
+          </div>
         ) : projects.length === 0 ? (
           /* Empty State */
-          <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-gray-300">
-            <div className="text-5xl mb-4">🎬</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
-            <p className="text-gray-500 mb-6">Create your first project to get started</p>
-            {!showNewProjectInput && (
-              <button
-                onClick={() => setShowNewProjectInput(true)}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                Create Project
-              </button>
-            )}
-          </div>
+          <Card className="border-2 border-dashed">
+            <CardContent className="text-center py-16">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
+                <Film className="h-8 w-8" />
+              </div>
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                No projects yet
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                Create your first project to get started
+              </p>
+              {!showNewProjectInput && (
+                <Button onClick={() => setShowNewProjectInput(true)} size="lg">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Project
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         ) : (
           /* Projects Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

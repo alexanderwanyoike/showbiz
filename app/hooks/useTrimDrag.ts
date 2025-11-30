@@ -13,6 +13,24 @@ interface UseTrimDragOptions {
   onTrimEnd: (shotId: string, trimIn: number, trimOut: number) => void;
 }
 
+// Get snap precision based on zoom level (more zoomed = finer precision)
+function getSnapPrecision(pixelsPerSecond: number): number {
+  if (pixelsPerSecond >= 150) {
+    return 0.01; // 10ms precision when very zoomed in
+  } else if (pixelsPerSecond >= 100) {
+    return 0.05; // 50ms precision
+  } else if (pixelsPerSecond >= 50) {
+    return 0.1; // 100ms precision
+  } else {
+    return 0.25; // 250ms precision when zoomed out
+  }
+}
+
+// Round to snap precision
+function snapToGrid(value: number, precision: number): number {
+  return Math.round(value / precision) * precision;
+}
+
 export function useTrimDrag({
   pixelsPerSecond,
   onTrimChange,
@@ -56,7 +74,8 @@ export function useTrimDrag({
 
       const deltaPixels = e.clientX - trimState.initialMouseX;
       const deltaSeconds = deltaPixels / pixelsPerSecond;
-      const newValue = trimState.initialValue + deltaSeconds;
+      const precision = getSnapPrecision(pixelsPerSecond);
+      const newValue = snapToGrid(trimState.initialValue + deltaSeconds, precision);
 
       let newTrimIn = currentTrimIn ?? originalValuesRef.current.trimIn;
       let newTrimOut = currentTrimOut ?? originalValuesRef.current.trimOut;
@@ -64,10 +83,12 @@ export function useTrimDrag({
       if (trimState.edge === "in") {
         // Clamp trim_in: 0 <= trim_in < trim_out - 0.5
         newTrimIn = Math.max(0, Math.min(newValue, newTrimOut - 0.5));
+        newTrimIn = snapToGrid(newTrimIn, precision);
         setCurrentTrimIn(newTrimIn);
       } else {
         // Clamp trim_out: trim_in + 0.5 <= trim_out <= 8
         newTrimOut = Math.max(newTrimIn + 0.5, Math.min(8, newValue));
+        newTrimOut = snapToGrid(newTrimOut, precision);
         setCurrentTrimOut(newTrimOut);
       }
 

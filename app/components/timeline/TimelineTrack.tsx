@@ -24,14 +24,14 @@ export default function TimelineTrack({
 }: TimelineTrackProps) {
   if (clips.length === 0) {
     return (
-      <div className="h-12 bg-gray-800 rounded flex items-center justify-center text-gray-500 text-sm">
+      <div className="h-12 bg-secondary rounded flex items-center justify-center text-muted-foreground text-sm">
         No completed videos to edit. Generate videos in the Storyboard tab first.
       </div>
     );
   }
 
   return (
-    <div className="h-12 bg-gray-800 rounded flex gap-0.5 overflow-x-auto">
+    <div className="h-12 bg-secondary rounded flex gap-0.5 overflow-x-auto">
       {clips.map((clip) => (
         <TimelineClip
           key={clip.shot.id}

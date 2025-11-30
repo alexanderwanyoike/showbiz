@@ -2,15 +2,20 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { Plus, Clapperboard, Loader2 } from "lucide-react";
+import { Header } from "../../components/Header";
 import StoryboardCard from "../../components/StoryboardCard";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   getProject,
-  getStoryboards,
+  getStoryboardsWithPreview,
   createStoryboard,
   deleteStoryboard,
   updateProject,
 } from "../../actions/project-actions";
+import { getMediaUrl } from "../../lib/media-url";
 
 interface Project {
   id: string;
@@ -19,12 +24,13 @@ interface Project {
   updated_at: string;
 }
 
-interface Storyboard {
+interface StoryboardWithPreview {
   id: string;
   project_id: string;
   name: string;
   created_at: string;
   updated_at: string;
+  preview_image_path: string | null;
 }
 
 export default function ProjectPage({
@@ -36,7 +42,7 @@ export default function ProjectPage({
   const router = useRouter();
 
   const [project, setProject] = useState<Project | null>(null);
-  const [storyboards, setStoryboards] = useState<Storyboard[]>([]);
+  const [storyboards, setStoryboards] = useState<StoryboardWithPreview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newStoryboardName, setNewStoryboardName] = useState("");
@@ -54,7 +60,7 @@ export default function ProjectPage({
     try {
       const [projectData, storyboardsData] = await Promise.all([
         getProject(id),
-        getStoryboards(id),
+        getStoryboardsWithPreview(id),
       ]);
 
       if (!projectData) {
@@ -79,7 +85,7 @@ export default function ProjectPage({
     setIsCreating(true);
     try {
       const storyboard = await createStoryboard(id, newStoryboardName.trim());
-      setStoryboards((prev) => [storyboard, ...prev]);
+      setStoryboards((prev) => [{ ...storyboard, preview_image_path: null }, ...prev]);
       setNewStoryboardName("");
       setShowNewStoryboardInput(false);
       // Navigate to the new storyboard
@@ -123,8 +129,14 @@ export default function ProjectPage({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading project...</div>
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex items-center justify-center py-24">
+          <div className="text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading project...
+          </div>
+        </div>
       </div>
     );
   }
@@ -134,23 +146,16 @@ export default function ProjectPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-            <Link href="/" className="hover:text-blue-600">
-              Workspace
-            </Link>
-            <span>/</span>
-            <span className="text-gray-900">{project.name}</span>
-          </div>
+    <div className="min-h-screen bg-background">
+      <Header backHref="/" backLabel="Projects" title={project.name} />
 
-          {/* Project Name */}
+      {/* Main Content */}
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* Project Name Editor */}
+        <div className="mb-8">
           {isEditingName ? (
             <div className="flex items-center gap-2">
-              <input
+              <Input
                 type="text"
                 value={editedName}
                 onChange={(e) => setEditedName(e.target.value)}
@@ -162,94 +167,99 @@ export default function ProjectPage({
                   }
                 }}
                 onBlur={handleUpdateProjectName}
-                className="text-2xl font-bold bg-transparent border-b-2 border-blue-500 focus:outline-none"
+                className="text-2xl font-bold h-auto py-1 px-2 max-w-md"
                 autoFocus
               />
             </div>
           ) : (
             <h1
-              className="text-2xl font-bold text-gray-900 cursor-pointer hover:text-blue-600"
+              className="text-2xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors inline-block"
               onClick={() => setIsEditingName(true)}
+              title="Click to edit"
             >
               {project.name}
             </h1>
           )}
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
         {/* Section Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-800">Storyboards</h2>
+          <h2 className="text-xl font-semibold text-foreground">Storyboards</h2>
           {!showNewStoryboardInput && (
-            <button
-              onClick={() => setShowNewStoryboardInput(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              + New Storyboard
-            </button>
+            <Button onClick={() => setShowNewStoryboardInput(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Storyboard
+            </Button>
           )}
         </div>
 
         {/* New Storyboard Input */}
         {showNewStoryboardInput && (
-          <div className="mb-6 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="flex gap-3">
-              <input
-                type="text"
-                placeholder="Storyboard name..."
-                value={newStoryboardName}
-                onChange={(e) => setNewStoryboardName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreateStoryboard();
-                  if (e.key === "Escape") {
+          <Card className="mb-6">
+            <CardContent className="pt-4">
+              <div className="flex gap-3">
+                <Input
+                  type="text"
+                  placeholder="Storyboard name..."
+                  value={newStoryboardName}
+                  onChange={(e) => setNewStoryboardName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreateStoryboard();
+                    if (e.key === "Escape") {
+                      setShowNewStoryboardInput(false);
+                      setNewStoryboardName("");
+                    }
+                  }}
+                  autoFocus
+                />
+                <Button
+                  onClick={handleCreateStoryboard}
+                  disabled={isCreating || !newStoryboardName.trim()}
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create"
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
                     setShowNewStoryboardInput(false);
                     setNewStoryboardName("");
-                  }
-                }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                autoFocus
-              />
-              <button
-                onClick={handleCreateStoryboard}
-                disabled={isCreating || !newStoryboardName.trim()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isCreating ? "Creating..." : "Create"}
-              </button>
-              <button
-                onClick={() => {
-                  setShowNewStoryboardInput(false);
-                  setNewStoryboardName("");
-                }}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Storyboards */}
         {storyboards.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-gray-300">
-            <div className="text-5xl mb-4">🎞️</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No storyboards yet
-            </h3>
-            <p className="text-gray-500 mb-6">
-              Create a storyboard to start building your video
-            </p>
-            {!showNewStoryboardInput && (
-              <button
-                onClick={() => setShowNewStoryboardInput(true)}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                Create Storyboard
-              </button>
-            )}
-          </div>
+          <Card className="border-2 border-dashed">
+            <CardContent className="text-center py-16">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
+                <Clapperboard className="h-8 w-8" />
+              </div>
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                No storyboards yet
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                Create a storyboard to start building your video
+              </p>
+              {!showNewStoryboardInput && (
+                <Button onClick={() => setShowNewStoryboardInput(true)} size="lg">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Storyboard
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {storyboards.map((storyboard) => (
@@ -258,6 +268,11 @@ export default function ProjectPage({
                 id={storyboard.id}
                 name={storyboard.name}
                 updatedAt={storyboard.updated_at}
+                previewImageUrl={
+                  storyboard.preview_image_path
+                    ? getMediaUrl(storyboard.preview_image_path)
+                    : null
+                }
                 onDelete={handleDeleteStoryboard}
               />
             ))}

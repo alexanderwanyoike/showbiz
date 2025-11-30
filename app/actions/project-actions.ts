@@ -45,6 +45,10 @@ export async function getStoryboards(projectId: string) {
   return storyboardsDb.getStoryboardsByProject(projectId);
 }
 
+export async function getStoryboardsWithPreview(projectId: string) {
+  return storyboardsDb.getStoryboardsWithPreview(projectId);
+}
+
 export async function getStoryboard(id: string) {
   return storyboardsDb.getStoryboardById(id);
 }

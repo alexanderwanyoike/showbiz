@@ -2,10 +2,23 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { Plus, Download, Loader2, Sparkles } from "lucide-react";
+import { Header } from "../../components/Header";
 import ShotCard from "../../components/ShotCard";
 import TabNavigation from "../../components/TabNavigation";
 import TimelineEditor from "../../components/timeline/TimelineEditor";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   getStoryboard,
   updateStoryboard,
@@ -392,8 +405,14 @@ export default function StoryboardPage({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading storyboard...</div>
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex items-center justify-center py-24">
+          <div className="text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading storyboard...
+          </div>
+        </div>
       </div>
     );
   }
@@ -403,73 +422,32 @@ export default function StoryboardPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-10 border-b border-gray-200">
-        <div className="p-4 max-w-5xl mx-auto">
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-            <Link href="/" className="hover:text-blue-600">
-              Workspace
-            </Link>
-            <span>/</span>
-            <Link
-              href={`/project/${storyboard.project_id}`}
-              className="hover:text-blue-600"
-            >
-              Project
-            </Link>
-            <span>/</span>
-            <span className="text-gray-900">{storyboard.name}</span>
-          </div>
-
-          <div className="flex justify-between items-center">
-            {/* Storyboard Name */}
-            {isEditingName ? (
-              <input
-                type="text"
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleUpdateStoryboardName();
-                  if (e.key === "Escape") {
-                    setIsEditingName(false);
-                    setEditedName(storyboard.name);
-                  }
-                }}
-                onBlur={handleUpdateStoryboardName}
-                className="text-xl font-bold bg-transparent border-b-2 border-blue-500 focus:outline-none"
-                autoFocus
-              />
-            ) : (
-              <h1
-                className="text-xl font-bold text-gray-900 cursor-pointer hover:text-blue-600"
-                onClick={() => setIsEditingName(true)}
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Main App Header */}
+      <Header
+        backHref={`/project/${storyboard.project_id}`}
+        backLabel="Project"
+        title={storyboard.name}
+      >
+        {/* Inline controls in header */}
+        <div className="flex items-center gap-4">
+          <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+          <Badge variant="secondary" className="text-sm">
+            {shots.length} Shots • {totalDuration}s Total
+          </Badge>
+          {finalVideoUrl && (
+            <Button asChild variant="outline" size="sm" className="text-primary">
+              <a
+                href={finalVideoUrl}
+                download={`${storyboard.name.replace(/\s+/g, "_")}.mp4`}
               >
-                {storyboard.name}
-              </h1>
-            )}
-
-            <div className="flex items-center gap-4">
-              <div className="text-sm text-gray-500">
-                {shots.length} Shots • {totalDuration}s Total
-              </div>
-              {finalVideoUrl && (
-                <a
-                  href={finalVideoUrl}
-                  download={`${storyboard.name.replace(/\s+/g, "_")}.mp4`}
-                  className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium hover:bg-green-200 transition-colors"
-                >
-                  Download MP4
-                </a>
-              )}
-            </div>
-          </div>
+                <Download className="h-4 w-4 mr-2" />
+                Download MP4
+              </a>
+            </Button>
+          )}
         </div>
-
-        {/* Tab Navigation */}
-        <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
-      </header>
+      </Header>
 
       {/* Main Content */}
       {activeTab === "storyboard" ? (
@@ -505,12 +483,14 @@ export default function StoryboardPage({
             })}
 
             {/* Add Shot Button */}
-            <button
+            <Button
+              variant="outline"
               onClick={handleAddShot}
-              className="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+              className="w-full py-6 border-2 border-dashed hover:border-primary hover:text-primary hover:bg-primary/5"
             >
-              <span className="text-xl">+</span> Add New Shot
-            </button>
+              <Plus className="h-5 w-5 mr-2" />
+              Add New Shot
+            </Button>
           </div>
         </main>
       ) : (
@@ -522,74 +502,54 @@ export default function StoryboardPage({
         />
       )}
 
-      {/* Footer Actions - only show on storyboard tab */}
-      {activeTab === "storyboard" && (
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
-          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
-            <Link
-              href={`/project/${storyboard.project_id}`}
-              className="px-6 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition-colors text-center"
-            >
-              Back to Project
-            </Link>
-
-            <button
-              onClick={handleExport}
-              disabled={isAssembling || !allShotsComplete}
-              className="px-6 py-2.5 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 shadow-sm shadow-green-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isAssembling ? "Assembling..." : "Export Full Movie"}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Image Generation Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="font-semibold text-lg text-gray-900">
-                Generate Image with Imagen
-              </h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                X
-              </button>
-            </div>
-            <div className="p-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Image Prompt
-              </label>
-              <textarea
-                className="w-full border border-gray-300 rounded-lg p-3 text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none mb-4"
-                rows={4}
-                placeholder="Describe the scene (e.g., 'Cyberpunk city street with neon rain')"
-                value={imagePrompt}
-                onChange={(e) => setImagePrompt(e.target.value)}
-                autoFocus
-              />
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleGenerateImage}
-                  disabled={isGeneratingImage || !imagePrompt.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isGeneratingImage ? "Generating..." : "Generate"}
-                </button>
-              </div>
-            </div>
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Generate Image with Imagen
+            </DialogTitle>
+            <DialogDescription>
+              Describe the scene you want to generate for this shot.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Image Prompt
+            </label>
+            <Textarea
+              className="min-h-[100px]"
+              placeholder="Describe the scene (e.g., 'Cyberpunk city street with neon rain')"
+              value={imagePrompt}
+              onChange={(e) => setImagePrompt(e.target.value)}
+              autoFocus
+            />
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleGenerateImage}
+              disabled={isGeneratingImage || !imagePrompt.trim()}
+            >
+              {isGeneratingImage ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
