@@ -46,7 +46,19 @@ import { getTimelineEdits } from "../../actions/timeline-actions";
 import {
   generateImageAction,
   generateVideoAction,
+  editImageAction,
 } from "../../actions/generation-actions";
+import {
+  getImageVersions,
+  getCurrentImageVersion,
+  getVersionCount,
+  switchToVersion,
+  createGenerationVersion,
+  createRemixVersion,
+  getVersionImageBase64,
+  type ImageVersionNodeWithUrl,
+  type ImageVersionWithUrl,
+} from "../../actions/image-version-actions";
 import { videoAssembler } from "../../lib/video-assembler";
 import { TimelineEdit } from "../../lib/data/timeline-edits";
 import {
@@ -143,6 +155,21 @@ export default function StoryboardPage({
   const imageModels = getAvailableImageModels();
   const videoModels = getAvailableVideoModels();
 
+  // Version State - per shot
+  const [shotVersions, setShotVersions] = useState<Record<string, ImageVersionNodeWithUrl[]>>({});
+  const [shotCurrentVersions, setShotCurrentVersions] = useState<Record<string, ImageVersionWithUrl | null>>({});
+  const [shotVersionCounts, setShotVersionCounts] = useState<Record<string, number>>({});
+
+  // Edit Modal State
+  const [editModalState, setEditModalState] = useState<{
+    isOpen: boolean;
+    shotId: string | null;
+    versionId: string | null;
+    sourceImageUrl: string | null;
+  }>({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null });
+  const [editPrompt, setEditPrompt] = useState("");
+  const [isEditingImage, setIsEditingImage] = useState(false);
+
   // Load storyboard and shots on mount
   useEffect(() => {
     loadData();
@@ -168,12 +195,49 @@ export default function StoryboardPage({
       setEditedName(storyboardData.name);
       setImageModel(storyboardData.image_model || "imagen4");
       setVideoModel(storyboardData.video_model || "veo3");
+
+      // Load version data for each shot
+      await loadVersionDataForShots(shotsData);
     } catch (error) {
       console.error("Failed to load storyboard:", error);
       router.push("/");
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function loadVersionDataForShots(shotsData: Shot[]) {
+    const versionsMap: Record<string, ImageVersionNodeWithUrl[]> = {};
+    const currentVersionsMap: Record<string, ImageVersionWithUrl | null> = {};
+    const countsMap: Record<string, number> = {};
+
+    await Promise.all(
+      shotsData.map(async (shot) => {
+        const [versions, currentVersion, count] = await Promise.all([
+          getImageVersions(shot.id),
+          getCurrentImageVersion(shot.id),
+          getVersionCount(shot.id),
+        ]);
+        versionsMap[shot.id] = versions;
+        currentVersionsMap[shot.id] = currentVersion;
+        countsMap[shot.id] = count;
+      })
+    );
+
+    setShotVersions(versionsMap);
+    setShotCurrentVersions(currentVersionsMap);
+    setShotVersionCounts(countsMap);
+  }
+
+  async function refreshVersionData(shotId: string) {
+    const [versions, currentVersion, count] = await Promise.all([
+      getImageVersions(shotId),
+      getCurrentImageVersion(shotId),
+      getVersionCount(shotId),
+    ]);
+    setShotVersions((prev) => ({ ...prev, [shotId]: versions }));
+    setShotCurrentVersions((prev) => ({ ...prev, [shotId]: currentVersion }));
+    setShotVersionCounts((prev) => ({ ...prev, [shotId]: count }));
   }
 
   async function handleUpdateStoryboardName() {
@@ -309,17 +373,22 @@ export default function StoryboardPage({
     try {
       const imageDataUrl = await generateImageAction(imagePrompt, imageModel);
 
-      // Save to database and update state
-      const updatedShot = await saveShotImage(
+      // Get current version to use as parent (if exists)
+      const currentVersion = shotCurrentVersions[activeShotId];
+
+      // Create a new version
+      await createGenerationVersion(
         activeShotId,
+        imagePrompt,
         imageDataUrl,
-        imagePrompt
+        currentVersion?.id || null
       );
-      if (updatedShot) {
-        setShots((prev) =>
-          prev.map((s) => (s.id === activeShotId ? updatedShot : s))
-        );
-      }
+
+      // Reload shot data and version data
+      const updatedShots = await getShots(id);
+      setShots(updatedShots);
+      await refreshVersionData(activeShotId);
+
       setIsModalOpen(false);
       // Reset final video since content changed
       setFinalVideoUrl(null);
@@ -336,16 +405,22 @@ export default function StoryboardPage({
     reader.onload = async (e) => {
       if (typeof e.target?.result === "string") {
         try {
-          const updatedShot = await saveShotImage(
+          // Get current version to use as parent (if exists)
+          const currentVersion = shotCurrentVersions[shotId];
+
+          // Create a new version for uploaded image
+          await createGenerationVersion(
             shotId,
+            "Uploaded image",
             e.target.result,
-            "Uploaded image"
+            currentVersion?.id || null
           );
-          if (updatedShot) {
-            setShots((prev) =>
-              prev.map((s) => (s.id === shotId ? updatedShot : s))
-            );
-          }
+
+          // Reload shot data and version data
+          const updatedShots = await getShots(id);
+          setShots(updatedShots);
+          await refreshVersionData(shotId);
+
           // Reset final video since content changed
           setFinalVideoUrl(null);
         } catch (error) {
@@ -367,11 +442,82 @@ export default function StoryboardPage({
           prev.map((s) => (s.id === targetShotId ? updatedShot : s))
         );
       }
+      await refreshVersionData(targetShotId);
       // Reset final video since content changed
       setFinalVideoUrl(null);
     } catch (error) {
       console.error("Failed to copy image:", error);
       alert("Failed to copy image");
+    }
+  }
+
+  // --- Version Handlers ---
+
+  async function handleVersionSelect(shotId: string, versionId: string) {
+    try {
+      await switchToVersion(shotId, versionId);
+      // Reload shot data and version data
+      const updatedShots = await getShots(id);
+      setShots(updatedShots);
+      await refreshVersionData(shotId);
+      // Reset final video since content changed
+      setFinalVideoUrl(null);
+    } catch (error) {
+      console.error("Failed to switch version:", error);
+      alert("Failed to switch version");
+    }
+  }
+
+  async function handleBranchFrom(shotId: string, versionId: string) {
+    // Open the image generation modal with the version as context
+    setActiveShotId(shotId);
+    setImagePrompt("");
+    setIsModalOpen(true);
+  }
+
+  async function handleOpenEditModal(shotId: string, versionId: string) {
+    const version = shotCurrentVersions[shotId];
+    if (!version) return;
+
+    setEditModalState({
+      isOpen: true,
+      shotId,
+      versionId,
+      sourceImageUrl: version.image_url,
+    });
+    setEditPrompt("");
+  }
+
+  async function handleEditImage() {
+    const { shotId, versionId } = editModalState;
+    if (!shotId || !versionId || !editPrompt.trim()) return;
+
+    setIsEditingImage(true);
+    try {
+      // Get source image as base64
+      const sourceBase64 = await getVersionImageBase64(versionId);
+      if (!sourceBase64) {
+        throw new Error("Failed to load source image");
+      }
+
+      // Call edit image action
+      const resultBase64 = await editImageAction(sourceBase64, editPrompt, imageModel);
+
+      // Create a new remix version
+      await createRemixVersion(shotId, versionId, editPrompt, resultBase64);
+
+      // Reload data
+      const updatedShots = await getShots(id);
+      setShots(updatedShots);
+      await refreshVersionData(shotId);
+
+      setEditModalState({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null });
+      setFinalVideoUrl(null);
+    } catch (error) {
+      console.error("Image edit failed:", error);
+      alert("Failed to edit image");
+    } finally {
+      setIsEditingImage(false);
     }
   }
 
@@ -574,6 +720,9 @@ export default function StoryboardPage({
                   index={index}
                   totalShots={shots.length}
                   otherShotsWithImages={otherShotsWithImages}
+                  versions={shotVersions[shot.id] || []}
+                  currentVersion={shotCurrentVersions[shot.id] || null}
+                  versionCount={shotVersionCounts[shot.id] || 0}
                   onUpdate={handleUpdateShot}
                   onDelete={handleDeleteShot}
                   onMove={handleMoveShot}
@@ -581,6 +730,9 @@ export default function StoryboardPage({
                   onUploadImage={handleUploadImage}
                   onCopyImageFromShot={handleCopyImageFromShot}
                   onGenerateVideo={handleGenerateVideo}
+                  onVersionSelect={handleVersionSelect}
+                  onBranchFrom={handleBranchFrom}
+                  onEditImage={handleOpenEditModal}
                 />
               );
             })}
@@ -646,6 +798,77 @@ export default function StoryboardPage({
                 <>
                   <Sparkles className="h-4 w-4 mr-2" />
                   Generate
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Edit Modal */}
+      <Dialog
+        open={editModalState.isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditModalState({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null });
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Edit Image with {imageModels.find((m) => m.id === imageModel)?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Describe how you want to modify this image.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {editModalState.sourceImageUrl && (
+              <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+                <img
+                  src={editModalState.sourceImageUrl}
+                  alt="Source image"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Edit Prompt
+              </label>
+              <Textarea
+                className="min-h-[80px]"
+                placeholder="Describe the changes (e.g., 'Make the sky more dramatic' or 'Add fog in the background')"
+                value={editPrompt}
+                onChange={(e) => setEditPrompt(e.target.value)}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() =>
+                setEditModalState({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null })
+              }
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditImage}
+              disabled={isEditingImage || !editPrompt.trim()}
+            >
+              {isEditingImage ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Editing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Edit Image
                 </>
               )}
             </Button>

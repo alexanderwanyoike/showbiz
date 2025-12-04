@@ -54,6 +54,36 @@ export async function generateVideoAction(
   }
 }
 
+/**
+ * Edit an image using the specified model (img2img / remix)
+ */
+export async function editImageAction(
+  sourceImageBase64: string,
+  editPrompt: string,
+  modelId: ImageModelId = "nano-banana"
+): Promise<string> {
+  const model = getImageModel(modelId);
+  const apiKey = getApiKey(model.apiKeyProvider);
+
+  if (!apiKey) {
+    throw new Error(
+      `${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`
+    );
+  }
+
+  if (!model.supportsImageEditing || !model.editImage) {
+    throw new Error(`${model.name} does not support image editing.`);
+  }
+
+  try {
+    return await model.editImage(editPrompt, sourceImageBase64, apiKey);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`${model.name} Edit Error:`, errorMessage);
+    throw new Error(`Image edit failed: ${errorMessage}`);
+  }
+}
+
 // Re-export for backwards compatibility - these use default models
 export { generateImageAction as generateImageWithImagen };
 export { generateVideoAction as generateVideoWithVeo };

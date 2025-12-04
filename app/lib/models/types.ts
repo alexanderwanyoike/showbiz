@@ -7,6 +7,20 @@ export interface ImageModelProvider {
   description: string;
   apiKeyProvider: "gemini" | "ltx";
   generateImage(prompt: string, apiKey: string): Promise<string>;
+  // Image editing capabilities
+  supportsImageEditing?: boolean;
+  supportsInpainting?: boolean;
+  editImage?(
+    prompt: string,
+    sourceImageBase64: string,
+    apiKey: string
+  ): Promise<string>;
+  inpaintImage?(
+    prompt: string,
+    sourceImageBase64: string,
+    maskBase64: string,
+    apiKey: string
+  ): Promise<string>;
 }
 
 export interface VideoModelProvider {
@@ -28,6 +42,8 @@ export interface ImageModelInfo {
   name: string;
   description: string;
   apiKeyProvider: "gemini" | "ltx";
+  supportsImageEditing?: boolean;
+  supportsInpainting?: boolean;
 }
 
 export interface VideoModelInfo {

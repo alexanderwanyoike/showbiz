@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowUp, ArrowDown, X, Upload, Sparkles, Copy, Loader2, RefreshCw, ImageIcon, Play, AlertCircle } from "lucide-react";
+import { ArrowUp, ArrowDown, X, Upload, Sparkles, Copy, Loader2, RefreshCw, ImageIcon, Play, AlertCircle, Paintbrush, History, ChevronDown, ChevronUp } from "lucide-react";
 import {
   Card,
 } from "@/components/ui/card";
@@ -26,6 +26,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import ImageVersionTimeline from "./ImageVersionTimeline";
+import type { ImageVersionNodeWithUrl, ImageVersionWithUrl } from "../actions/image-version-actions";
 
 export type ShotStatus = "pending" | "generating" | "complete" | "failed";
 
@@ -56,6 +58,10 @@ interface ShotCardProps {
   index: number;
   totalShots: number;
   otherShotsWithImages: ShotImageOption[];
+  // Version support
+  versions: ImageVersionNodeWithUrl[];
+  currentVersion: ImageVersionWithUrl | null;
+  versionCount: number;
   onUpdate: (id: string, updates: Partial<Shot>) => void;
   onDelete: (id: string) => void;
   onMove: (index: number, direction: "up" | "down") => void;
@@ -63,6 +69,10 @@ interface ShotCardProps {
   onUploadImage: (id: string, file: File) => void;
   onCopyImageFromShot: (targetShotId: string, sourceShotId: string) => void;
   onGenerateVideo: (id: string) => void;
+  // Version callbacks
+  onVersionSelect: (shotId: string, versionId: string) => void;
+  onBranchFrom: (shotId: string, versionId: string) => void;
+  onEditImage: (shotId: string, versionId: string) => void;
 }
 
 export default function ShotCard({
@@ -70,6 +80,9 @@ export default function ShotCard({
   index,
   totalShots,
   otherShotsWithImages,
+  versions,
+  currentVersion,
+  versionCount,
   onUpdate,
   onDelete,
   onMove,
@@ -77,10 +90,14 @@ export default function ShotCard({
   onUploadImage,
   onCopyImageFromShot,
   onGenerateVideo,
+  onVersionSelect,
+  onBranchFrom,
+  onEditImage,
 }: ShotCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -153,71 +170,112 @@ export default function ShotCard({
           )}
 
           {/* Image Action Overlay - appears on hover */}
-          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Upload</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+            {/* Primary actions row */}
+            <div className="flex items-center gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Upload</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onGenerateImage(shot.id)}
-                  >
-                    <Sparkles className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Generate</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onGenerateImage(shot.id)}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Generate</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-            {otherShotsWithImages.length > 0 && (
-              <DropdownMenu open={showCopyMenu} onOpenChange={setShowCopyMenu}>
+              {otherShotsWithImages.length > 0 && (
+                <DropdownMenu open={showCopyMenu} onOpenChange={setShowCopyMenu}>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="secondary" size="sm">
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>Copy</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <DropdownMenuContent align="center">
+                    {otherShotsWithImages.map((otherShot) => (
+                      <DropdownMenuItem
+                        key={otherShot.id}
+                        onClick={() => {
+                          onCopyImageFromShot(shot.id, otherShot.id);
+                          setShowCopyMenu(false);
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <img
+                          src={otherShot.image_url}
+                          alt={`Shot ${otherShot.order}`}
+                          className="w-8 h-8 object-cover rounded"
+                        />
+                        <span>Shot #{otherShot.order}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+
+            {/* Edit actions row - only shown when there's an image */}
+            {hasImage && currentVersion && (
+              <div className="flex items-center gap-2">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="secondary" size="sm">
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onEditImage(shot.id, currentVersion.id)}
+                      >
+                        <Paintbrush className="h-4 w-4" />
+                      </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Copy</TooltipContent>
+                    <TooltipContent>Edit Image</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <DropdownMenuContent align="center">
-                  {otherShotsWithImages.map((otherShot) => (
-                    <DropdownMenuItem
-                      key={otherShot.id}
-                      onClick={() => {
-                        onCopyImageFromShot(shot.id, otherShot.id);
-                        setShowCopyMenu(false);
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <img
-                        src={otherShot.image_url}
-                        alt={`Shot ${otherShot.order}`}
-                        className="w-8 h-8 object-cover rounded"
-                      />
-                      <span>Shot #{otherShot.order}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+
+                {versionCount > 1 && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setShowVersionHistory(!showVersionHistory)}
+                        >
+                          <History className="h-4 w-4" />
+                          <span className="ml-1 text-xs">{versionCount}</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Version History</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
             )}
           </div>
 
@@ -229,6 +287,45 @@ export default function ShotCard({
             onChange={handleFileChange}
           />
         </div>
+
+        {/* Version Timeline - collapsible */}
+        {versionCount > 0 && showVersionHistory && (
+          <div className="border-t border-border bg-muted/30 p-2">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Version History ({versionCount})
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0"
+                onClick={() => setShowVersionHistory(false)}
+              >
+                <ChevronUp className="h-3 w-3" />
+              </Button>
+            </div>
+            <ImageVersionTimeline
+              versions={versions}
+              currentVersionId={currentVersion?.id || null}
+              onVersionSelect={(versionId) => onVersionSelect(shot.id, versionId)}
+              onBranchFrom={(versionId) => onBranchFrom(shot.id, versionId)}
+              onEditFrom={(versionId) => onEditImage(shot.id, versionId)}
+              compact
+            />
+          </div>
+        )}
+
+        {/* Version indicator bar - shown when there are multiple versions but timeline is collapsed */}
+        {versionCount > 1 && !showVersionHistory && (
+          <button
+            onClick={() => setShowVersionHistory(true)}
+            className="w-full flex items-center justify-center gap-1 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border-t border-border"
+          >
+            <History className="h-3 w-3" />
+            <span>v{currentVersion?.version_number || 1} of {versionCount}</span>
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        )}
 
         {/* Content Area */}
         <div className="p-3 space-y-2">

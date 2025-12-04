@@ -72,6 +72,23 @@ function migrate() {
       value TEXT NOT NULL,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS image_versions (
+      id TEXT PRIMARY KEY,
+      shot_id TEXT NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+      parent_version_id TEXT REFERENCES image_versions(id) ON DELETE SET NULL,
+      version_number INTEGER NOT NULL,
+      edit_type TEXT NOT NULL CHECK(edit_type IN ('generation', 'regeneration', 'remix', 'inpaint')),
+      image_path TEXT NOT NULL,
+      prompt TEXT,
+      edit_prompt TEXT,
+      mask_path TEXT,
+      is_current INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_image_versions_shot ON image_versions(shot_id);
+    CREATE INDEX IF NOT EXISTS idx_image_versions_parent ON image_versions(parent_version_id);
   `);
 
   // Migration: Add model columns to existing storyboards table
@@ -83,6 +100,28 @@ function migrate() {
   }
   if (!columns.includes("video_model")) {
     db.exec(`ALTER TABLE storyboards ADD COLUMN video_model TEXT NOT NULL DEFAULT 'veo3'`);
+  }
+
+  // Migration: Create initial image versions for existing shots with images
+  const shotsWithImages = db
+    .prepare(
+      `SELECT s.id, s.image_path, s.image_prompt
+       FROM shots s
+       LEFT JOIN image_versions iv ON s.id = iv.shot_id
+       WHERE s.image_path IS NOT NULL AND iv.id IS NULL`
+    )
+    .all() as { id: string; image_path: string; image_prompt: string | null }[];
+
+  if (shotsWithImages.length > 0) {
+    const insertVersion = db.prepare(`
+      INSERT INTO image_versions (id, shot_id, parent_version_id, version_number, edit_type, image_path, prompt, is_current)
+      VALUES (?, ?, NULL, 1, 'generation', ?, ?, 1)
+    `);
+
+    for (const shot of shotsWithImages) {
+      const versionId = `imgver-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      insertVersion.run(versionId, shot.id, shot.image_path, shot.image_prompt);
+    }
   }
 }
 

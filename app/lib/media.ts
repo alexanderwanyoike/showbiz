@@ -5,6 +5,8 @@ import path from "path";
 const MEDIA_DIR = path.join(process.cwd(), "media");
 const IMAGES_DIR = path.join(MEDIA_DIR, "images");
 const VIDEOS_DIR = path.join(MEDIA_DIR, "videos");
+const VERSIONS_DIR = path.join(IMAGES_DIR, "versions");
+const MASKS_DIR = path.join(MEDIA_DIR, "masks");
 
 // Ensure directories exist
 function ensureDirectories() {
@@ -144,5 +146,148 @@ export function getImageAsBase64(relativePath: string): string | null {
     return `data:${mimeType};base64,${base64}`;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Ensure version directory exists for a shot
+ */
+function ensureVersionDir(shotId: string): string {
+  const shotVersionDir = path.join(VERSIONS_DIR, shotId);
+  if (!fs.existsSync(shotVersionDir)) {
+    fs.mkdirSync(shotVersionDir, { recursive: true });
+  }
+  return shotVersionDir;
+}
+
+/**
+ * Ensure mask directory exists for a shot
+ */
+function ensureMaskDir(shotId: string): string {
+  const shotMaskDir = path.join(MASKS_DIR, shotId);
+  if (!fs.existsSync(shotMaskDir)) {
+    fs.mkdirSync(shotMaskDir, { recursive: true });
+  }
+  return shotMaskDir;
+}
+
+/**
+ * Save a version image from base64 data URL to disk
+ * Returns the relative path for storage in database
+ */
+export function saveVersionImage(
+  shotId: string,
+  versionNumber: number,
+  base64DataUrl: string
+): string {
+  const shotVersionDir = ensureVersionDir(shotId);
+
+  // Extract base64 data from data URL
+  const matches = base64DataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+  if (!matches) {
+    throw new Error("Invalid image data URL format");
+  }
+
+  const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
+  const base64Data = matches[2];
+  const buffer = Buffer.from(base64Data, "base64");
+
+  const filename = `v${versionNumber}.${ext}`;
+  const filepath = path.join(shotVersionDir, filename);
+
+  fs.writeFileSync(filepath, buffer);
+
+  return `images/versions/${shotId}/${filename}`;
+}
+
+/**
+ * Save a mask image from base64 data URL to disk
+ * Returns the relative path for storage in database
+ */
+export function saveMaskImage(
+  shotId: string,
+  versionId: string,
+  base64DataUrl: string
+): string {
+  const shotMaskDir = ensureMaskDir(shotId);
+
+  // Extract base64 data from data URL
+  const matches = base64DataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+  if (!matches) {
+    throw new Error("Invalid mask image data URL format");
+  }
+
+  const base64Data = matches[2];
+  const buffer = Buffer.from(base64Data, "base64");
+
+  const filename = `${versionId}.png`;
+  const filepath = path.join(shotMaskDir, filename);
+
+  fs.writeFileSync(filepath, buffer);
+
+  return `masks/${shotId}/${filename}`;
+}
+
+/**
+ * Get a version image as base64 data URL
+ */
+export function getVersionImageAsBase64(
+  shotId: string,
+  versionNumber: number
+): string | null {
+  const shotVersionDir = path.join(VERSIONS_DIR, shotId);
+  if (!fs.existsSync(shotVersionDir)) return null;
+
+  // Find the version file (could be different extensions)
+  const files = fs.readdirSync(shotVersionDir);
+  const versionFile = files.find((f) => f.startsWith(`v${versionNumber}.`));
+  if (!versionFile) return null;
+
+  const filepath = path.join(shotVersionDir, versionFile);
+  const buffer = fs.readFileSync(filepath);
+  const base64 = buffer.toString("base64");
+
+  const ext = path.extname(versionFile).toLowerCase().slice(1);
+  const mimeMap: Record<string, string> = {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    webp: "image/webp",
+  };
+  const mimeType = mimeMap[ext] || "image/png";
+
+  return `data:${mimeType};base64,${base64}`;
+}
+
+/**
+ * Delete all version images for a shot
+ */
+export function deleteVersionImages(shotId: string): boolean {
+  try {
+    const shotVersionDir = path.join(VERSIONS_DIR, shotId);
+    if (fs.existsSync(shotVersionDir)) {
+      fs.rmSync(shotVersionDir, { recursive: true });
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Delete all mask images for a shot
+ */
+export function deleteMaskImages(shotId: string): boolean {
+  try {
+    const shotMaskDir = path.join(MASKS_DIR, shotId);
+    if (fs.existsSync(shotMaskDir)) {
+      fs.rmSync(shotMaskDir, { recursive: true });
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
   }
 }
