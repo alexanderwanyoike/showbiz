@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ArrowUp, ArrowDown, X, Upload, Sparkles, Copy, Loader2, RefreshCw, ImageIcon, Play, AlertCircle, Paintbrush, History, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowUp, ArrowDown, X, Upload, Sparkles, Copy, Loader2, RefreshCw, ImageIcon, Play, AlertCircle, Paintbrush, History, ChevronDown, ChevronUp, Wand2 } from "lucide-react";
 import {
   Card,
 } from "@/components/ui/card";
@@ -73,6 +73,11 @@ interface ShotCardProps {
   onVersionSelect: (shotId: string, versionId: string) => void;
   onBranchFrom: (shotId: string, versionId: string) => void;
   onEditImage: (shotId: string, versionId: string) => void;
+  // Prompt generation callbacks
+  onGenerateVideoPrompt: (shotId: string) => void;
+  onEnhanceVideoPrompt: (shotId: string) => void;
+  isGeneratingPrompt?: boolean;
+  isEnhancingPrompt?: boolean;
 }
 
 export default function ShotCard({
@@ -93,6 +98,10 @@ export default function ShotCard({
   onVersionSelect,
   onBranchFrom,
   onEditImage,
+  onGenerateVideoPrompt,
+  onEnhanceVideoPrompt,
+  isGeneratingPrompt,
+  isEnhancingPrompt,
 }: ShotCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
@@ -329,14 +338,65 @@ export default function ShotCard({
 
         {/* Content Area */}
         <div className="p-3 space-y-2">
-          {/* Video Prompt */}
-          <Textarea
-            className="min-h-[60px] text-xs resize-none"
-            rows={2}
-            placeholder="Video prompt..."
-            value={shot.video_prompt}
-            onChange={(e) => onUpdate(shot.id, { video_prompt: e.target.value })}
-          />
+          {/* Video Prompt with AI Buttons */}
+          <div className="relative">
+            <Textarea
+              className="min-h-[60px] text-xs resize-none pr-14"
+              rows={2}
+              placeholder="Video prompt..."
+              value={shot.video_prompt}
+              onChange={(e) => onUpdate(shot.id, { video_prompt: e.target.value })}
+            />
+            {/* Prompt AI action buttons */}
+            <div className="absolute top-1 right-1 flex items-center gap-0.5">
+              {/* Generate from Image button */}
+              {hasImage && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => onGenerateVideoPrompt(shot.id)}
+                        disabled={isGeneratingPrompt}
+                      >
+                        {isGeneratingPrompt ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <ImageIcon className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Generate prompt from image</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {/* Enhance Prompt button */}
+              {shot.video_prompt.trim() && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => onEnhanceVideoPrompt(shot.id)}
+                        disabled={isEnhancingPrompt}
+                      >
+                        {isEnhancingPrompt ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Wand2 className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Enhance prompt</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          </div>
 
           {/* Actions Row */}
           <div className="flex items-center justify-between gap-2">
