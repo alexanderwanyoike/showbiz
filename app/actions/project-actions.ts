@@ -4,6 +4,7 @@ import * as projectsDb from "../lib/data/projects";
 import * as storyboardsDb from "../lib/data/storyboards";
 import { deleteMedia } from "../lib/media";
 import { getShotsByStoryboard } from "../lib/data/shots";
+import { ImageModelId, VideoModelId } from "../lib/models";
 
 // ==================== Projects ====================
 
@@ -72,4 +73,12 @@ export async function deleteStoryboard(id: string) {
 
   // Delete storyboard (cascades to shots)
   return storyboardsDb.deleteStoryboard(id);
+}
+
+export async function updateStoryboardModels(
+  id: string,
+  imageModel: ImageModelId,
+  videoModel: VideoModelId
+) {
+  return storyboardsDb.updateStoryboardModels(id, imageModel, videoModel);
 }

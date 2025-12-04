@@ -31,6 +31,8 @@ function migrate() {
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
+      image_model TEXT NOT NULL DEFAULT 'imagen4',
+      video_model TEXT NOT NULL DEFAULT 'veo3',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -64,7 +66,24 @@ function migrate() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_timeline_edits_storyboard ON timeline_edits(storyboard_id);
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
+
+  // Migration: Add model columns to existing storyboards table
+  const tableInfo = db.prepare("PRAGMA table_info(storyboards)").all() as { name: string }[];
+  const columns = tableInfo.map((col) => col.name);
+
+  if (!columns.includes("image_model")) {
+    db.exec(`ALTER TABLE storyboards ADD COLUMN image_model TEXT NOT NULL DEFAULT 'imagen4'`);
+  }
+  if (!columns.includes("video_model")) {
+    db.exec(`ALTER TABLE storyboards ADD COLUMN video_model TEXT NOT NULL DEFAULT 'veo3'`);
+  }
 }
 
 // Run migrations on module load

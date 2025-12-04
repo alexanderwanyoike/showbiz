@@ -1,8 +1,17 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { Film } from "lucide-react"
+import { Film, Settings } from "lucide-react"
 import { ModeToggle } from "./mode-toggle"
+import { SettingsDialog } from "./SettingsDialog"
+import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface HeaderProps {
   title?: string
@@ -12,6 +21,8 @@ interface HeaderProps {
 }
 
 export function Header({ title, backHref, backLabel, children }: HeaderProps) {
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
   return (
     <header className="border-b border-border bg-card">
       <div className="container mx-auto px-4 h-14 flex items-center justify-between">
@@ -36,8 +47,25 @@ export function Header({ title, backHref, backLabel, children }: HeaderProps) {
           )}
           {children}
         </div>
-        <ModeToggle />
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <Settings className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Settings</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <ModeToggle />
+        </div>
       </div>
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </header>
   )
 }

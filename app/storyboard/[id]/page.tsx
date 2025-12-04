@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Download, Loader2, Sparkles } from "lucide-react";
+import { Plus, Download, Loader2, Sparkles, ImageIcon, Video } from "lucide-react";
 import { Header } from "../../components/Header";
 import ShotCard from "../../components/ShotCard";
 import TabNavigation from "../../components/TabNavigation";
@@ -20,8 +20,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   getStoryboard,
   updateStoryboard,
+  updateStoryboardModels,
 } from "../../actions/project-actions";
 import {
   getShots,
@@ -38,14 +46,22 @@ import { getTimelineEdits } from "../../actions/timeline-actions";
 import {
   generateImageAction,
   generateVideoAction,
-} from "../../actions/gemini-actions";
+} from "../../actions/generation-actions";
 import { videoAssembler } from "../../lib/video-assembler";
 import { TimelineEdit } from "../../lib/data/timeline-edits";
+import {
+  ImageModelId,
+  VideoModelId,
+  getAvailableImageModels,
+  getAvailableVideoModels,
+} from "../../lib/models";
 
 interface Storyboard {
   id: string;
   project_id: string;
   name: string;
+  image_model: ImageModelId;
+  video_model: VideoModelId;
   created_at: string;
   updated_at: string;
 }
@@ -121,6 +137,12 @@ export default function StoryboardPage({
   const [imagePrompt, setImagePrompt] = useState("");
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
+  // Model Selection
+  const [imageModel, setImageModel] = useState<ImageModelId>("imagen4");
+  const [videoModel, setVideoModel] = useState<VideoModelId>("veo3");
+  const imageModels = getAvailableImageModels();
+  const videoModels = getAvailableVideoModels();
+
   // Load storyboard and shots on mount
   useEffect(() => {
     loadData();
@@ -144,6 +166,8 @@ export default function StoryboardPage({
       setShots(shotsData);
       setTimelineEdits(editsData);
       setEditedName(storyboardData.name);
+      setImageModel(storyboardData.image_model || "imagen4");
+      setVideoModel(storyboardData.video_model || "veo3");
     } catch (error) {
       console.error("Failed to load storyboard:", error);
       router.push("/");
@@ -168,6 +192,24 @@ export default function StoryboardPage({
     } catch (error) {
       console.error("Failed to update storyboard name:", error);
       alert("Failed to update storyboard name");
+    }
+  }
+
+  async function handleChangeImageModel(newModel: ImageModelId) {
+    setImageModel(newModel);
+    try {
+      await updateStoryboardModels(id, newModel, videoModel);
+    } catch (error) {
+      console.error("Failed to update model selection:", error);
+    }
+  }
+
+  async function handleChangeVideoModel(newModel: VideoModelId) {
+    setVideoModel(newModel);
+    try {
+      await updateStoryboardModels(id, imageModel, newModel);
+    } catch (error) {
+      console.error("Failed to update model selection:", error);
     }
   }
 
@@ -265,7 +307,7 @@ export default function StoryboardPage({
 
     setIsGeneratingImage(true);
     try {
-      const imageDataUrl = await generateImageAction(imagePrompt);
+      const imageDataUrl = await generateImageAction(imagePrompt, imageModel);
 
       // Save to database and update state
       const updatedShot = await saveShotImage(
@@ -356,7 +398,8 @@ export default function StoryboardPage({
       // Call Server Action
       const videoDataUrl = await generateVideoAction(
         shot.video_prompt || "",
-        imageBase64
+        imageBase64,
+        videoModel
       );
 
       // Save to database
@@ -436,6 +479,62 @@ export default function StoryboardPage({
         {/* Inline controls in header */}
         <div className="flex items-center gap-4">
           <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+
+          {/* Model Selectors */}
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  {imageModels.find((m) => m.id === imageModel)?.name || "Image"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuRadioGroup
+                  value={imageModel}
+                  onValueChange={(v) => handleChangeImageModel(v as ImageModelId)}
+                >
+                  {imageModels.map((model) => (
+                    <DropdownMenuRadioItem key={model.id} value={model.id}>
+                      <div className="flex flex-col">
+                        <span>{model.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {model.description}
+                        </span>
+                      </div>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Video className="h-4 w-4" />
+                  {videoModels.find((m) => m.id === videoModel)?.name || "Video"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuRadioGroup
+                  value={videoModel}
+                  onValueChange={(v) => handleChangeVideoModel(v as VideoModelId)}
+                >
+                  {videoModels.map((model) => (
+                    <DropdownMenuRadioItem key={model.id} value={model.id}>
+                      <div className="flex flex-col">
+                        <span>{model.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {model.description}
+                        </span>
+                      </div>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
           <Badge variant="secondary" className="text-sm">
             {shots.length} Shots • {totalDuration}s Total
           </Badge>
@@ -512,7 +611,7 @@ export default function StoryboardPage({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Generate Image with Imagen
+              Generate Image with {imageModels.find((m) => m.id === imageModel)?.name}
             </DialogTitle>
             <DialogDescription>
               Describe the scene you want to generate for this shot.

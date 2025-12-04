@@ -1,9 +1,12 @@
 import { db } from "../db";
+import { ImageModelId, VideoModelId } from "../models";
 
 export interface Storyboard {
   id: string;
   project_id: string;
   name: string;
+  image_model: ImageModelId;
+  video_model: VideoModelId;
   created_at: string;
   updated_at: string;
 }
@@ -42,6 +45,17 @@ export function deleteStoryboard(id: string): boolean {
   const stmt = db.prepare("DELETE FROM storyboards WHERE id = ?");
   const result = stmt.run(id);
   return result.changes > 0;
+}
+
+export function updateStoryboardModels(
+  id: string,
+  imageModel: ImageModelId,
+  videoModel: VideoModelId
+): Storyboard | null {
+  const stmt = db.prepare(
+    "UPDATE storyboards SET image_model = ?, video_model = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *"
+  );
+  return (stmt.get(imageModel, videoModel, id) as Storyboard) || null;
 }
 
 export interface StoryboardWithPreview extends Storyboard {
