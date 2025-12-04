@@ -83,6 +83,38 @@ export function saveVideo(shotId: string, base64DataUrl: string): string {
 }
 
 /**
+ * Save a video from a Blob to disk
+ * Returns the relative path for storage in database
+ */
+export async function saveVideoBlob(shotId: string, blob: Blob): Promise<string> {
+  ensureDirectories();
+
+  // Get the buffer from the blob
+  const arrayBuffer = await blob.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  // Determine extension from MIME type
+  const mimeType = blob.type || "video/mp4";
+  const mimeSubtype = mimeType.split("/")[1] || "mp4";
+  const extMap: Record<string, string> = {
+    "mp4": "mp4",
+    "webm": "webm",
+    "x-matroska": "mkv",
+    "quicktime": "mov",
+    "x-msvideo": "avi",
+    "mpeg": "mpeg",
+  };
+  const ext = extMap[mimeSubtype] || "mp4";
+
+  const filename = `${shotId}.${ext}`;
+  const filepath = path.join(VIDEOS_DIR, filename);
+
+  fs.writeFileSync(filepath, buffer);
+
+  return `videos/${filename}`;
+}
+
+/**
  * Get the full filesystem path for a media file
  */
 export function getMediaPath(relativePath: string): string {

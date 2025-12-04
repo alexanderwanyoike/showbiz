@@ -35,6 +35,12 @@ export interface VideoModelProvider {
     imageBase64: string | null,
     apiKey: string
   ): Promise<string>;
+  // Generate video and return as Blob (avoids base64 encoding overhead)
+  generateVideoBlob?(
+    prompt: string,
+    imageBase64: string | null,
+    apiKey: string
+  ): Promise<Blob>;
 }
 
 export interface ImageModelInfo {
