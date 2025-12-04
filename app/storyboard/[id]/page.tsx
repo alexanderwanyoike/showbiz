@@ -37,7 +37,6 @@ import {
   updateShot,
   deleteShot,
   saveShotImage,
-  saveShotVideo,
   reorderShots,
   getShotImageBase64,
   copyImageFromShot,
@@ -45,10 +44,10 @@ import {
 import { getTimelineEdits } from "../../actions/timeline-actions";
 import {
   generateImageAction,
-  generateVideoAction,
   editImageAction,
   generateVideoPromptFromImage,
   enhanceVideoPrompt,
+  generateAndSaveVideoAction,
 } from "../../actions/generation-actions";
 import {
   getImageVersions,
@@ -543,30 +542,29 @@ export default function StoryboardPage({
       )
     );
 
-    try {
-      // Get image as base64 for Veo API
-      const imageBase64 = await getShotImageBase64(shotId);
+    // Use the combined generate-and-save action (avoids 10MB body size limit)
+    const result = await generateAndSaveVideoAction(
+      shotId,
+      shot.video_prompt || "",
+      videoModel
+    );
 
-      // Call Server Action
-      const videoDataUrl = await generateVideoAction(
-        shot.video_prompt || "",
-        imageBase64,
-        videoModel
-      );
-
-      // Save to database
-      const updatedShot = await saveShotVideo(shotId, videoDataUrl);
-      if (updatedShot) {
-        setShots((prev) =>
-          prev.map((s) => (s.id === shotId ? updatedShot : s))
-        );
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Video generation failed";
-      console.error(`Video generation failed for shot ${shotId}`, error);
+    if (result.success && result.videoUrl) {
       setShots((prev) =>
         prev.map((s) =>
-          s.id === shotId ? { ...s, status: "failed" as const, error_message: errorMessage } : s
+          s.id === shotId
+            ? { ...s, status: "complete" as const, video_url: result.videoUrl }
+            : s
+        )
+      );
+    } else {
+      const errorMessage = result.error || "Video generation failed";
+      console.error(`Video generation failed for shot ${shotId}:`, errorMessage);
+      setShots((prev) =>
+        prev.map((s) =>
+          s.id === shotId
+            ? { ...s, status: "failed" as const, error_message: errorMessage }
+            : s
         )
       );
     }
