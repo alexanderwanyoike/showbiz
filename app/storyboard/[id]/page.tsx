@@ -47,6 +47,8 @@ import {
   generateImageAction,
   generateVideoAction,
   editImageAction,
+  generateVideoPromptFromImage,
+  enhanceVideoPrompt,
 } from "../../actions/generation-actions";
 import {
   getImageVersions,
@@ -169,6 +171,10 @@ export default function StoryboardPage({
   }>({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null });
   const [editPrompt, setEditPrompt] = useState("");
   const [isEditingImage, setIsEditingImage] = useState(false);
+
+  // Prompt Generation State - track per shot
+  const [generatingPromptShots, setGeneratingPromptShots] = useState<Set<string>>(new Set());
+  const [enhancingPromptShots, setEnhancingPromptShots] = useState<Set<string>>(new Set());
 
   // Load storyboard and shots on mount
   useEffect(() => {
@@ -566,6 +572,61 @@ export default function StoryboardPage({
     }
   }
 
+  // --- Prompt Generation ---
+
+  async function handleGenerateVideoPrompt(shotId: string) {
+    // Add to loading set
+    setGeneratingPromptShots((prev) => new Set(prev).add(shotId));
+
+    try {
+      // Get image as base64
+      const imageBase64 = await getShotImageBase64(shotId);
+      if (!imageBase64) {
+        throw new Error("No image available for this shot");
+      }
+
+      // Generate prompt from image
+      const generatedPrompt = await generateVideoPromptFromImage(imageBase64);
+
+      // Update the shot with the generated prompt
+      await handleUpdateShot(shotId, { video_prompt: generatedPrompt });
+    } catch (error) {
+      console.error("Failed to generate video prompt:", error);
+      alert(error instanceof Error ? error.message : "Failed to generate prompt");
+    } finally {
+      setGeneratingPromptShots((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(shotId);
+        return newSet;
+      });
+    }
+  }
+
+  async function handleEnhanceVideoPrompt(shotId: string) {
+    const shot = shots.find((s) => s.id === shotId);
+    if (!shot?.video_prompt?.trim()) return;
+
+    // Add to loading set
+    setEnhancingPromptShots((prev) => new Set(prev).add(shotId));
+
+    try {
+      // Enhance the existing prompt
+      const enhancedPrompt = await enhanceVideoPrompt(shot.video_prompt);
+
+      // Update the shot with the enhanced prompt
+      await handleUpdateShot(shotId, { video_prompt: enhancedPrompt });
+    } catch (error) {
+      console.error("Failed to enhance video prompt:", error);
+      alert(error instanceof Error ? error.message : "Failed to enhance prompt");
+    } finally {
+      setEnhancingPromptShots((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(shotId);
+        return newSet;
+      });
+    }
+  }
+
   // --- Video Assembly ---
 
   async function handleExport() {
@@ -733,6 +794,10 @@ export default function StoryboardPage({
                   onVersionSelect={handleVersionSelect}
                   onBranchFrom={handleBranchFrom}
                   onEditImage={handleOpenEditModal}
+                  onGenerateVideoPrompt={handleGenerateVideoPrompt}
+                  onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
+                  isGeneratingPrompt={generatingPromptShots.has(shot.id)}
+                  isEnhancingPrompt={enhancingPromptShots.has(shot.id)}
                 />
               );
             })}

@@ -2,6 +2,7 @@
 
 import { getApiKey } from "../lib/data/settings";
 import { getImageModel, getVideoModel, ImageModelId, VideoModelId } from "../lib/models";
+import { generateText } from "../lib/models/gemini-text";
 
 /**
  * Generate an image using the specified model
@@ -81,6 +82,79 @@ export async function editImageAction(
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`${model.name} Edit Error:`, errorMessage);
     throw new Error(`Image edit failed: ${errorMessage}`);
+  }
+}
+
+/**
+ * Generate a video prompt by analyzing an image with Gemini Flash vision
+ */
+export async function generateVideoPromptFromImage(
+  imageBase64: string
+): Promise<string> {
+  const apiKey = getApiKey("gemini");
+
+  if (!apiKey) {
+    throw new Error(
+      "Gemini API key is not configured. Please add it in Settings."
+    );
+  }
+
+  const prompt = `You are a video prompt expert. Analyze this image and generate a compelling video prompt that:
+1. Describes the scene in detail
+2. Suggests natural camera movement or motion
+3. Adds atmospheric details (lighting, mood)
+4. Keeps it concise (2-3 sentences max)
+
+Output ONLY the video prompt, nothing else.`;
+
+  try {
+    return await generateText({
+      prompt,
+      imageBase64,
+      apiKey,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Video Prompt Generation Error:", errorMessage);
+    throw new Error(`Failed to generate video prompt: ${errorMessage}`);
+  }
+}
+
+/**
+ * Enhance an existing video prompt to be more effective
+ */
+export async function enhanceVideoPrompt(
+  existingPrompt: string
+): Promise<string> {
+  const apiKey = getApiKey("gemini");
+
+  if (!apiKey) {
+    throw new Error(
+      "Gemini API key is not configured. Please add it in Settings."
+    );
+  }
+
+  const prompt = `You are a video prompt expert. Enhance this video prompt to be more effective for AI video generation:
+
+Original prompt: "${existingPrompt}"
+
+Make it:
+1. More descriptive and specific
+2. Include camera movement suggestions if missing
+3. Add atmospheric/lighting details
+4. Keep it concise (2-3 sentences max)
+
+Output ONLY the enhanced prompt, nothing else.`;
+
+  try {
+    return await generateText({
+      prompt,
+      apiKey,
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Video Prompt Enhancement Error:", errorMessage);
+    throw new Error(`Failed to enhance video prompt: ${errorMessage}`);
   }
 }
 
