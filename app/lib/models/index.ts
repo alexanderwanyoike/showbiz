@@ -10,6 +10,7 @@ import { imagenProvider } from "./imagen";
 import { nanoBananaProvider } from "./nano-banana";
 import { nanoBananaProProvider } from "./nano-banana-pro";
 import { veoProvider } from "./veo";
+import { veoFastProvider } from "./veo-fast";
 import { ltxVideoProvider } from "./ltx-video";
 
 // Image model registry
@@ -22,6 +23,7 @@ const imageModels: Map<ImageModelId, ImageModelProvider> = new Map([
 // Video model registry
 const videoModels: Map<VideoModelId, VideoModelProvider> = new Map([
   ["veo3", veoProvider],
+  ["veo3-fast", veoFastProvider],
   ["ltx-video", ltxVideoProvider],
 ]);
 

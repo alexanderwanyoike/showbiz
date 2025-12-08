@@ -1,12 +1,12 @@
 import { VideoModelProvider, blobToBase64 } from "./types";
 import { generateVeoVideoBlob } from "./veo-shared";
 
-const VEO_MODEL = process.env.VEO_MODEL || "veo-3.0-generate-001";
+const VEO_FAST_MODEL = "veo-3.1-fast-generate-preview";
 
-export const veoProvider: VideoModelProvider = {
-  id: "veo3",
-  name: "Veo 3",
-  description: "Google's high-quality video generation model with audio",
+export const veoFastProvider: VideoModelProvider = {
+  id: "veo3-fast",
+  name: "Veo 3.1 Fast",
+  description: "Google's fast video generation model with audio ($0.15/sec)",
   apiKeyProvider: "gemini",
   supportsImageToVideo: true,
   supportsTextToVideo: true,
@@ -17,10 +17,11 @@ export const veoProvider: VideoModelProvider = {
     apiKey: string
   ): Promise<string> {
     const videoBlob = await generateVeoVideoBlob(prompt, imageBase64, apiKey, {
-      modelId: VEO_MODEL,
-      modelName: "Veo 3",
-      initialPollInterval: 5000,
-      maxPollInterval: 10000,
+      modelId: VEO_FAST_MODEL,
+      modelName: "Veo 3.1 Fast",
+      // Fast model: start polling quickly
+      initialPollInterval: 3000,
+      maxPollInterval: 8000,
     });
     return blobToBase64(videoBlob);
   },
@@ -31,10 +32,11 @@ export const veoProvider: VideoModelProvider = {
     apiKey: string
   ): Promise<Blob> {
     return generateVeoVideoBlob(prompt, imageBase64, apiKey, {
-      modelId: VEO_MODEL,
-      modelName: "Veo 3",
-      initialPollInterval: 5000,
-      maxPollInterval: 10000,
+      modelId: VEO_FAST_MODEL,
+      modelName: "Veo 3.1 Fast",
+      // Fast model: start polling quickly
+      initialPollInterval: 3000,
+      maxPollInterval: 8000,
     });
   },
 };

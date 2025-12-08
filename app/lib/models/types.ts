@@ -1,5 +1,5 @@
 export type ImageModelId = "imagen4" | "nano-banana" | "nano-banana-pro";
-export type VideoModelId = "veo3" | "ltx-video";
+export type VideoModelId = "veo3" | "veo3-fast" | "ltx-video";
 
 export interface ImageModelProvider {
   id: ImageModelId;
@@ -101,11 +101,6 @@ export function parseGoogleApiError(errorText: string, statusCode?: number): str
 // Helper to convert blob to base64 data URL
 export async function blobToBase64(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  const base64 = btoa(binary);
+  const base64 = Buffer.from(buffer).toString("base64");
   return `data:${blob.type};base64,${base64}`;
 }
