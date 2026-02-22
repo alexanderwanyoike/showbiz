@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicerails/tauri-settings/v2/schema.json",
+  "identifier": "main-capability",
+  "description": "Capability for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "core:window:default",
+    "core:window:allow-set-title",
+    "core:app:default"
+  ]
+}
