@@ -13,9 +13,15 @@
 # testing
 /coverage
 
-# next.js
+# next.js (legacy)
 /.next/
 /out/
+
+# vite
+/dist/
+
+# tauri
+/src-tauri/target/
 
 # production
 /build

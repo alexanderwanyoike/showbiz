@@ -1,6 +1,6 @@
 # Showbiz
 
-AI-powered video storyboard application using Google's Imagen 4 and Veo 3 APIs.
+AI-powered video storyboard desktop application using Google's Imagen 4 and Veo 3 APIs.
 
 ## What It Does
 
@@ -14,86 +14,118 @@ Showbiz lets users create video storyboards by:
 
 ## Tech Stack
 
-- **Framework**: Next.js 16 with App Router
-- **Database**: SQLite via better-sqlite3
+- **Desktop Framework**: Tauri v2
+- **Frontend**: React 19 + Vite
+- **Routing**: React Router v7 (3 routes)
+- **Backend**: Rust (database, file I/O)
+- **Database**: SQLite via rusqlite
 - **Image Generation**: Google Imagen 4 (`imagen-4.0-generate-001`)
-- **Video Generation**: Google Veo 3 (`veo-3.0-generate-001`)
+- **Video Generation**: Google Veo 3 (`veo-3.0-generate-001`), Veo 3.1 Fast, LTX Video
 - **Video Assembly**: FFmpeg.wasm (browser-based)
-- **Styling**: Tailwind CSS
+- **Styling**: Tailwind CSS v4
+
+## Architecture
+
+**Hybrid backend**: Rust handles DB + file I/O. TypeScript handles API calls to model providers (Imagen, Veo, LTX). API keys are fetched securely from Rust, passed to TS for the API call, then discarded.
+
+Media files are served via Tauri's `asset://` protocol using `convertFileSrc()`.
 
 ## Project Structure
 
 ```
-app/
-├── page.tsx                    # Workspace page (projects list)
-├── project/[id]/page.tsx       # Project page (storyboards list)
-├── storyboard/[id]/page.tsx    # Storyboard editor (shots)
-├── components/
-│   ├── ProjectCard.tsx         # Project card for workspace
-│   ├── StoryboardCard.tsx      # Storyboard card for project page
-│   └── ShotCard.tsx            # Shot card with image/video controls
-├── actions/
-│   ├── gemini-actions.ts       # Imagen & Veo API integration
-│   ├── project-actions.ts      # Project & storyboard CRUD
-│   └── shot-actions.ts         # Shot CRUD & media handling
-├── lib/
-│   ├── db.ts                   # SQLite database setup & schema
-│   ├── media.ts                # Media file storage utilities
-│   ├── video-assembler.ts      # FFmpeg.wasm video concatenation
-│   └── data/
-│       ├── projects.ts         # Project data access
-│       ├── storyboards.ts      # Storyboard data access
-│       └── shots.ts            # Shot data access
-└── api/
-    └── media/[...path]/route.ts  # API route to serve media files
+src/                              # React app (Vite)
+  main.tsx                        # Entry point
+  App.tsx                         # React Router setup (3 routes)
+  globals.css                     # Tailwind CSS theme
+  pages/
+    WorkspacePage.tsx              # Projects list
+    ProjectPage.tsx                # Storyboards list
+    StoryboardPage.tsx             # Storyboard editor (shots)
+  components/
+    Header.tsx, ProjectCard.tsx, StoryboardCard.tsx
+    ShotCard.tsx, ImageVersionTimeline.tsx
+    SettingsDialog.tsx, TabNavigation.tsx
+    theme-provider.tsx, mode-toggle.tsx
+    timeline/                     # Timeline editor components
+  lib/
+    tauri-api.ts                  # Bridge layer (invoke wrappers, replaces server actions)
+    models/                       # Model providers (Imagen, Veo, LTX, Gemini text)
+    video-assembler.ts            # FFmpeg.wasm concatenation
+    timeline-utils.ts             # Timeline clip utilities
+    thumbnail-generator.ts        # Video thumbnail generation
+  actions/
+    generation-actions.ts         # Hybrid: gets API key from Rust, calls API in TS
+  hooks/
+    useTrimDrag.ts, useVideoPool.ts, useTimelinePlayback.ts
+
+src-tauri/                        # Rust backend
+  src/
+    main.rs                       # Command registration
+    db.rs                         # SQLite schema + migrations
+    media.rs                      # File I/O (save/read/delete)
+    commands/
+      projects.rs                 # Project + storyboard CRUD
+      shots.rs                    # Shot CRUD + media save
+      settings.rs                 # API key management
+      image_versions.rs           # Version tree
+      timeline.rs                 # Timeline edits
+      media_cmd.rs                # Media path utility
+  Cargo.toml
+  tauri.conf.json
+
+components/ui/                    # shadcn components (unchanged)
+lib/utils.ts                      # cn() utility (unchanged)
+index.html                        # Vite entry
+vite.config.ts
+package.json
+tsconfig.json
 ```
 
 ## Database Schema
 
-Three tables with cascade deletes:
+Six tables with cascade deletes (SQLite via rusqlite):
 - **projects**: id, name, created_at, updated_at
-- **storyboards**: id, project_id (FK), name, created_at, updated_at
+- **storyboards**: id, project_id (FK), name, image_model, video_model, created_at, updated_at
 - **shots**: id, storyboard_id (FK), order, duration, image_prompt, image_path, video_prompt, video_path, status, created_at, updated_at
+- **timeline_edits**: id, storyboard_id (FK), shot_id (FK), trim_in, trim_out, UNIQUE(storyboard_id, shot_id)
+- **settings**: key (PK), value, updated_at
+- **image_versions**: id, shot_id (FK), parent_version_id (self-ref FK), version_number, edit_type, image_path, prompt, edit_prompt, mask_path, is_current
+
+Database stored at `{appDataDir}/data/showbiz.db`.
 
 ## Media Storage
 
-- Images saved to `media/images/{shot-id}.{ext}`
-- Videos saved to `media/videos/{shot-id}.{ext}`
-- Database stores relative paths, API route serves files
+- Images: `{appDataDir}/media/images/{shot-id}.{ext}`
+- Videos: `{appDataDir}/media/videos/{shot-id}.{ext}`
+- Version images: `{appDataDir}/media/images/versions/{shot-id}/vN.{ext}`
+- Masks: `{appDataDir}/media/masks/{shot-id}/{version-id}.png`
+- Database stores relative paths, frontend uses `convertFileSrc()` for asset:// URLs
 - Cache-busting timestamps added to URLs for regeneration
 
 ## Key Implementation Details
 
-### Veo 3 API
-- Uses Long Running Operations (LRO) pattern with polling
-- 5-minute timeout, 10-second poll intervals
-- Fixed 8-second video duration (no duration parameter)
-- Requires image as base64 for image-to-video generation
+### Video Generation Flow
+1. TS gets API key from Rust (invoke `get_api_key`)
+2. TS calls model API (fetch)
+3. TS sends video bytes to Rust (invoke `save_and_complete_video`)
+4. Rust saves file + updates DB
+5. Returns absolute path, frontend converts to asset:// URL
 
-### Image Handling
-- Images stored on disk, not in database
-- `getShotImageBase64()` reads file and converts to base64 for Veo API
-- Copy feature allows reusing images across shots
+### FFmpeg.wasm
+- Requires COOP/COEP headers (configured in vite.config.ts)
+- Runs entirely in browser WebView
+- Used for video concatenation with trim support
 
-### Server Actions Body Size
-- Configured in `next.config.ts` under `experimental.serverActions.bodySizeLimit: "10mb"`
-- Required for base64 video data transfer
-
-## Environment Variables
-
-```env
-GEMINI_API_KEY=your-api-key
-IMAGEN_MODEL=imagen-4.0-generate-001  # optional, this is default
-VEO_MODEL=veo-3.0-generate-001        # optional, this is default
-```
-
-## Local Data
-
-Both `/data/` (SQLite) and `/media/` (images/videos) are gitignored for local-only storage.
+### API Keys
+- Stored in DB settings table
+- Falls back to environment variables (GEMINI_API_KEY, LTX_API_KEY)
+- Managed via Settings dialog
 
 ## Commands
 
 ```bash
-yarn dev      # Start development server
-yarn build    # Production build
+yarn dev          # Launch Tauri dev mode (frontend + Rust backend)
+yarn build        # Production build (produces .deb/.AppImage on Linux)
+yarn dev:frontend # Frontend-only dev server (Vite)
+yarn build:frontend # Frontend-only build
 ```
