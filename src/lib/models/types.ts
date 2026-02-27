@@ -1,11 +1,11 @@
-export type ImageModelId = "imagen4" | "nano-banana" | "nano-banana-pro";
-export type VideoModelId = "veo3" | "veo3-fast" | "ltx-video";
+export type ImageModelId = "imagen4" | "nano-banana" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5";
+export type VideoModelId = "veo3" | "veo3-fast" | "ltx-video" | "kling-3" | "seedance-2" | "hailuo-2.3";
 
 export interface ImageModelProvider {
   id: ImageModelId;
   name: string;
   description: string;
-  apiKeyProvider: "gemini" | "ltx";
+  apiKeyProvider: "gemini" | "ltx" | "kie";
   generateImage(prompt: string, apiKey: string): Promise<string>;
   // Image editing capabilities
   supportsImageEditing?: boolean;
@@ -27,7 +27,7 @@ export interface VideoModelProvider {
   id: VideoModelId;
   name: string;
   description: string;
-  apiKeyProvider: "gemini" | "ltx";
+  apiKeyProvider: "gemini" | "ltx" | "kie";
   supportsImageToVideo: boolean;
   supportsTextToVideo: boolean;
   generateVideo(
@@ -47,7 +47,7 @@ export interface ImageModelInfo {
   id: ImageModelId;
   name: string;
   description: string;
-  apiKeyProvider: "gemini" | "ltx";
+  apiKeyProvider: "gemini" | "ltx" | "kie";
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
 }
@@ -56,7 +56,7 @@ export interface VideoModelInfo {
   id: VideoModelId;
   name: string;
   description: string;
-  apiKeyProvider: "gemini" | "ltx";
+  apiKeyProvider: "gemini" | "ltx" | "kie";
   supportsImageToVideo: boolean;
   supportsTextToVideo: boolean;
 }

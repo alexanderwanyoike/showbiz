@@ -38,8 +38,10 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   // Input states for each provider
   const [geminiKey, setGeminiKey] = useState("");
   const [ltxKey, setLtxKey] = useState("");
+  const [kieKey, setKieKey] = useState("");
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showLtxKey, setShowLtxKey] = useState(false);
+  const [showKieKey, setShowKieKey] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -60,7 +62,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   }
 
   async function handleSaveKey(provider: ApiKeyProvider) {
-    const key = provider === "gemini" ? geminiKey : ltxKey;
+    const key = provider === "gemini" ? geminiKey : provider === "ltx" ? ltxKey : kieKey;
     if (!key.trim()) return;
 
     setSavingProvider(provider);
@@ -69,7 +71,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       if (result.success) {
         // Clear the input and refresh status
         if (provider === "gemini") setGeminiKey("");
-        else setLtxKey("");
+        else if (provider === "ltx") setLtxKey("");
+        else setKieKey("");
         await loadApiKeyStatus();
       } else {
         alert(result.error || "Failed to save API key");
@@ -83,7 +86,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   }
 
   async function handleDeleteKey(provider: ApiKeyProvider) {
-    if (!confirm("Remove this API key from the database? (Environment variable will still be used if set)")) {
+    if (!confirm("Remove this API key from the database?")) {
       return;
     }
 
@@ -127,13 +130,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <p className="text-sm text-muted-foreground">{description}</p>
           </div>
           {status?.is_configured && (
-            <Badge variant={status.source === "database" ? "default" : "secondary"}>
-              {status.source === "database" ? "Saved" : "From ENV"}
-            </Badge>
+            <Badge variant="default">Saved</Badge>
           )}
         </div>
 
-        {status?.is_configured && status.source === "database" ? (
+        {status?.is_configured ? (
           <div className="flex items-center gap-2">
             <div className="flex-1 px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
               ••••••••••••••••
@@ -152,7 +153,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <div className="relative flex-1">
               <Input
                 type={showKey ? "text" : "password"}
-                placeholder={status?.is_configured ? "Override environment variable..." : "Enter API key..."}
+                placeholder="Enter API key..."
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 className="pr-10"
@@ -214,6 +215,16 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               setLtxKey,
               showLtxKey,
               setShowLtxKey
+            )}
+
+            {renderApiKeySection(
+              "kie",
+              "Kie AI",
+              "Required for Kling, Seedance, Hailuo, Flux Kontext, Seedream",
+              kieKey,
+              setKieKey,
+              showKieKey,
+              setShowKieKey
             )}
           </div>
         )}

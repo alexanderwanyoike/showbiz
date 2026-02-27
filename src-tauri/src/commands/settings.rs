@@ -27,20 +27,7 @@ pub fn get_api_key(
         )
         .ok();
 
-    // In Tauri, we check DB only (env vars are handled differently)
-    // But we can also check env vars as a fallback
-    if value.is_some() {
-        return Ok(value);
-    }
-
-    // Fallback to environment variable
-    let env_var = match provider.as_str() {
-        "gemini" => "GEMINI_API_KEY",
-        "ltx" => "LTX_API_KEY",
-        _ => return Ok(None),
-    };
-
-    Ok(std::env::var(env_var).ok())
+    Ok(value)
 }
 
 #[tauri::command]
@@ -48,13 +35,14 @@ pub fn get_api_key_status(state: State<'_, DbState>) -> Result<Vec<ApiKeyStatus>
     let conn = state.0.lock().map_err(|e| e.to_string())?;
 
     let providers = vec![
-        ("gemini", "Google AI (Gemini)", "GEMINI_API_KEY"),
-        ("ltx", "LTX Video", "LTX_API_KEY"),
+        ("gemini", "Google AI (Gemini)"),
+        ("ltx", "LTX Video"),
+        ("kie", "Kie AI"),
     ];
 
     let mut statuses = Vec::new();
 
-    for (provider, name, env_var) in providers {
+    for (provider, name) in providers {
         let db_key = format!("{}_api_key", provider);
 
         let db_value: Option<String> = conn
@@ -67,8 +55,6 @@ pub fn get_api_key_status(state: State<'_, DbState>) -> Result<Vec<ApiKeyStatus>
 
         let (is_configured, source) = if db_value.is_some() {
             (true, Some("database".to_string()))
-        } else if std::env::var(env_var).is_ok() {
-            (true, Some("environment".to_string()))
         } else {
             (false, None)
         };
@@ -120,4 +106,115 @@ pub fn delete_api_key(
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use rusqlite::params;
+
+    #[test]
+    fn save_and_retrieve_api_key() {
+        let conn = crate::db::tests::open_test_db();
+        conn.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+            params!["gemini_api_key", "test-key-123"],
+        ).unwrap();
+        let value: Option<String> = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params!["gemini_api_key"],
+            |row| row.get(0),
+        ).ok();
+        assert_eq!(value, Some("test-key-123".to_string()));
+    }
+
+    #[test]
+    fn save_overrides_existing_key() {
+        let conn = crate::db::tests::open_test_db();
+        conn.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+            params!["gemini_api_key", "old-key"],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)
+             ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = CURRENT_TIMESTAMP",
+            params!["gemini_api_key", "new-key"],
+        ).unwrap();
+        let value: Option<String> = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params!["gemini_api_key"],
+            |row| row.get(0),
+        ).ok();
+        assert_eq!(value, Some("new-key".to_string()));
+    }
+
+    #[test]
+    fn get_missing_key_returns_none() {
+        let conn = crate::db::tests::open_test_db();
+        let value: Option<String> = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params!["gemini_api_key"],
+            |row| row.get(0),
+        ).ok();
+        assert_eq!(value, None);
+    }
+
+    #[test]
+    fn delete_api_key() {
+        let conn = crate::db::tests::open_test_db();
+        conn.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+            params!["gemini_api_key", "to-delete"],
+        ).unwrap();
+        conn.execute("DELETE FROM settings WHERE key = ?1", params!["gemini_api_key"]).unwrap();
+        let value: Option<String> = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params!["gemini_api_key"],
+            |row| row.get(0),
+        ).ok();
+        assert_eq!(value, None);
+    }
+
+    #[test]
+    fn save_trims_whitespace() {
+        let conn = crate::db::tests::open_test_db();
+        let raw = "  trimmed-key  ";
+        let trimmed = raw.trim();
+        conn.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+            params!["gemini_api_key", trimmed],
+        ).unwrap();
+        let value: Option<String> = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params!["gemini_api_key"],
+            |row| row.get(0),
+        ).ok();
+        assert_eq!(value, Some("trimmed-key".to_string()));
+    }
+
+    #[test]
+    fn multiple_providers_independent() {
+        let conn = crate::db::tests::open_test_db();
+        conn.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+            params!["gemini_api_key", "gemini-key"],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+            params!["ltx_api_key", "ltx-key"],
+        ).unwrap();
+
+        let gemini: Option<String> = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params!["gemini_api_key"],
+            |row| row.get(0),
+        ).ok();
+        let ltx: Option<String> = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params!["ltx_api_key"],
+            |row| row.get(0),
+        ).ok();
+
+        assert_eq!(gemini, Some("gemini-key".to_string()));
+        assert_eq!(ltx, Some("ltx-key".to_string()));
+    }
 }

@@ -12,12 +12,19 @@ import { nanoBananaProProvider } from "./nano-banana-pro";
 import { veoProvider } from "./veo";
 import { veoFastProvider } from "./veo-fast";
 import { ltxVideoProvider } from "./ltx-video";
+import { kling3Provider } from "./kling-3";
+import { seedanceProvider } from "./seedance";
+import { hailuoProvider } from "./hailuo";
+import { fluxKontextProvider } from "./flux-kontext";
+import { seedreamProvider } from "./seedream";
 
 // Image model registry
 const imageModels: Map<ImageModelId, ImageModelProvider> = new Map([
   ["imagen4", imagenProvider],
   ["nano-banana", nanoBananaProvider],
   ["nano-banana-pro", nanoBananaProProvider],
+  ["flux-kontext", fluxKontextProvider],
+  ["seedream-4.5", seedreamProvider],
 ]);
 
 // Video model registry
@@ -25,6 +32,9 @@ const videoModels: Map<VideoModelId, VideoModelProvider> = new Map([
   ["veo3", veoProvider],
   ["veo3-fast", veoFastProvider],
   ["ltx-video", ltxVideoProvider],
+  ["kling-3", kling3Provider],
+  ["seedance-2", seedanceProvider],
+  ["hailuo-2.3", hailuoProvider],
 ]);
 
 // Get image model provider by ID
