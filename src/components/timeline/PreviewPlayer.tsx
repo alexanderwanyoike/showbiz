@@ -29,17 +29,24 @@ export default function PreviewPlayer({ clips, mpv }: PreviewPlayerProps) {
     const el = mpv.containerRef.current;
     if (!el) return;
 
-    const observer = new ResizeObserver(() => mpv.syncGeometry());
+    let rafId = 0;
+    const syncGeometry = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => mpv.syncGeometry());
+    };
+
+    const observer = new ResizeObserver(syncGeometry);
     observer.observe(el);
 
     let unlistenMoved: (() => void) | undefined;
     let unlistenResized: (() => void) | undefined;
 
     const win = getCurrentWindow();
-    win.onMoved(() => mpv.syncGeometry()).then((fn) => { unlistenMoved = fn; });
-    win.onResized(() => mpv.syncGeometry()).then((fn) => { unlistenResized = fn; });
+    win.onMoved(syncGeometry).then((fn) => { unlistenMoved = fn; });
+    win.onResized(syncGeometry).then((fn) => { unlistenResized = fn; });
 
     return () => {
+      cancelAnimationFrame(rafId);
       observer.disconnect();
       unlistenMoved?.();
       unlistenResized?.();

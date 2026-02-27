@@ -61,10 +61,11 @@ export function useMpvPlayer(): MpvPlayer {
       : videoUrlOrPath;
     if (!path) return;
     await invoke("mpv_load_file", { path });
+    await new Promise((r) => setTimeout(r, 50)); // let mpv open the file
     if (seekSeconds > 0) {
       await invoke("mpv_seek", { seconds: seekSeconds });
     }
-    await invoke("mpv_resume");
+    // NO mpv_resume here — callers must explicitly call play()
   }, []);
 
   const play = useCallback(async () => {

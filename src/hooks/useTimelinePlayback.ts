@@ -6,6 +6,8 @@ import {
   getTotalDuration,
 } from "../lib/timeline-utils";
 import { MpvPlayer } from "./useMpvPlayer";
+import { assetUrlToPath } from "../lib/tauri-api";
+import { resolveSeekAction } from "../lib/seek-utils";
 
 interface UseTimelinePlaybackOptions {
   clips: TimelineClip[];
@@ -17,6 +19,7 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
   const [currentTime, setCurrentTime] = useState(0);
   const [currentClipIndex, setCurrentClipIndex] = useState(0);
   const pendingRef = useRef(false);
+  const currentFileRef = useRef<string>("");
 
   const totalDuration = getTotalDuration(clips);
 
@@ -29,7 +32,14 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
       const clip = clips[mapping.clipIndex];
       if (clip?.shot.video_url) {
         setCurrentClipIndex(mapping.clipIndex);
-        await mpv.loadFile(clip.shot.video_url, mapping.localTime);
+        const { shouldReload, path } = resolveSeekAction(clip.shot.video_url, currentFileRef.current);
+        if (shouldReload) {
+          await mpv.loadFile(clip.shot.video_url, mapping.localTime);
+          currentFileRef.current = path;
+        } else if (mapping.localTime > 0) {
+          await mpv.seek(mapping.localTime);
+        }
+        await mpv.play(); // explicit resume
         setIsPlaying(true);
       }
     }
@@ -48,14 +58,18 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
       setCurrentTime(clamped);
 
       const mapping = timelineToClipTime(clamped, clips);
-      if (mapping) {
-        setCurrentClipIndex(mapping.clipIndex);
-        const clip = clips[mapping.clipIndex];
-        if (clip?.shot.video_url) {
-          await mpv.loadFile(clip.shot.video_url, mapping.localTime);
-          await mpv.pause();
-        }
+      if (!mapping) return;
+      setCurrentClipIndex(mapping.clipIndex);
+      const clip = clips[mapping.clipIndex];
+      if (!clip?.shot.video_url) return;
+      const { shouldReload, path } = resolveSeekAction(clip.shot.video_url, currentFileRef.current);
+      if (shouldReload) {
+        await mpv.loadFile(clip.shot.video_url, mapping.localTime);
+        currentFileRef.current = path;
+      } else {
+        await mpv.seek(mapping.localTime);
       }
+      await mpv.pause(); // show frame, don't play
     },
     [clips, totalDuration, mpv]
   );
@@ -93,6 +107,8 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
             const trimIn = nextClip.edit?.trim_in ?? 0;
             setCurrentTime(clipToTimelineTime(nextIndex, trimIn, clips));
             await mpv.loadFile(nextClip.shot.video_url, trimIn);
+            currentFileRef.current = assetUrlToPath(nextClip.shot.video_url) ?? nextClip.shot.video_url;
+            await mpv.play();
             pendingRef.current = false;
           }
         } else {

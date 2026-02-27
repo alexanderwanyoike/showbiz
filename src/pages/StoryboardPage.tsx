@@ -694,8 +694,8 @@ export default function StoryboardPage() {
         <div className="flex items-center gap-4">
           <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
-          {/* Model Selectors */}
-          <div className="flex items-center gap-2">
+          {/* Model Selectors — storyboard tab only */}
+          {activeTab === "storyboard" && <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -747,7 +747,7 @@ export default function StoryboardPage() {
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
+          </div>}
 
           <Badge variant="secondary" className="text-sm">
             {shots.length} Shots • {totalDuration}s Total
