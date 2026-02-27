@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicerails/tauri-settings/v2/schema.json",
+  "productName": "Showbiz",
+  "version": "0.1.0",
+  "identifier": "com.showbiz.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "yarn dev:frontend",
+    "beforeBuildCommand": "yarn build:frontend"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Showbiz",
+        "width": 1280,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false,
+        "minWidth": 900,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' asset: https://asset.localhost blob: data:; media-src 'self' asset: https://asset.localhost blob: data:; connect-src 'self' https://generativelanguage.googleapis.com https://api.ltx.video https://generativeai.googleapis.com https://unpkg.com https://*.googlevideo.com https://*.ggpht.com blob:; worker-src 'self' blob:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
