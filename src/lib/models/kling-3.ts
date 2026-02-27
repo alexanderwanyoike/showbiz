@@ -29,7 +29,7 @@ export const kling3Provider: VideoModelProvider = {
   ): Promise<Blob> {
     const input: Record<string, unknown> = {
       prompt,
-      sound: false,
+      sound: true,
       duration: "8",
       aspect_ratio: "16:9",
       mode: "std",

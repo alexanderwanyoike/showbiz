@@ -144,13 +144,13 @@ impl MpvController {
         stream.set_read_timeout(Some(std::time::Duration::from_secs(2))).ok();
 
         let msg = format!("{cmd}\n");
-        stream.write_all(msg.as_bytes()).map_err(|e| format!("mpv IPC write failed: {e}"))?;
+        stream.write_all(msg.as_bytes()).map_err(|e| format!("mpv IPC write: {e}"))?;
 
         let mut reader = BufReader::new(stream);
         let mut line = String::new();
-        reader.read_line(&mut line).map_err(|e| format!("mpv IPC read failed: {e}"))?;
+        reader.read_line(&mut line).map_err(|e| format!("mpv IPC read: {e}"))?;
 
-        serde_json::from_str(&line).map_err(|e| format!("mpv IPC parse failed: {e}"))
+        serde_json::from_str(&line).map_err(|e| format!("mpv IPC parse: {e}"))
     }
 
     pub fn load_file(&self, path: &str) -> Result<(), String> {

@@ -508,7 +508,6 @@ function MpvVideoOverlay({ videoUrl, title, onClose }: MpvVideoOverlayProps) {
       const unlistenResize = await win.onResized(sync);
       if (destroyed) {
         unlistenMove(); unlistenResize();
-        invoke("mpv_stop");
         return;
       }
       // Store unlisten fns for cleanup
