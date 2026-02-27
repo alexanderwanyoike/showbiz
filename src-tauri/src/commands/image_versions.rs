@@ -27,12 +27,11 @@ pub struct ImageVersionNode {
     pub children: Vec<ImageVersionNode>,
 }
 
-/// Build an absolute media URL with cache-busting timestamp.
+/// Build an absolute file path for a media file.
+/// Cache-busting timestamps are added on the TypeScript side via convertFileSrc.
 fn make_media_url(app: &AppHandle, relative_path: &str) -> String {
     let base = media::get_media_base_dir(app);
-    let abs_path = base.join(relative_path);
-    let ts = chrono::Utc::now().timestamp_millis();
-    format!("{}?t={}", abs_path.to_string_lossy(), ts)
+    base.join(relative_path).to_string_lossy().into_owned()
 }
 
 /// Query a single image version by ID and return it with URLs.

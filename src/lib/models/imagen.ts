@@ -1,3 +1,4 @@
+import { fetch } from "./http";
 import { ImageModelProvider, parseGoogleApiError } from "./types";
 
 const IMAGEN_MODEL = "imagen-4.0-generate-001";

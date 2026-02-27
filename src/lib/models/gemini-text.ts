@@ -1,3 +1,4 @@
+import { fetch } from "./http";
 import { parseGoogleApiError } from "./types";
 
 const MODEL_NAME = "gemini-2.0-flash";

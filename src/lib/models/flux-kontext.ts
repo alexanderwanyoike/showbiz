@@ -1,3 +1,4 @@
+import { fetch } from "./http";
 import { ImageModelProvider } from "./types";
 import { pollKieTask } from "./kie-shared";
 

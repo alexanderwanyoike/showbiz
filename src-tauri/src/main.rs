@@ -8,6 +8,7 @@ mod media;
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_http::init())
         .setup(|app| {
             db::init(app.handle())?;
             media::init(app.handle())?;
@@ -15,6 +16,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             // Projects
+            commands::projects::get_project,
             commands::projects::get_projects,
             commands::projects::create_project,
             commands::projects::update_project,
@@ -58,6 +60,8 @@ fn main() {
             commands::timeline::reset_all_timeline_edits,
             // Media
             commands::media_cmd::get_media_path,
+            // HTTP proxy (bypasses WebKit for cross-origin API calls)
+            commands::http_client::http_request,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

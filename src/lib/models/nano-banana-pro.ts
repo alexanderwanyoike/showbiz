@@ -1,3 +1,4 @@
+import { fetch } from "./http";
 import { ImageModelProvider, parseGoogleApiError } from "./types";
 
 const MODEL_NAME = "gemini-3-pro-image-preview";

@@ -1,3 +1,4 @@
+import { fetch } from "./http";
 import { VideoModelProvider, blobToBase64 } from "./types";
 
 const BASE_URL = "https://api.ltx.video/v1";

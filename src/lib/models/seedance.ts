@@ -1,6 +1,10 @@
 import { VideoModelProvider, blobToBase64 } from "./types";
 import { generateKieVideoBlob } from "./kie-shared";
 
+// Model IDs confirmed: https://kie.ai/seedance-2-0
+// Parameter schema mirrors Seedance 1.5 Pro: https://docs.kie.ai/market/bytedance/seedance-1.5-pro
+// input_urls triggers image-to-video; omitting it = text-to-video
+
 export const seedanceProvider: VideoModelProvider = {
   id: "seedance-2",
   name: "Seedance 2.0",
@@ -23,32 +27,19 @@ export const seedanceProvider: VideoModelProvider = {
     imageBase64: string | null,
     apiKey: string
   ): Promise<Blob> {
-    if (imageBase64) {
-      const input: Record<string, unknown> = {
-        prompt,
-        aspect_ratio: "16:9",
-        duration: "8",
-      };
-      return generateKieVideoBlob(
-        "bytedance/seedance-2-image-to-video",
-        input,
-        imageBase64,
-        apiKey,
-        "input_urls"
-      );
-    } else {
-      const input: Record<string, unknown> = {
-        prompt,
-        aspect_ratio: "16:9",
-        duration: "8",
-      };
-      return generateKieVideoBlob(
-        "bytedance/seedance-2-text-to-video",
-        input,
-        null,
-        apiKey,
-        "input_urls"
-      );
-    }
+    const model = imageBase64
+      ? "bytedance/seedance-2-image-to-video"
+      : "bytedance/seedance-2-text-to-video";
+
+    const input: Record<string, unknown> = {
+      prompt,
+      aspect_ratio: "16:9",
+      resolution: "720p",
+      duration: "8",
+      fixed_lens: false,
+      generate_audio: false,
+    };
+
+    return generateKieVideoBlob(model, input, imageBase64, apiKey, "input_urls");
   },
 };

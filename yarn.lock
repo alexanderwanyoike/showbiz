@@ -1187,6 +1187,13 @@
     "@tauri-apps/cli-win32-ia32-msvc" "2.10.0"
     "@tauri-apps/cli-win32-x64-msvc" "2.10.0"
 
+"@tauri-apps/plugin-http@^2.5.7":
+  version "2.5.7"
+  resolved "https://registry.yarnpkg.com/@tauri-apps/plugin-http/-/plugin-http-2.5.7.tgz#93c7fee3e0ad36706c0fa94f0e464765404f53b8"
+  integrity sha512-+F2lEH/c9b0zSsOXKq+5hZNcd9F4IIKCK1T17RqMwpCmVnx2aoqY8yIBccCd25HTYUb3j6NPVbRax/m00hKG8A==
+  dependencies:
+    "@tauri-apps/api" "^2.10.1"
+
 "@tauri-apps/plugin-shell@^2":
   version "2.3.5"
   resolved "https://registry.yarnpkg.com/@tauri-apps/plugin-shell/-/plugin-shell-2.3.5.tgz#ec7b5c2aedaae9e4641cd3ccf1106e443e193919"

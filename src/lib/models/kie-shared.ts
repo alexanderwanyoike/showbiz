@@ -1,3 +1,5 @@
+import { fetch } from "./http";
+
 const KIE_API_BASE = "https://api.kie.ai";
 const KIE_UPLOAD_BASE = "https://kieai.redpandaai.co";
 
