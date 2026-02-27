@@ -7,6 +7,18 @@ function mediaUrl(absPath: string | null): string | null {
   return convertFileSrc(absPath) + "?t=" + Date.now();
 }
 
+// Convert an asset:// URL back to the absolute filesystem path.
+// asset://localhost/%2Fhome%2F...%2Ffile.mp4?t=123 → /home/.../file.mp4
+export function assetUrlToPath(assetUrl: string): string | null {
+  try {
+    const withoutQuery = assetUrl.split("?")[0];
+    const url = new URL(withoutQuery);
+    return decodeURIComponent(url.pathname.slice(1));
+  } catch {
+    return null;
+  }
+}
+
 // --- Types ---
 export interface Project {
   id: string;

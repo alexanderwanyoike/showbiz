@@ -7,7 +7,7 @@ import {
   Shot,
 } from "../../lib/timeline-utils";
 import { useTimelinePlayback } from "../../hooks/useTimelinePlayback";
-import { useVideoPool } from "../../hooks/useVideoPool";
+import { useMpvPlayer } from "../../hooks/useMpvPlayer";
 import { useTrimDrag } from "../../hooks/useTrimDrag";
 import { videoAssembler } from "../../lib/video-assembler";
 import { Button } from "@/components/ui/button";
@@ -56,8 +56,7 @@ export default function TimelineEditor({
   // Build clips from shots and edits
   const clips = buildTimelineClips(shots, localEdits);
 
-  // Video pool for seamless clip transitions
-  const videoPool = useVideoPool({ clips });
+  const mpv = useMpvPlayer();
 
   const handleExport = useCallback(async () => {
     if (clips.length === 0) {
@@ -85,11 +84,7 @@ export default function TimelineEditor({
     }
   }, [clips]);
 
-  // Playback hook
-  const playback = useTimelinePlayback({
-    clips,
-    videoPool,
-  });
+  const playback = useTimelinePlayback({ clips, mpv });
 
   // Handle optimistic trim updates during drag
   const handleTrimChange = useCallback(
@@ -213,7 +208,7 @@ export default function TimelineEditor({
         <div className="w-full max-h-[55vh]" style={{ aspectRatio: '16/9', maxWidth: 'calc(55vh * 16 / 9)' }}>
           <PreviewPlayer
             clips={clips}
-            videoPool={videoPool}
+            mpv={mpv}
           />
         </div>
       </div>

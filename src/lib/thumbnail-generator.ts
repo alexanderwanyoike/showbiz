@@ -24,7 +24,6 @@ class ThumbnailGenerator {
     }
 
     const video = document.createElement("video");
-    video.crossOrigin = "anonymous";
     video.src = videoUrl;
     video.muted = true;
 
@@ -57,7 +56,13 @@ class ThumbnailGenerator {
       });
 
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      frames.push(canvas.toDataURL("image/jpeg", 0.6));
+      try {
+        frames.push(canvas.toDataURL("image/jpeg", 0.6));
+      } catch {
+        // Canvas may be tainted if asset:// CORS headers are unavailable;
+        // push an empty string and the strip will show a blank frame.
+        frames.push("");
+      }
       timestamps.push(time);
     }
 

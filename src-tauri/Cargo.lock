@@ -3414,6 +3414,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
+ "raw-window-handle",
  "reqwest 0.12.28",
  "rusqlite",
  "serde",
@@ -3424,6 +3425,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tempfile",
  "uuid",
+ "x11-dl",
 ]
 
 [[package]]
