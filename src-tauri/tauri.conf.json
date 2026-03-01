@@ -29,7 +29,7 @@
       "headers": {
         "Cross-Origin-Resource-Policy": "cross-origin"
       },
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' asset: https://asset.localhost blob: data:; media-src 'self' asset: https://asset.localhost blob: data:; connect-src 'self' https://generativelanguage.googleapis.com https://api.ltx.video https://generativeai.googleapis.com https://unpkg.com https://*.googlevideo.com https://*.ggpht.com blob:; worker-src 'self' blob:"
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' asset: https://asset.localhost blob: data:; media-src 'self' asset: https://asset.localhost blob: data:; connect-src 'self' asset: https://asset.localhost https://generativelanguage.googleapis.com https://api.ltx.video https://generativeai.googleapis.com https://unpkg.com https://*.googlevideo.com https://*.ggpht.com blob:; worker-src 'self' blob:"
     }
   },
   "bundle": {

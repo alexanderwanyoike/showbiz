@@ -1,6 +1,7 @@
-import { fetch } from "./http";
-import { ImageModelProvider } from "./types";
-import { pollKieTask } from "./kie-shared";
+import { fetch } from "../http";
+import { createKieTask, pollKieTask } from "../kie-shared";
+import type { ImageTransport } from "./types";
+import type { ImageModelConfig } from "../config-schema";
 
 const KIE_API_BASE = "https://api.kie.ai";
 
@@ -17,7 +18,8 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 async function callFluxKontext(
   prompt: string,
   imageBase64: string | undefined,
-  apiKey: string
+  apiKey: string,
+  endpoint: string
 ): Promise<string> {
   const body: Record<string, unknown> = { prompt };
   if (imageBase64) {
@@ -26,7 +28,7 @@ async function callFluxKontext(
       : `data:image/png;base64,${imageBase64}`;
   }
 
-  const res = await fetch(`${KIE_API_BASE}/flux-kontext-api/generate`, {
+  const res = await fetch(`${KIE_API_BASE}/${endpoint}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -67,19 +69,48 @@ async function callFluxKontext(
   throw new Error("Flux Kontext returned an unexpected response format");
 }
 
-export const fluxKontextProvider: ImageModelProvider = {
-  id: "flux-kontext",
-  name: "Flux Kontext",
-  description: "Black Forest Labs' instruction-following image model via kie.ai",
-  apiKeyProvider: "kie",
-  supportsImageEditing: true,
-  supportsInpainting: false,
+async function callStandardKie(
+  config: ImageModelConfig,
+  prompt: string,
+  apiKey: string
+): Promise<string> {
+  const modelId = config.models.generate;
+  const input: Record<string, unknown> = { prompt, ...(config.fixedParams ?? {}) };
+  const taskId = await createKieTask(modelId, input, apiKey);
+  const imageUrl = await pollKieTask(taskId, apiKey);
+  const imgRes = await fetch(imageUrl);
+  if (!imgRes.ok) {
+    throw new Error(`Failed to download ${config.name} image: ${imgRes.status}`);
+  }
+  const blob = await imgRes.blob();
+  return blobToDataUrl(blob);
+}
 
-  async generateImage(prompt: string, apiKey: string): Promise<string> {
-    return callFluxKontext(prompt, undefined, apiKey);
+export const kieImageTransport: ImageTransport = {
+  async generateImage(
+    config: ImageModelConfig,
+    prompt: string,
+    apiKey: string
+  ): Promise<string> {
+    const endpoint = config.transportOptions?.endpoint as string | undefined;
+    if (endpoint) {
+      // Flux Kontext pattern
+      return callFluxKontext(prompt, undefined, apiKey, endpoint);
+    }
+    // Standard kie task pattern
+    return callStandardKie(config, prompt, apiKey);
   },
 
-  async editImage(prompt: string, sourceImageBase64: string, apiKey: string): Promise<string> {
-    return callFluxKontext(prompt, sourceImageBase64, apiKey);
+  async editImage(
+    config: ImageModelConfig,
+    editPrompt: string,
+    sourceImageBase64: string,
+    apiKey: string
+  ): Promise<string> {
+    const endpoint = config.transportOptions?.endpoint as string | undefined;
+    if (endpoint) {
+      return callFluxKontext(editPrompt, sourceImageBase64, apiKey, endpoint);
+    }
+    throw new Error(`${config.name} does not support image editing.`);
   },
 };

@@ -31,13 +31,15 @@ describe("getVideoModel", () => {
 });
 
 describe("getAvailableImageModels", () => {
-  it("returns all 3 image models", () => {
+  it("returns all 5 enabled image models", () => {
     const models = getAvailableImageModels();
-    expect(models).toHaveLength(3);
+    expect(models).toHaveLength(5);
     const ids = models.map((m) => m.id);
     expect(ids).toContain("imagen4");
     expect(ids).toContain("nano-banana");
     expect(ids).toContain("nano-banana-pro");
+    expect(ids).toContain("flux-kontext");
+    expect(ids).toContain("seedream-4.5");
   });
 
   it("each model has required fields", () => {
@@ -51,13 +53,15 @@ describe("getAvailableImageModels", () => {
 });
 
 describe("getAvailableVideoModels", () => {
-  it("returns all 3 video models", () => {
+  it("returns 10 enabled video models (excludes disabled)", () => {
     const models = getAvailableVideoModels();
-    expect(models).toHaveLength(3);
+    expect(models).toHaveLength(10);
     const ids = models.map((m) => m.id);
     expect(ids).toContain("veo3");
     expect(ids).toContain("veo3-fast");
     expect(ids).toContain("ltx-video");
+    expect(ids).toContain("kling-3");
+    expect(ids).not.toContain("seedance-2"); // disabled
   });
 
   it("each model has required fields", () => {
@@ -68,6 +72,8 @@ describe("getAvailableVideoModels", () => {
       expect(model.apiKeyProvider).toBeTruthy();
       expect(typeof model.supportsImageToVideo).toBe("boolean");
       expect(typeof model.supportsTextToVideo).toBe("boolean");
+      expect(model.capabilities).toBeDefined();
+      expect(model.defaults).toBeDefined();
     }
   });
 });

@@ -1,0 +1,32 @@
+{
+  "id": "sora-2-pro",
+  "name": "Sora 2 Pro",
+  "description": "OpenAI's cinematic video model — 10–15s via kie.ai",
+  "transport": "kie-video",
+  "enabled": true,
+  "apiKeyProvider": "kie",
+  "models": {
+    "textToVideo": "sora-2-pro-text-to-video",
+    "imageToVideo": "sora-2-pro-image-to-video"
+  },
+  "paramMapping": {
+    "duration": "n_frames",
+    "aspectRatio": "aspect_ratio",
+    "resolution": "size",
+    "imageInput": "image_urls",
+    "imageFormat": "array"
+  },
+  "fixedParams": {
+    "remove_watermark": true
+  },
+  "capabilities": {
+    "durations": ["10", "15"],
+    "resolutions": ["standard", "high"],
+    "aspectRatios": ["landscape", "portrait"]
+  },
+  "defaults": {
+    "duration": "10",
+    "resolution": "standard",
+    "aspectRatio": "landscape"
+  }
+}

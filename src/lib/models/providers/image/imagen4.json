@@ -1,0 +1,16 @@
+{
+  "id": "imagen4",
+  "name": "Imagen 4",
+  "description": "Google's high-quality image generation model",
+  "transport": "google-image",
+  "transportOptions": {
+    "apiPattern": "predict"
+  },
+  "enabled": true,
+  "apiKeyProvider": "gemini",
+  "models": {
+    "generate": "imagen-4.0-generate-001"
+  },
+  "supportsEditing": false,
+  "supportsInpainting": false
+}

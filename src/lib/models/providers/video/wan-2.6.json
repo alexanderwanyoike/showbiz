@@ -1,0 +1,26 @@
+{
+  "id": "wan-2.6",
+  "name": "Wan 2.6",
+  "description": "Alibaba's high-quality video model — 5–15s via kie.ai",
+  "transport": "kie-video",
+  "enabled": true,
+  "apiKeyProvider": "kie",
+  "models": {
+    "textToVideo": "wan/2-6-text-to-video",
+    "imageToVideo": "wan/2-6-image-to-video"
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "resolution": "resolution",
+    "imageInput": "image_urls",
+    "imageFormat": "array"
+  },
+  "capabilities": {
+    "durations": ["5", "10", "15"],
+    "resolutions": ["720p", "1080p"]
+  },
+  "defaults": {
+    "duration": "5",
+    "resolution": "1080p"
+  }
+}

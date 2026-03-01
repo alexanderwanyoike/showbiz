@@ -1,0 +1,33 @@
+{
+  "id": "seedance-2",
+  "name": "Seedance 2.0",
+  "description": "ByteDance's cinematic video model — 4–15s via kie.ai",
+  "transport": "kie-video",
+  "enabled": false,
+  "apiKeyProvider": "kie",
+  "models": {
+    "textToVideo": "bytedance/seedance-2-text-to-video",
+    "imageToVideo": "bytedance/seedance-2-image-to-video"
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "aspectRatio": "aspect_ratio",
+    "resolution": "resolution",
+    "imageInput": "input_urls",
+    "imageFormat": "array"
+  },
+  "fixedParams": {
+    "fixed_lens": false,
+    "generate_audio": false
+  },
+  "capabilities": {
+    "durations": ["4", "8", "15"],
+    "resolutions": ["720p"],
+    "aspectRatios": ["16:9", "9:16", "1:1"]
+  },
+  "defaults": {
+    "duration": "8",
+    "resolution": "720p",
+    "aspectRatio": "16:9"
+  }
+}

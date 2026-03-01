@@ -5,7 +5,7 @@ const KIE_UPLOAD_BASE = "https://kieai.redpandaai.co";
 
 const POLL_INITIAL_MS = 3000;
 const POLL_MAX_MS = 10000;
-const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
 export function parseKieError(code: number, msg: string): string {
   if (code === 401) return "Invalid kie.ai API key.";
@@ -120,7 +120,7 @@ export async function pollKieTask(taskId: string, apiKey: string): Promise<strin
     // states: waiting, queuing, generating — keep polling
   }
 
-  throw new Error("kie.ai generation timed out after 5 minutes");
+  throw new Error("kie.ai generation timed out after 10 minutes");
 }
 
 // Convenience: optionally upload image → createTask → pollKieTask → fetch Blob.
