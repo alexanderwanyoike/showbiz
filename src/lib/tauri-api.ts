@@ -90,6 +90,29 @@ export interface ImageVersionNode {
   children: ImageVersionNode[];
 }
 
+export interface VideoVersion {
+  id: string;
+  shot_id: string;
+  parent_version_id: string | null;
+  version_number: number;
+  edit_type: string;
+  video_path: string;
+  prompt: string | null;
+  settings_json: string | null;
+  model_id: string | null;
+  is_current: boolean;
+  created_at: string;
+}
+
+export interface VideoVersionWithUrl extends VideoVersion {
+  video_url: string;
+}
+
+export interface VideoVersionNode {
+  version: VideoVersionWithUrl;
+  children: VideoVersionNode[];
+}
+
 export interface TimelineEdit {
   id: string;
   storyboard_id: string;
@@ -290,6 +313,59 @@ export async function getCurrentImageVersion(shotId: string): Promise<ImageVersi
     return null;
   }
   return findCurrent(versions);
+}
+
+// --- Video Versions ---
+function convertVideoVersionUrls(node: VideoVersionNode): VideoVersionNode {
+  return {
+    version: {
+      ...node.version,
+      video_url: mediaUrl(node.version.video_url) || node.version.video_url,
+    },
+    children: node.children.map(convertVideoVersionUrls),
+  };
+}
+
+export async function getVideoVersions(shotId: string): Promise<VideoVersionNode[]> {
+  const nodes: VideoVersionNode[] = await invoke("get_video_versions", { shotId });
+  return nodes.map(convertVideoVersionUrls);
+}
+
+export async function getCurrentVideoVersion(shotId: string): Promise<VideoVersionWithUrl | null> {
+  const ver: VideoVersionWithUrl | null = await invoke("get_current_video_version", { shotId });
+  if (!ver) return null;
+  return { ...ver, video_url: mediaUrl(ver.video_url) || ver.video_url };
+}
+
+export async function switchToVideoVersion(shotId: string, versionId: string): Promise<VideoVersionWithUrl | null> {
+  const ver: VideoVersionWithUrl | null = await invoke("switch_to_video_version", { shotId, versionId });
+  if (!ver) return null;
+  return { ...ver, video_url: mediaUrl(ver.video_url) || ver.video_url };
+}
+
+export async function getVideoVersionCount(shotId: string): Promise<number> {
+  return invoke("get_video_version_count", { shotId });
+}
+
+export async function createVideoGenerationVersion(
+  shotId: string,
+  videoData: number[],
+  mimeType: string,
+  prompt: string | null,
+  settingsJson: string | null,
+  modelId: string | null,
+  parentVersionId: string | null
+): Promise<VideoVersionWithUrl> {
+  const ver: VideoVersionWithUrl = await invoke("create_video_generation_version", {
+    shotId,
+    videoData,
+    mimeType,
+    prompt,
+    settingsJson,
+    modelId,
+    parentVersionId,
+  });
+  return { ...ver, video_url: mediaUrl(ver.video_url) || ver.video_url };
 }
 
 // --- Timeline ---

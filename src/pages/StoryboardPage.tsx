@@ -56,6 +56,10 @@ import {
   createGenerationVersion,
   createRemixVersion,
   getVersionImageBase64,
+  getVideoVersions,
+  getCurrentVideoVersion,
+  getVideoVersionCount,
+  switchToVideoVersion,
 } from "../lib/tauri-api";
 import type {
   Storyboard,
@@ -63,6 +67,8 @@ import type {
   TimelineEdit,
   ImageVersionNode,
   ImageVersionWithUrl,
+  VideoVersionNode,
+  VideoVersionWithUrl,
 } from "../lib/tauri-api";
 import {
   generateImageAction,
@@ -190,10 +196,15 @@ export default function StoryboardPage() {
     );
   }, [currentVideoModel]);
 
-  // Version State - per shot
+  // Image Version State - per shot
   const [shotVersions, setShotVersions] = useState<Record<string, ImageVersionNode[]>>({});
   const [shotCurrentVersions, setShotCurrentVersions] = useState<Record<string, ImageVersionWithUrl | null>>({});
   const [shotVersionCounts, setShotVersionCounts] = useState<Record<string, number>>({});
+
+  // Video Version State - per shot
+  const [shotVideoVersions, setShotVideoVersions] = useState<Record<string, VideoVersionNode[]>>({});
+  const [shotCurrentVideoVersions, setShotCurrentVideoVersions] = useState<Record<string, VideoVersionWithUrl | null>>({});
+  const [shotVideoVersionCounts, setShotVideoVersionCounts] = useState<Record<string, number>>({});
 
   // Edit Modal State
   const [editModalState, setEditModalState] = useState<{
@@ -256,34 +267,52 @@ export default function StoryboardPage() {
     const versionsMap: Record<string, ImageVersionNode[]> = {};
     const currentVersionsMap: Record<string, ImageVersionWithUrl | null> = {};
     const countsMap: Record<string, number> = {};
+    const videoVersionsMap: Record<string, VideoVersionNode[]> = {};
+    const videoCurrentVersionsMap: Record<string, VideoVersionWithUrl | null> = {};
+    const videoCountsMap: Record<string, number> = {};
 
     await Promise.all(
       shotsData.map(async (shot) => {
-        const [versions, currentVersion, count] = await Promise.all([
+        const [versions, currentVersion, count, videoVersions, currentVideoVersion, videoCount] = await Promise.all([
           getImageVersions(shot.id),
           getCurrentImageVersion(shot.id),
           getVersionCount(shot.id),
+          getVideoVersions(shot.id),
+          getCurrentVideoVersion(shot.id),
+          getVideoVersionCount(shot.id),
         ]);
         versionsMap[shot.id] = versions;
         currentVersionsMap[shot.id] = currentVersion;
         countsMap[shot.id] = count;
+        videoVersionsMap[shot.id] = videoVersions;
+        videoCurrentVersionsMap[shot.id] = currentVideoVersion;
+        videoCountsMap[shot.id] = videoCount;
       })
     );
 
     setShotVersions(versionsMap);
     setShotCurrentVersions(currentVersionsMap);
     setShotVersionCounts(countsMap);
+    setShotVideoVersions(videoVersionsMap);
+    setShotCurrentVideoVersions(videoCurrentVersionsMap);
+    setShotVideoVersionCounts(videoCountsMap);
   }
 
   async function refreshVersionData(shotId: string) {
-    const [versions, currentVersion, count] = await Promise.all([
+    const [versions, currentVersion, count, videoVersions, currentVideoVersion, videoCount] = await Promise.all([
       getImageVersions(shotId),
       getCurrentImageVersion(shotId),
       getVersionCount(shotId),
+      getVideoVersions(shotId),
+      getCurrentVideoVersion(shotId),
+      getVideoVersionCount(shotId),
     ]);
     setShotVersions((prev) => ({ ...prev, [shotId]: versions }));
     setShotCurrentVersions((prev) => ({ ...prev, [shotId]: currentVersion }));
     setShotVersionCounts((prev) => ({ ...prev, [shotId]: count }));
+    setShotVideoVersions((prev) => ({ ...prev, [shotId]: videoVersions }));
+    setShotCurrentVideoVersions((prev) => ({ ...prev, [shotId]: currentVideoVersion }));
+    setShotVideoVersionCounts((prev) => ({ ...prev, [shotId]: videoCount }));
   }
 
   async function handleUpdateStoryboardName() {
@@ -527,6 +556,22 @@ export default function StoryboardPage() {
     }
   }
 
+  async function handleVideoVersionSelect(shotId: string, versionId: string) {
+    if (!id) return;
+    try {
+      await switchToVideoVersion(shotId, versionId);
+      // Reload shot data and version data
+      const updatedShots = await getShots(id);
+      setShots(updatedShots.map(shotFromShotWithUrls));
+      await refreshVersionData(shotId);
+      // Reset final video since content changed
+      setFinalVideoUrl(null);
+    } catch (error) {
+      console.error("Failed to switch video version:", error);
+      alert("Failed to switch video version");
+    }
+  }
+
   async function handleBranchFrom(shotId: string, versionId: string) {
     // Open the image generation modal with the version as context
     setActiveShotId(shotId);
@@ -613,6 +658,8 @@ export default function StoryboardPage() {
             : s
         )
       );
+      // Refresh video version data
+      await refreshVersionData(shotId);
     } else {
       const errorMessage = result.error || "Video generation failed";
       console.error(`Video generation failed for shot ${shotId}:`, errorMessage);
@@ -934,6 +981,9 @@ export default function StoryboardPage() {
                 versions={shotVersions[shot.id] || []}
                 currentVersion={shotCurrentVersions[shot.id] || null}
                 versionCount={shotVersionCounts[shot.id] || 0}
+                videoVersions={shotVideoVersions[shot.id] || []}
+                currentVideoVersion={shotCurrentVideoVersions[shot.id] || null}
+                videoVersionCount={shotVideoVersionCounts[shot.id] || 0}
                 onUpdate={handleUpdateShot}
                 onDelete={handleDeleteShot}
                 onMove={handleMoveShot}
@@ -944,6 +994,7 @@ export default function StoryboardPage() {
                 onVersionSelect={handleVersionSelect}
                 onBranchFrom={handleBranchFrom}
                 onEditImage={handleOpenEditModal}
+                onVideoVersionSelect={handleVideoVersionSelect}
                 onGenerateVideoPrompt={handleGenerateVideoPrompt}
                 onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
                 isGeneratingPrompt={generatingPromptShots.has(shot.id)}

@@ -17,6 +17,13 @@ fn main() {
     // which renders H.264 video correctly via GStreamer avdec_h264.
     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
 
+    // Force X11 (XWayland) on Linux so mpv's --wid embedding works.
+    // Wayland doesn't expose window IDs for cross-process embedding.
+    #[cfg(target_os = "linux")]
+    if std::env::var("GDK_BACKEND").is_err() {
+        std::env::set_var("GDK_BACKEND", "x11");
+    }
+
     let http_client = commands::http_client::HttpClient(
         reqwest::Client::builder()
             .build()
@@ -86,6 +93,12 @@ fn main() {
             commands::image_versions::get_version_image_base64,
             commands::image_versions::delete_version,
             commands::image_versions::get_version_count,
+            // Video versions
+            commands::video_versions::get_video_versions,
+            commands::video_versions::get_current_video_version,
+            commands::video_versions::switch_to_video_version,
+            commands::video_versions::get_video_version_count,
+            commands::video_versions::create_video_generation_version,
             // Timeline
             commands::timeline::get_timeline_edits,
             commands::timeline::update_timeline_edit,

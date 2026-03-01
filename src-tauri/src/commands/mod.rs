@@ -6,3 +6,4 @@ pub mod projects;
 pub mod settings;
 pub mod shots;
 pub mod timeline;
+pub mod video_versions;
