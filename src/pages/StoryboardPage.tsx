@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Plus, Download, Loader2, Sparkles, ImageIcon, Video } from "lucide-react";
+import { Plus, Download, Loader2, Sparkles, ImageIcon, Video, SlidersHorizontal } from "lucide-react";
 import { Header } from "../components/Header";
 import ShotCard from "../components/ShotCard";
 import TabNavigation from "../components/TabNavigation";
@@ -25,6 +25,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
   getStoryboard,
   updateStoryboard,
   updateStoryboardModels,
@@ -43,6 +56,10 @@ import {
   createGenerationVersion,
   createRemixVersion,
   getVersionImageBase64,
+  getVideoVersions,
+  getCurrentVideoVersion,
+  getVideoVersionCount,
+  switchToVideoVersion,
 } from "../lib/tauri-api";
 import type {
   Storyboard,
@@ -50,6 +67,8 @@ import type {
   TimelineEdit,
   ImageVersionNode,
   ImageVersionWithUrl,
+  VideoVersionNode,
+  VideoVersionWithUrl,
 } from "../lib/tauri-api";
 import {
   generateImageAction,
@@ -65,6 +84,7 @@ import {
   getAvailableImageModels,
   getAvailableVideoModels,
 } from "../lib/models";
+import type { VideoGenerationSettings } from "../lib/models/types";
 
 interface Shot {
   id: string;
@@ -154,10 +174,37 @@ export default function StoryboardPage() {
   const imageModels = getAvailableImageModels();
   const videoModels = getAvailableVideoModels();
 
-  // Version State - per shot
+  // Video Settings
+  const [videoSettings, setVideoSettings] = useState<VideoGenerationSettings>(() => {
+    const model = videoModels.find((m) => m.id === "veo3");
+    return model?.defaults ?? { duration: "8" };
+  });
+
+  const currentVideoModel = useMemo(
+    () => videoModels.find((m) => m.id === videoModel),
+    [videoModel, videoModels]
+  );
+
+  const hasConfigurableSettings = useMemo(() => {
+    if (!currentVideoModel) return false;
+    const caps = currentVideoModel.capabilities;
+    return (
+      caps.durations.length > 1 ||
+      (caps.resolutions?.length ?? 0) > 1 ||
+      (caps.aspectRatios?.length ?? 0) > 1 ||
+      caps.hasAudio === true
+    );
+  }, [currentVideoModel]);
+
+  // Image Version State - per shot
   const [shotVersions, setShotVersions] = useState<Record<string, ImageVersionNode[]>>({});
   const [shotCurrentVersions, setShotCurrentVersions] = useState<Record<string, ImageVersionWithUrl | null>>({});
   const [shotVersionCounts, setShotVersionCounts] = useState<Record<string, number>>({});
+
+  // Video Version State - per shot
+  const [shotVideoVersions, setShotVideoVersions] = useState<Record<string, VideoVersionNode[]>>({});
+  const [shotCurrentVideoVersions, setShotCurrentVideoVersions] = useState<Record<string, VideoVersionWithUrl | null>>({});
+  const [shotVideoVersionCounts, setShotVideoVersionCounts] = useState<Record<string, number>>({});
 
   // Edit Modal State
   const [editModalState, setEditModalState] = useState<{
@@ -199,7 +246,12 @@ export default function StoryboardPage() {
       setTimelineEdits(editsData);
       setEditedName(storyboardData.name);
       setImageModel((storyboardData.image_model as ImageModelId) || "imagen4");
-      setVideoModel((storyboardData.video_model as VideoModelId) || "veo3");
+      const loadedVideoModel = (storyboardData.video_model as VideoModelId) || "veo3";
+      setVideoModel(loadedVideoModel);
+      const loadedModel = videoModels.find((m) => m.id === loadedVideoModel);
+      if (loadedModel) {
+        setVideoSettings({ ...loadedModel.defaults });
+      }
 
       // Load version data for each shot
       await loadVersionDataForShots(mappedShots);
@@ -215,34 +267,52 @@ export default function StoryboardPage() {
     const versionsMap: Record<string, ImageVersionNode[]> = {};
     const currentVersionsMap: Record<string, ImageVersionWithUrl | null> = {};
     const countsMap: Record<string, number> = {};
+    const videoVersionsMap: Record<string, VideoVersionNode[]> = {};
+    const videoCurrentVersionsMap: Record<string, VideoVersionWithUrl | null> = {};
+    const videoCountsMap: Record<string, number> = {};
 
     await Promise.all(
       shotsData.map(async (shot) => {
-        const [versions, currentVersion, count] = await Promise.all([
+        const [versions, currentVersion, count, videoVersions, currentVideoVersion, videoCount] = await Promise.all([
           getImageVersions(shot.id),
           getCurrentImageVersion(shot.id),
           getVersionCount(shot.id),
+          getVideoVersions(shot.id),
+          getCurrentVideoVersion(shot.id),
+          getVideoVersionCount(shot.id),
         ]);
         versionsMap[shot.id] = versions;
         currentVersionsMap[shot.id] = currentVersion;
         countsMap[shot.id] = count;
+        videoVersionsMap[shot.id] = videoVersions;
+        videoCurrentVersionsMap[shot.id] = currentVideoVersion;
+        videoCountsMap[shot.id] = videoCount;
       })
     );
 
     setShotVersions(versionsMap);
     setShotCurrentVersions(currentVersionsMap);
     setShotVersionCounts(countsMap);
+    setShotVideoVersions(videoVersionsMap);
+    setShotCurrentVideoVersions(videoCurrentVersionsMap);
+    setShotVideoVersionCounts(videoCountsMap);
   }
 
   async function refreshVersionData(shotId: string) {
-    const [versions, currentVersion, count] = await Promise.all([
+    const [versions, currentVersion, count, videoVersions, currentVideoVersion, videoCount] = await Promise.all([
       getImageVersions(shotId),
       getCurrentImageVersion(shotId),
       getVersionCount(shotId),
+      getVideoVersions(shotId),
+      getCurrentVideoVersion(shotId),
+      getVideoVersionCount(shotId),
     ]);
     setShotVersions((prev) => ({ ...prev, [shotId]: versions }));
     setShotCurrentVersions((prev) => ({ ...prev, [shotId]: currentVersion }));
     setShotVersionCounts((prev) => ({ ...prev, [shotId]: count }));
+    setShotVideoVersions((prev) => ({ ...prev, [shotId]: videoVersions }));
+    setShotCurrentVideoVersions((prev) => ({ ...prev, [shotId]: currentVideoVersion }));
+    setShotVideoVersionCounts((prev) => ({ ...prev, [shotId]: videoCount }));
   }
 
   async function handleUpdateStoryboardName() {
@@ -277,6 +347,11 @@ export default function StoryboardPage() {
   async function handleChangeVideoModel(newModel: VideoModelId) {
     if (!id) return;
     setVideoModel(newModel);
+    // Reset settings to new model's defaults
+    const model = videoModels.find((m) => m.id === newModel);
+    if (model) {
+      setVideoSettings({ ...model.defaults });
+    }
     try {
       await updateStoryboardModels(id, imageModel, newModel);
     } catch (error) {
@@ -481,6 +556,22 @@ export default function StoryboardPage() {
     }
   }
 
+  async function handleVideoVersionSelect(shotId: string, versionId: string) {
+    if (!id) return;
+    try {
+      await switchToVideoVersion(shotId, versionId);
+      // Reload shot data and version data
+      const updatedShots = await getShots(id);
+      setShots(updatedShots.map(shotFromShotWithUrls));
+      await refreshVersionData(shotId);
+      // Reset final video since content changed
+      setFinalVideoUrl(null);
+    } catch (error) {
+      console.error("Failed to switch video version:", error);
+      alert("Failed to switch video version");
+    }
+  }
+
   async function handleBranchFrom(shotId: string, versionId: string) {
     // Open the image generation modal with the version as context
     setActiveShotId(shotId);
@@ -555,7 +646,8 @@ export default function StoryboardPage() {
     const result = await generateAndSaveVideoAction(
       shotId,
       shot.video_prompt || "",
-      videoModel
+      videoModel,
+      videoSettings
     );
 
     if (result.success && result.videoUrl) {
@@ -566,6 +658,8 @@ export default function StoryboardPage() {
             : s
         )
       );
+      // Refresh video version data
+      await refreshVersionData(shotId);
     } else {
       const errorMessage = result.error || "Video generation failed";
       console.error(`Video generation failed for shot ${shotId}:`, errorMessage);
@@ -694,8 +788,8 @@ export default function StoryboardPage() {
         <div className="flex items-center gap-4">
           <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
-          {/* Model Selectors */}
-          <div className="flex items-center gap-2">
+          {/* Model Selectors — storyboard tab only */}
+          {activeTab === "storyboard" && <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -747,7 +841,104 @@ export default function StoryboardPage() {
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
+
+            {/* Video Settings Popover */}
+            {hasConfigurableSettings && currentVideoModel && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1 px-2">
+                    <SlidersHorizontal className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-56 space-y-4">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {currentVideoModel.name} Settings
+                  </p>
+
+                  {currentVideoModel.capabilities.durations.length > 1 && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium">Duration</label>
+                      <Select
+                        value={videoSettings.duration}
+                        onValueChange={(v) =>
+                          setVideoSettings((prev) => ({ ...prev, duration: v }))
+                        }
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currentVideoModel.capabilities.durations.map((d) => (
+                            <SelectItem key={d} value={d}>
+                              {d}s
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {(currentVideoModel.capabilities.resolutions?.length ?? 0) > 1 && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium">Resolution</label>
+                      <Select
+                        value={videoSettings.resolution ?? ""}
+                        onValueChange={(v) =>
+                          setVideoSettings((prev) => ({ ...prev, resolution: v }))
+                        }
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currentVideoModel.capabilities.resolutions!.map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {r}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {(currentVideoModel.capabilities.aspectRatios?.length ?? 0) > 1 && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium">Aspect Ratio</label>
+                      <Select
+                        value={videoSettings.aspectRatio ?? ""}
+                        onValueChange={(v) =>
+                          setVideoSettings((prev) => ({ ...prev, aspectRatio: v }))
+                        }
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currentVideoModel.capabilities.aspectRatios!.map((a) => (
+                            <SelectItem key={a} value={a}>
+                              {a}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {currentVideoModel.capabilities.hasAudio && (
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium">Audio</label>
+                      <Switch
+                        checked={videoSettings.audio ?? false}
+                        onCheckedChange={(checked) =>
+                          setVideoSettings((prev) => ({ ...prev, audio: checked }))
+                        }
+                      />
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>}
 
           <Badge variant="secondary" className="text-sm">
             {shots.length} Shots • {totalDuration}s Total
@@ -766,60 +957,63 @@ export default function StoryboardPage() {
         </div>
       </Header>
 
-      {/* Main Content */}
-      {activeTab === "storyboard" ? (
-        <main className="flex-1 p-4 md:p-6">
-          {/* Shots Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {shots.map((shot, index) => {
-              // Get other shots with images for the copy feature
-              const otherShotsWithImages = shots
-                .filter((s) => s.id !== shot.id && s.image_url)
-                .map((s) => ({
-                  id: s.id,
-                  order: s.order,
-                  image_url: s.image_url!,
-                }));
+      {/* Main Content — storyboard kept mounted (hidden) to preserve loaded images */}
+      <main className="flex-1 p-4 md:p-6" style={{ display: activeTab === "storyboard" ? undefined : "none" }}>
+        {/* Shots Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {shots.map((shot, index) => {
+            // Get other shots with images for the copy feature
+            const otherShotsWithImages = shots
+              .filter((s) => s.id !== shot.id && s.image_url)
+              .map((s) => ({
+                id: s.id,
+                order: s.order,
+                image_url: s.image_url!,
+              }));
 
-              return (
-                <ShotCard
-                  key={shot.id}
-                  shot={mapShotToCardData(shot)}
-                  index={index}
-                  totalShots={shots.length}
-                  otherShotsWithImages={otherShotsWithImages}
-                  versions={shotVersions[shot.id] || []}
-                  currentVersion={shotCurrentVersions[shot.id] || null}
-                  versionCount={shotVersionCounts[shot.id] || 0}
-                  onUpdate={handleUpdateShot}
-                  onDelete={handleDeleteShot}
-                  onMove={handleMoveShot}
-                  onGenerateImage={openImageModal}
-                  onUploadImage={handleUploadImage}
-                  onCopyImageFromShot={handleCopyImageFromShot}
-                  onGenerateVideo={handleGenerateVideo}
-                  onVersionSelect={handleVersionSelect}
-                  onBranchFrom={handleBranchFrom}
-                  onEditImage={handleOpenEditModal}
-                  onGenerateVideoPrompt={handleGenerateVideoPrompt}
-                  onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
-                  isGeneratingPrompt={generatingPromptShots.has(shot.id)}
-                  isEnhancingPrompt={enhancingPromptShots.has(shot.id)}
-                />
-              );
-            })}
+            return (
+              <ShotCard
+                key={shot.id}
+                shot={mapShotToCardData(shot)}
+                index={index}
+                totalShots={shots.length}
+                otherShotsWithImages={otherShotsWithImages}
+                versions={shotVersions[shot.id] || []}
+                currentVersion={shotCurrentVersions[shot.id] || null}
+                versionCount={shotVersionCounts[shot.id] || 0}
+                videoVersions={shotVideoVersions[shot.id] || []}
+                currentVideoVersion={shotCurrentVideoVersions[shot.id] || null}
+                videoVersionCount={shotVideoVersionCounts[shot.id] || 0}
+                onUpdate={handleUpdateShot}
+                onDelete={handleDeleteShot}
+                onMove={handleMoveShot}
+                onGenerateImage={openImageModal}
+                onUploadImage={handleUploadImage}
+                onCopyImageFromShot={handleCopyImageFromShot}
+                onGenerateVideo={handleGenerateVideo}
+                onVersionSelect={handleVersionSelect}
+                onBranchFrom={handleBranchFrom}
+                onEditImage={handleOpenEditModal}
+                onVideoVersionSelect={handleVideoVersionSelect}
+                onGenerateVideoPrompt={handleGenerateVideoPrompt}
+                onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
+                isGeneratingPrompt={generatingPromptShots.has(shot.id)}
+                isEnhancingPrompt={enhancingPromptShots.has(shot.id)}
+              />
+            );
+          })}
 
-            {/* Add Shot Card */}
-            <button
-              onClick={handleAddShot}
-              className="aspect-video border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
-            >
-              <Plus className="h-8 w-8 mb-2" />
-              <span className="text-sm font-medium">Add Shot</span>
-            </button>
-          </div>
-        </main>
-      ) : (
+          {/* Add Shot Card */}
+          <button
+            onClick={handleAddShot}
+            className="aspect-video border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
+          >
+            <Plus className="h-8 w-8 mb-2" />
+            <span className="text-sm font-medium">Add Shot</span>
+          </button>
+        </div>
+      </main>
+      {activeTab === "editor" && (
         <TimelineEditor
           storyboardId={id!}
           shots={shots}

@@ -7,6 +7,18 @@ function mediaUrl(absPath: string | null): string | null {
   return convertFileSrc(absPath) + "?t=" + Date.now();
 }
 
+// Convert an asset:// URL back to the absolute filesystem path.
+// asset://localhost/%2Fhome%2F...%2Ffile.mp4?t=123 → /home/.../file.mp4
+export function assetUrlToPath(assetUrl: string): string | null {
+  try {
+    const withoutQuery = assetUrl.split("?")[0];
+    const url = new URL(withoutQuery);
+    return decodeURIComponent(url.pathname.slice(1));
+  } catch {
+    return null;
+  }
+}
+
 // --- Types ---
 export interface Project {
   id: string;
@@ -45,7 +57,7 @@ export interface ShotWithUrls {
   updated_at: string;
 }
 
-export type ApiKeyProvider = "gemini" | "ltx";
+export type ApiKeyProvider = "gemini" | "ltx" | "kie";
 
 export interface ApiKeyStatus {
   provider: ApiKeyProvider;
@@ -76,6 +88,29 @@ export interface ImageVersionWithUrl extends ImageVersion {
 export interface ImageVersionNode {
   version: ImageVersionWithUrl;
   children: ImageVersionNode[];
+}
+
+export interface VideoVersion {
+  id: string;
+  shot_id: string;
+  parent_version_id: string | null;
+  version_number: number;
+  edit_type: string;
+  video_path: string;
+  prompt: string | null;
+  settings_json: string | null;
+  model_id: string | null;
+  is_current: boolean;
+  created_at: string;
+}
+
+export interface VideoVersionWithUrl extends VideoVersion {
+  video_url: string;
+}
+
+export interface VideoVersionNode {
+  version: VideoVersionWithUrl;
+  children: VideoVersionNode[];
 }
 
 export interface TimelineEdit {
@@ -278,6 +313,59 @@ export async function getCurrentImageVersion(shotId: string): Promise<ImageVersi
     return null;
   }
   return findCurrent(versions);
+}
+
+// --- Video Versions ---
+function convertVideoVersionUrls(node: VideoVersionNode): VideoVersionNode {
+  return {
+    version: {
+      ...node.version,
+      video_url: mediaUrl(node.version.video_url) || node.version.video_url,
+    },
+    children: node.children.map(convertVideoVersionUrls),
+  };
+}
+
+export async function getVideoVersions(shotId: string): Promise<VideoVersionNode[]> {
+  const nodes: VideoVersionNode[] = await invoke("get_video_versions", { shotId });
+  return nodes.map(convertVideoVersionUrls);
+}
+
+export async function getCurrentVideoVersion(shotId: string): Promise<VideoVersionWithUrl | null> {
+  const ver: VideoVersionWithUrl | null = await invoke("get_current_video_version", { shotId });
+  if (!ver) return null;
+  return { ...ver, video_url: mediaUrl(ver.video_url) || ver.video_url };
+}
+
+export async function switchToVideoVersion(shotId: string, versionId: string): Promise<VideoVersionWithUrl | null> {
+  const ver: VideoVersionWithUrl | null = await invoke("switch_to_video_version", { shotId, versionId });
+  if (!ver) return null;
+  return { ...ver, video_url: mediaUrl(ver.video_url) || ver.video_url };
+}
+
+export async function getVideoVersionCount(shotId: string): Promise<number> {
+  return invoke("get_video_version_count", { shotId });
+}
+
+export async function createVideoGenerationVersion(
+  shotId: string,
+  videoData: number[],
+  mimeType: string,
+  prompt: string | null,
+  settingsJson: string | null,
+  modelId: string | null,
+  parentVersionId: string | null
+): Promise<VideoVersionWithUrl> {
+  const ver: VideoVersionWithUrl = await invoke("create_video_generation_version", {
+    shotId,
+    videoData,
+    mimeType,
+    prompt,
+    settingsJson,
+    modelId,
+    parentVersionId,
+  });
+  return { ...ver, video_url: mediaUrl(ver.video_url) || ver.video_url };
 }
 
 // --- Timeline ---

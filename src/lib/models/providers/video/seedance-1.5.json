@@ -1,0 +1,35 @@
+{
+  "id": "seedance-1.5",
+  "name": "Seedance 1.5 Pro",
+  "description": "ByteDance's cinematic model with audio — 4–12s via kie.ai",
+  "transport": "kie-video",
+  "enabled": true,
+  "apiKeyProvider": "kie",
+  "models": {
+    "textToVideo": "bytedance/seedance-1.5-pro",
+    "imageToVideo": "bytedance/seedance-1.5-pro"
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "aspectRatio": "aspect_ratio",
+    "resolution": "resolution",
+    "audio": "generate_audio",
+    "imageInput": "input_urls",
+    "imageFormat": "array"
+  },
+  "fixedParams": {
+    "fixed_lens": false
+  },
+  "capabilities": {
+    "durations": ["4", "8", "12"],
+    "resolutions": ["480p", "720p", "1080p"],
+    "aspectRatios": ["1:1", "4:3", "3:4", "16:9", "9:16", "21:9"],
+    "hasAudio": true
+  },
+  "defaults": {
+    "duration": "8",
+    "resolution": "720p",
+    "aspectRatio": "16:9",
+    "audio": false
+  }
+}

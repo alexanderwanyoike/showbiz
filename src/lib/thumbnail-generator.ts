@@ -23,15 +23,22 @@ class ThumbnailGenerator {
       return this.cache[shotId].frames;
     }
 
+    // Fetch video as blob to work around GStreamer not understanding asset:// URLs
+    const response = await window.fetch(videoUrl);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
     const video = document.createElement("video");
-    video.crossOrigin = "anonymous";
-    video.src = videoUrl;
+    video.src = blobUrl;
     video.muted = true;
 
     // Wait for video metadata to load
     await new Promise<void>((resolve, reject) => {
       video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error("Failed to load video"));
+      video.onerror = () => {
+        URL.revokeObjectURL(blobUrl);
+        reject(new Error("Failed to load video"));
+      };
     });
 
     const canvas = document.createElement("canvas");
@@ -57,9 +64,18 @@ class ThumbnailGenerator {
       });
 
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      frames.push(canvas.toDataURL("image/jpeg", 0.6));
+      try {
+        frames.push(canvas.toDataURL("image/jpeg", 0.6));
+      } catch {
+        // Canvas may be tainted if asset:// CORS headers are unavailable;
+        // push an empty string and the strip will show a blank frame.
+        frames.push("");
+      }
       timestamps.push(time);
     }
+
+    // Release the blob URL now that all frames are extracted
+    URL.revokeObjectURL(blobUrl);
 
     // Cache results
     this.cache[shotId] = {

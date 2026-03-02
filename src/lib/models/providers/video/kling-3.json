@@ -1,0 +1,33 @@
+{
+  "id": "kling-3",
+  "name": "Kling 3.0",
+  "description": "Kuaishou's latest model — multi-shot, motion control, 3–15s via kie.ai",
+  "transport": "kie-video",
+  "enabled": true,
+  "apiKeyProvider": "kie",
+  "models": {
+    "textToVideo": "kling-3.0/video",
+    "imageToVideo": "kling-3.0/video"
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "aspectRatio": "aspect_ratio",
+    "audio": "sound",
+    "imageInput": "image_urls",
+    "imageFormat": "array"
+  },
+  "fixedParams": {
+    "mode": "std",
+    "multi_shots": false
+  },
+  "capabilities": {
+    "durations": ["3", "5", "8", "10", "15"],
+    "aspectRatios": ["16:9", "9:16", "1:1"],
+    "hasAudio": true
+  },
+  "defaults": {
+    "duration": "8",
+    "aspectRatio": "16:9",
+    "audio": true
+  }
+}

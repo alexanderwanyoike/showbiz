@@ -1,0 +1,20 @@
+{
+  "id": "ltx-video",
+  "name": "LTX Video",
+  "description": "Fast, high-quality open-source video generation",
+  "transport": "ltx",
+  "enabled": true,
+  "apiKeyProvider": "ltx",
+  "models": {
+    "textToVideo": "ltx-2-pro",
+    "imageToVideo": "ltx-2-pro"
+  },
+  "capabilities": {
+    "durations": ["8"],
+    "resolutions": ["1920x1080"]
+  },
+  "defaults": {
+    "duration": "8",
+    "resolution": "1920x1080"
+  }
+}

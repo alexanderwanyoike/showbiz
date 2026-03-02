@@ -1,0 +1,32 @@
+{
+  "id": "grok-imagine",
+  "name": "Grok Imagine",
+  "description": "xAI's video generation model — 6–10s via kie.ai",
+  "transport": "kie-video",
+  "enabled": true,
+  "apiKeyProvider": "kie",
+  "models": {
+    "textToVideo": "grok-imagine/text-to-video",
+    "imageToVideo": "grok-imagine/image-to-video"
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "resolution": "resolution",
+    "aspectRatio": "aspect_ratio",
+    "imageInput": "image_urls",
+    "imageFormat": "array"
+  },
+  "fixedParams": {
+    "mode": "normal"
+  },
+  "capabilities": {
+    "durations": ["6", "10"],
+    "resolutions": ["480p", "720p"],
+    "aspectRatios": ["16:9", "9:16", "1:1", "2:3", "3:2"]
+  },
+  "defaults": {
+    "duration": "6",
+    "resolution": "720p",
+    "aspectRatio": "16:9"
+  }
+}

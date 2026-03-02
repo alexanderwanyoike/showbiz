@@ -1,0 +1,16 @@
+{
+  "id": "flux-kontext",
+  "name": "Flux Kontext",
+  "description": "Black Forest Labs' instruction-following image model via kie.ai",
+  "transport": "kie-image",
+  "transportOptions": {
+    "endpoint": "flux-kontext-api/generate"
+  },
+  "enabled": true,
+  "apiKeyProvider": "kie",
+  "models": {
+    "generate": "flux-kontext"
+  },
+  "supportsEditing": true,
+  "supportsInpainting": false
+}

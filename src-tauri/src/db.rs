@@ -98,6 +98,23 @@ fn migrate(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
 
         CREATE INDEX IF NOT EXISTS idx_image_versions_shot ON image_versions(shot_id);
         CREATE INDEX IF NOT EXISTS idx_image_versions_parent ON image_versions(parent_version_id);
+
+        CREATE TABLE IF NOT EXISTS video_versions (
+            id TEXT PRIMARY KEY,
+            shot_id TEXT NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+            parent_version_id TEXT REFERENCES video_versions(id) ON DELETE SET NULL,
+            version_number INTEGER NOT NULL,
+            edit_type TEXT NOT NULL CHECK(edit_type IN ('generation', 'regeneration', 'extend')),
+            video_path TEXT NOT NULL,
+            prompt TEXT,
+            settings_json TEXT,
+            model_id TEXT,
+            is_current INTEGER NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_video_versions_shot ON video_versions(shot_id);
+        CREATE INDEX IF NOT EXISTS idx_video_versions_parent ON video_versions(parent_version_id);
         "#,
     )?;
 
@@ -158,6 +175,42 @@ fn migrate(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             conn.execute(
                 insert_sql,
                 params![version_id, shot_id, image_path, image_prompt],
+            )?;
+        }
+    }
+
+    // Migration: Create initial video versions for existing shots with videos
+    let mut video_stmt = conn.prepare(
+        r#"
+        SELECT s.id, s.video_path, s.video_prompt
+        FROM shots s
+        LEFT JOIN video_versions vv ON s.id = vv.shot_id
+        WHERE s.video_path IS NOT NULL AND vv.id IS NULL
+        "#,
+    )?;
+
+    let shots_needing_video_versions: Vec<(String, String, Option<String>)> = video_stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    if !shots_needing_video_versions.is_empty() {
+        let insert_video_sql = r#"
+            INSERT INTO video_versions (id, shot_id, parent_version_id, version_number, edit_type, video_path, prompt, is_current)
+            VALUES (?1, ?2, NULL, 1, 'generation', ?3, ?4, 1)
+        "#;
+
+        for (shot_id, video_path, video_prompt) in &shots_needing_video_versions {
+            let version_id = generate_id("vidver");
+            conn.execute(
+                insert_video_sql,
+                params![version_id, shot_id, video_path, video_prompt],
             )?;
         }
     }

@@ -40,6 +40,28 @@ pub struct StoryboardWithPreview {
 // ==================== Project Commands ====================
 
 #[tauri::command]
+pub fn get_project(id: String, state: State<'_, DbState>) -> Result<Option<Project>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let result = conn.query_row(
+        "SELECT id, name, created_at, updated_at FROM projects WHERE id = ?1",
+        rusqlite::params![id],
+        |row| {
+            Ok(Project {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                created_at: row.get(2)?,
+                updated_at: row.get(3)?,
+            })
+        },
+    );
+    match result {
+        Ok(project) => Ok(Some(project)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
 pub fn get_projects(state: State<'_, DbState>) -> Result<Vec<Project>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
@@ -216,6 +238,7 @@ pub fn get_storyboards(
 
 #[tauri::command]
 pub fn get_storyboards_with_preview(
+    app: AppHandle,
     project_id: String,
     state: State<'_, DbState>,
 ) -> Result<Vec<StoryboardWithPreview>, String> {
@@ -239,8 +262,13 @@ pub fn get_storyboards_with_preview(
         )
         .map_err(|e| e.to_string())?;
 
+    let media_base = media::get_media_base_dir(&app);
+
     let storyboards = stmt
         .query_map(params![project_id], |row| {
+            let relative_path: Option<String> = row.get(7)?;
+            let preview_image_path = relative_path
+                .map(|p| media_base.join(p).to_string_lossy().into_owned());
             Ok(StoryboardWithPreview {
                 id: row.get(0)?,
                 project_id: row.get(1)?,
@@ -249,7 +277,7 @@ pub fn get_storyboards_with_preview(
                 video_model: row.get(4)?,
                 created_at: row.get(5)?,
                 updated_at: row.get(6)?,
-                preview_image_path: row.get(7)?,
+                preview_image_path,
             })
         })
         .map_err(|e| e.to_string())?

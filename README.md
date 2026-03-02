@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Showbiz
 
-## Getting Started
+AI-powered video storyboard desktop application. Generate images with Imagen 4, turn them into videos with Veo 3, and assemble everything into a final movie.
 
-First, run the development server:
+## Prerequisites
 
+### Required
+
+- [Node.js](https://nodejs.org/) (v18+)
+- [Yarn](https://yarnpkg.com/) (`npm install -g yarn`)
+- [Rust](https://rustup.rs/) (latest stable)
+- [mpv](https://mpv.io/) - required for video playback
+
+### Platform-specific
+
+**Linux (Debian/Ubuntu):**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Tauri dependencies
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
+# mpv for video playback
+sudo apt install mpv
+
+# X11 libs (usually already installed)
+sudo apt install libx11-dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Linux (Fedora):**
+```bash
+sudo dnf install webkit2gtk4.1-devel gtk3-devel libappindicator-gtk3-devel librsvg2-devel
+sudo dnf install mpv
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**macOS:**
+```bash
+# Xcode command line tools (if not already installed)
+xcode-select --install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# mpv
+brew install mpv
+```
 
-## Learn More
+**Windows:**
+```powershell
+# mpv (pick one)
+scoop install mpv
+# or
+winget install mpv
+# or download from https://mpv.io and add to PATH
+```
 
-To learn more about Next.js, take a look at the following resources:
+### API Keys
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+You'll need at least one of these (configured in Settings within the app):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Gemini API key** - for Imagen 4 (image generation) and Veo 3 (video generation)
+- **LTX API key** - optional, for LTX Video generation
 
-## Deploy on Vercel
+## Development
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+yarn install
+yarn dev          # Launch Tauri dev mode (frontend + Rust backend)
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Other commands:
+```bash
+yarn build            # Production build (.deb/.AppImage on Linux, .dmg on macOS, .msi on Windows)
+yarn dev:frontend     # Frontend-only dev server (Vite)
+yarn build:frontend   # Frontend-only build
+```
+
+## Notes
+
+- On Wayland desktops, the app automatically runs under XWayland (`GDK_BACKEND=x11`) because mpv's embedded playback requires X11 window handles.
+- Set `SHOWBIZ_MPV_PATH=/path/to/mpv` to override mpv binary detection.
+- Media files are stored in your system's app data directory (`~/.local/share/com.showbiz.app/` on Linux).

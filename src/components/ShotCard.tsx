@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { ArrowUp, ArrowDown, X, Upload, Sparkles, Copy, Loader2, RefreshCw, ImageIcon, Play, AlertCircle, Paintbrush, History, ChevronDown, ChevronUp, Wand2 } from "lucide-react";
 import {
   Card,
@@ -18,14 +18,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { assetUrlToPath } from "../lib/tauri-api";
 import ImageVersionTimeline from "./ImageVersionTimeline";
-import type { ImageVersionNode, ImageVersionWithUrl } from "../lib/tauri-api";
+import VideoVersionTimeline from "./VideoVersionTimeline";
+import type { ImageVersionNode, ImageVersionWithUrl, VideoVersionNode, VideoVersionWithUrl } from "../lib/tauri-api";
 
 export type ShotStatus = "pending" | "generating" | "complete" | "failed";
 
@@ -56,10 +54,14 @@ interface ShotCardProps {
   index: number;
   totalShots: number;
   otherShotsWithImages: ShotImageOption[];
-  // Version support
+  // Image version support
   versions: ImageVersionNode[];
   currentVersion: ImageVersionWithUrl | null;
   versionCount: number;
+  // Video version support
+  videoVersions: VideoVersionNode[];
+  currentVideoVersion: VideoVersionWithUrl | null;
+  videoVersionCount: number;
   onUpdate: (id: string, updates: Partial<Shot>) => void;
   onDelete: (id: string) => void;
   onMove: (index: number, direction: "up" | "down") => void;
@@ -67,10 +69,12 @@ interface ShotCardProps {
   onUploadImage: (id: string, file: File) => void;
   onCopyImageFromShot: (targetShotId: string, sourceShotId: string) => void;
   onGenerateVideo: (id: string) => void;
-  // Version callbacks
+  // Image version callbacks
   onVersionSelect: (shotId: string, versionId: string) => void;
   onBranchFrom: (shotId: string, versionId: string) => void;
   onEditImage: (shotId: string, versionId: string) => void;
+  // Video version callbacks
+  onVideoVersionSelect: (shotId: string, versionId: string) => void;
   // Prompt generation callbacks
   onGenerateVideoPrompt: (shotId: string) => void;
   onEnhanceVideoPrompt: (shotId: string) => void;
@@ -86,6 +90,9 @@ export default function ShotCard({
   versions,
   currentVersion,
   versionCount,
+  videoVersions,
+  currentVideoVersion,
+  videoVersionCount,
   onUpdate,
   onDelete,
   onMove,
@@ -96,6 +103,7 @@ export default function ShotCard({
   onVersionSelect,
   onBranchFrom,
   onEditImage,
+  onVideoVersionSelect,
   onGenerateVideoPrompt,
   onEnhanceVideoPrompt,
   isGeneratingPrompt,
@@ -105,6 +113,7 @@ export default function ShotCard({
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showVideoVersionHistory, setShowVideoVersionHistory] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -334,6 +343,43 @@ export default function ShotCard({
           </button>
         )}
 
+        {/* Video Version Timeline - collapsible */}
+        {videoVersionCount > 0 && showVideoVersionHistory && (
+          <div className="border-t border-border bg-muted/30 p-2">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Video Takes ({videoVersionCount})
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0"
+                onClick={() => setShowVideoVersionHistory(false)}
+              >
+                <ChevronUp className="h-3 w-3" />
+              </Button>
+            </div>
+            <VideoVersionTimeline
+              versions={videoVersions}
+              currentVersionId={currentVideoVersion?.id || null}
+              onVersionSelect={(versionId) => onVideoVersionSelect(shot.id, versionId)}
+              compact
+            />
+          </div>
+        )}
+
+        {/* Video version indicator bar */}
+        {videoVersionCount > 1 && !showVideoVersionHistory && (
+          <button
+            onClick={() => setShowVideoVersionHistory(true)}
+            className="w-full flex items-center justify-center gap-1 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border-t border-border"
+          >
+            <Play className="h-3 w-3" />
+            <span>Take {currentVideoVersion?.version_number || 1} of {videoVersionCount}</span>
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        )}
+
         {/* Content Area */}
         <div className="p-3 space-y-2">
           {/* Video Prompt with AI Buttons */}
@@ -459,22 +505,113 @@ export default function ShotCard({
         </div>
       </Card>
 
-      {/* Video Preview Dialog */}
-      <Dialog open={showVideoDialog} onOpenChange={setShowVideoDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Shot #{shot.order} - Video Preview</DialogTitle>
-          </DialogHeader>
-          {shot.video_url && (
-            <video
-              src={shot.video_url}
-              controls
-              autoPlay
-              className="w-full rounded-lg"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Video Preview — MPV child window overlay */}
+      {showVideoDialog && shot.video_url && (
+        <MpvVideoOverlay
+          videoUrl={shot.video_url}
+          title={`Shot #${shot.order} - Video Preview`}
+          onClose={() => setShowVideoDialog(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// ─── MPV overlay for shot video preview ─────────────────────────────────────
+
+interface MpvVideoOverlayProps {
+  videoUrl: string;
+  title: string;
+  onClose: () => void;
+}
+
+function MpvVideoOverlay({ videoUrl, title, onClose }: MpvVideoOverlayProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let destroyed = false;
+
+    async function startMpv() {
+      const scale = await getCurrentWindow().scaleFactor();
+      const r = el!.getBoundingClientRect();
+      const rect = {
+        x: Math.round(r.left * scale),
+        y: Math.round(r.top * scale),
+        w: Math.round(r.width * scale),
+        h: Math.round(r.height * scale),
+      };
+      await invoke("mpv_start", rect);
+      if (destroyed) { invoke("mpv_stop"); return; }
+
+      const path = assetUrlToPath(videoUrl);
+      if (path) {
+        await invoke("mpv_load_file", { path });
+        await invoke("mpv_resume");
+      }
+
+      // Keep mpv window in sync if app window moves
+      const win = getCurrentWindow();
+      const unlistenMove = await win.onMoved(sync);
+      const unlistenResize = await win.onResized(sync);
+      if (destroyed) {
+        unlistenMove(); unlistenResize();
+        return;
+      }
+      // Store unlisten fns for cleanup
+      (el as HTMLDivElement & { _mpvCleanup?: () => void })._mpvCleanup = () => {
+        unlistenMove(); unlistenResize();
+      };
+    }
+
+    async function sync() {
+      if (!el || destroyed) return;
+      const scale = await getCurrentWindow().scaleFactor();
+      const r = el.getBoundingClientRect();
+      invoke("mpv_update_geometry", {
+        x: Math.round(r.left * scale),
+        y: Math.round(r.top * scale),
+        w: Math.round(r.width * scale),
+        h: Math.round(r.height * scale),
+      }).catch(() => {});
+    }
+
+    startMpv().catch(console.error);
+
+    return () => {
+      destroyed = true;
+      (el as HTMLDivElement & { _mpvCleanup?: () => void })._mpvCleanup?.();
+      invoke("mpv_stop").catch(() => {});
+    };
+  }, [videoUrl]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-50 bg-black/80"
+        onClick={onClose}
+      />
+      {/* Header row — above the video, safe from MPV overlap */}
+      <div className="fixed top-4 left-0 right-0 z-[60] flex items-center justify-between px-6 pointer-events-none">
+        <span className="text-white font-medium text-sm bg-black/60 px-3 py-1 rounded pointer-events-none">
+          {title}
+        </span>
+        <button
+          className="text-white bg-black/60 hover:bg-black/80 rounded p-1 pointer-events-auto"
+          onClick={onClose}
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      {/* MPV target — mpv renders as X11 child window on top of this div */}
+      <div className="fixed inset-0 z-[55] flex items-center justify-center pointer-events-none">
+        <div
+          ref={containerRef}
+          className="w-full max-w-3xl aspect-video bg-black"
+        />
+      </div>
     </>
   );
 }

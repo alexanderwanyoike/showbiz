@@ -1,0 +1,13 @@
+{
+  "id": "seedream-4.5",
+  "name": "Seedream 4.5",
+  "description": "ByteDance's high-quality text-to-image model via kie.ai",
+  "transport": "kie-image",
+  "enabled": true,
+  "apiKeyProvider": "kie",
+  "models": {
+    "generate": "seedream/4.5-text-to-image"
+  },
+  "supportsEditing": false,
+  "supportsInpainting": false
+}

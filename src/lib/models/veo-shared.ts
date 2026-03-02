@@ -1,3 +1,4 @@
+import { fetch } from "./http";
 import { parseGoogleApiError } from "./types";
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";

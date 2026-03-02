@@ -1,0 +1,22 @@
+{
+  "id": "hailuo-2.3",
+  "name": "Hailuo 2.3 Pro",
+  "description": "MiniMax's high-fidelity 6s video model via kie.ai",
+  "transport": "kie-video",
+  "enabled": true,
+  "apiKeyProvider": "kie",
+  "models": {
+    "textToVideo": "hailuo/02-text-to-video-pro",
+    "imageToVideo": "hailuo/2-3-image-to-video-pro"
+  },
+  "paramMapping": {
+    "imageInput": "image_url",
+    "imageFormat": "string"
+  },
+  "capabilities": {
+    "durations": ["6"]
+  },
+  "defaults": {
+    "duration": "6"
+  }
+}

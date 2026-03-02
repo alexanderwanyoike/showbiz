@@ -8,6 +8,7 @@ pub fn init(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let base = get_media_base_dir(app);
     std::fs::create_dir_all(base.join("images").join("versions"))?;
     std::fs::create_dir_all(base.join("videos"))?;
+    std::fs::create_dir_all(base.join("videos").join("versions"))?;
     std::fs::create_dir_all(base.join("masks"))?;
     Ok(())
 }
@@ -255,6 +256,40 @@ pub fn delete_mask_images(app: &AppHandle, shot_id: &str) -> bool {
     let mask_dir = base.join("masks").join(shot_id);
     if mask_dir.exists() {
         std::fs::remove_dir_all(&mask_dir).is_ok()
+    } else {
+        false
+    }
+}
+
+/// Save a version video from raw bytes. Returns relative path like "videos/versions/shotid/vN.ext".
+pub fn save_version_video(
+    app: &AppHandle,
+    shot_id: &str,
+    version_number: i32,
+    data: &[u8],
+    mime_type: &str,
+) -> Result<String, String> {
+    let base = get_media_base_dir(app);
+    let version_dir = base.join("videos").join("versions").join(shot_id);
+    std::fs::create_dir_all(&version_dir)
+        .map_err(|e| format!("Failed to create video version dir: {}", e))?;
+
+    let ext = video_mime_to_ext(mime_type);
+    let filename = format!("v{}.{}", version_number, ext);
+    let filepath = version_dir.join(&filename);
+
+    std::fs::write(&filepath, data)
+        .map_err(|e| format!("Failed to write version video: {}", e))?;
+
+    Ok(format!("videos/versions/{}/{}", shot_id, filename))
+}
+
+/// Delete all version videos for a shot.
+pub fn delete_version_videos(app: &AppHandle, shot_id: &str) -> bool {
+    let base = get_media_base_dir(app);
+    let version_dir = base.join("videos").join("versions").join(shot_id);
+    if version_dir.exists() {
+        std::fs::remove_dir_all(&version_dir).is_ok()
     } else {
         false
     }

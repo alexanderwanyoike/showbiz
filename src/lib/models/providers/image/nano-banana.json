@@ -1,0 +1,17 @@
+{
+  "id": "nano-banana",
+  "name": "Nano Banana",
+  "description": "Fast image generation via Gemini 2.5 Flash",
+  "transport": "google-image",
+  "transportOptions": {
+    "apiPattern": "generateContent"
+  },
+  "enabled": true,
+  "apiKeyProvider": "gemini",
+  "models": {
+    "generate": "gemini-2.5-flash-image",
+    "edit": "gemini-2.5-flash-image"
+  },
+  "supportsEditing": true,
+  "supportsInpainting": false
+}

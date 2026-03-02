@@ -1,13 +1,30 @@
-export type ImageModelId = "imagen4" | "nano-banana" | "nano-banana-pro";
-export type VideoModelId = "veo3" | "veo3-fast" | "ltx-video";
+export type ImageModelId = "imagen4" | "nano-banana" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5";
+export type VideoModelId =
+  | "veo3" | "veo3-fast" | "ltx-video"
+  | "kling-3" | "kling-2.6" | "seedance-2" | "seedance-1.5"
+  | "hailuo-2.3" | "wan-2.6" | "sora-2-pro" | "grok-imagine";
+
+export interface VideoModelCapabilities {
+  durations: string[];
+  resolutions?: string[];
+  aspectRatios?: string[];
+  hasAudio?: boolean;
+}
+
+export interface VideoGenerationSettings {
+  duration: string;
+  resolution?: string;
+  aspectRatio?: string;
+  audio?: boolean;
+}
 
 export interface ImageModelProvider {
   id: ImageModelId;
   name: string;
   description: string;
-  apiKeyProvider: "gemini" | "ltx";
+  enabled: boolean;
+  apiKeyProvider: "gemini" | "ltx" | "kie";
   generateImage(prompt: string, apiKey: string): Promise<string>;
-  // Image editing capabilities
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
   editImage?(
@@ -27,19 +44,23 @@ export interface VideoModelProvider {
   id: VideoModelId;
   name: string;
   description: string;
-  apiKeyProvider: "gemini" | "ltx";
+  enabled: boolean;
+  apiKeyProvider: "gemini" | "ltx" | "kie";
+  capabilities: VideoModelCapabilities;
+  defaults: VideoGenerationSettings;
   supportsImageToVideo: boolean;
   supportsTextToVideo: boolean;
   generateVideo(
     prompt: string,
     imageBase64: string | null,
-    apiKey: string
+    apiKey: string,
+    settings?: VideoGenerationSettings
   ): Promise<string>;
-  // Generate video and return as Blob (avoids base64 encoding overhead)
   generateVideoBlob?(
     prompt: string,
     imageBase64: string | null,
-    apiKey: string
+    apiKey: string,
+    settings?: VideoGenerationSettings
   ): Promise<Blob>;
 }
 
@@ -47,7 +68,8 @@ export interface ImageModelInfo {
   id: ImageModelId;
   name: string;
   description: string;
-  apiKeyProvider: "gemini" | "ltx";
+  enabled: boolean;
+  apiKeyProvider: "gemini" | "ltx" | "kie";
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
 }
@@ -56,7 +78,10 @@ export interface VideoModelInfo {
   id: VideoModelId;
   name: string;
   description: string;
-  apiKeyProvider: "gemini" | "ltx";
+  enabled: boolean;
+  apiKeyProvider: "gemini" | "ltx" | "kie";
+  capabilities: VideoModelCapabilities;
+  defaults: VideoGenerationSettings;
   supportsImageToVideo: boolean;
   supportsTextToVideo: boolean;
 }

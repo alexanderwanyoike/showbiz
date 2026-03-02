@@ -1,0 +1,23 @@
+{
+  "id": "veo3",
+  "name": "Veo 3",
+  "description": "Google's high-quality video generation model with audio",
+  "transport": "google-video",
+  "transportOptions": {
+    "initialPollInterval": 5000,
+    "maxPollInterval": 10000
+  },
+  "enabled": true,
+  "apiKeyProvider": "gemini",
+  "models": {
+    "textToVideo": "veo-3.0-generate-001",
+    "imageToVideo": "veo-3.0-generate-001"
+  },
+  "capabilities": {
+    "durations": ["8"],
+    "hasAudio": true
+  },
+  "defaults": {
+    "duration": "8"
+  }
+}

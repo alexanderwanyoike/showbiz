@@ -1,0 +1,30 @@
+{
+  "id": "kling-2.6",
+  "name": "Kling 2.6",
+  "description": "Kuaishou's efficient model — 5–10s with audio via kie.ai",
+  "transport": "kie-video",
+  "enabled": true,
+  "apiKeyProvider": "kie",
+  "models": {
+    "textToVideo": "kling-2.6/text-to-video",
+    "imageToVideo": "kling-2.6/image-to-video"
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "aspectRatio": "aspect_ratio",
+    "audio": "sound",
+    "imageInput": "image_urls",
+    "imageFormat": "array"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["5", "10"],
+    "aspectRatios": ["16:9", "9:16", "1:1"],
+    "hasAudio": true
+  },
+  "defaults": {
+    "duration": "5",
+    "aspectRatio": "16:9",
+    "audio": true
+  }
+}

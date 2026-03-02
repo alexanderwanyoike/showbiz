@@ -8,6 +8,10 @@
     "shell:allow-open",
     "core:window:default",
     "core:window:allow-set-title",
-    "core:app:default"
+    "core:app:default",
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "https://*" }]
+    }
   ]
 }
