@@ -434,8 +434,19 @@ fn find_mpv_binary() -> Result<String, String> {
         }
     }
 
-    // Fall back to bare "mpv" and let the OS resolve it
-    Ok("mpv".to_string())
+    #[cfg(target_os = "linux")]
+    let install_hint = "Install it with: sudo apt install mpv (Debian/Ubuntu) or sudo dnf install mpv (Fedora)";
+    #[cfg(target_os = "macos")]
+    let install_hint = "Install it with: brew install mpv";
+    #[cfg(target_os = "windows")]
+    let install_hint = "Install it with: scoop install mpv (or winget install mpv)";
+    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    let install_hint = "Install mpv from https://mpv.io";
+
+    Err(format!(
+        "mpv not found. Video playback requires mpv to be installed.\n{install_hint}\n\
+         Or set SHOWBIZ_MPV_PATH to the path of the mpv binary."
+    ))
 }
 
 // ─── Tauri commands ──────────────────────────────────────────────────────────
