@@ -38,6 +38,8 @@ pub fn get_api_key_status(state: State<'_, DbState>) -> Result<Vec<ApiKeyStatus>
         ("gemini", "Google AI (Gemini)"),
         ("ltx", "LTX Video"),
         ("kie", "Kie AI"),
+        ("fal", "fal.ai"),
+        ("replicate", "Replicate"),
     ];
 
     let mut statuses = Vec::new();

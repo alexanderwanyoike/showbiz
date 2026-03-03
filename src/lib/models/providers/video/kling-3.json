@@ -5,6 +5,8 @@
   "transport": "kie-video",
   "enabled": true,
   "apiKeyProvider": "kie",
+  "provider": "kie.ai",
+  "modelFamily": "kling-3",
   "models": {
     "textToVideo": "kling-3.0/video",
     "imageToVideo": "kling-3.0/video"

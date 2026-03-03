@@ -4,6 +4,8 @@ import type {
   ImageModelProvider,
   VideoModelProvider,
   VideoGenerationSettings,
+  VideoModelInfo,
+  ImageModelInfo,
 } from "./types";
 import { blobToBase64 } from "./types";
 import {
@@ -52,7 +54,7 @@ function videoConfigToProvider(config: VideoModelConfig): VideoModelProvider {
     name: config.name,
     description: config.description,
     enabled: config.enabled,
-    apiKeyProvider: config.apiKeyProvider as "gemini" | "ltx" | "kie",
+    apiKeyProvider: config.apiKeyProvider as "gemini" | "ltx" | "kie" | "fal" | "replicate",
     capabilities: config.capabilities,
     defaults: { ...config.defaults },
     supportsImageToVideo: !!config.models.imageToVideo,
@@ -99,7 +101,7 @@ function imageConfigToProvider(config: ImageModelConfig): ImageModelProvider {
     name: config.name,
     description: config.description,
     enabled: config.enabled,
-    apiKeyProvider: config.apiKeyProvider as "gemini" | "ltx" | "kie",
+    apiKeyProvider: config.apiKeyProvider as "gemini" | "ltx" | "kie" | "fal" | "replicate",
     supportsImageEditing: config.supportsEditing,
     supportsInpainting: config.supportsInpainting,
 
@@ -132,3 +134,86 @@ export const imageProviders: Map<ImageModelId, ImageModelProvider> = new Map(
 
 // Export raw configs for testing
 export { videoConfigs, imageConfigs };
+
+export interface ModelGroup<T> {
+  family: string;
+  displayName: string;
+  models: T[];
+}
+
+function getDisplayName(familyModels: { name: string; provider?: string }[]): string {
+  // Use the model name from any entry (they should share the same base name)
+  return familyModels[0].name;
+}
+
+export function getGroupedVideoModels(): ModelGroup<VideoModelInfo>[] {
+  const enabled = Array.from(videoProviders.values()).filter((m) => m.enabled);
+  const familyMap = new Map<string, { info: VideoModelInfo; config: VideoModelConfig }[]>();
+
+  for (const provider of enabled) {
+    const config = videoConfigs.find((c) => c.id === provider.id);
+    const family = config?.modelFamily ?? provider.id;
+    const info: VideoModelInfo = {
+      id: provider.id,
+      name: provider.name,
+      description: provider.description,
+      enabled: provider.enabled,
+      apiKeyProvider: provider.apiKeyProvider,
+      capabilities: provider.capabilities,
+      defaults: provider.defaults,
+      supportsImageToVideo: provider.supportsImageToVideo,
+      supportsTextToVideo: provider.supportsTextToVideo,
+    };
+    if (!familyMap.has(family)) familyMap.set(family, []);
+    familyMap.get(family)!.push({ info, config: config! });
+  }
+
+  const groups: ModelGroup<VideoModelInfo>[] = [];
+  for (const [family, entries] of familyMap) {
+    // Sort models within group by provider name
+    entries.sort((a, b) => (a.config?.provider ?? "").localeCompare(b.config?.provider ?? ""));
+    groups.push({
+      family,
+      displayName: getDisplayName(entries.map((e) => ({ name: e.info.name, provider: e.config?.provider }))),
+      models: entries.map((e) => e.info),
+    });
+  }
+
+  // Sort groups alphabetically by displayName
+  groups.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  return groups;
+}
+
+export function getGroupedImageModels(): ModelGroup<ImageModelInfo>[] {
+  const enabled = Array.from(imageProviders.values()).filter((m) => m.enabled);
+  const familyMap = new Map<string, { info: ImageModelInfo; config: ImageModelConfig }[]>();
+
+  for (const provider of enabled) {
+    const config = imageConfigs.find((c) => c.id === provider.id);
+    const family = config?.modelFamily ?? provider.id;
+    const info: ImageModelInfo = {
+      id: provider.id,
+      name: provider.name,
+      description: provider.description,
+      enabled: provider.enabled,
+      apiKeyProvider: provider.apiKeyProvider,
+      supportsImageEditing: provider.supportsImageEditing,
+      supportsInpainting: provider.supportsInpainting,
+    };
+    if (!familyMap.has(family)) familyMap.set(family, []);
+    familyMap.get(family)!.push({ info, config: config! });
+  }
+
+  const groups: ModelGroup<ImageModelInfo>[] = [];
+  for (const [family, entries] of familyMap) {
+    entries.sort((a, b) => (a.config?.provider ?? "").localeCompare(b.config?.provider ?? ""));
+    groups.push({
+      family,
+      displayName: getDisplayName(entries.map((e) => ({ name: e.info.name, provider: e.config?.provider }))),
+      models: entries.map((e) => e.info),
+    });
+  }
+
+  groups.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  return groups;
+}

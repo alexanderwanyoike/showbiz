@@ -8,6 +8,8 @@
   },
   "enabled": true,
   "apiKeyProvider": "kie",
+  "provider": "kie.ai",
+  "modelFamily": "flux-kontext",
   "models": {
     "generate": "flux-kontext"
   },

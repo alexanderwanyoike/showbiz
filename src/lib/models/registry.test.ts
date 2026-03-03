@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { videoConfigs, imageConfigs, videoProviders, imageProviders } from "./registry";
+import { videoConfigs, imageConfigs, videoProviders, imageProviders, getGroupedVideoModels, getGroupedImageModels } from "./registry";
 import { VALID_VIDEO_TRANSPORTS, VALID_IMAGE_TRANSPORTS } from "./transports";
 
 describe("video configs", () => {
-  it("loads all 11 video configs", () => {
-    expect(videoConfigs).toHaveLength(11);
+  it("loads all 19 video configs", () => {
+    expect(videoConfigs).toHaveLength(19);
   });
 
   it("all configs have valid transport", () => {
@@ -21,17 +21,17 @@ describe("video configs", () => {
 
   it("all other video models are enabled", () => {
     const enabled = videoConfigs.filter((c) => c.enabled);
-    expect(enabled).toHaveLength(10);
+    expect(enabled).toHaveLength(18);
   });
 
   it("creates providers for all configs", () => {
-    expect(videoProviders.size).toBe(11);
+    expect(videoProviders.size).toBe(19);
   });
 });
 
 describe("image configs", () => {
-  it("loads all 5 image configs", () => {
-    expect(imageConfigs).toHaveLength(5);
+  it("loads all 9 image configs", () => {
+    expect(imageConfigs).toHaveLength(9);
   });
 
   it("all configs have valid transport", () => {
@@ -42,10 +42,47 @@ describe("image configs", () => {
 
   it("all image models are enabled", () => {
     const enabled = imageConfigs.filter((c) => c.enabled);
-    expect(enabled).toHaveLength(5);
+    expect(enabled).toHaveLength(9);
   });
 
   it("creates providers for all configs", () => {
-    expect(imageProviders.size).toBe(5);
+    expect(imageProviders.size).toBe(9);
+  });
+});
+
+describe("model grouping", () => {
+  it("groups same-family video models", () => {
+    const groups = getGroupedVideoModels();
+    const klingGroup = groups.find((g) => g.family === "kling-3");
+    expect(klingGroup).toBeDefined();
+    expect(klingGroup!.models.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("puts unique models in single-entry groups", () => {
+    const groups = getGroupedVideoModels();
+    const veo3Group = groups.find((g) => g.family === "veo3");
+    expect(veo3Group).toBeDefined();
+    expect(veo3Group!.models).toHaveLength(1);
+  });
+
+  it("excludes disabled models from groups", () => {
+    const groups = getGroupedVideoModels();
+    const allModelIds = groups.flatMap((g) => g.models.map((m) => m.id));
+    expect(allModelIds).not.toContain("seedance-2");
+  });
+
+  it("every enabled video model is in exactly one group", () => {
+    const groups = getGroupedVideoModels();
+    const allModelIds = groups.flatMap((g) => g.models.map((m) => m.id));
+    const enabledCount = Array.from(videoProviders.values()).filter((m) => m.enabled).length;
+    expect(allModelIds).toHaveLength(enabledCount);
+    expect(new Set(allModelIds).size).toBe(enabledCount);
+  });
+
+  it("groups same-family image models", () => {
+    const groups = getGroupedImageModels();
+    const fluxSchnellGroup = groups.find((g) => g.family === "flux-schnell");
+    expect(fluxSchnellGroup).toBeDefined();
+    expect(fluxSchnellGroup!.models.length).toBeGreaterThanOrEqual(2);
   });
 });

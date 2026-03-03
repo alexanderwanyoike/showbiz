@@ -6,7 +6,7 @@ import type {
   ImageModelInfo,
   VideoModelInfo,
 } from "./types";
-import { videoProviders, imageProviders } from "./registry";
+import { videoProviders, imageProviders, getGroupedVideoModels, getGroupedImageModels, type ModelGroup } from "./registry";
 
 export function getImageModel(id: ImageModelId): ImageModelProvider {
   const model = imageProviders.get(id);
@@ -54,4 +54,5 @@ export function getAvailableVideoModels(): VideoModelInfo[] {
     }));
 }
 
-export type { ImageModelId, VideoModelId, ImageModelInfo, VideoModelInfo };
+export { getGroupedVideoModels, getGroupedImageModels };
+export type { ImageModelId, VideoModelId, ImageModelInfo, VideoModelInfo, ModelGroup };

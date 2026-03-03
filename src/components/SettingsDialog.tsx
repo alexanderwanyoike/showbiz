@@ -39,9 +39,13 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [geminiKey, setGeminiKey] = useState("");
   const [ltxKey, setLtxKey] = useState("");
   const [kieKey, setKieKey] = useState("");
+  const [falKey, setFalKey] = useState("");
+  const [replicateKey, setReplicateKey] = useState("");
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showLtxKey, setShowLtxKey] = useState(false);
   const [showKieKey, setShowKieKey] = useState(false);
+  const [showFalKey, setShowFalKey] = useState(false);
+  const [showReplicateKey, setShowReplicateKey] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -62,7 +66,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   }
 
   async function handleSaveKey(provider: ApiKeyProvider) {
-    const key = provider === "gemini" ? geminiKey : provider === "ltx" ? ltxKey : kieKey;
+    const key = provider === "gemini" ? geminiKey : provider === "ltx" ? ltxKey : provider === "kie" ? kieKey : provider === "fal" ? falKey : replicateKey;
     if (!key.trim()) return;
 
     setSavingProvider(provider);
@@ -72,7 +76,9 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         // Clear the input and refresh status
         if (provider === "gemini") setGeminiKey("");
         else if (provider === "ltx") setLtxKey("");
-        else setKieKey("");
+        else if (provider === "kie") setKieKey("");
+        else if (provider === "fal") setFalKey("");
+        else setReplicateKey("");
         await loadApiKeyStatus();
       } else {
         alert(result.error || "Failed to save API key");
@@ -225,6 +231,26 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               setKieKey,
               showKieKey,
               setShowKieKey
+            )}
+
+            {renderApiKeySection(
+              "fal",
+              "fal.ai",
+              "Required for Kling, Hailuo, Wan, and Flux models via fal.ai",
+              falKey,
+              setFalKey,
+              showFalKey,
+              setShowFalKey
+            )}
+
+            {renderApiKeySection(
+              "replicate",
+              "Replicate",
+              "Required for Kling, Wan, Hailuo, Luma, and Flux models via Replicate",
+              replicateKey,
+              setReplicateKey,
+              showReplicateKey,
+              setShowReplicateKey
             )}
           </div>
         )}
