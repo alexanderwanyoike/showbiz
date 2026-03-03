@@ -57,7 +57,7 @@ export interface ShotWithUrls {
   updated_at: string;
 }
 
-export type ApiKeyProvider = "gemini" | "ltx" | "kie";
+export type ApiKeyProvider = "gemini" | "ltx" | "kie" | "fal" | "replicate";
 
 export interface ApiKeyStatus {
   provider: ApiKeyProvider;

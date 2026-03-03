@@ -1,8 +1,13 @@
-export type ImageModelId = "imagen4" | "nano-banana" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5";
+export type ImageModelId =
+  | "imagen4" | "nano-banana" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5"
+  | "flux-schnell-fal" | "flux-dev-fal"
+  | "flux-schnell-replicate" | "flux-dev-replicate";
 export type VideoModelId =
   | "veo3" | "veo3-fast" | "ltx-video"
   | "kling-3" | "kling-2.6" | "seedance-2" | "seedance-1.5"
-  | "hailuo-2.3" | "wan-2.6" | "sora-2-pro" | "grok-imagine";
+  | "hailuo-2.3" | "wan-2.6" | "sora-2-pro" | "grok-imagine"
+  | "kling-3-fal" | "kling-2.6-fal" | "hailuo-2.3-fal" | "wan-2.2-fal"
+  | "kling-2.6-replicate" | "wan-2.5-replicate" | "hailuo-02-replicate" | "luma-ray-3";
 
 export interface VideoModelCapabilities {
   durations: string[];
@@ -23,7 +28,7 @@ export interface ImageModelProvider {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
   generateImage(prompt: string, apiKey: string): Promise<string>;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
@@ -45,7 +50,7 @@ export interface VideoModelProvider {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
   capabilities: VideoModelCapabilities;
   defaults: VideoGenerationSettings;
   supportsImageToVideo: boolean;
@@ -69,7 +74,7 @@ export interface ImageModelInfo {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
 }
@@ -79,7 +84,7 @@ export interface VideoModelInfo {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
   capabilities: VideoModelCapabilities;
   defaults: VideoGenerationSettings;
   supportsImageToVideo: boolean;
