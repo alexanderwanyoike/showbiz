@@ -2,6 +2,7 @@ import type { VideoTransport } from "./types";
 import type { VideoModelConfig } from "../config-schema";
 import type { VideoGenerationSettings } from "../types";
 import { submitFalQueue, pollFalResult, uploadImageToFal } from "../fal-shared";
+import { fetch } from "../http";
 
 export const falVideoTransport: VideoTransport = {
   async generateVideo(
@@ -51,7 +52,6 @@ export const falVideoTransport: VideoTransport = {
     );
 
     // Download video
-    const { fetch } = await import("../http");
     const videoRes = await fetch(result.video.url);
     if (!videoRes.ok)
       throw new Error(`Failed to download fal video: ${videoRes.status}`);

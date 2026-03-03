@@ -4,41 +4,24 @@ import { kieImageTransport } from "./kie-image";
 import { googleVideoTransport } from "./google-video";
 import { googleImageTransport } from "./google-image";
 import { ltxTransport } from "./ltx";
-
-// Placeholder transport — replaced with real implementations after provider agents merge
-const notImplemented = (name: string) => {
-  const handler = () => {
-    throw new Error(`Transport "${name}" is not yet implemented`);
-  };
-  return handler;
-};
-
-const falVideoPlaceholder: VideoTransport = {
-  generateVideo: notImplemented("fal-video") as VideoTransport["generateVideo"],
-};
-const falImagePlaceholder: ImageTransport = {
-  generateImage: notImplemented("fal-image") as ImageTransport["generateImage"],
-};
-const replicateVideoPlaceholder: VideoTransport = {
-  generateVideo: notImplemented("replicate-video") as VideoTransport["generateVideo"],
-};
-const replicateImagePlaceholder: ImageTransport = {
-  generateImage: notImplemented("replicate-image") as ImageTransport["generateImage"],
-};
+import { falVideoTransport } from "./fal-video";
+import { falImageTransport } from "./fal-image";
+import { replicateVideoTransport } from "./replicate-video";
+import { replicateImageTransport } from "./replicate-image";
 
 const videoTransports: Record<string, VideoTransport> = {
   "kie-video": kieVideoTransport,
   "google-video": googleVideoTransport,
   "ltx": ltxTransport,
-  "fal-video": falVideoPlaceholder,
-  "replicate-video": replicateVideoPlaceholder,
+  "fal-video": falVideoTransport,
+  "replicate-video": replicateVideoTransport,
 };
 
 const imageTransports: Record<string, ImageTransport> = {
   "kie-image": kieImageTransport,
   "google-image": googleImageTransport,
-  "fal-image": falImagePlaceholder,
-  "replicate-image": replicateImagePlaceholder,
+  "fal-image": falImageTransport,
+  "replicate-image": replicateImageTransport,
 };
 
 export function getVideoTransport(id: string): VideoTransport {
