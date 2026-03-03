@@ -1,0 +1,26 @@
+{
+  "id": "hailuo-02-replicate",
+  "name": "Hailuo 02",
+  "description": "MiniMax's video model via Replicate",
+  "transport": "replicate-video",
+  "transportOptions": {
+    "model": "minimax/video-01-live"
+  },
+  "enabled": true,
+  "apiKeyProvider": "replicate",
+  "provider": "Replicate",
+  "modelFamily": "hailuo-2.3",
+  "models": {
+    "imageToVideo": "hailuo-rep-i2v"
+  },
+  "paramMapping": {
+    "imageInput": "first_frame_image"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["6"]
+  },
+  "defaults": {
+    "duration": "6"
+  }
+}

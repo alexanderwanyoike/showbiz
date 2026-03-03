@@ -1,0 +1,27 @@
+{
+  "id": "luma-ray-3",
+  "name": "Luma Ray 3",
+  "description": "Luma AI's latest video generation model via Replicate",
+  "transport": "replicate-video",
+  "transportOptions": {
+    "model": "luma/ray",
+    "textToVideoModel": "luma/ray"
+  },
+  "enabled": true,
+  "apiKeyProvider": "replicate",
+  "provider": "Replicate",
+  "models": {
+    "textToVideo": "luma-ray-3-t2v",
+    "imageToVideo": "luma-ray-3-i2v"
+  },
+  "paramMapping": {
+    "imageInput": "image"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["5"]
+  },
+  "defaults": {
+    "duration": "5"
+  }
+}

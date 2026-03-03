@@ -1,0 +1,28 @@
+{
+  "id": "kling-2.6-replicate",
+  "name": "Kling 2.6",
+  "description": "Kuaishou's efficient model via Replicate",
+  "transport": "replicate-video",
+  "transportOptions": {
+    "model": "kuaishou/kling-v2.6-5s-i2v",
+    "textToVideoModel": "kuaishou/kling-v2.6-5s-t2v"
+  },
+  "enabled": true,
+  "apiKeyProvider": "replicate",
+  "provider": "Replicate",
+  "modelFamily": "kling-2.6",
+  "models": {
+    "textToVideo": "kling-2.6-rep-t2v",
+    "imageToVideo": "kling-2.6-rep-i2v"
+  },
+  "paramMapping": {
+    "duration": "duration"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["5"]
+  },
+  "defaults": {
+    "duration": "5"
+  }
+}
