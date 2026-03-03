@@ -75,6 +75,7 @@ export interface ImageModelInfo {
   description: string;
   enabled: boolean;
   apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
+  provider?: string;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
 }
@@ -85,6 +86,7 @@ export interface VideoModelInfo {
   description: string;
   enabled: boolean;
   apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
+  provider?: string;
   capabilities: VideoModelCapabilities;
   defaults: VideoGenerationSettings;
   supportsImageToVideo: boolean;

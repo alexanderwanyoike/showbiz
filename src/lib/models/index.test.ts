@@ -54,6 +54,16 @@ describe("getAvailableImageModels", () => {
       expect(model.apiKeyProvider).toBeTruthy();
     }
   });
+
+  it("fal/replicate models have provider field, others do not", () => {
+    const models = getAvailableImageModels();
+    const falModel = models.find((m) => m.id === "flux-schnell-fal");
+    expect(falModel?.provider).toBe("fal.ai");
+    const replicateModel = models.find((m) => m.id === "flux-schnell-replicate");
+    expect(replicateModel?.provider).toBe("Replicate");
+    const imagen = models.find((m) => m.id === "imagen4");
+    expect(imagen?.provider).toBeUndefined();
+  });
 });
 
 describe("getAvailableVideoModels", () => {
@@ -89,5 +99,15 @@ describe("getAvailableVideoModels", () => {
       expect(model.capabilities).toBeDefined();
       expect(model.defaults).toBeDefined();
     }
+  });
+
+  it("fal/replicate models have provider field, others do not", () => {
+    const models = getAvailableVideoModels();
+    const falModel = models.find((m) => m.id === "kling-2.6-fal");
+    expect(falModel?.provider).toBe("fal.ai");
+    const replicateModel = models.find((m) => m.id === "kling-2.6-replicate");
+    expect(replicateModel?.provider).toBe("Replicate");
+    const veo = models.find((m) => m.id === "veo3");
+    expect(veo?.provider).toBeUndefined();
   });
 });

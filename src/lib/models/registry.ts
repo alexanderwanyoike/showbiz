@@ -159,6 +159,7 @@ export function getGroupedVideoModels(): ModelGroup<VideoModelInfo>[] {
       description: provider.description,
       enabled: provider.enabled,
       apiKeyProvider: provider.apiKeyProvider,
+      provider: config?.provider,
       capabilities: provider.capabilities,
       defaults: provider.defaults,
       supportsImageToVideo: provider.supportsImageToVideo,
@@ -197,6 +198,7 @@ export function getGroupedImageModels(): ModelGroup<ImageModelInfo>[] {
       description: provider.description,
       enabled: provider.enabled,
       apiKeyProvider: provider.apiKeyProvider,
+      provider: config?.provider,
       supportsImageEditing: provider.supportsImageEditing,
       supportsInpainting: provider.supportsInpainting,
     };

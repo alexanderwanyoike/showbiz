@@ -17,16 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from "@/components/ui/dropdown-menu";
+import { ModelPicker } from "../components/ModelPicker";
 import {
   Popover,
   PopoverContent,
@@ -797,111 +788,29 @@ export default function StoryboardPage() {
 
           {/* Model Selectors — storyboard tab only */}
           {activeTab === "storyboard" && <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <ModelPicker
+              groups={imageGroups}
+              value={imageModel}
+              onSelect={(id) => handleChangeImageModel(id as ImageModelId)}
+              trigger={
                 <Button variant="outline" size="sm" className="gap-2">
                   <ImageIcon className="h-4 w-4" />
                   {imageModels.find((m) => m.id === imageModel)?.name || "Image"}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuRadioGroup
-                  value={imageModel}
-                  onValueChange={(v) => handleChangeImageModel(v as ImageModelId)}
-                >
-                  {imageGroups.map((group) =>
-                    group.models.length === 1 ? (
-                      <DropdownMenuRadioItem key={group.models[0].id} value={group.models[0].id}>
-                        <div className="flex flex-col">
-                          <span>{group.models[0].name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {group.models[0].description}
-                          </span>
-                        </div>
-                      </DropdownMenuRadioItem>
-                    ) : (
-                      <DropdownMenuSub key={group.family}>
-                        <DropdownMenuSubTrigger>
-                          <div className="flex flex-col">
-                            <span>{group.displayName}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {group.models.length} providers
-                            </span>
-                          </div>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          <DropdownMenuRadioGroup
-                            value={imageModel}
-                            onValueChange={(v) => handleChangeImageModel(v as ImageModelId)}
-                          >
-                            {group.models.map((model) => (
-                              <DropdownMenuRadioItem key={model.id} value={model.id}>
-                                <div className="flex flex-col">
-                                  <span>{model.description}</span>
-                                </div>
-                              </DropdownMenuRadioItem>
-                            ))}
-                          </DropdownMenuRadioGroup>
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    )
-                  )}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              }
+            />
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <ModelPicker
+              groups={videoGroups}
+              value={videoModel}
+              onSelect={(id) => handleChangeVideoModel(id as VideoModelId)}
+              trigger={
                 <Button variant="outline" size="sm" className="gap-2">
                   <Video className="h-4 w-4" />
                   {videoModels.find((m) => m.id === videoModel)?.name || "Video"}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuRadioGroup
-                  value={videoModel}
-                  onValueChange={(v) => handleChangeVideoModel(v as VideoModelId)}
-                >
-                  {videoGroups.map((group) =>
-                    group.models.length === 1 ? (
-                      <DropdownMenuRadioItem key={group.models[0].id} value={group.models[0].id}>
-                        <div className="flex flex-col">
-                          <span>{group.models[0].name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {group.models[0].description}
-                          </span>
-                        </div>
-                      </DropdownMenuRadioItem>
-                    ) : (
-                      <DropdownMenuSub key={group.family}>
-                        <DropdownMenuSubTrigger>
-                          <div className="flex flex-col">
-                            <span>{group.displayName}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {group.models.length} providers
-                            </span>
-                          </div>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          <DropdownMenuRadioGroup
-                            value={videoModel}
-                            onValueChange={(v) => handleChangeVideoModel(v as VideoModelId)}
-                          >
-                            {group.models.map((model) => (
-                              <DropdownMenuRadioItem key={model.id} value={model.id}>
-                                <div className="flex flex-col">
-                                  <span>{model.description}</span>
-                                </div>
-                              </DropdownMenuRadioItem>
-                            ))}
-                          </DropdownMenuRadioGroup>
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    )
-                  )}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              }
+            />
 
             {/* Video Settings Popover */}
             {hasConfigurableSettings && currentVideoModel && (

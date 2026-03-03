@@ -85,4 +85,18 @@ describe("model grouping", () => {
     expect(fluxSchnellGroup).toBeDefined();
     expect(fluxSchnellGroup!.models.length).toBeGreaterThanOrEqual(2);
   });
+
+  it("grouped models include provider field from config", () => {
+    const groups = getGroupedVideoModels();
+    const klingGroup = groups.find((g) => g.family === "kling-2.6");
+    expect(klingGroup).toBeDefined();
+    const falModel = klingGroup!.models.find((m) => m.id === "kling-2.6-fal");
+    expect(falModel?.provider).toBe("fal.ai");
+    const replicateModel = klingGroup!.models.find((m) => m.id === "kling-2.6-replicate");
+    expect(replicateModel?.provider).toBe("Replicate");
+
+    const veo3Group = groups.find((g) => g.family === "veo3");
+    expect(veo3Group).toBeDefined();
+    expect(veo3Group!.models[0].provider).toBeUndefined();
+  });
 });
