@@ -1,0 +1,28 @@
+{
+  "id": "hailuo-2.3-fal",
+  "name": "Hailuo 2.3",
+  "description": "MiniMax's high-fidelity video model via fal.ai",
+  "transport": "fal-video",
+  "transportOptions": {
+    "textToVideoEndpoint": "fal-ai/minimax-video/video-01-live/text-to-video",
+    "imageToVideoEndpoint": "fal-ai/minimax-video/video-01-live/image-to-video"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "hailuo-2.3",
+  "models": {
+    "textToVideo": "hailuo-fal-t2v",
+    "imageToVideo": "hailuo-fal-i2v"
+  },
+  "paramMapping": {
+    "imageInput": "image_url"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["6"]
+  },
+  "defaults": {
+    "duration": "6"
+  }
+}

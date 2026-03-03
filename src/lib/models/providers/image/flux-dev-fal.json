@@ -1,0 +1,18 @@
+{
+  "id": "flux-dev-fal",
+  "name": "Flux Dev",
+  "description": "Black Forest Labs' high-quality image model via fal.ai",
+  "transport": "fal-image",
+  "transportOptions": {
+    "endpoint": "fal-ai/flux/dev"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "flux-dev",
+  "models": {
+    "generate": "flux-dev-fal"
+  },
+  "supportsEditing": false,
+  "supportsInpainting": false
+}
