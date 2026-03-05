@@ -32,8 +32,17 @@ download_macos_arm64() {
   }
 
   unzip -q "$tmp/mpv.zip" -d "$tmp/out"
-  # Official release contains mpv.app bundle
+  # Release zip contains mpv.tar.gz which has mpv.app bundle inside
+  local inner_tar=$(find "$tmp/out" -name "mpv.tar.gz" -type f | head -1)
+  if [ -n "$inner_tar" ]; then
+    tar xzf "$inner_tar" -C "$tmp/out"
+  fi
+
   local mpv_bin=$(find "$tmp/out" -path "*/Contents/MacOS/mpv" -type f | head -1)
+  if [ -z "$mpv_bin" ]; then
+    # Fallback: look for a standalone mpv binary
+    mpv_bin=$(find "$tmp/out" -name "mpv" -type f -perm +111 | head -1)
+  fi
   if [ -z "$mpv_bin" ]; then
     echo "ERROR: Could not find mpv binary in archive"
     echo "Archive contents:"
@@ -62,7 +71,15 @@ download_macos_x86() {
   }
 
   unzip -q "$tmp/mpv.zip" -d "$tmp/out"
+  local inner_tar=$(find "$tmp/out" -name "mpv.tar.gz" -type f | head -1)
+  if [ -n "$inner_tar" ]; then
+    tar xzf "$inner_tar" -C "$tmp/out"
+  fi
+
   local mpv_bin=$(find "$tmp/out" -path "*/Contents/MacOS/mpv" -type f | head -1)
+  if [ -z "$mpv_bin" ]; then
+    mpv_bin=$(find "$tmp/out" -name "mpv" -type f -perm +111 | head -1)
+  fi
   if [ -z "$mpv_bin" ]; then
     echo "ERROR: Could not find mpv binary in archive"
     return 1
