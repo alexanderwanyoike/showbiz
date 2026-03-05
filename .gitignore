@@ -53,3 +53,7 @@ next-env.d.ts
 # feature planning docs (personal notes)
 /features/
 /.notes/
+
+# Bundled mpv binaries (downloaded per-platform, not committed)
+src-tauri/binaries/mpv-*
+src-tauri/binaries/mpv-libs/
