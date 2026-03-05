@@ -57,3 +57,4 @@ next-env.d.ts
 # Bundled mpv binaries (downloaded per-platform, not committed)
 src-tauri/binaries/mpv-*
 src-tauri/binaries/mpv-libs/
+src-tauri/binaries/mpv.app/

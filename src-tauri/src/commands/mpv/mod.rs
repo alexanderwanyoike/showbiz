@@ -378,9 +378,19 @@ fn find_mpv_binary() -> Result<String, String> {
         }
     }
 
-    // 2. Bundled binary next to executable
+    // 2. Bundled binary next to executable (or in Resources on macOS)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
+            // macOS: mpv.app is bundled in Contents/Resources/
+            #[cfg(target_os = "macos")]
+            {
+                let resources_mpv = dir
+                    .join("../Resources/mpv.app/Contents/MacOS/mpv");
+                if resources_mpv.exists() {
+                    return Ok(resources_mpv.to_string_lossy().into_owned());
+                }
+            }
+
             #[cfg(windows)]
             let bundled = dir.join("mpv.exe");
             #[cfg(not(windows))]
