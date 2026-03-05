@@ -381,6 +381,9 @@ fn find_mpv_binary() -> Result<String, String> {
     // 2. Bundled binary next to executable
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
+            #[cfg(windows)]
+            let bundled = dir.join("mpv.exe");
+            #[cfg(not(windows))]
             let bundled = dir.join("mpv");
             if bundled.exists() {
                 return Ok(bundled.to_string_lossy().into_owned());
