@@ -2,114 +2,128 @@
 #
 # Download pre-built mpv binaries for Tauri sidecar bundling.
 #
+# Uses official mpv releases from https://github.com/mpv-player/mpv/releases
+#
 # Tauri expects binaries named: mpv-{target_triple}[.exe]
 # Place this script in src-tauri/binaries/ and run it before `yarn build`.
 #
 # Usage:
 #   ./download-mpv.sh              # download for current platform
-#   ./download-mpv.sh all          # download for all platforms (CI)
+#   ./download-mpv.sh all          # download for all platforms
 #   ./download-mpv.sh <triple>     # download for specific target
 #
 set -euo pipefail
 cd "$(dirname "$0")"
 
-MPV_MACOS_VERSION="0.40.0"
+MPV_VERSION="v0.41.0"
+MPV_BASE_URL="https://github.com/mpv-player/mpv/releases/download/${MPV_VERSION}"
 
 download_macos_arm64() {
-  echo "Downloading mpv for aarch64-apple-darwin..."
-  local url="https://laboratory.stolendata.net/~djinn/mpv_osx/mpv-${MPV_MACOS_VERSION}.tar.gz"
+  local target="aarch64-apple-darwin"
+  echo "Downloading mpv for ${target}..."
+  local url="${MPV_BASE_URL}/mpv-${MPV_VERSION}-macos-14-arm.zip"
   local tmp=$(mktemp -d)
-  curl -fSL "$url" -o "$tmp/mpv.tar.gz" 2>/dev/null || {
-    echo "ERROR: Could not download macOS mpv build."
-    echo "Manual steps:"
-    echo "  1. brew install mpv"
-    echo "  2. cp \$(which mpv) src-tauri/binaries/mpv-aarch64-apple-darwin"
-    rm -rf "$tmp"
+  trap "rm -rf '$tmp'" RETURN
+
+  curl -fSL "$url" -o "$tmp/mpv.zip" || {
+    echo "ERROR: Could not download macOS ARM mpv from:"
+    echo "  $url"
     return 1
   }
-  tar xzf "$tmp/mpv.tar.gz" -C "$tmp"
-  # Find the mpv binary inside the extracted archive
-  local mpv_bin=$(find "$tmp" -name "mpv" -type f | head -1)
+
+  unzip -q "$tmp/mpv.zip" -d "$tmp/out"
+  # Official release contains mpv.app bundle
+  local mpv_bin=$(find "$tmp/out" -path "*/Contents/MacOS/mpv" -type f | head -1)
   if [ -z "$mpv_bin" ]; then
     echo "ERROR: Could not find mpv binary in archive"
-    rm -rf "$tmp"
+    echo "Archive contents:"
+    find "$tmp/out" -type f | head -20
     return 1
   fi
-  cp "$mpv_bin" "mpv-aarch64-apple-darwin"
-  chmod +x "mpv-aarch64-apple-darwin"
+
+  cp "$mpv_bin" "mpv-${target}"
+  chmod +x "mpv-${target}"
   # Strip codesign to prevent conflicts with Tauri's app signing
-  if command -v codesign &>/dev/null; then
-    codesign --remove-signature "mpv-aarch64-apple-darwin" 2>/dev/null || true
-  fi
-  rm -rf "$tmp"
-  echo "  -> mpv-aarch64-apple-darwin"
+  codesign --remove-signature "mpv-${target}" 2>/dev/null || true
+  echo "  -> mpv-${target}"
 }
 
 download_macos_x86() {
-  echo "Downloading mpv for x86_64-apple-darwin..."
-  # Same universal build works for both archs if available
-  if [ -f "mpv-aarch64-apple-darwin" ]; then
-    cp "mpv-aarch64-apple-darwin" "mpv-x86_64-apple-darwin"
-    echo "  -> mpv-x86_64-apple-darwin (copied from arm64 universal)"
-    return
-  fi
-  echo "  Download arm64 first, or manually place mpv-x86_64-apple-darwin here."
-}
-
-download_windows() {
-  echo "Downloading mpv for x86_64-pc-windows-msvc..."
-  # Use shinchiro's mpv builds from GitHub
+  local target="x86_64-apple-darwin"
+  echo "Downloading mpv for ${target}..."
+  local url="${MPV_BASE_URL}/mpv-${MPV_VERSION}-macos-15-intel.zip"
   local tmp=$(mktemp -d)
+  trap "rm -rf '$tmp'" RETURN
 
-  # Get the latest release URL from shinchiro/mpv-winbuild-cmake
-  local release_url
-  release_url=$(curl -fsSL "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest" \
-    | grep -o '"browser_download_url":\s*"[^"]*x86_64[^"]*\.7z"' \
-    | head -1 \
-    | sed 's/"browser_download_url":\s*"//;s/"$//') || true
-
-  if [ -z "$release_url" ]; then
-    echo "ERROR: Could not find shinchiro mpv release URL."
-    echo "Manual steps:"
-    echo "  1. Download from https://github.com/shinchiro/mpv-winbuild-cmake/releases"
-    echo "  2. Extract mpv.exe to src-tauri/binaries/mpv-x86_64-pc-windows-msvc.exe"
-    echo "  3. Extract *.dll to src-tauri/binaries/mpv-libs/"
-    rm -rf "$tmp"
-    return 1
-  fi
-
-  curl -fSL "$release_url" -o "$tmp/mpv.7z" 2>/dev/null || {
-    echo "ERROR: Could not download Windows mpv build."
-    rm -rf "$tmp"
+  curl -fSL "$url" -o "$tmp/mpv.zip" || {
+    echo "ERROR: Could not download macOS Intel mpv from:"
+    echo "  $url"
     return 1
   }
 
-  if command -v 7z &>/dev/null; then
-    7z x -o"$tmp/mpv" "$tmp/mpv.7z" >/dev/null
-    # Copy mpv.exe as the sidecar binary
-    cp "$tmp/mpv/mpv.exe" "mpv-x86_64-pc-windows-msvc.exe"
-    echo "  -> mpv-x86_64-pc-windows-msvc.exe"
-    # Copy DLLs to mpv-libs/ for Tauri resources bundling
-    mkdir -p mpv-libs
-    find "$tmp/mpv" -name "*.dll" -exec cp {} mpv-libs/ \;
-    local dll_count=$(ls mpv-libs/*.dll 2>/dev/null | wc -l)
-    echo "  -> mpv-libs/ ($dll_count DLLs)"
-  else
-    echo "  Need 7z to extract. Install p7zip-full or manually extract."
+  unzip -q "$tmp/mpv.zip" -d "$tmp/out"
+  local mpv_bin=$(find "$tmp/out" -path "*/Contents/MacOS/mpv" -type f | head -1)
+  if [ -z "$mpv_bin" ]; then
+    echo "ERROR: Could not find mpv binary in archive"
+    return 1
   fi
-  rm -rf "$tmp"
+
+  cp "$mpv_bin" "mpv-${target}"
+  chmod +x "mpv-${target}"
+  codesign --remove-signature "mpv-${target}" 2>/dev/null || true
+  echo "  -> mpv-${target}"
+}
+
+download_windows() {
+  local target="x86_64-pc-windows-msvc"
+  echo "Downloading mpv for ${target}..."
+  local url="${MPV_BASE_URL}/mpv-${MPV_VERSION}-${target}.zip"
+  local tmp=$(mktemp -d)
+  trap "rm -rf '$tmp'" RETURN
+
+  curl -fSL "$url" -o "$tmp/mpv.zip" || {
+    echo "ERROR: Could not download Windows mpv from:"
+    echo "  $url"
+    return 1
+  }
+
+  unzip -q "$tmp/mpv.zip" -d "$tmp/out"
+  # Find mpv.exe in extracted tree
+  local mpv_exe
+  mpv_exe=$(find "$tmp/out" -name "mpv.exe" -type f | head -1)
+  if [ -z "$mpv_exe" ]; then
+    echo "ERROR: Could not find mpv.exe in archive"
+    echo "Archive contents:"
+    find "$tmp/out" -type f | head -20
+    return 1
+  fi
+
+  local mpv_dir
+  mpv_dir=$(dirname "$mpv_exe")
+  cp "$mpv_exe" "mpv-${target}.exe"
+  echo "  -> mpv-${target}.exe"
+
+  # Copy DLLs from the same directory for Tauri resources bundling
+  mkdir -p mpv-libs
+  local dll_count=0
+  while IFS= read -r -d '' dll; do
+    cp "$dll" mpv-libs/
+    dll_count=$((dll_count + 1))
+  done < <(find "$mpv_dir" -maxdepth 1 -name "*.dll" -print0)
+  echo "  -> mpv-libs/ (${dll_count} DLLs)"
 }
 
 download_linux() {
-  echo "Setting up mpv for x86_64-unknown-linux-gnu..."
-  # On Linux, prefer system mpv since shared libs are complex to bundle.
-  # For deb/rpm the package dependency handles it; this is for AppImage builds.
+  local target="x86_64-unknown-linux-gnu"
+  echo "Setting up mpv for ${target}..."
+  # On Linux, use system mpv. For deb/rpm the package dependency handles it.
+  # This is needed for AppImage builds.
   if command -v mpv &>/dev/null; then
-    cp "$(which mpv)" "mpv-x86_64-unknown-linux-gnu"
-    chmod +x "mpv-x86_64-unknown-linux-gnu"
-    echo "  -> mpv-x86_64-unknown-linux-gnu (copied from system)"
+    cp "$(which mpv)" "mpv-${target}"
+    chmod +x "mpv-${target}"
+    echo "  -> mpv-${target} (copied from system)"
   else
-    echo "  Install mpv first: sudo apt install mpv (or equivalent)"
+    echo "ERROR: mpv not found. Install it first: sudo apt install mpv"
     return 1
   fi
 }
