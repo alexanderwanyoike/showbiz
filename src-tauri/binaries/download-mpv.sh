@@ -170,4 +170,6 @@ mkdir -p mpv.app
 echo ""
 echo "Done. Binaries in src-tauri/binaries/:"
 ls -la mpv-* 2>/dev/null || echo "  (none yet)"
-[ -d "mpv.app/Contents" ] && echo "  mpv.app/ (full bundle)"
+if [ -d "mpv.app/Contents" ]; then
+  echo "  mpv.app/ (full bundle)"
+fi
