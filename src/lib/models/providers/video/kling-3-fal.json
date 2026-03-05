@@ -1,0 +1,31 @@
+{
+  "id": "kling-3-fal",
+  "name": "Kling 3.0",
+  "description": "Kuaishou's latest model via fal.ai",
+  "transport": "fal-video",
+  "transportOptions": {
+    "textToVideoEndpoint": "fal-ai/kling-video/v3/standard/text-to-video",
+    "imageToVideoEndpoint": "fal-ai/kling-video/v3/standard/image-to-video"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "kling-3",
+  "models": {
+    "textToVideo": "kling-3-fal-t2v",
+    "imageToVideo": "kling-3-fal-i2v"
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "aspectRatio": "aspect_ratio"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["5", "10"],
+    "aspectRatios": ["16:9", "9:16", "1:1"]
+  },
+  "defaults": {
+    "duration": "5",
+    "aspectRatio": "16:9"
+  }
+}

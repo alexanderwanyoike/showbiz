@@ -1,0 +1,19 @@
+{
+  "id": "flux-schnell-replicate",
+  "name": "Flux Schnell",
+  "description": "Black Forest Labs' fast image model via Replicate",
+  "transport": "replicate-image",
+  "transportOptions": {
+    "model": "black-forest-labs/flux-schnell",
+    "preferWait": "true"
+  },
+  "enabled": true,
+  "apiKeyProvider": "replicate",
+  "provider": "Replicate",
+  "modelFamily": "flux-schnell",
+  "models": {
+    "generate": "flux-schnell-replicate"
+  },
+  "supportsEditing": false,
+  "supportsInpainting": false
+}

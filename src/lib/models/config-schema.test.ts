@@ -40,6 +40,42 @@ describe("validateVideoConfig", () => {
       validateVideoConfig({ ...validConfig, capabilities: { durations: [] } })
     ).toThrow("non-empty array");
   });
+
+  it("accepts fal-video transport", () => {
+    expect(() =>
+      validateVideoConfig({ ...validConfig, transport: "fal-video" })
+    ).not.toThrow();
+  });
+
+  it("accepts replicate-video transport", () => {
+    expect(() =>
+      validateVideoConfig({ ...validConfig, transport: "replicate-video" })
+    ).not.toThrow();
+  });
+
+  it("accepts provider and modelFamily", () => {
+    expect(() =>
+      validateVideoConfig({ ...validConfig, provider: "fal.ai", modelFamily: "kling-3" })
+    ).not.toThrow();
+  });
+
+  it("accepts provider without modelFamily", () => {
+    expect(() =>
+      validateVideoConfig({ ...validConfig, provider: "kie.ai" })
+    ).not.toThrow();
+  });
+
+  it("rejects modelFamily without provider", () => {
+    expect(() =>
+      validateVideoConfig({ ...validConfig, modelFamily: "kling-3" })
+    ).toThrow('"modelFamily" requires "provider"');
+  });
+
+  it("rejects empty provider string", () => {
+    expect(() =>
+      validateVideoConfig({ ...validConfig, provider: "" })
+    ).toThrow('"provider" must be a non-empty string');
+  });
 });
 
 describe("validateImageConfig", () => {
@@ -74,5 +110,35 @@ describe("validateImageConfig", () => {
     expect(() => validateImageConfig({ ...validConfig, models: {} })).toThrow(
       "models.generate is required"
     );
+  });
+
+  it("accepts fal-image transport", () => {
+    expect(() =>
+      validateImageConfig({ ...validConfig, transport: "fal-image" })
+    ).not.toThrow();
+  });
+
+  it("accepts replicate-image transport", () => {
+    expect(() =>
+      validateImageConfig({ ...validConfig, transport: "replicate-image" })
+    ).not.toThrow();
+  });
+
+  it("accepts provider and modelFamily", () => {
+    expect(() =>
+      validateImageConfig({ ...validConfig, provider: "fal.ai", modelFamily: "flux-schnell" })
+    ).not.toThrow();
+  });
+
+  it("rejects modelFamily without provider", () => {
+    expect(() =>
+      validateImageConfig({ ...validConfig, modelFamily: "flux-schnell" })
+    ).toThrow('"modelFamily" requires "provider"');
+  });
+
+  it("rejects empty provider string", () => {
+    expect(() =>
+      validateImageConfig({ ...validConfig, provider: "" })
+    ).toThrow('"provider" must be a non-empty string');
   });
 });

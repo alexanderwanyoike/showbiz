@@ -4,16 +4,24 @@ import { kieImageTransport } from "./kie-image";
 import { googleVideoTransport } from "./google-video";
 import { googleImageTransport } from "./google-image";
 import { ltxTransport } from "./ltx";
+import { falVideoTransport } from "./fal-video";
+import { falImageTransport } from "./fal-image";
+import { replicateVideoTransport } from "./replicate-video";
+import { replicateImageTransport } from "./replicate-image";
 
 const videoTransports: Record<string, VideoTransport> = {
   "kie-video": kieVideoTransport,
   "google-video": googleVideoTransport,
   "ltx": ltxTransport,
+  "fal-video": falVideoTransport,
+  "replicate-video": replicateVideoTransport,
 };
 
 const imageTransports: Record<string, ImageTransport> = {
   "kie-image": kieImageTransport,
   "google-image": googleImageTransport,
+  "fal-image": falImageTransport,
+  "replicate-image": replicateImageTransport,
 };
 
 export function getVideoTransport(id: string): VideoTransport {

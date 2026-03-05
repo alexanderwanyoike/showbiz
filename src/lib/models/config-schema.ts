@@ -9,6 +9,8 @@ export interface VideoModelConfig {
   transportOptions?: Record<string, unknown>;
   enabled: boolean;
   apiKeyProvider: string;
+  provider?: string;
+  modelFamily?: string;
   models: {
     textToVideo?: string;
     imageToVideo?: string;
@@ -34,6 +36,8 @@ export interface ImageModelConfig {
   transportOptions?: Record<string, unknown>;
   enabled: boolean;
   apiKeyProvider: string;
+  provider?: string;
+  modelFamily?: string;
   models: {
     generate: string;
     edit?: string;
@@ -66,6 +70,14 @@ export function validateVideoConfig(raw: unknown): VideoModelConfig {
     throw new Error(
       `Video config "${config.id}": unknown transport "${config.transport}". Valid: ${VALID_VIDEO_TRANSPORTS.join(", ")}`
     );
+  }
+
+  // Validate provider/modelFamily
+  if (config.modelFamily && !config.provider) {
+    throw new Error(`Video config "${config.id}": "modelFamily" requires "provider" to be set`);
+  }
+  if (config.provider !== undefined && (typeof config.provider !== "string" || !config.provider)) {
+    throw new Error(`Video config "${config.id}": "provider" must be a non-empty string`);
   }
 
   const models = config.models as Record<string, unknown>;
@@ -110,6 +122,14 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
     throw new Error(
       `Image config "${config.id}": unknown transport "${config.transport}". Valid: ${VALID_IMAGE_TRANSPORTS.join(", ")}`
     );
+  }
+
+  // Validate provider/modelFamily
+  if (config.modelFamily && !config.provider) {
+    throw new Error(`Image config "${config.id}": "modelFamily" requires "provider" to be set`);
+  }
+  if (config.provider !== undefined && (typeof config.provider !== "string" || !config.provider)) {
+    throw new Error(`Image config "${config.id}": "provider" must be a non-empty string`);
   }
 
   const models = config.models as Record<string, unknown>;

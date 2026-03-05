@@ -1,0 +1,28 @@
+{
+  "id": "wan-2.2-fal",
+  "name": "Wan 2.2",
+  "description": "Alibaba's video model via fal.ai",
+  "transport": "fal-video",
+  "transportOptions": {
+    "textToVideoEndpoint": "fal-ai/wan/v2.1/text-to-video",
+    "imageToVideoEndpoint": "fal-ai/wan/v2.1/image-to-video"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "wan",
+  "models": {
+    "textToVideo": "wan-fal-t2v",
+    "imageToVideo": "wan-fal-i2v"
+  },
+  "paramMapping": {
+    "imageInput": "image_url"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["5"]
+  },
+  "defaults": {
+    "duration": "5"
+  }
+}

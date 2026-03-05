@@ -1,0 +1,18 @@
+{
+  "id": "flux-schnell-fal",
+  "name": "Flux Schnell",
+  "description": "Black Forest Labs' fast image model via fal.ai",
+  "transport": "fal-image",
+  "transportOptions": {
+    "endpoint": "fal-ai/flux/schnell"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "flux-schnell",
+  "models": {
+    "generate": "flux-schnell-fal"
+  },
+  "supportsEditing": false,
+  "supportsInpainting": false
+}

@@ -5,6 +5,8 @@
   "transport": "kie-video",
   "enabled": true,
   "apiKeyProvider": "kie",
+  "provider": "kie.ai",
+  "modelFamily": "hailuo-2.3",
   "models": {
     "textToVideo": "hailuo/02-text-to-video-pro",
     "imageToVideo": "hailuo/2-3-image-to-video-pro"

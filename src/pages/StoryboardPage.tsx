@@ -17,13 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { ModelPicker } from "../components/ModelPicker";
 import {
   Popover,
   PopoverContent,
@@ -83,6 +77,8 @@ import {
   VideoModelId,
   getAvailableImageModels,
   getAvailableVideoModels,
+  getGroupedVideoModels,
+  getGroupedImageModels,
 } from "../lib/models";
 import type { VideoGenerationSettings } from "../lib/models/types";
 
@@ -173,6 +169,8 @@ export default function StoryboardPage() {
   const [videoModel, setVideoModel] = useState<VideoModelId>("veo3");
   const imageModels = getAvailableImageModels();
   const videoModels = getAvailableVideoModels();
+  const videoGroups = getGroupedVideoModels();
+  const imageGroups = getGroupedImageModels();
 
   // Video Settings
   const [videoSettings, setVideoSettings] = useState<VideoGenerationSettings>(() => {
@@ -790,57 +788,29 @@ export default function StoryboardPage() {
 
           {/* Model Selectors — storyboard tab only */}
           {activeTab === "storyboard" && <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <ModelPicker
+              groups={imageGroups}
+              value={imageModel}
+              onSelect={(id) => handleChangeImageModel(id as ImageModelId)}
+              trigger={
                 <Button variant="outline" size="sm" className="gap-2">
                   <ImageIcon className="h-4 w-4" />
                   {imageModels.find((m) => m.id === imageModel)?.name || "Image"}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuRadioGroup
-                  value={imageModel}
-                  onValueChange={(v) => handleChangeImageModel(v as ImageModelId)}
-                >
-                  {imageModels.map((model) => (
-                    <DropdownMenuRadioItem key={model.id} value={model.id}>
-                      <div className="flex flex-col">
-                        <span>{model.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {model.description}
-                        </span>
-                      </div>
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              }
+            />
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <ModelPicker
+              groups={videoGroups}
+              value={videoModel}
+              onSelect={(id) => handleChangeVideoModel(id as VideoModelId)}
+              trigger={
                 <Button variant="outline" size="sm" className="gap-2">
                   <Video className="h-4 w-4" />
                   {videoModels.find((m) => m.id === videoModel)?.name || "Video"}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuRadioGroup
-                  value={videoModel}
-                  onValueChange={(v) => handleChangeVideoModel(v as VideoModelId)}
-                >
-                  {videoModels.map((model) => (
-                    <DropdownMenuRadioItem key={model.id} value={model.id}>
-                      <div className="flex flex-col">
-                        <span>{model.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {model.description}
-                        </span>
-                      </div>
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              }
+            />
 
             {/* Video Settings Popover */}
             {hasConfigurableSettings && currentVideoModel && (

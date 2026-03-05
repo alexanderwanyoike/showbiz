@@ -1,0 +1,18 @@
+{
+  "id": "flux-dev-replicate",
+  "name": "Flux Dev",
+  "description": "Black Forest Labs' high-quality image model via Replicate",
+  "transport": "replicate-image",
+  "transportOptions": {
+    "model": "black-forest-labs/flux-dev"
+  },
+  "enabled": true,
+  "apiKeyProvider": "replicate",
+  "provider": "Replicate",
+  "modelFamily": "flux-dev",
+  "models": {
+    "generate": "flux-dev-replicate"
+  },
+  "supportsEditing": false,
+  "supportsInpainting": false
+}
