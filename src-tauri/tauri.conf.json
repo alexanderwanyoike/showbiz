@@ -44,7 +44,8 @@
     ],
     "externalBin": ["binaries/mpv"],
     "resources": {
-      "binaries/mpv-libs/*": "./"
+      "binaries/mpv-libs/*": "./",
+      "binaries/mpv.app/**/*": "mpv.app/"
     },
     "linux": {
       "deb": {

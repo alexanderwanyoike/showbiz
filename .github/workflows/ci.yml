@@ -71,6 +71,16 @@ jobs:
       - name: Download mpv sidecar
         shell: bash
         run: cd src-tauri/binaries && chmod +x download-mpv.sh && ./download-mpv.sh
+      - name: Set version from git tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Setting version to $VERSION"
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+          sed -i.bak "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" package.json
+          rm -f src-tauri/tauri.conf.json.bak src-tauri/Cargo.toml.bak package.json.bak
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

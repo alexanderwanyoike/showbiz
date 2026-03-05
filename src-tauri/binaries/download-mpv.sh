@@ -18,15 +18,17 @@ cd "$(dirname "$0")"
 MPV_VERSION="v0.41.0"
 MPV_BASE_URL="https://github.com/mpv-player/mpv/releases/download/${MPV_VERSION}"
 
-download_macos_arm64() {
-  local target="aarch64-apple-darwin"
+download_macos() {
+  local arch="$1"  # arm or intel
+  local target="$2" # aarch64-apple-darwin or x86_64-apple-darwin
+  local variant="$3" # macos-14-arm or macos-15-intel
   echo "Downloading mpv for ${target}..."
-  local url="${MPV_BASE_URL}/mpv-${MPV_VERSION}-macos-14-arm.zip"
+  local url="${MPV_BASE_URL}/mpv-${MPV_VERSION}-${variant}.zip"
   local tmp=$(mktemp -d)
   trap "rm -rf '$tmp'" RETURN
 
   curl -fSL "$url" -o "$tmp/mpv.zip" || {
-    echo "ERROR: Could not download macOS ARM mpv from:"
+    echo "ERROR: Could not download macOS mpv from:"
     echo "  $url"
     return 1
   }
@@ -38,57 +40,34 @@ download_macos_arm64() {
     tar xzf "$inner_tar" -C "$tmp/out"
   fi
 
-  local mpv_bin=$(find "$tmp/out" -path "*/Contents/MacOS/mpv" -type f | head -1)
-  if [ -z "$mpv_bin" ]; then
-    # Fallback: look for a standalone mpv binary
-    mpv_bin=$(find "$tmp/out" -name "mpv" -type f -perm +111 | head -1)
-  fi
-  if [ -z "$mpv_bin" ]; then
-    echo "ERROR: Could not find mpv binary in archive"
+  local mpv_app=$(find "$tmp/out" -name "mpv.app" -type d | head -1)
+  if [ -z "$mpv_app" ]; then
+    echo "ERROR: Could not find mpv.app in archive"
     echo "Archive contents:"
-    find "$tmp/out" -type f | head -20
+    find "$tmp/out" -maxdepth 3 | head -20
     return 1
   fi
 
-  cp "$mpv_bin" "mpv-${target}"
+  # Bundle the entire mpv.app — the binary needs its Frameworks/ dylibs
+  rm -rf "mpv.app"
+  cp -R "$mpv_app" "mpv.app"
+  # Strip codesign from all binaries to prevent conflicts with Tauri's app signing
+  find "mpv.app" -type f -perm +111 -exec codesign --remove-signature {} 2>/dev/null \; || true
+  echo "  -> mpv.app/ (full bundle for ${target})"
+
+  # Also create the externalBin sidecar stub so Tauri build doesn't fail
+  # (actual execution uses mpv.app/Contents/MacOS/mpv via resources)
+  cp "mpv.app/Contents/MacOS/mpv" "mpv-${target}"
   chmod +x "mpv-${target}"
-  # Strip codesign to prevent conflicts with Tauri's app signing
-  codesign --remove-signature "mpv-${target}" 2>/dev/null || true
-  echo "  -> mpv-${target}"
+  echo "  -> mpv-${target} (sidecar stub)"
+}
+
+download_macos_arm64() {
+  download_macos arm aarch64-apple-darwin macos-14-arm
 }
 
 download_macos_x86() {
-  local target="x86_64-apple-darwin"
-  echo "Downloading mpv for ${target}..."
-  local url="${MPV_BASE_URL}/mpv-${MPV_VERSION}-macos-15-intel.zip"
-  local tmp=$(mktemp -d)
-  trap "rm -rf '$tmp'" RETURN
-
-  curl -fSL "$url" -o "$tmp/mpv.zip" || {
-    echo "ERROR: Could not download macOS Intel mpv from:"
-    echo "  $url"
-    return 1
-  }
-
-  unzip -q "$tmp/mpv.zip" -d "$tmp/out"
-  local inner_tar=$(find "$tmp/out" -name "mpv.tar.gz" -type f | head -1)
-  if [ -n "$inner_tar" ]; then
-    tar xzf "$inner_tar" -C "$tmp/out"
-  fi
-
-  local mpv_bin=$(find "$tmp/out" -path "*/Contents/MacOS/mpv" -type f | head -1)
-  if [ -z "$mpv_bin" ]; then
-    mpv_bin=$(find "$tmp/out" -name "mpv" -type f -perm +111 | head -1)
-  fi
-  if [ -z "$mpv_bin" ]; then
-    echo "ERROR: Could not find mpv binary in archive"
-    return 1
-  fi
-
-  cp "$mpv_bin" "mpv-${target}"
-  chmod +x "mpv-${target}"
-  codesign --remove-signature "mpv-${target}" 2>/dev/null || true
-  echo "  -> mpv-${target}"
+  download_macos intel x86_64-apple-darwin macos-15-intel
 }
 
 download_windows() {
@@ -185,6 +164,12 @@ case "${1:-}" in
     ;;
 esac
 
+# Ensure mpv.app placeholder exists for non-macOS builds (Tauri validates resources)
+mkdir -p mpv.app
+
 echo ""
 echo "Done. Binaries in src-tauri/binaries/:"
 ls -la mpv-* 2>/dev/null || echo "  (none yet)"
+if [ -d "mpv.app/Contents" ]; then
+  echo "  mpv.app/ (full bundle)"
+fi
