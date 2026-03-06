@@ -119,6 +119,7 @@ fn main() {
             commands::mpv::mpv_update_geometry,
             commands::mpv::mpv_hide,
             commands::mpv::mpv_show,
+            commands::mpv::mpv_diagnose,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

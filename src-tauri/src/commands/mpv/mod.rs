@@ -879,6 +879,93 @@ pub fn mpv_show(state: State<'_, crate::AppState>) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub fn mpv_diagnose() -> String {
+    let mut info = serde_json::Map::new();
+
+    // Current executable path
+    match std::env::current_exe() {
+        Ok(exe) => {
+            info.insert("current_exe".into(), serde_json::Value::String(exe.display().to_string()));
+            if let Some(dir) = exe.parent() {
+                info.insert("exe_dir".into(), serde_json::Value::String(dir.display().to_string()));
+            }
+        }
+        Err(e) => {
+            info.insert("current_exe_error".into(), serde_json::Value::String(e.to_string()));
+        }
+    }
+
+    // SHOWBIZ_MPV_PATH env var
+    match std::env::var("SHOWBIZ_MPV_PATH") {
+        Ok(val) => {
+            let exists = std::path::Path::new(&val).exists();
+            info.insert("SHOWBIZ_MPV_PATH".into(), serde_json::json!({ "value": val, "exists": exists }));
+        }
+        Err(_) => {
+            info.insert("SHOWBIZ_MPV_PATH".into(), serde_json::Value::String("not set".into()));
+        }
+    }
+
+    // Check candidate paths
+    let mut candidates = Vec::new();
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            // macOS Resources path
+            let resources_mpv = dir.join("../Resources/mpv.app/Contents/MacOS/mpv");
+            candidates.push(resources_mpv.display().to_string());
+
+            // Bundled next to exe
+            let bundled = dir.join("mpv");
+            candidates.push(bundled.display().to_string());
+        }
+    }
+
+    // Common system paths
+    #[cfg(target_os = "macos")]
+    {
+        candidates.push("/opt/homebrew/bin/mpv".into());
+        candidates.push("/usr/local/bin/mpv".into());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        candidates.push("/usr/bin/mpv".into());
+        candidates.push("/usr/local/bin/mpv".into());
+    }
+
+    let checked: Vec<serde_json::Value> = candidates.iter().map(|p| {
+        let exists = std::path::Path::new(p).exists();
+        serde_json::json!({ "path": p, "exists": exists })
+    }).collect();
+    info.insert("candidates_checked".into(), serde_json::Value::Array(checked));
+
+    // PATH lookup result
+    #[cfg(unix)]
+    {
+        if let Ok(output) = std::process::Command::new("which").arg("mpv").output() {
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                info.insert("which_mpv".into(), serde_json::Value::String(path));
+            } else {
+                info.insert("which_mpv".into(), serde_json::Value::String("not found in PATH".into()));
+            }
+        }
+    }
+
+    // find_mpv_binary result
+    match find_mpv_binary() {
+        Ok(path) => {
+            info.insert("find_mpv_binary".into(), serde_json::json!({ "ok": path }));
+        }
+        Err(e) => {
+            info.insert("find_mpv_binary".into(), serde_json::json!({ "error": e }));
+        }
+    }
+
+    serde_json::Value::Object(info).to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

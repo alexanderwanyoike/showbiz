@@ -8,6 +8,8 @@ export interface MpvPlayer {
   containerRef: React.RefObject<HTMLDivElement>;
   /** True once mpv_start has succeeded and mpv_load_file can be called. */
   ready: boolean;
+  /** Error message if mpv failed to start, null otherwise. */
+  error: string | null;
   /** Mount mpv into the container div. Call from a useEffect when the div is visible. */
   start: () => Promise<void>;
   /** Stop mpv and destroy the X11 child window. */
@@ -40,13 +42,29 @@ async function getRect(el: HTMLElement) {
 export function useMpvPlayer(): MpvPlayer {
   const containerRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const start = useCallback(async () => {
     const el = containerRef.current;
     if (!el) return;
     const rect = await getRect(el);
-    await invoke("mpv_start", rect);
-    setReady(true);
+    try {
+      await invoke("mpv_start", rect);
+      setReady(true);
+      setError(null);
+    } catch (e) {
+      const startError = String(e);
+      let diagInfo = "";
+      try {
+        diagInfo = await invoke<string>("mpv_diagnose");
+      } catch {
+        // ignore diagnose failure
+      }
+      const fullError = diagInfo
+        ? `${startError}\n\nDiagnostics:\n${diagInfo}`
+        : startError;
+      setError(fullError);
+    }
   }, []);
 
   const stop = useCallback(() => {
@@ -95,5 +113,5 @@ export function useMpvPlayer(): MpvPlayer {
     await invoke("mpv_update_geometry", rect).catch(() => {});
   }, [ready]);
 
-  return { containerRef, ready, start, stop, loadFile, play, pause, seek, getPosition, syncGeometry };
+  return { containerRef, ready, error, start, stop, loadFile, play, pause, seek, getPosition, syncGeometry };
 }
