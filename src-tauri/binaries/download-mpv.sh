@@ -86,10 +86,43 @@ download_macos() {
 
   echo "  -> mpv-macos/mpv + ${lib_count} dylibs"
 
-  # Verify libmpv.dylib was collected (required for in-process embedding)
+  # The official mpv release statically links libmpv into the binary —
+  # libmpv.dylib is NOT in the bundle. We need it for in-process embedding
+  # on macOS, so fetch it from the Homebrew bottle.
   if ! ls mpv-macos/lib/libmpv*.dylib 1>/dev/null 2>&1; then
-    echo "WARNING: libmpv.dylib not found in mpv-macos/lib/"
-    echo "  macOS embedding requires libmpv — video will fall back to system-installed mpv"
+    echo "  libmpv.dylib not in release bundle, fetching from Homebrew bottle..."
+    local bottle_tag
+    if [ "$arch" = "arm" ]; then
+      bottle_tag="arm64_sonoma"
+    else
+      bottle_tag="sonoma"
+    fi
+
+    local bottle_url
+    bottle_url=$(curl -sfL "https://formulae.brew.sh/api/formula/mpv.json" \
+      | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['bottle']['stable']['files']['${bottle_tag}']['url'])" 2>/dev/null) || true
+
+    if [ -n "$bottle_url" ]; then
+      local btmp=$(mktemp -d)
+      curl -sfL -H "Authorization: Bearer QQ==" "$bottle_url" -o "$btmp/bottle.tar.gz" && {
+        tar xzf "$btmp/bottle.tar.gz" -C "$btmp" 2>/dev/null
+        local libmpv_src
+        libmpv_src=$(find "$btmp" -name "libmpv.2.dylib" -type f | head -1)
+        if [ -n "$libmpv_src" ]; then
+          cp "$libmpv_src" "mpv-macos/lib/libmpv.2.dylib"
+          # Create unversioned symlink
+          ln -sf "libmpv.2.dylib" "mpv-macos/lib/libmpv.dylib"
+          codesign --force --sign - "mpv-macos/lib/libmpv.2.dylib" 2>/dev/null || true
+          echo "  -> extracted libmpv.2.dylib from Homebrew bottle"
+        else
+          echo "WARNING: libmpv.2.dylib not found in Homebrew bottle"
+        fi
+      }
+      rm -rf "$btmp"
+    else
+      echo "WARNING: Could not fetch Homebrew bottle URL for libmpv"
+      echo "  macOS embedding requires libmpv — install mpv with: brew install mpv"
+    fi
   fi
 
   # Keep mpv.app placeholder for Tauri resource validation on other platforms
