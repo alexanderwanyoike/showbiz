@@ -53,6 +53,17 @@ export default function PreviewPlayer({ clips, mpv }: PreviewPlayerProps) {
     };
   }, [mpv]);
 
+  if (mpv.error) {
+    return (
+      <div className="bg-black rounded-lg overflow-hidden aspect-video flex items-center justify-center">
+        <div className="text-red-400 text-center p-8 max-w-full overflow-auto">
+          <p className="text-lg font-medium">mpv failed to start</p>
+          <pre className="text-xs mt-3 text-left whitespace-pre-wrap break-all text-red-300/80">{mpv.error}</pre>
+        </div>
+      </div>
+    );
+  }
+
   if (clips.length === 0) {
     return (
       <div className="bg-black rounded-lg overflow-hidden aspect-video flex items-center justify-center">
