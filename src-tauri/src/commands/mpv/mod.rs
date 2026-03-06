@@ -174,7 +174,7 @@ impl MacosView {
         h: u32,
     ) -> Result<u64, String> {
         use objc2::rc::Retained;
-        use objc2::AllocAnyThread;
+        use objc2::{msg_send_id, ClassType};
         use objc2_app_kit::NSView;
         use objc2_foundation::NSRect;
 
@@ -190,7 +190,10 @@ impl MacosView {
                 objc2_foundation::NSSize::new(w as f64, h as f64),
             );
 
-            let child = NSView::initWithFrame(NSView::alloc(), frame);
+            // Use msg_send_id! for alloc to avoid trait bound issues with
+            // main-thread-only classes like NSView.
+            let alloc: Retained<NSView> = msg_send_id![NSView::class(), alloc];
+            let child: Retained<NSView> = msg_send_id![alloc, initWithFrame: frame];
             child.setWantsLayer(true);
 
             // Add as subview — this puts it on top of the WebView
@@ -271,6 +274,59 @@ impl Drop for MacosView {
 //
 // On Windows, mpv's --wid renders behind the WebView2 when given the parent
 // HWND. We create a child HWND on top of the WebView and give *that* to mpv.
+//
+// Uses raw Win32 FFI to avoid windows crate version churn.
+
+#[cfg(target_os = "windows")]
+mod win32_ffi {
+    use std::ffi::c_void;
+
+    pub type HWND = *mut c_void;
+    type HMENU = *mut c_void;
+    type HINSTANCE = *mut c_void;
+    type LPCWSTR = *const u16;
+
+    pub const WS_CHILD: u32 = 0x40000000;
+    pub const WS_VISIBLE: u32 = 0x10000000;
+    pub const WS_CLIPSIBLINGS: u32 = 0x04000000;
+    pub const SWP_NOACTIVATE: u32 = 0x0010;
+    pub const SW_HIDE: i32 = 0;
+    pub const SW_SHOW: i32 = 5;
+    pub const HWND_TOP: HWND = 0 as HWND;
+
+    extern "system" {
+        pub fn CreateWindowExW(
+            ex_style: u32,
+            class_name: LPCWSTR,
+            window_name: LPCWSTR,
+            style: u32,
+            x: i32,
+            y: i32,
+            width: i32,
+            height: i32,
+            parent: HWND,
+            menu: HMENU,
+            instance: HINSTANCE,
+            param: *mut c_void,
+        ) -> HWND;
+        pub fn DestroyWindow(hwnd: HWND) -> i32;
+        pub fn ShowWindow(hwnd: HWND, cmd_show: i32) -> i32;
+        pub fn SetWindowPos(
+            hwnd: HWND,
+            insert_after: HWND,
+            x: i32,
+            y: i32,
+            cx: i32,
+            cy: i32,
+            flags: u32,
+        ) -> i32;
+    }
+
+    /// Encode a &str as null-terminated UTF-16. Only used for static class names.
+    pub fn wide(s: &str) -> Vec<u16> {
+        s.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+}
 
 #[cfg(target_os = "windows")]
 struct Win32Window {
@@ -294,43 +350,41 @@ impl Win32Window {
         w: u32,
         h: u32,
     ) -> Result<u64, String> {
-        use windows::Win32::Foundation::HWND;
-        use windows::Win32::UI::WindowsAndMessaging::*;
-        use windows::core::w;
+        use win32_ffi::*;
+
+        let class = wide("Static");
+        let title = wide("");
 
         unsafe {
-            let parent = HWND(parent_hwnd as isize);
-
             let child = CreateWindowExW(
-                WINDOW_EX_STYLE(0),
-                w!("Static"),
-                w!(""),
+                0,
+                class.as_ptr(),
+                title.as_ptr(),
                 WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
                 x,
                 y,
                 w as i32,
                 h as i32,
-                parent,
-                None,
-                None,
-                None,
-            )
-            .map_err(|e| format!("CreateWindowExW failed: {e}"))?;
+                parent_hwnd as HWND,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            );
+            if child.is_null() {
+                return Err("CreateWindowExW failed".into());
+            }
 
-            self.child_hwnd = child.0 as u64;
+            self.child_hwnd = child as u64;
             Ok(self.child_hwnd)
         }
     }
 
     fn update_geometry(&self, x: i32, y: i32, w: u32, h: u32) {
         if self.child_hwnd != 0 {
-            use windows::Win32::Foundation::HWND;
-            use windows::Win32::UI::WindowsAndMessaging::*;
-
+            use win32_ffi::*;
             unsafe {
-                let hwnd = HWND(self.child_hwnd as isize);
-                let _ = SetWindowPos(
-                    hwnd,
+                SetWindowPos(
+                    self.child_hwnd as HWND,
                     HWND_TOP,
                     x,
                     y,
@@ -344,36 +398,24 @@ impl Win32Window {
 
     fn hide(&self) {
         if self.child_hwnd != 0 {
-            use windows::Win32::Foundation::HWND;
-            use windows::Win32::UI::WindowsAndMessaging::*;
-
             unsafe {
-                let hwnd = HWND(self.child_hwnd as isize);
-                let _ = ShowWindow(hwnd, SW_HIDE);
+                win32_ffi::ShowWindow(self.child_hwnd as win32_ffi::HWND, win32_ffi::SW_HIDE);
             }
         }
     }
 
     fn show(&self) {
         if self.child_hwnd != 0 {
-            use windows::Win32::Foundation::HWND;
-            use windows::Win32::UI::WindowsAndMessaging::*;
-
             unsafe {
-                let hwnd = HWND(self.child_hwnd as isize);
-                let _ = ShowWindow(hwnd, SW_SHOW);
+                win32_ffi::ShowWindow(self.child_hwnd as win32_ffi::HWND, win32_ffi::SW_SHOW);
             }
         }
     }
 
     fn destroy(&mut self) {
         if self.child_hwnd != 0 {
-            use windows::Win32::Foundation::HWND;
-            use windows::Win32::UI::WindowsAndMessaging::*;
-
             unsafe {
-                let hwnd = HWND(self.child_hwnd as isize);
-                let _ = DestroyWindow(hwnd);
+                win32_ffi::DestroyWindow(self.child_hwnd as win32_ffi::HWND);
             }
             self.child_hwnd = 0;
         }
