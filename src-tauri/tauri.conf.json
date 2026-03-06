@@ -42,7 +42,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/mpv"],
     "resources": {
       "binaries/mpv-libs/*": "./",
       "binaries/mpv.app/**/*": "mpv.app/"

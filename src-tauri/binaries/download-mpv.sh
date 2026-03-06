@@ -110,18 +110,8 @@ download_windows() {
 }
 
 download_linux() {
-  local target="x86_64-unknown-linux-gnu"
-  echo "Setting up mpv for ${target}..."
-  # On Linux, use system mpv. For deb/rpm the package dependency handles it.
-  # This is needed for AppImage builds.
-  if command -v mpv &>/dev/null; then
-    cp "$(which mpv)" "mpv-${target}"
-    chmod +x "mpv-${target}"
-    echo "  -> mpv-${target} (copied from system)"
-  else
-    echo "ERROR: mpv not found. Install it first: sudo apt install mpv"
-    return 1
-  fi
+  echo "Linux: mpv is a system dependency (deb/rpm 'depends' handles it)."
+  echo "  No sidecar needed."
 }
 
 detect_target() {
