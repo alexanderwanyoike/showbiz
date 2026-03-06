@@ -174,11 +174,14 @@ impl MacosView {
         h: u32,
     ) -> Result<u64, String> {
         use objc2::rc::Retained;
-        use objc2::{msg_send_id, ClassType};
+        use objc2::MainThreadMarker;
         use objc2_app_kit::NSView;
         use objc2_foundation::NSRect;
 
         unsafe {
+            let mtm = MainThreadMarker::new()
+                .ok_or("mpv view must be created on the main thread")?;
+
             let parent: &NSView = &*(parent_ns_view as *const NSView);
 
             // Get the parent's height to flip coordinates (NSView origin is bottom-left)
@@ -190,10 +193,7 @@ impl MacosView {
                 objc2_foundation::NSSize::new(w as f64, h as f64),
             );
 
-            // Use msg_send_id! for alloc to avoid trait bound issues with
-            // main-thread-only classes like NSView.
-            let alloc: Retained<NSView> = msg_send_id![NSView::class(), alloc];
-            let child: Retained<NSView> = msg_send_id![alloc, initWithFrame: frame];
+            let child = NSView::initWithFrame(mtm.alloc(), frame);
             child.setWantsLayer(true);
 
             // Add as subview — this puts it on top of the WebView
