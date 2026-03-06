@@ -140,6 +140,143 @@ impl Drop for X11Window {
     }
 }
 
+// ─── macOS native subview ────────────────────────────────────────────────────
+//
+// On macOS, mpv's --wid renders behind the WKWebView when given the window's
+// content view. We create a native NSView subview on top of the WebView and
+// give *that* to mpv, mirroring the Linux X11 child-window approach.
+
+#[cfg(target_os = "macos")]
+struct MacosView {
+    /// The child NSView we created (retained).
+    child_view: *mut std::ffi::c_void,
+}
+
+#[cfg(target_os = "macos")]
+unsafe impl Send for MacosView {}
+
+#[cfg(target_os = "macos")]
+impl MacosView {
+    fn new() -> Self {
+        Self {
+            child_view: std::ptr::null_mut(),
+        }
+    }
+
+    /// Create a child NSView at the given geometry within the parent NSView.
+    /// Returns the child view pointer as u64 for mpv's --wid.
+    fn create_child(
+        &mut self,
+        parent_ns_view: u64,
+        x: i32,
+        y: i32,
+        w: u32,
+        h: u32,
+    ) -> Result<u64, String> {
+        use objc2::rc::Retained;
+        use objc2_app_kit::{NSColor, NSView};
+        use objc2_foundation::NSRect;
+
+        unsafe {
+            let parent: &NSView = &*(parent_ns_view as *const NSView);
+
+            // Get the parent's height to flip coordinates (NSView origin is bottom-left)
+            let parent_frame = parent.frame();
+            let flipped_y = parent_frame.size.height - (y as f64) - (h as f64);
+
+            let frame = NSRect::new(
+                objc2_foundation::NSPoint::new(x as f64, flipped_y),
+                objc2_foundation::NSSize::new(w as f64, h as f64),
+            );
+
+            let child = NSView::initWithFrame(NSView::alloc(), frame);
+
+            // Black background so it looks correct before mpv renders
+            child.setWantsLayer(true);
+            if let Some(layer) = child.layer() {
+                use objc2::msg_send;
+                let cg_black: *mut std::ffi::c_void = msg_send![
+                    objc2::class!(NSColor),
+                    blackColor
+                ];
+                let cg_color: *mut std::ffi::c_void = msg_send![cg_black, CGColor];
+                let _: () = msg_send![&*layer, setBackgroundColor: cg_color];
+            }
+
+            // Add as subview — this puts it on top of the WebView
+            parent.addSubview(&child);
+
+            let ptr = Retained::into_raw(child) as *mut std::ffi::c_void;
+            self.child_view = ptr;
+            Ok(ptr as u64)
+        }
+    }
+
+    fn update_geometry(&self, parent_ns_view: u64, x: i32, y: i32, w: u32, h: u32) {
+        if self.child_view.is_null() {
+            return;
+        }
+        use objc2_app_kit::NSView;
+        use objc2_foundation::NSRect;
+
+        unsafe {
+            let parent: &NSView = &*(parent_ns_view as *const NSView);
+            let child: &NSView = &*(self.child_view as *const NSView);
+
+            let parent_frame = parent.frame();
+            let flipped_y = parent_frame.size.height - (y as f64) - (h as f64);
+
+            let frame = NSRect::new(
+                objc2_foundation::NSPoint::new(x as f64, flipped_y),
+                objc2_foundation::NSSize::new(w as f64, h as f64),
+            );
+            child.setFrame(frame);
+        }
+    }
+
+    fn hide(&self) {
+        if !self.child_view.is_null() {
+            unsafe {
+                let child: &objc2_app_kit::NSView =
+                    &*(self.child_view as *const objc2_app_kit::NSView);
+                child.setHidden(true);
+            }
+        }
+    }
+
+    fn show(&self) {
+        if !self.child_view.is_null() {
+            unsafe {
+                let child: &objc2_app_kit::NSView =
+                    &*(self.child_view as *const objc2_app_kit::NSView);
+                child.setHidden(false);
+            }
+        }
+    }
+
+    fn destroy(&mut self) {
+        if !self.child_view.is_null() {
+            unsafe {
+                let child: &objc2_app_kit::NSView =
+                    &*(self.child_view as *const objc2_app_kit::NSView);
+                child.removeFromSuperview();
+                // Re-take ownership so it gets dropped
+                let _ = objc2::rc::Retained::from_raw(
+                    self.child_view as *mut objc2_app_kit::NSView,
+                );
+            }
+            self.child_view = std::ptr::null_mut();
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl Drop for MacosView {
+    fn drop(&mut self) {
+        self.destroy();
+    }
+}
+
 // ─── MpvController ───────────────────────────────────────────────────────────
 
 pub struct MpvController {
@@ -147,6 +284,10 @@ pub struct MpvController {
     ipc: Option<Box<dyn MpvIpc>>,
     #[cfg(target_os = "linux")]
     x11_window: Option<X11Window>,
+    #[cfg(target_os = "macos")]
+    macos_view: Option<MacosView>,
+    #[cfg(target_os = "macos")]
+    parent_ns_view: u64,
 }
 
 // Safety: only accessed behind Mutex<MpvController> in AppState
@@ -165,6 +306,10 @@ impl MpvController {
             ipc: None,
             #[cfg(target_os = "linux")]
             x11_window: None,
+            #[cfg(target_os = "macos")]
+            macos_view: None,
+            #[cfg(target_os = "macos")]
+            parent_ns_view: 0,
         }
     }
 
@@ -192,9 +337,18 @@ impl MpvController {
             child_wid
         };
 
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "macos")]
         let wid = {
-            let _ = (x, y, w, h); // geometry handled by mpv on macOS/Windows
+            let mut macos = MacosView::new();
+            let child_wid = macos.create_child(parent_wid, x, y, w, h)?;
+            self.macos_view = Some(macos);
+            self.parent_ns_view = parent_wid;
+            child_wid
+        };
+
+        #[cfg(target_os = "windows")]
+        let wid = {
+            let _ = (x, y, w, h);
             parent_wid
         };
 
@@ -240,8 +394,11 @@ impl MpvController {
         if let Some(ref x11) = self.x11_window {
             x11.update_geometry(x, y, w, h);
         }
-        // No-op on macOS/Windows — mpv fills the provided view
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "macos")]
+        if let Some(ref macos) = self.macos_view {
+            macos.update_geometry(self.parent_ns_view, x, y, w, h);
+        }
+        #[cfg(target_os = "windows")]
         {
             let _ = (x, y, w, h);
         }
@@ -252,12 +409,20 @@ impl MpvController {
         if let Some(ref x11) = self.x11_window {
             x11.hide();
         }
+        #[cfg(target_os = "macos")]
+        if let Some(ref macos) = self.macos_view {
+            macos.hide();
+        }
     }
 
     pub fn show(&self) {
         #[cfg(target_os = "linux")]
         if let Some(ref x11) = self.x11_window {
             x11.show();
+        }
+        #[cfg(target_os = "macos")]
+        if let Some(ref macos) = self.macos_view {
+            macos.show();
         }
     }
 
@@ -314,6 +479,14 @@ impl MpvController {
                 x11.destroy();
             }
             self.x11_window = None;
+        }
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(ref mut macos) = self.macos_view {
+                macos.destroy();
+            }
+            self.macos_view = None;
+            self.parent_ns_view = 0;
         }
     }
 }
