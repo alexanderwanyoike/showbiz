@@ -4,6 +4,7 @@ mod libmpv;
 
 #[cfg(not(target_os = "macos"))]
 use ipc::MpvIpc;
+#[cfg(not(target_os = "macos"))]
 use serde_json::json;
 #[cfg(not(target_os = "macos"))]
 use std::process::{Child, Command, Stdio};
@@ -816,6 +817,7 @@ fn get_parent_wid(window: &tauri::WebviewWindow) -> Result<u64, String> {
 }
 
 /// Create the IPC channel for the current platform.
+#[cfg(not(target_os = "macos"))]
 fn create_ipc() -> Result<Box<dyn MpvIpc>, String> {
     #[cfg(unix)]
     {
