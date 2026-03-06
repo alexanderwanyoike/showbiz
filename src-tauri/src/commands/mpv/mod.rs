@@ -7,9 +7,9 @@ use std::time::Duration;
 
 // ─── Linux X11 child window ──────────────────────────────────────────────────
 //
-// On Linux/X11, mpv's --wid takes over the entire parent window, so we create
-// a child X11 window at the desired position/size and give *that* to mpv.
-// On macOS/Windows, mpv respects the view/hwnd bounds, so no child window needed.
+// On all platforms, mpv's --wid renders behind the WebView when given the main
+// window handle. We create a platform-specific child window/view at the desired
+// position/size and give *that* to mpv so it renders on top of the WebView.
 
 #[cfg(target_os = "linux")]
 struct X11Window {
@@ -277,6 +277,126 @@ impl Drop for MacosView {
     }
 }
 
+// ─── Windows child window ────────────────────────────────────────────────────
+//
+// On Windows, mpv's --wid renders behind the WebView2 when given the parent
+// HWND. We create a child HWND on top of the WebView and give *that* to mpv.
+
+#[cfg(target_os = "windows")]
+struct Win32Window {
+    child_hwnd: u64,
+}
+
+#[cfg(target_os = "windows")]
+unsafe impl Send for Win32Window {}
+
+#[cfg(target_os = "windows")]
+impl Win32Window {
+    fn new() -> Self {
+        Self { child_hwnd: 0 }
+    }
+
+    fn create_child(
+        &mut self,
+        parent_hwnd: u64,
+        x: i32,
+        y: i32,
+        w: u32,
+        h: u32,
+    ) -> Result<u64, String> {
+        use windows::Win32::Foundation::HWND;
+        use windows::Win32::UI::WindowsAndMessaging::*;
+        use windows::core::w;
+
+        unsafe {
+            let parent = HWND(parent_hwnd as *mut std::ffi::c_void);
+
+            let child = CreateWindowExW(
+                WINDOW_EX_STYLE(0),
+                w!("Static"),
+                w!(""),
+                WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
+                x,
+                y,
+                w as i32,
+                h as i32,
+                Some(parent),
+                None,
+                None,
+                None,
+            )
+            .map_err(|e| format!("CreateWindowExW failed: {e}"))?;
+
+            self.child_hwnd = child.0 as u64;
+            Ok(self.child_hwnd)
+        }
+    }
+
+    fn update_geometry(&self, x: i32, y: i32, w: u32, h: u32) {
+        if self.child_hwnd != 0 {
+            use windows::Win32::Foundation::HWND;
+            use windows::Win32::UI::WindowsAndMessaging::*;
+
+            unsafe {
+                let hwnd = HWND(self.child_hwnd as *mut std::ffi::c_void);
+                let _ = SetWindowPos(
+                    hwnd,
+                    Some(HWND_TOP),
+                    x,
+                    y,
+                    w as i32,
+                    h as i32,
+                    SWP_NOACTIVATE,
+                );
+            }
+        }
+    }
+
+    fn hide(&self) {
+        if self.child_hwnd != 0 {
+            use windows::Win32::Foundation::HWND;
+            use windows::Win32::UI::WindowsAndMessaging::*;
+
+            unsafe {
+                let hwnd = HWND(self.child_hwnd as *mut std::ffi::c_void);
+                let _ = ShowWindow(hwnd, SW_HIDE);
+            }
+        }
+    }
+
+    fn show(&self) {
+        if self.child_hwnd != 0 {
+            use windows::Win32::Foundation::HWND;
+            use windows::Win32::UI::WindowsAndMessaging::*;
+
+            unsafe {
+                let hwnd = HWND(self.child_hwnd as *mut std::ffi::c_void);
+                let _ = ShowWindow(hwnd, SW_SHOW);
+            }
+        }
+    }
+
+    fn destroy(&mut self) {
+        if self.child_hwnd != 0 {
+            use windows::Win32::Foundation::HWND;
+            use windows::Win32::UI::WindowsAndMessaging::*;
+
+            unsafe {
+                let hwnd = HWND(self.child_hwnd as *mut std::ffi::c_void);
+                let _ = DestroyWindow(hwnd);
+            }
+            self.child_hwnd = 0;
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl Drop for Win32Window {
+    fn drop(&mut self) {
+        self.destroy();
+    }
+}
+
 // ─── MpvController ───────────────────────────────────────────────────────────
 
 pub struct MpvController {
@@ -288,6 +408,8 @@ pub struct MpvController {
     macos_view: Option<MacosView>,
     #[cfg(target_os = "macos")]
     parent_ns_view: u64,
+    #[cfg(target_os = "windows")]
+    win32_window: Option<Win32Window>,
 }
 
 // Safety: only accessed behind Mutex<MpvController> in AppState
@@ -310,13 +432,15 @@ impl MpvController {
             macos_view: None,
             #[cfg(target_os = "macos")]
             parent_ns_view: 0,
+            #[cfg(target_os = "windows")]
+            win32_window: None,
         }
     }
 
     /// Spawn mpv embedded in the given parent window.
     ///
-    /// On Linux/X11, creates a child window at (x,y) size (w*h) inside the parent.
-    /// On macOS/Windows, passes the parent handle directly to mpv's `--wid`.
+    /// Creates a platform-specific child window/view at (x,y) size (w*h) inside
+    /// the parent, then passes that child to mpv's `--wid`.
     pub fn start(
         &mut self,
         parent_wid: u64,
@@ -348,8 +472,10 @@ impl MpvController {
 
         #[cfg(target_os = "windows")]
         let wid = {
-            let _ = (x, y, w, h);
-            parent_wid
+            let mut win32 = Win32Window::new();
+            let child_wid = win32.create_child(parent_wid, x, y, w, h)?;
+            self.win32_window = Some(win32);
+            child_wid
         };
 
         let ipc_channel = create_ipc()?;
@@ -399,8 +525,8 @@ impl MpvController {
             macos.update_geometry(self.parent_ns_view, x, y, w, h);
         }
         #[cfg(target_os = "windows")]
-        {
-            let _ = (x, y, w, h);
+        if let Some(ref win32) = self.win32_window {
+            win32.update_geometry(x, y, w, h);
         }
     }
 
@@ -413,6 +539,10 @@ impl MpvController {
         if let Some(ref macos) = self.macos_view {
             macos.hide();
         }
+        #[cfg(target_os = "windows")]
+        if let Some(ref win32) = self.win32_window {
+            win32.hide();
+        }
     }
 
     pub fn show(&self) {
@@ -423,6 +553,10 @@ impl MpvController {
         #[cfg(target_os = "macos")]
         if let Some(ref macos) = self.macos_view {
             macos.show();
+        }
+        #[cfg(target_os = "windows")]
+        if let Some(ref win32) = self.win32_window {
+            win32.show();
         }
     }
 
@@ -487,6 +621,13 @@ impl MpvController {
             }
             self.macos_view = None;
             self.parent_ns_view = 0;
+        }
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(ref mut win32) = self.win32_window {
+                win32.destroy();
+            }
+            self.win32_window = None;
         }
     }
 }
@@ -704,4 +845,95 @@ pub fn mpv_hide(state: State<'_, crate::AppState>) -> Result<(), String> {
 pub fn mpv_show(state: State<'_, crate::AppState>) -> Result<(), String> {
     state.mpv.lock().unwrap().show();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn controller_new_is_not_running() {
+        let ctrl = MpvController::new();
+        assert!(!ctrl.is_running());
+    }
+
+    #[test]
+    fn controller_stop_without_start_is_safe() {
+        let mut ctrl = MpvController::new();
+        ctrl.stop(); // should not panic
+        assert!(!ctrl.is_running());
+    }
+
+    #[test]
+    fn controller_send_without_ipc_returns_error() {
+        let ctrl = MpvController::new();
+        let result = ctrl.load_file("/tmp/test.mp4");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("IPC not initialized"));
+    }
+
+    #[test]
+    fn controller_get_position_without_ipc_returns_error() {
+        let ctrl = MpvController::new();
+        let result = ctrl.get_position();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn controller_double_stop_is_safe() {
+        let mut ctrl = MpvController::new();
+        ctrl.stop();
+        ctrl.stop();
+        assert!(!ctrl.is_running());
+    }
+
+    #[test]
+    fn controller_hide_show_without_start_is_safe() {
+        let ctrl = MpvController::new();
+        ctrl.hide(); // no-op, should not panic
+        ctrl.show(); // no-op, should not panic
+    }
+
+    #[test]
+    fn controller_update_geometry_without_start_is_safe() {
+        let ctrl = MpvController::new();
+        ctrl.update_geometry(0, 0, 640, 480); // no-op, should not panic
+    }
+
+    #[test]
+    fn find_mpv_binary_with_env_override() {
+        // Create a temp file to act as our "mpv binary"
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let path = tmp.path().to_string_lossy().to_string();
+
+        // Set the env var and verify it's found
+        std::env::set_var("SHOWBIZ_MPV_PATH", &path);
+        let result = find_mpv_binary();
+        std::env::remove_var("SHOWBIZ_MPV_PATH");
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), path);
+    }
+
+    #[test]
+    fn find_mpv_binary_env_override_nonexistent_falls_through() {
+        std::env::set_var("SHOWBIZ_MPV_PATH", "/nonexistent/path/to/mpv");
+        let result = find_mpv_binary();
+        std::env::remove_var("SHOWBIZ_MPV_PATH");
+
+        // Should fall through to other methods (may succeed or fail depending on system)
+        // but should NOT return the nonexistent path
+        if let Ok(path) = &result {
+            assert_ne!(path, "/nonexistent/path/to/mpv");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unix_ipc_socket_path_contains_pid() {
+        let ipc = ipc::UnixSocketIpc::new();
+        let arg = ipc.socket_arg();
+        assert!(arg.contains(&std::process::id().to_string()));
+        assert!(arg.contains("showbiz-mpv"));
+    }
 }
