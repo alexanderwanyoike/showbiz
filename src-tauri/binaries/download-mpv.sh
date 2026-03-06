@@ -51,15 +51,15 @@ download_macos() {
   # Bundle the entire mpv.app — the binary needs its Frameworks/ dylibs
   rm -rf "mpv.app"
   cp -R "$mpv_app" "mpv.app"
-  # Strip codesign from all binaries to prevent conflicts with Tauri's app signing
-  find "mpv.app" -type f -perm +111 -exec codesign --remove-signature {} 2>/dev/null \; || true
+  # Ad-hoc sign all binaries so macOS allows them to run inside the app bundle
+  find "mpv.app" -type f -perm +111 -exec codesign --force --sign - {} 2>/dev/null \; || true
   echo "  -> mpv.app/ (full bundle for ${target})"
 
-  # Also create the externalBin sidecar stub so Tauri build doesn't fail
-  # (actual execution uses mpv.app/Contents/MacOS/mpv via resources)
+  # Also create the externalBin sidecar so Tauri build doesn't fail
   cp "mpv.app/Contents/MacOS/mpv" "mpv-${target}"
   chmod +x "mpv-${target}"
-  echo "  -> mpv-${target} (sidecar stub)"
+  codesign --force --sign - "mpv-${target}" 2>/dev/null || true
+  echo "  -> mpv-${target} (sidecar)"
 }
 
 download_macos_arm64() {

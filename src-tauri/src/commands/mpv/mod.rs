@@ -531,11 +531,26 @@ impl MpvController {
         #[cfg(target_os = "linux")]
         args.push("--x11-name=showbiz".to_string());
 
-        let child = Command::new(&mpv_bin)
-            .args(&args)
+        let mut cmd = Command::new(&mpv_bin);
+        cmd.args(&args)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        // On macOS, help the mpv sidecar find its dylibs from the bundled mpv.app
+        #[cfg(target_os = "macos")]
+        {
+            if let Ok(exe) = std::env::current_exe() {
+                if let Some(dir) = exe.parent() {
+                    let frameworks = dir.join("../Resources/mpv.app/Contents/Frameworks");
+                    if frameworks.exists() {
+                        cmd.env("DYLD_LIBRARY_PATH", &frameworks);
+                    }
+                }
+            }
+        }
+
+        let child = cmd
             .spawn()
             .map_err(|e| format!("Failed to start mpv: {e}"))?;
 
@@ -950,6 +965,24 @@ pub fn mpv_diagnose() -> String {
             // macOS Resources path
             let resources_mpv = dir.join("../Resources/mpv.app/Contents/MacOS/mpv");
             candidates.push(resources_mpv.display().to_string());
+
+            // macOS Frameworks dir (for dylib loading)
+            let frameworks = dir.join("../Resources/mpv.app/Contents/Frameworks");
+            info.insert("resources_frameworks_exists".into(),
+                serde_json::Value::Bool(frameworks.exists()));
+
+            // List Contents/Resources to see what Tauri actually bundled
+            let resources_dir = dir.join("../Resources");
+            if resources_dir.exists() {
+                let mut entries: Vec<String> = Vec::new();
+                if let Ok(rd) = std::fs::read_dir(&resources_dir) {
+                    for entry in rd.flatten() {
+                        entries.push(entry.file_name().to_string_lossy().into_owned());
+                    }
+                }
+                info.insert("resources_dir_contents".into(),
+                    serde_json::json!(entries));
+            }
 
             // Bundled next to exe
             let bundled = dir.join("mpv");
