@@ -202,43 +202,6 @@ pub fn save_version_image(
     Ok(format!("images/versions/{}/{}", shot_id, filename))
 }
 
-/// Read a version image as a base64 data URL.
-pub fn get_version_image_as_base64(
-    app: &AppHandle,
-    shot_id: &str,
-    version_number: i32,
-) -> Result<Option<String>, String> {
-    let base = get_media_base_dir(app);
-    let version_dir = base.join("images").join("versions").join(shot_id);
-
-    if !version_dir.exists() {
-        return Ok(None);
-    }
-
-    // Find file matching vN.* pattern
-    let prefix = format!("v{}.", version_number);
-    let entries = std::fs::read_dir(&version_dir)
-        .map_err(|e| format!("Failed to read version dir: {}", e))?;
-
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with(&prefix) {
-            let filepath = entry.path();
-            let bytes = std::fs::read(&filepath)
-                .map_err(|e| format!("Failed to read version image: {}", e))?;
-            let b64 = STANDARD.encode(&bytes);
-            let ext = filepath
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("png");
-            let mime = ext_to_mime(ext);
-            return Ok(Some(format!("data:{};base64,{}", mime, b64)));
-        }
-    }
-
-    Ok(None)
-}
-
 /// Delete all version images for a shot.
 pub fn delete_version_images(app: &AppHandle, shot_id: &str) -> bool {
     let base = get_media_base_dir(app);
@@ -282,39 +245,6 @@ pub fn save_version_video(
         .map_err(|e| format!("Failed to write version video: {}", e))?;
 
     Ok(format!("videos/versions/{}/{}", shot_id, filename))
-}
-
-/// Delete all version videos for a shot.
-pub fn delete_version_videos(app: &AppHandle, shot_id: &str) -> bool {
-    let base = get_media_base_dir(app);
-    let version_dir = base.join("videos").join("versions").join(shot_id);
-    if version_dir.exists() {
-        std::fs::remove_dir_all(&version_dir).is_ok()
-    } else {
-        false
-    }
-}
-
-/// Save a mask image. Returns relative path like "masks/shotid/versionid.png".
-pub fn save_mask_image(
-    app: &AppHandle,
-    shot_id: &str,
-    version_id: &str,
-    base64_data_url: &str,
-) -> Result<String, String> {
-    let base = get_media_base_dir(app);
-    let mask_dir = base.join("masks").join(shot_id);
-    std::fs::create_dir_all(&mask_dir)
-        .map_err(|e| format!("Failed to create mask dir: {}", e))?;
-
-    let (_mime_subtype, bytes) = parse_data_url(base64_data_url)?;
-    let filename = format!("{}.png", version_id);
-    let filepath = mask_dir.join(&filename);
-
-    std::fs::write(&filepath, &bytes)
-        .map_err(|e| format!("Failed to write mask image: {}", e))?;
-
-    Ok(format!("masks/{}/{}", shot_id, filename))
 }
 
 #[cfg(test)]
