@@ -26,6 +26,7 @@ x11-dl = "2"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
 objc2-app-kit = { version = "0.3", features = ["NSView", "NSResponder"] }
+libloading = "0.8"
 
 [dev-dependencies]
 tempfile = "3"
