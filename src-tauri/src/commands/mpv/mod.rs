@@ -521,7 +521,8 @@ impl MpvController {
             "--keep-open=yes".to_string(),
             "--osc=no".to_string(),
             "--osd-level=0".to_string(),
-            "--no-focus-on-open".to_string(),
+            // --wid mode doesn't steal focus, so no flag needed.
+            // (--no-focus-on-open removed in mpv v0.41, replaced by --focus-on)
             "--no-terminal".to_string(),
             format!("--log-file={}", log_path.display()),
             format!("--wid={wid}"),
