@@ -537,14 +537,24 @@ impl MpvController {
             .stdout(Stdio::null())
             .stderr(Stdio::piped());
 
-        // On macOS, help the mpv sidecar find its dylibs from the bundled mpv.app
+        // On macOS, help mpv find its dylibs from the bundled mpv.app.
+        // mpv uses @executable_path/lib/ for its dylibs — when launched from
+        // Resources/mpv.app/Contents/MacOS/mpv this resolves correctly, but
+        // we set DYLD_LIBRARY_PATH as a fallback.
         #[cfg(target_os = "macos")]
         {
             if let Ok(exe) = std::env::current_exe() {
                 if let Some(dir) = exe.parent() {
-                    let frameworks = dir.join("../Resources/mpv.app/Contents/Frameworks");
-                    if frameworks.exists() {
-                        cmd.env("DYLD_LIBRARY_PATH", &frameworks);
+                    let mpv_app_base = dir.join("../Resources/mpv.app/Contents");
+                    let mut lib_paths = Vec::new();
+                    for sub in &["MacOS/lib", "Frameworks", "lib"] {
+                        let p = mpv_app_base.join(sub);
+                        if p.exists() {
+                            lib_paths.push(p.to_string_lossy().into_owned());
+                        }
+                    }
+                    if !lib_paths.is_empty() {
+                        cmd.env("DYLD_LIBRARY_PATH", lib_paths.join(":"));
                     }
                 }
             }
@@ -966,10 +976,13 @@ pub fn mpv_diagnose() -> String {
             let resources_mpv = dir.join("../Resources/mpv.app/Contents/MacOS/mpv");
             candidates.push(resources_mpv.display().to_string());
 
-            // macOS Frameworks dir (for dylib loading)
-            let frameworks = dir.join("../Resources/mpv.app/Contents/Frameworks");
-            info.insert("resources_frameworks_exists".into(),
-                serde_json::Value::Bool(frameworks.exists()));
+            // macOS dylib directories
+            let mpv_app_base = dir.join("../Resources/mpv.app/Contents");
+            for sub in &["Frameworks", "MacOS/lib", "lib"] {
+                let p = mpv_app_base.join(sub);
+                info.insert(format!("mpv_app_{}", sub.replace('/', "_")),
+                    serde_json::Value::Bool(p.exists()));
+            }
 
             // List Contents/Resources to see what Tauri actually bundled
             let resources_dir = dir.join("../Resources");

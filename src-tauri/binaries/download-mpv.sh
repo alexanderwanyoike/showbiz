@@ -51,15 +51,22 @@ download_macos() {
   # Bundle the entire mpv.app — the binary needs its Frameworks/ dylibs
   rm -rf "mpv.app"
   cp -R "$mpv_app" "mpv.app"
+
+  # Resolve all symlinks to real files — Tauri's resource glob skips symlinks
+  find "mpv.app" -type l | while read -r link; do
+    target="$(readlink -f "$link")"
+    rm "$link"
+    if [ -f "$target" ]; then
+      cp "$target" "$link"
+    fi
+  done
+  echo "  Resolved symlinks in mpv.app"
+
   # Ad-hoc sign all binaries so macOS allows them to run inside the app bundle
   find "mpv.app" -type f -perm +111 -exec codesign --force --sign - {} 2>/dev/null \; || true
-  echo "  -> mpv.app/ (full bundle for ${target})"
 
-  # Also create the externalBin sidecar so Tauri build doesn't fail
-  cp "mpv.app/Contents/MacOS/mpv" "mpv-${target}"
-  chmod +x "mpv-${target}"
-  codesign --force --sign - "mpv-${target}" 2>/dev/null || true
-  echo "  -> mpv-${target} (sidecar)"
+  local file_count=$(find "mpv.app" -type f | wc -l | tr -d ' ')
+  echo "  -> mpv.app/ (${file_count} files for ${target})"
 }
 
 download_macos_arm64() {
