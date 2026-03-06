@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 #
-# Download pre-built mpv binaries for Tauri sidecar bundling.
+# Download pre-built mpv binaries for Tauri bundling.
 #
 # Uses official mpv releases from https://github.com/mpv-player/mpv/releases
-#
-# Tauri expects binaries named: mpv-{target_triple}[.exe]
-# Place this script in src-tauri/binaries/ and run it before `yarn build`.
 #
 # Usage:
 #   ./download-mpv.sh              # download for current platform
@@ -48,25 +45,50 @@ download_macos() {
     return 1
   fi
 
-  # Bundle the entire mpv.app — the binary needs its Frameworks/ dylibs
-  rm -rf "mpv.app"
-  cp -R "$mpv_app" "mpv.app"
+  # Flatten mpv.app into mpv-macos/ — Tauri's resource glob can't handle
+  # .app bundles (symlinks, nested dirs). Simple flat structure works.
+  rm -rf "mpv-macos"
+  mkdir -p "mpv-macos/lib"
 
-  # Resolve all symlinks to real files — Tauri's resource glob skips symlinks
-  find "mpv.app" -type l | while read -r link; do
-    target="$(readlink -f "$link")"
-    rm "$link"
-    if [ -f "$target" ]; then
-      cp "$target" "$link"
+  # Copy the mpv binary
+  cp "$mpv_app/Contents/MacOS/mpv" "mpv-macos/mpv"
+  chmod +x "mpv-macos/mpv"
+
+  # Collect ALL dylibs from the bundle (resolve symlinks to real files)
+  local lib_count=0
+  # Check both common locations: MacOS/lib/ and Frameworks/
+  for search_dir in "$mpv_app/Contents/MacOS/lib" "$mpv_app/Contents/Frameworks"; do
+    if [ -d "$search_dir" ]; then
+      while IFS= read -r -d '' dylib; do
+        local real_file="$(readlink -f "$dylib")"
+        local base_name="$(basename "$dylib")"
+        cp "$real_file" "mpv-macos/lib/${base_name}"
+        lib_count=$((lib_count + 1))
+      done < <(find "$search_dir" -name "*.dylib" -print0)
     fi
   done
-  echo "  Resolved symlinks in mpv.app"
 
-  # Ad-hoc sign all binaries so macOS allows them to run inside the app bundle
-  find "mpv.app" -type f -perm +111 -exec codesign --force --sign - {} 2>/dev/null \; || true
+  # Also grab any .so files (some mpv plugins use .so)
+  for search_dir in "$mpv_app/Contents/MacOS/lib" "$mpv_app/Contents/Frameworks"; do
+    if [ -d "$search_dir" ]; then
+      while IFS= read -r -d '' so; do
+        local real_file="$(readlink -f "$so")"
+        local base_name="$(basename "$so")"
+        cp "$real_file" "mpv-macos/lib/${base_name}"
+        lib_count=$((lib_count + 1))
+      done < <(find "$search_dir" -name "*.so" -print0)
+    fi
+  done
 
-  local file_count=$(find "mpv.app" -type f | wc -l | tr -d ' ')
-  echo "  -> mpv.app/ (${file_count} files for ${target})"
+  # Ad-hoc sign everything
+  codesign --force --sign - "mpv-macos/mpv" 2>/dev/null || true
+  find "mpv-macos/lib" -type f -exec codesign --force --sign - {} 2>/dev/null \; || true
+
+  echo "  -> mpv-macos/mpv + ${lib_count} dylibs"
+
+  # Keep mpv.app placeholder for Tauri resource validation on other platforms
+  rm -rf "mpv.app"
+  mkdir -p "mpv.app"
 }
 
 download_macos_arm64() {
@@ -161,12 +183,13 @@ case "${1:-}" in
     ;;
 esac
 
-# Ensure mpv.app placeholder exists for non-macOS builds (Tauri validates resources)
+# Ensure placeholder dirs exist for non-macOS builds (Tauri validates resources)
 mkdir -p mpv.app
+mkdir -p mpv-macos/lib
 
 echo ""
 echo "Done. Binaries in src-tauri/binaries/:"
 ls -la mpv-* 2>/dev/null || echo "  (none yet)"
-if [ -d "mpv.app/Contents" ]; then
-  echo "  mpv.app/ (full bundle)"
+if [ -f "mpv-macos/mpv" ]; then
+  echo "  mpv-macos/ ($(find mpv-macos -type f | wc -l | tr -d ' ') files)"
 fi

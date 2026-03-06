@@ -537,24 +537,15 @@ impl MpvController {
             .stdout(Stdio::null())
             .stderr(Stdio::piped());
 
-        // On macOS, help mpv find its dylibs from the bundled mpv.app.
-        // mpv uses @executable_path/lib/ for its dylibs — when launched from
-        // Resources/mpv.app/Contents/MacOS/mpv this resolves correctly, but
-        // we set DYLD_LIBRARY_PATH as a fallback.
+        // On macOS, set DYLD_LIBRARY_PATH so mpv can find its dylibs
+        // from the flattened mpv-macos/lib/ directory in Resources.
         #[cfg(target_os = "macos")]
         {
             if let Ok(exe) = std::env::current_exe() {
                 if let Some(dir) = exe.parent() {
-                    let mpv_app_base = dir.join("../Resources/mpv.app/Contents");
-                    let mut lib_paths = Vec::new();
-                    for sub in &["MacOS/lib", "Frameworks", "lib"] {
-                        let p = mpv_app_base.join(sub);
-                        if p.exists() {
-                            lib_paths.push(p.to_string_lossy().into_owned());
-                        }
-                    }
-                    if !lib_paths.is_empty() {
-                        cmd.env("DYLD_LIBRARY_PATH", lib_paths.join(":"));
+                    let lib_dir = dir.join("../Resources/mpv-macos/lib");
+                    if lib_dir.exists() {
+                        cmd.env("DYLD_LIBRARY_PATH", &lib_dir);
                     }
                 }
             }
@@ -787,11 +778,10 @@ fn find_mpv_binary() -> Result<String, String> {
     // 2. Bundled binary next to executable (or in Resources on macOS)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            // macOS: mpv.app is bundled in Contents/Resources/
+            // macOS: flattened mpv-macos/ in Contents/Resources/
             #[cfg(target_os = "macos")]
             {
-                let resources_mpv = dir
-                    .join("../Resources/mpv.app/Contents/MacOS/mpv");
+                let resources_mpv = dir.join("../Resources/mpv-macos/mpv");
                 if resources_mpv.exists() {
                     return Ok(resources_mpv.to_string_lossy().into_owned());
                 }
@@ -972,16 +962,22 @@ pub fn mpv_diagnose() -> String {
 
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            // macOS Resources path
-            let resources_mpv = dir.join("../Resources/mpv.app/Contents/MacOS/mpv");
+            // macOS: flattened mpv-macos/ in Resources
+            let resources_mpv = dir.join("../Resources/mpv-macos/mpv");
             candidates.push(resources_mpv.display().to_string());
 
-            // macOS dylib directories
-            let mpv_app_base = dir.join("../Resources/mpv.app/Contents");
-            for sub in &["Frameworks", "MacOS/lib", "lib"] {
-                let p = mpv_app_base.join(sub);
-                info.insert(format!("mpv_app_{}", sub.replace('/', "_")),
-                    serde_json::Value::Bool(p.exists()));
+            let lib_dir = dir.join("../Resources/mpv-macos/lib");
+            info.insert("mpv_macos_lib_exists".into(),
+                serde_json::Value::Bool(lib_dir.exists()));
+            if lib_dir.exists() {
+                let mut libs: Vec<String> = Vec::new();
+                if let Ok(rd) = std::fs::read_dir(&lib_dir) {
+                    for entry in rd.flatten() {
+                        libs.push(entry.file_name().to_string_lossy().into_owned());
+                    }
+                }
+                info.insert("mpv_macos_lib_count".into(),
+                    serde_json::json!(libs.len()));
             }
 
             // List Contents/Resources to see what Tauri actually bundled

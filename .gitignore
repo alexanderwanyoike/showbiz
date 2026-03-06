@@ -56,5 +56,11 @@ next-env.d.ts
 
 # Bundled mpv binaries (downloaded per-platform, not committed)
 src-tauri/binaries/mpv-*
+!src-tauri/binaries/mpv-macos/
+src-tauri/binaries/mpv-macos/*
+!src-tauri/binaries/mpv-macos/.gitkeep
+!src-tauri/binaries/mpv-macos/lib/
+src-tauri/binaries/mpv-macos/lib/*
+!src-tauri/binaries/mpv-macos/lib/.gitkeep
 src-tauri/binaries/mpv-libs/
 src-tauri/binaries/mpv.app/
