@@ -15,6 +15,63 @@ cd "$(dirname "$0")"
 MPV_VERSION="v0.41.0"
 MPV_BASE_URL="https://github.com/mpv-player/mpv/releases/download/${MPV_VERSION}"
 
+build_libmpv_from_source() {
+  # Build libmpv.2.dylib from the mpv source at the pinned version.
+  # Requires: meson, ninja, pkg-config, and ffmpeg headers (brew install meson ninja ffmpeg)
+  for cmd in meson ninja pkg-config; do
+    if ! command -v "$cmd" &>/dev/null; then
+      echo "ERROR: '$cmd' is required to build libmpv from source."
+      echo "  Install with: brew install meson ninja pkg-config"
+      return 1
+    fi
+  done
+
+  if ! pkg-config --exists libavcodec 2>/dev/null; then
+    echo "ERROR: ffmpeg dev libraries not found (needed by libmpv)."
+    echo "  Install with: brew install ffmpeg"
+    return 1
+  fi
+
+  local build_tmp=$(mktemp -d)
+  trap "rm -rf '$build_tmp'" RETURN
+
+  echo "  Cloning mpv ${MPV_VERSION}..."
+  git clone --depth 1 --branch "${MPV_VERSION}" \
+    https://github.com/mpv-player/mpv.git "$build_tmp/mpv" 2>&1 | tail -1
+
+  echo "  Configuring meson build..."
+  meson setup "$build_tmp/build" "$build_tmp/mpv" \
+    --buildtype=release \
+    -Dlibmpv=true \
+    -Dcplayer=false \
+    -Dtests=false \
+    -Dmanpage-build=disabled \
+    -Dhtml-build=disabled \
+    2>&1 | tail -3
+
+  echo "  Building libmpv..."
+  ninja -C "$build_tmp/build" 2>&1 | tail -3
+
+  # Find and copy the built dylib
+  local built_dylib
+  built_dylib=$(find "$build_tmp/build" -name "libmpv*.dylib" -type f | head -1)
+  if [ -z "$built_dylib" ]; then
+    echo "ERROR: libmpv dylib not found after build."
+    echo "  Build directory contents:"
+    find "$build_tmp/build" -name "libmpv*" | head -10
+    return 1
+  fi
+
+  cp "$built_dylib" "mpv-macos/lib/libmpv.2.dylib"
+  ln -sf "libmpv.2.dylib" "mpv-macos/lib/libmpv.dylib"
+  codesign --force --sign - "mpv-macos/lib/libmpv.2.dylib" 2>/dev/null || true
+
+  # Fix rpaths so libmpv finds its deps relative to the bundle
+  install_name_tool -id "@rpath/libmpv.2.dylib" "mpv-macos/lib/libmpv.2.dylib" 2>/dev/null || true
+
+  echo "  -> built and installed libmpv.2.dylib from source (${MPV_VERSION})"
+}
+
 download_macos() {
   local arch="$1"  # arm or intel
   local target="$2" # aarch64-apple-darwin or x86_64-apple-darwin
@@ -87,42 +144,10 @@ download_macos() {
   echo "  -> mpv-macos/mpv + ${lib_count} dylibs"
 
   # The official mpv release statically links libmpv into the binary —
-  # libmpv.dylib is NOT in the bundle. We need it for in-process embedding
-  # on macOS, so fetch it from the Homebrew bottle.
+  # libmpv.dylib is NOT in the bundle. Build it from source (issue #20).
   if ! ls mpv-macos/lib/libmpv*.dylib 1>/dev/null 2>&1; then
-    echo "  libmpv.dylib not in release bundle, fetching from Homebrew bottle..."
-    local bottle_tag
-    if [ "$arch" = "arm" ]; then
-      bottle_tag="arm64_sonoma"
-    else
-      bottle_tag="sonoma"
-    fi
-
-    local bottle_url
-    bottle_url=$(curl -sfL "https://formulae.brew.sh/api/formula/mpv.json" \
-      | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['bottle']['stable']['files']['${bottle_tag}']['url'])" 2>/dev/null) || true
-
-    if [ -n "$bottle_url" ]; then
-      local btmp=$(mktemp -d)
-      curl -sfL -H "Authorization: Bearer QQ==" "$bottle_url" -o "$btmp/bottle.tar.gz" && {
-        tar xzf "$btmp/bottle.tar.gz" -C "$btmp" 2>/dev/null
-        local libmpv_src
-        libmpv_src=$(find "$btmp" -name "libmpv.2.dylib" -type f | head -1)
-        if [ -n "$libmpv_src" ]; then
-          cp "$libmpv_src" "mpv-macos/lib/libmpv.2.dylib"
-          # Create unversioned symlink
-          ln -sf "libmpv.2.dylib" "mpv-macos/lib/libmpv.dylib"
-          codesign --force --sign - "mpv-macos/lib/libmpv.2.dylib" 2>/dev/null || true
-          echo "  -> extracted libmpv.2.dylib from Homebrew bottle"
-        else
-          echo "WARNING: libmpv.2.dylib not found in Homebrew bottle"
-        fi
-      }
-      rm -rf "$btmp"
-    else
-      echo "WARNING: Could not fetch Homebrew bottle URL for libmpv"
-      echo "  macOS embedding requires libmpv — install mpv with: brew install mpv"
-    fi
+    echo "  libmpv.dylib not in release bundle, building from source..."
+    build_libmpv_from_source
   fi
 
   # Keep mpv.app placeholder for Tauri resource validation on other platforms
