@@ -174,7 +174,8 @@ impl MacosView {
         h: u32,
     ) -> Result<u64, String> {
         use objc2::rc::Retained;
-        use objc2_app_kit::{NSColor, NSView};
+        use objc2::AllocAnyThread;
+        use objc2_app_kit::NSView;
         use objc2_foundation::NSRect;
 
         unsafe {
@@ -190,18 +191,7 @@ impl MacosView {
             );
 
             let child = NSView::initWithFrame(NSView::alloc(), frame);
-
-            // Black background so it looks correct before mpv renders
             child.setWantsLayer(true);
-            if let Some(layer) = child.layer() {
-                use objc2::msg_send;
-                let cg_black: *mut std::ffi::c_void = msg_send![
-                    objc2::class!(NSColor),
-                    blackColor
-                ];
-                let cg_color: *mut std::ffi::c_void = msg_send![cg_black, CGColor];
-                let _: () = msg_send![&*layer, setBackgroundColor: cg_color];
-            }
 
             // Add as subview — this puts it on top of the WebView
             parent.addSubview(&child);
@@ -309,7 +299,7 @@ impl Win32Window {
         use windows::core::w;
 
         unsafe {
-            let parent = HWND(parent_hwnd as *mut std::ffi::c_void);
+            let parent = HWND(parent_hwnd as isize);
 
             let child = CreateWindowExW(
                 WINDOW_EX_STYLE(0),
@@ -320,7 +310,7 @@ impl Win32Window {
                 y,
                 w as i32,
                 h as i32,
-                Some(parent),
+                parent,
                 None,
                 None,
                 None,
@@ -338,10 +328,10 @@ impl Win32Window {
             use windows::Win32::UI::WindowsAndMessaging::*;
 
             unsafe {
-                let hwnd = HWND(self.child_hwnd as *mut std::ffi::c_void);
+                let hwnd = HWND(self.child_hwnd as isize);
                 let _ = SetWindowPos(
                     hwnd,
-                    Some(HWND_TOP),
+                    HWND_TOP,
                     x,
                     y,
                     w as i32,
@@ -358,7 +348,7 @@ impl Win32Window {
             use windows::Win32::UI::WindowsAndMessaging::*;
 
             unsafe {
-                let hwnd = HWND(self.child_hwnd as *mut std::ffi::c_void);
+                let hwnd = HWND(self.child_hwnd as isize);
                 let _ = ShowWindow(hwnd, SW_HIDE);
             }
         }
@@ -370,7 +360,7 @@ impl Win32Window {
             use windows::Win32::UI::WindowsAndMessaging::*;
 
             unsafe {
-                let hwnd = HWND(self.child_hwnd as *mut std::ffi::c_void);
+                let hwnd = HWND(self.child_hwnd as isize);
                 let _ = ShowWindow(hwnd, SW_SHOW);
             }
         }
@@ -382,7 +372,7 @@ impl Win32Window {
             use windows::Win32::UI::WindowsAndMessaging::*;
 
             unsafe {
-                let hwnd = HWND(self.child_hwnd as *mut std::ffi::c_void);
+                let hwnd = HWND(self.child_hwnd as isize);
                 let _ = DestroyWindow(hwnd);
             }
             self.child_hwnd = 0;
