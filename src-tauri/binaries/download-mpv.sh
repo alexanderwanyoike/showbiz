@@ -86,6 +86,12 @@ download_macos() {
 
   echo "  -> mpv-macos/mpv + ${lib_count} dylibs"
 
+  # Verify libmpv.dylib was collected (required for in-process embedding)
+  if ! ls mpv-macos/lib/libmpv*.dylib 1>/dev/null 2>&1; then
+    echo "WARNING: libmpv.dylib not found in mpv-macos/lib/"
+    echo "  macOS embedding requires libmpv — video will fall back to system-installed mpv"
+  fi
+
   # Keep mpv.app placeholder for Tauri resource validation on other platforms
   rm -rf "mpv.app"
   mkdir -p "mpv.app"

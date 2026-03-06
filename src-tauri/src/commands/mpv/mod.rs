@@ -1,8 +1,13 @@
 pub mod ipc;
+#[cfg(target_os = "macos")]
+mod libmpv;
 
+#[cfg(not(target_os = "macos"))]
 use ipc::MpvIpc;
 use serde_json::json;
+#[cfg(not(target_os = "macos"))]
 use std::process::{Child, Command, Stdio};
+#[cfg(not(target_os = "macos"))]
 use std::time::Duration;
 
 // ─── Linux X11 child window ──────────────────────────────────────────────────
@@ -432,8 +437,12 @@ impl Drop for Win32Window {
 // ─── MpvController ───────────────────────────────────────────────────────────
 
 pub struct MpvController {
+    #[cfg(not(target_os = "macos"))]
     process: Option<Child>,
+    #[cfg(not(target_os = "macos"))]
     ipc: Option<Box<dyn MpvIpc>>,
+    #[cfg(target_os = "macos")]
+    mpv_instance: Option<libmpv::MpvInstance>,
     #[cfg(target_os = "linux")]
     x11_window: Option<X11Window>,
     #[cfg(target_os = "macos")]
@@ -456,8 +465,12 @@ impl Default for MpvController {
 impl MpvController {
     pub fn new() -> Self {
         Self {
+            #[cfg(not(target_os = "macos"))]
             process: None,
+            #[cfg(not(target_os = "macos"))]
             ipc: None,
+            #[cfg(target_os = "macos")]
+            mpv_instance: None,
             #[cfg(target_os = "linux")]
             x11_window: None,
             #[cfg(target_os = "macos")]
@@ -483,120 +496,118 @@ impl MpvController {
     ) -> Result<(), String> {
         self.stop();
 
-        // On Linux, create an X11 child window for mpv to render into.
-        // On macOS/Windows, pass the parent handle directly — mpv fills the view.
-        #[cfg(target_os = "linux")]
-        let wid = {
-            let mut x11 = X11Window::new()?;
-            let child_wid = x11.create_child(parent_wid, x, y, w, h)?;
-            self.x11_window = Some(x11);
-            child_wid
-        };
-
+        // ─── macOS: in-process libmpv (NSView pointers are process-local) ────
         #[cfg(target_os = "macos")]
-        let wid = {
+        {
             let mut macos = MacosView::new();
             let child_wid = macos.create_child(parent_wid, x, y, w, h)?;
             self.macos_view = Some(macos);
             self.parent_ns_view = parent_wid;
-            child_wid
-        };
 
-        #[cfg(target_os = "windows")]
-        let wid = {
-            let mut win32 = Win32Window::new();
-            let child_wid = win32.create_child(parent_wid, x, y, w, h)?;
-            self.win32_window = Some(win32);
-            child_wid
-        };
+            let dylib_path = libmpv::find_libmpv_dylib()?;
 
-        let ipc_channel = create_ipc()?;
-        let mpv_bin = find_mpv_binary()?;
-
-        let log_path =
-            std::env::temp_dir().join(format!("showbiz-mpv-{}.log", std::process::id()));
-
-        let mut args = vec![
-            "--idle=yes".to_string(),
-            "--keep-open=yes".to_string(),
-            "--osc=no".to_string(),
-            "--osd-level=0".to_string(),
-            // --wid mode doesn't steal focus, so no flag needed.
-            // (--no-focus-on-open removed in mpv v0.41, replaced by --focus-on)
-            "--no-terminal".to_string(),
-            format!("--log-file={}", log_path.display()),
-            format!("--wid={wid}"),
-            format!("--input-ipc-server={}", ipc_channel.socket_arg()),
-        ];
-
-        #[cfg(target_os = "linux")]
-        args.push("--x11-name=showbiz".to_string());
-
-        let mut cmd = Command::new(&mpv_bin);
-        cmd.args(&args)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::piped());
-
-        // On macOS, set DYLD_LIBRARY_PATH so mpv can find its dylibs
-        // from the flattened mpv-macos/lib/ directory in Resources.
-        #[cfg(target_os = "macos")]
-        {
-            if let Ok(exe) = std::env::current_exe() {
-                if let Some(dir) = exe.parent() {
-                    let lib_dir = dir.join("../Resources/mpv-macos/lib");
-                    if lib_dir.exists() {
-                        cmd.env("DYLD_LIBRARY_PATH", &lib_dir);
-                    }
+            // Set DYLD_LIBRARY_PATH so transitive dylib deps resolve
+            if let Some(lib_dir) = dylib_path.parent() {
+                unsafe {
+                    std::env::set_var("DYLD_LIBRARY_PATH", lib_dir);
                 }
             }
+
+            let lib = libmpv::LibMpv::load(&dylib_path)?;
+            let instance = libmpv::MpvInstance::new(lib, child_wid)?;
+            self.mpv_instance = Some(instance);
+
+            return Ok(());
         }
 
-        let child = cmd
-            .spawn()
-            .map_err(|e| format!("Failed to start mpv: {e}"))?;
+        // ─── Linux/Windows: child process + IPC ─────────────────────────────
+        #[cfg(not(target_os = "macos"))]
+        {
+            #[cfg(target_os = "linux")]
+            let wid = {
+                let mut x11 = X11Window::new()?;
+                let child_wid = x11.create_child(parent_wid, x, y, w, h)?;
+                self.x11_window = Some(x11);
+                child_wid
+            };
 
-        self.process = Some(child);
+            #[cfg(target_os = "windows")]
+            let wid = {
+                let mut win32 = Win32Window::new();
+                let child_wid = win32.create_child(parent_wid, x, y, w, h)?;
+                self.win32_window = Some(win32);
+                child_wid
+            };
 
-        match ipc_channel.wait_for_ready(Duration::from_secs(5)) {
-            Ok(()) => {
-                self.ipc = Some(ipc_channel);
-            }
-            Err(ipc_err) => {
-                // mpv likely crashed before creating the socket — capture details
-                let mut detail = ipc_err.clone();
-                if let Some(ref mut proc) = self.process {
-                    // Check if it already exited
-                    match proc.try_wait() {
-                        Ok(Some(status)) => {
-                            detail += &format!("\nmpv exited with: {status}");
-                            // Read stderr
-                            if let Some(stderr) = proc.stderr.take() {
-                                use std::io::Read;
-                                let mut buf = String::new();
-                                let mut reader = std::io::BufReader::new(stderr);
-                                let _ = reader.read_to_string(&mut buf);
-                                if !buf.is_empty() {
-                                    detail += &format!("\nmpv stderr:\n{buf}");
+            let ipc_channel = create_ipc()?;
+            let mpv_bin = find_mpv_binary()?;
+
+            let log_path =
+                std::env::temp_dir().join(format!("showbiz-mpv-{}.log", std::process::id()));
+
+            let mut args = vec![
+                "--idle=yes".to_string(),
+                "--keep-open=yes".to_string(),
+                "--osc=no".to_string(),
+                "--osd-level=0".to_string(),
+                "--no-terminal".to_string(),
+                format!("--log-file={}", log_path.display()),
+                format!("--wid={wid}"),
+                format!("--input-ipc-server={}", ipc_channel.socket_arg()),
+            ];
+
+            #[cfg(target_os = "linux")]
+            args.push("--x11-name=showbiz".to_string());
+
+            let mut cmd = Command::new(&mpv_bin);
+            cmd.args(&args)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::piped());
+
+            let child = cmd
+                .spawn()
+                .map_err(|e| format!("Failed to start mpv: {e}"))?;
+
+            self.process = Some(child);
+
+            match ipc_channel.wait_for_ready(Duration::from_secs(5)) {
+                Ok(()) => {
+                    self.ipc = Some(ipc_channel);
+                }
+                Err(ipc_err) => {
+                    let mut detail = ipc_err.clone();
+                    if let Some(ref mut proc) = self.process {
+                        match proc.try_wait() {
+                            Ok(Some(status)) => {
+                                detail += &format!("\nmpv exited with: {status}");
+                                if let Some(stderr) = proc.stderr.take() {
+                                    use std::io::Read;
+                                    let mut buf = String::new();
+                                    let mut reader = std::io::BufReader::new(stderr);
+                                    let _ = reader.read_to_string(&mut buf);
+                                    if !buf.is_empty() {
+                                        detail += &format!("\nmpv stderr:\n{buf}");
+                                    }
                                 }
                             }
-                        }
-                        Ok(None) => {
-                            detail += "\nmpv process is still running (socket not created)";
-                        }
-                        Err(e) => {
-                            detail += &format!("\nFailed to check mpv status: {e}");
+                            Ok(None) => {
+                                detail +=
+                                    "\nmpv process is still running (socket not created)";
+                            }
+                            Err(e) => {
+                                detail += &format!("\nFailed to check mpv status: {e}");
+                            }
                         }
                     }
+                    detail += &format!("\nmpv log file: {}", log_path.display());
+                    self.stop();
+                    return Err(detail);
                 }
-                // Also report the log file path
-                detail += &format!("\nmpv log file: {}", log_path.display());
-                self.stop();
-                return Err(detail);
             }
-        }
 
-        Ok(())
+            Ok(())
+        }
     }
 
     pub fn update_geometry(&self, x: i32, y: i32, w: u32, h: u32) {
@@ -644,6 +655,7 @@ impl MpvController {
         }
     }
 
+    #[cfg(not(target_os = "macos"))]
     fn send(&self, cmd: serde_json::Value) -> Result<serde_json::Value, String> {
         self.ipc
             .as_ref()
@@ -651,46 +663,104 @@ impl MpvController {
             .send_command(cmd)
     }
 
+    #[cfg(target_os = "macos")]
+    fn mpv(&self) -> Result<&libmpv::MpvInstance, String> {
+        self.mpv_instance
+            .as_ref()
+            .ok_or_else(|| "mpv not initialized".to_string())
+    }
+
     pub fn load_file(&self, path: &str) -> Result<(), String> {
-        self.send(json!({ "command": ["loadfile", path] }))?;
-        Ok(())
+        #[cfg(target_os = "macos")]
+        {
+            return self.mpv()?.command(&["loadfile", path]);
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.send(json!({ "command": ["loadfile", path] }))?;
+            Ok(())
+        }
     }
 
     pub fn seek(&self, seconds: f64) -> Result<(), String> {
-        self.send(json!({ "command": ["seek", seconds, "absolute"] }))?;
-        Ok(())
+        #[cfg(target_os = "macos")]
+        {
+            let secs_str = seconds.to_string();
+            return self.mpv()?.command(&["seek", &secs_str, "absolute"]);
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.send(json!({ "command": ["seek", seconds, "absolute"] }))?;
+            Ok(())
+        }
     }
 
     pub fn pause(&self) -> Result<(), String> {
-        self.send(json!({ "command": ["set_property", "pause", true] }))?;
-        Ok(())
+        #[cfg(target_os = "macos")]
+        {
+            return self.mpv()?.set_property_string("pause", "yes");
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.send(json!({ "command": ["set_property", "pause", true] }))?;
+            Ok(())
+        }
     }
 
     pub fn resume(&self) -> Result<(), String> {
-        self.send(json!({ "command": ["set_property", "pause", false] }))?;
-        Ok(())
+        #[cfg(target_os = "macos")]
+        {
+            return self.mpv()?.set_property_string("pause", "no");
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.send(json!({ "command": ["set_property", "pause", false] }))?;
+            Ok(())
+        }
     }
 
     pub fn get_position(&self) -> Result<f64, String> {
-        let resp = self.send(json!({ "command": ["get_property", "time-pos"] }))?;
-        resp.get("data")
-            .and_then(|d| d.as_f64())
-            .ok_or_else(|| "No position in mpv response".into())
+        #[cfg(target_os = "macos")]
+        {
+            return self.mpv()?.get_property_double("time-pos");
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let resp = self.send(json!({ "command": ["get_property", "time-pos"] }))?;
+            resp.get("data")
+                .and_then(|d| d.as_f64())
+                .ok_or_else(|| "No position in mpv response".into())
+        }
     }
 
     pub fn is_running(&self) -> bool {
-        self.process.is_some()
+        #[cfg(target_os = "macos")]
+        {
+            return self.mpv_instance.is_some();
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.process.is_some()
+        }
     }
 
     pub fn stop(&mut self) {
-        if let Some(mut child) = self.process.take() {
-            let _ = child.kill();
-            let _ = child.wait();
+        #[cfg(target_os = "macos")]
+        {
+            // Drop mpv_instance first (calls mpv_terminate_destroy)
+            self.mpv_instance = None;
         }
-        if let Some(ref ipc) = self.ipc {
-            ipc.cleanup();
+        #[cfg(not(target_os = "macos"))]
+        {
+            if let Some(mut child) = self.process.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            if let Some(ref ipc) = self.ipc {
+                ipc.cleanup();
+            }
+            self.ipc = None;
         }
-        self.ipc = None;
         #[cfg(target_os = "linux")]
         {
             if let Some(ref mut x11) = self.x11_window {
@@ -1041,6 +1111,24 @@ pub fn mpv_diagnose() -> String {
         }
     }
 
+    // macOS: report libmpv mode
+    #[cfg(target_os = "macos")]
+    {
+        info.insert("mode".into(), serde_json::Value::String("in-process (libmpv)".into()));
+        match libmpv::find_libmpv_dylib() {
+            Ok(path) => {
+                info.insert("libmpv_dylib".into(), serde_json::json!({ "ok": path.display().to_string() }));
+            }
+            Err(e) => {
+                info.insert("libmpv_dylib".into(), serde_json::json!({ "error": e }));
+            }
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        info.insert("mode".into(), serde_json::Value::String("child-process (IPC)".into()));
+    }
+
     serde_json::Value::Object(info).to_string()
 }
 
@@ -1066,7 +1154,8 @@ mod tests {
         let ctrl = MpvController::new();
         let result = ctrl.load_file("/tmp/test.mp4");
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("IPC not initialized"));
+        let err = result.unwrap_err();
+        assert!(err.contains("not initialized"), "unexpected error: {err}");
     }
 
     #[test]
