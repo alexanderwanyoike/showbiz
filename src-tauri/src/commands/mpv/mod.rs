@@ -535,14 +535,49 @@ impl MpvController {
             .args(&args)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| format!("Failed to start mpv: {e}"))?;
 
         self.process = Some(child);
 
-        ipc_channel.wait_for_ready(Duration::from_secs(5))?;
-        self.ipc = Some(ipc_channel);
+        match ipc_channel.wait_for_ready(Duration::from_secs(5)) {
+            Ok(()) => {
+                self.ipc = Some(ipc_channel);
+            }
+            Err(ipc_err) => {
+                // mpv likely crashed before creating the socket — capture details
+                let mut detail = ipc_err.clone();
+                if let Some(ref mut proc) = self.process {
+                    // Check if it already exited
+                    match proc.try_wait() {
+                        Ok(Some(status)) => {
+                            detail += &format!("\nmpv exited with: {status}");
+                            // Read stderr
+                            if let Some(stderr) = proc.stderr.take() {
+                                use std::io::Read;
+                                let mut buf = String::new();
+                                let mut reader = std::io::BufReader::new(stderr);
+                                let _ = reader.read_to_string(&mut buf);
+                                if !buf.is_empty() {
+                                    detail += &format!("\nmpv stderr:\n{buf}");
+                                }
+                            }
+                        }
+                        Ok(None) => {
+                            detail += "\nmpv process is still running (socket not created)";
+                        }
+                        Err(e) => {
+                            detail += &format!("\nFailed to check mpv status: {e}");
+                        }
+                    }
+                }
+                // Also report the log file path
+                detail += &format!("\nmpv log file: {}", log_path.display());
+                self.stop();
+                return Err(detail);
+            }
+        }
 
         Ok(())
     }
