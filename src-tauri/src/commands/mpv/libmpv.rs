@@ -101,15 +101,13 @@ impl MpvInstance {
                 return Err("mpv_create returned null".into());
             }
 
-            let options = [
+            let required_options = [
                 ("wid", format!("{wid}")),
                 ("idle", "yes".into()),
                 ("keep-open", "yes".into()),
-                ("osc", "no".into()),
-                ("osd-level", "0".into()),
             ];
 
-            for (key, value) in &options {
+            for (key, value) in &required_options {
                 let k = CString::new(*key).unwrap();
                 let v = CString::new(value.as_str()).unwrap();
                 let rc = (lib.mpv_set_option_string)(handle, k.as_ptr(), v.as_ptr());
@@ -118,6 +116,13 @@ impl MpvInstance {
                     (lib.mpv_terminate_destroy)(handle);
                     return Err(format!("mpv_set_option_string({key}={value}): {err}"));
                 }
+            }
+
+            // These require Lua support; skip silently if unavailable
+            for (key, value) in &[("osc", "no"), ("osd-level", "0")] {
+                let k = CString::new(*key).unwrap();
+                let v = CString::new(*value).unwrap();
+                let _ = (lib.mpv_set_option_string)(handle, k.as_ptr(), v.as_ptr());
             }
 
             let rc = (lib.mpv_initialize)(handle);
