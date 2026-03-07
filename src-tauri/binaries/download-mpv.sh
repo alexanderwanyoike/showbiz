@@ -17,8 +17,7 @@ MPV_BASE_URL="https://github.com/mpv-player/mpv/releases/download/${MPV_VERSION}
 
 collect_deps() {
   # Recursively copy non-system dylib dependencies into a target directory.
-  # DYLD_LIBRARY_PATH is set at runtime so we don't need install_name_tool —
-  # just having the dylibs in the same directory is enough.
+  # rewrite_deps() is called afterwards to fix up paths with install_name_tool.
   local dylib="$1"
   local lib_dir="$2"
 
@@ -41,6 +40,36 @@ collect_deps() {
     # Recurse into the newly copied dep
     collect_deps "$lib_dir/$base" "$lib_dir"
   done < <(otool -L "$dylib" | awk 'NR>1 {print $1}')
+}
+
+rewrite_deps() {
+  # Rewrite all non-system dependency paths to @loader_path/ so each dylib
+  # finds its deps relative to itself. This is required because macOS SIP
+  # strips DYLD_LIBRARY_PATH for apps launched from /Applications/.
+  local lib_dir="$1"
+  echo "  Rewriting dylib paths to @loader_path/..."
+  local count=0
+  for dylib in "$lib_dir"/*.dylib; do
+    [ -f "$dylib" ] || continue
+    local base
+    base="$(basename "$dylib")"
+
+    # Set the dylib's own install name
+    install_name_tool -id "@loader_path/$base" "$dylib" 2>/dev/null || true
+
+    # Rewrite each non-system dependency
+    while IFS= read -r dep; do
+      case "$dep" in
+        @loader_path/*|@rpath/*|/usr/lib/*|/System/*) continue ;;
+      esac
+      local dep_base
+      dep_base="$(basename "$dep")"
+      install_name_tool -change "$dep" "@loader_path/$dep_base" "$dylib" 2>/dev/null || true
+    done < <(otool -L "$dylib" | awk 'NR>1 {print $1}')
+
+    count=$((count + 1))
+  done
+  echo "  -> rewrote paths in ${count} dylibs"
 }
 
 build_libmpv_macos() {
@@ -102,6 +131,10 @@ build_libmpv_macos() {
   local dep_count
   dep_count=$(find "mpv-macos/lib" -name "*.dylib" -type f | wc -l | tr -d ' ')
   echo "  -> collected ${dep_count} dylibs total"
+
+  # Rewrite dependency paths to @loader_path/ (must come before codesigning
+  # since install_name_tool invalidates signatures)
+  rewrite_deps "mpv-macos/lib"
 
   # Ad-hoc codesign everything
   find "mpv-macos/lib" -type f -exec codesign --force --sign - {} 2>/dev/null \; || true
@@ -173,6 +206,10 @@ download_macos() {
       done < <(find "$search_dir" -name "*.so" -print0)
     fi
   done
+
+  # Rewrite dependency paths to @loader_path/ (must come before codesigning
+  # since install_name_tool invalidates signatures)
+  rewrite_deps "mpv-macos/lib"
 
   # Ad-hoc sign everything
   codesign --force --sign - "mpv-macos/mpv" 2>/dev/null || true
