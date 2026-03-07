@@ -64,8 +64,10 @@ build_libmpv_macos() {
   trap "rm -rf '$build_tmp'" RETURN
 
   echo "  Cloning mpv ${MPV_VERSION}..."
-  git clone --depth 1 --branch "${MPV_VERSION}" \
+  git clone --depth 1 \
     https://github.com/mpv-player/mpv.git "$build_tmp/mpv" 2>&1 | tail -1
+  git -C "$build_tmp/mpv" fetch --depth 1 origin "refs/tags/${MPV_VERSION}:refs/tags/${MPV_VERSION}" 2>&1 | tail -1
+  git -C "$build_tmp/mpv" checkout "${MPV_VERSION}" 2>&1 | tail -1
 
   echo "  Configuring meson build..."
   meson setup "$build_tmp/build" "$build_tmp/mpv" \
