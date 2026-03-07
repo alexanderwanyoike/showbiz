@@ -109,6 +109,8 @@ impl MpvInstance {
                 ("idle", "yes".into()),
                 ("keep-open", "yes".into()),
                 ("vo", "gpu".into()),
+                ("gpu-api", "opengl".into()),
+                ("gpu-context", "cocoa".into()),
                 ("log-file", log_path.display().to_string()),
                 ("msg-level", "all=v".into()),
             ];
@@ -124,12 +126,8 @@ impl MpvInstance {
                 }
             }
 
-            // These may require Lua or specific backends; skip if unavailable
-            for (key, value) in &[
-                ("osc", "no"),
-                ("osd-level", "0"),
-                ("gpu-context", "cocoa"),
-            ] {
+            // These require Lua support; skip silently if unavailable
+            for (key, value) in &[("osc", "no"), ("osd-level", "0")] {
                 let k = CString::new(*key).unwrap();
                 let v = CString::new(*value).unwrap();
                 let _ = (lib.mpv_set_option_string)(handle, k.as_ptr(), v.as_ptr());
