@@ -45,7 +45,8 @@ collect_deps() {
 
 build_libmpv_macos() {
   # Build libmpv.2.dylib from the mpv source at the pinned version.
-  # Requires: meson, ninja, pkg-config, ffmpeg, libplacebo (brew install meson ninja ffmpeg libplacebo)
+  # Requires: meson, ninja, pkg-config, ffmpeg, libplacebo, libass
+  # brew install meson ninja ffmpeg libplacebo libass
   for cmd in meson ninja pkg-config; do
     if ! command -v "$cmd" &>/dev/null; then
       echo "ERROR: '$cmd' is required to build libmpv from source."
