@@ -1131,6 +1131,24 @@ pub fn mpv_diagnose() -> String {
         info.insert("mode".into(), serde_json::Value::String("child-process (IPC)".into()));
     }
 
+    // Include mpv log file if it exists
+    let log_path = std::env::temp_dir()
+        .join(format!("showbiz-mpv-{}.log", std::process::id()));
+    if log_path.exists() {
+        match std::fs::read_to_string(&log_path) {
+            Ok(contents) => {
+                // Last 100 lines to keep it manageable
+                let tail: String = contents.lines().rev().take(100).collect::<Vec<_>>()
+                    .into_iter().rev().collect::<Vec<_>>().join("\n");
+                info.insert("mpv_log_tail".into(), serde_json::Value::String(tail));
+            }
+            Err(e) => {
+                info.insert("mpv_log_error".into(), serde_json::Value::String(e.to_string()));
+            }
+        }
+    }
+    info.insert("mpv_log_path".into(), serde_json::Value::String(log_path.display().to_string()));
+
     serde_json::Value::Object(info).to_string()
 }
 

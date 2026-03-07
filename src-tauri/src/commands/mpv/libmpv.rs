@@ -101,10 +101,16 @@ impl MpvInstance {
                 return Err("mpv_create returned null".into());
             }
 
+            let log_path = std::env::temp_dir()
+                .join(format!("showbiz-mpv-{}.log", std::process::id()));
+
             let required_options = [
                 ("wid", format!("{wid}")),
                 ("idle", "yes".into()),
                 ("keep-open", "yes".into()),
+                ("vo", "gpu".into()),
+                ("log-file", log_path.display().to_string()),
+                ("msg-level", "all=v".into()),
             ];
 
             for (key, value) in &required_options {
@@ -118,8 +124,12 @@ impl MpvInstance {
                 }
             }
 
-            // These require Lua support; skip silently if unavailable
-            for (key, value) in &[("osc", "no"), ("osd-level", "0")] {
+            // These may require Lua or specific backends; skip if unavailable
+            for (key, value) in &[
+                ("osc", "no"),
+                ("osd-level", "0"),
+                ("gpu-context", "cocoa"),
+            ] {
                 let k = CString::new(*key).unwrap();
                 let v = CString::new(*value).unwrap();
                 let _ = (lib.mpv_set_option_string)(handle, k.as_ptr(), v.as_ptr());
