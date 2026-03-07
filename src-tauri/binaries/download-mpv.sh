@@ -15,7 +15,35 @@ cd "$(dirname "$0")"
 MPV_VERSION="v0.41.0"
 MPV_BASE_URL="https://github.com/mpv-player/mpv/releases/download/${MPV_VERSION}"
 
-build_libmpv_from_source() {
+collect_deps() {
+  # Recursively copy non-system dylib dependencies into a target directory.
+  # DYLD_LIBRARY_PATH is set at runtime so we don't need install_name_tool —
+  # just having the dylibs in the same directory is enough.
+  local dylib="$1"
+  local lib_dir="$2"
+
+  while IFS= read -r dep; do
+    # Skip system libraries
+    case "$dep" in
+      /usr/lib/*|/System/*) continue ;;
+    esac
+    local base
+    base="$(basename "$dep")"
+    # Skip if already collected
+    if [ -f "$lib_dir/$base" ]; then
+      continue
+    fi
+    if [ ! -f "$dep" ]; then
+      echo "  WARN: dependency not found: $dep"
+      continue
+    fi
+    cp "$dep" "$lib_dir/$base"
+    # Recurse into the newly copied dep
+    collect_deps "$lib_dir/$base" "$lib_dir"
+  done < <(otool -L "$dylib" | awk 'NR>1 {print $1}')
+}
+
+build_libmpv_macos() {
   # Build libmpv.2.dylib from the mpv source at the pinned version.
   # Requires: meson, ninja, pkg-config, and ffmpeg headers (brew install meson ninja ffmpeg)
   for cmd in meson ninja pkg-config; do
@@ -64,10 +92,17 @@ build_libmpv_from_source() {
 
   cp "$built_dylib" "mpv-macos/lib/libmpv.2.dylib"
   ln -sf "libmpv.2.dylib" "mpv-macos/lib/libmpv.dylib"
-  codesign --force --sign - "mpv-macos/lib/libmpv.2.dylib" 2>/dev/null || true
 
-  # Fix rpaths so libmpv finds its deps relative to the bundle
-  install_name_tool -id "@rpath/libmpv.2.dylib" "mpv-macos/lib/libmpv.2.dylib" 2>/dev/null || true
+  # Collect all transitive non-system dependencies (Homebrew libs etc.)
+  # so end-user machines don't need Homebrew installed.
+  echo "  Collecting transitive dependencies..."
+  collect_deps "mpv-macos/lib/libmpv.2.dylib" "mpv-macos/lib"
+  local dep_count
+  dep_count=$(find "mpv-macos/lib" -name "*.dylib" -type f | wc -l | tr -d ' ')
+  echo "  -> collected ${dep_count} dylibs total"
+
+  # Ad-hoc codesign everything
+  find "mpv-macos/lib" -type f -exec codesign --force --sign - {} 2>/dev/null \; || true
 
   echo "  -> built and installed libmpv.2.dylib from source (${MPV_VERSION})"
 }
@@ -147,7 +182,7 @@ download_macos() {
   # libmpv.dylib is NOT in the bundle. Build it from source (issue #20).
   if ! ls mpv-macos/lib/libmpv*.dylib 1>/dev/null 2>&1; then
     echo "  libmpv.dylib not in release bundle, building from source..."
-    build_libmpv_from_source
+    build_libmpv_macos
   fi
 
   # Keep mpv.app placeholder for Tauri resource validation on other platforms
