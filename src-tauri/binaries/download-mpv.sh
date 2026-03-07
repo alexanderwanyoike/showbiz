@@ -76,11 +76,10 @@ build_libmpv_macos() {
     -Dcplayer=false \
     -Dtests=false \
     -Dmanpage-build=disabled \
-    -Dhtml-build=disabled \
-    2>&1 | tail -3
+    -Dhtml-build=disabled
 
   echo "  Building libmpv..."
-  ninja -C "$build_tmp/build" 2>&1 | tail -3
+  ninja -C "$build_tmp/build"
 
   # Find and copy the built dylib
   local built_dylib
