@@ -109,7 +109,6 @@ impl MpvInstance {
                 ("idle", "yes".into()),
                 ("keep-open", "yes".into()),
                 ("vo", "gpu".into()),
-                ("gpu-api", "opengl".into()),
                 ("gpu-context", "cocoa".into()),
                 ("log-file", log_path.display().to_string()),
                 ("msg-level", "all=v".into()),
