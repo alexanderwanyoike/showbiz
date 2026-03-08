@@ -3,13 +3,17 @@
 use std::ffi::{c_char, c_int, c_void, CStr, CString};
 use std::path::{Path, PathBuf};
 
-// mpv property format constants
+// mpv format constants
+const MPV_FORMAT_INT64: c_int = 4;
 const MPV_FORMAT_DOUBLE: c_int = 5;
 
 type MpvCreateFn = unsafe extern "C" fn() -> *mut c_void;
 type MpvInitializeFn = unsafe extern "C" fn(*mut c_void) -> c_int;
 type MpvTerminateDestroyFn = unsafe extern "C" fn(*mut c_void);
-type MpvSetOptionStringFn = unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> c_int;
+type MpvSetOptionFn =
+    unsafe extern "C" fn(*mut c_void, *const c_char, c_int, *mut c_void) -> c_int;
+type MpvSetOptionStringFn =
+    unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> c_int;
 type MpvCommandFn = unsafe extern "C" fn(*mut c_void, *const *const c_char) -> c_int;
 type MpvSetPropertyStringFn =
     unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> c_int;
@@ -22,6 +26,7 @@ pub struct LibMpv {
     mpv_create: MpvCreateFn,
     mpv_initialize: MpvInitializeFn,
     mpv_terminate_destroy: MpvTerminateDestroyFn,
+    mpv_set_option: MpvSetOptionFn,
     mpv_set_option_string: MpvSetOptionStringFn,
     mpv_command: MpvCommandFn,
     mpv_set_property_string: MpvSetPropertyStringFn,
@@ -44,6 +49,9 @@ impl LibMpv {
             let mpv_terminate_destroy: MpvTerminateDestroyFn = *lib
                 .get(b"mpv_terminate_destroy\0")
                 .map_err(|e| format!("mpv_terminate_destroy: {e}"))?;
+            let mpv_set_option: MpvSetOptionFn = *lib
+                .get(b"mpv_set_option\0")
+                .map_err(|e| format!("mpv_set_option: {e}"))?;
             let mpv_set_option_string: MpvSetOptionStringFn = *lib
                 .get(b"mpv_set_option_string\0")
                 .map_err(|e| format!("mpv_set_option_string: {e}"))?;
@@ -65,6 +73,7 @@ impl LibMpv {
                 mpv_create,
                 mpv_initialize,
                 mpv_terminate_destroy,
+                mpv_set_option,
                 mpv_set_option_string,
                 mpv_command,
                 mpv_set_property_string,
@@ -94,29 +103,55 @@ pub struct MpvInstance {
 unsafe impl Send for MpvInstance {}
 
 impl MpvInstance {
+    /// Create and initialize mpv on a background thread (required on macOS).
+    /// The official mpv example creates mpv in a non-main thread to avoid
+    /// deadlocking with Cocoa's event loop.
     pub fn new(lib: LibMpv, wid: u64) -> Result<Self, String> {
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        std::thread::spawn(move || {
+            let result = Self::init_on_thread(lib, wid);
+            let _ = tx.send(result);
+        });
+
+        rx.recv().map_err(|e| format!("mpv init thread died: {e}"))?
+    }
+
+    fn init_on_thread(lib: LibMpv, wid: u64) -> Result<Self, String> {
         unsafe {
             let handle = (lib.mpv_create)();
             if handle.is_null() {
                 return Err("mpv_create returned null".into());
             }
 
+            // Set wid using MPV_FORMAT_INT64 (matches official mpv example)
+            let wid_name = CString::new("wid").unwrap();
+            let mut wid_val: i64 = wid as i64;
+            let rc = (lib.mpv_set_option)(
+                handle,
+                wid_name.as_ptr(),
+                MPV_FORMAT_INT64,
+                &mut wid_val as *mut i64 as *mut c_void,
+            );
+            if rc < 0 {
+                let err = lib.error_string(rc);
+                (lib.mpv_terminate_destroy)(handle);
+                return Err(format!("mpv_set_option(wid): {err}"));
+            }
+
             let log_path = std::env::temp_dir()
                 .join(format!("showbiz-mpv-{}.log", std::process::id()));
 
-            let required_options = [
-                ("wid", format!("{wid}")),
-                ("idle", "yes".into()),
-                ("keep-open", "yes".into()),
-                ("vo", "gpu".into()),
-                ("gpu-context", "cocoa".into()),
-                ("log-file", log_path.display().to_string()),
-                ("msg-level", "all=v".into()),
+            let string_options = [
+                ("idle", "yes"),
+                ("keep-open", "yes"),
+                ("log-file", &log_path.display().to_string()),
+                ("msg-level", "all=v"),
             ];
 
-            for (key, value) in &required_options {
+            for (key, value) in &string_options {
                 let k = CString::new(*key).unwrap();
-                let v = CString::new(value.as_str()).unwrap();
+                let v = CString::new(*value).unwrap();
                 let rc = (lib.mpv_set_option_string)(handle, k.as_ptr(), v.as_ptr());
                 if rc < 0 {
                     let err = lib.error_string(rc);
