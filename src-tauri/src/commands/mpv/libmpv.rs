@@ -271,7 +271,7 @@ unsafe extern "C" fn mpv_render_update_callback(ctx: *mut c_void) {
     unsafe extern "C" fn do_render(ctx: *mut c_void) {
         let work = Box::from_raw(ctx as *mut RenderWork);
 
-        if work.render_ctx.is_null() || work.gl_context.is_null() {
+        if work.render_ctx.is_null() || work.gl_context.is_null() || work.lib.is_null() {
             return;
         }
 
@@ -282,9 +282,14 @@ unsafe extern "C" fn mpv_render_update_callback(ctx: *mut c_void) {
             makeCurrentContext
         ];
 
-        // Call mpv_render_context_update to acknowledge the callback
+        // Call mpv_render_context_update to check if a new frame is ready
         let lib = &*work.lib;
-        (lib.mpv_render_context_update)(work.render_ctx);
+        let flags = (lib.mpv_render_context_update)(work.render_ctx);
+
+        // MPV_RENDER_UPDATE_FRAME = 1 — only render if there's a new frame
+        if flags & 1 == 0 {
+            return;
+        }
 
         // Get the view bounds for the FBO dimensions
         // NSView -bounds returns NSRect

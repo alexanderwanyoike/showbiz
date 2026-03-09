@@ -205,13 +205,19 @@ impl MacosView {
                 objc2_foundation::NSSize::new(w as f64, h as f64),
             );
 
-            // Create pixel format with double buffering (matches official example)
+            // Create pixel format: 3.2 Core Profile + double buffered + accelerated.
+            // Without the core profile, macOS gives GL 2.1 which is too old for mpv.
+            // The 3.2 Core Profile gives up to GL 4.1 on Apple Silicon (via Metal).
             #[allow(deprecated)]
             use objc2_app_kit::NSOpenGLPixelFormatAttribute;
             #[allow(deprecated)]
-            let mut attrs: [NSOpenGLPixelFormatAttribute; 2] = [
+            let mut attrs: [NSOpenGLPixelFormatAttribute; 7] = [
+                objc2_app_kit::NSOpenGLPFAOpenGLProfile,
+                objc2_app_kit::NSOpenGLProfileVersion3_2Core,
                 objc2_app_kit::NSOpenGLPFADoubleBuffer,
-                0,
+                objc2_app_kit::NSOpenGLPFAAccelerated,
+                objc2_app_kit::NSOpenGLPFAColorSize, 24,
+                0, // terminator
             ];
             #[allow(deprecated)]
             let pixel_format = NSOpenGLPixelFormat::initWithAttributes(
