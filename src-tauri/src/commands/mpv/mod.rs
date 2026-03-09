@@ -253,6 +253,12 @@ impl MacosView {
                 forParameter: swap_param
             ];
 
+            // Enable full Retina resolution (default is scaled to points)
+            let _: () = objc2::msg_send![
+                &*gl_view,
+                setWantsBestResolutionOpenGLSurface: true
+            ];
+
             // Make context current
             gl_context.makeCurrentContext();
 

@@ -291,17 +291,21 @@ unsafe extern "C" fn mpv_render_update_callback(ctx: *mut c_void) {
             return;
         }
 
-        // Get the view bounds for the FBO dimensions
-        // NSView -bounds returns NSRect
+        // Get the view bounds in backing pixels (not points) for Retina displays.
+        // NSView -bounds returns points; -convertSizeToBacking: gives actual pixels.
         let bounds: objc2_foundation::NSRect = objc2::msg_send![
             work.gl_view as *const objc2::runtime::AnyObject,
             bounds
         ];
+        let backing_size: objc2_foundation::NSSize = objc2::msg_send![
+            work.gl_view as *const objc2::runtime::AnyObject,
+            convertSizeToBacking: bounds.size
+        ];
 
         let mut fbo = MpvOpenGLFbo {
             fbo: 0,
-            w: bounds.size.width as c_int,
-            h: bounds.size.height as c_int,
+            w: backing_size.width as c_int,
+            h: backing_size.height as c_int,
             internal_format: 0,
         };
 
