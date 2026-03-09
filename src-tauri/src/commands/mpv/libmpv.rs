@@ -341,29 +341,10 @@ pub struct MpvInstance {
 unsafe impl Send for MpvInstance {}
 
 impl MpvInstance {
-    /// Create and initialize mpv with the render API on a background thread.
+    /// Create and initialize mpv with the render API.
     /// The gl_context and gl_view pointers must be valid NSOpenGLContext/NSOpenGLView.
+    /// Must be called from the main thread (GL context must be current).
     pub fn new(
-        lib: LibMpv,
-        gl_context: *mut c_void,
-        gl_view: *mut c_void,
-    ) -> Result<Self, String> {
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        // The gl_context and gl_view pointers are Send-safe (raw pointers used behind mutex)
-        let gl_context_val = gl_context as usize;
-        let gl_view_val = gl_view as usize;
-
-        std::thread::spawn(move || {
-            let result =
-                Self::init_on_thread(lib, gl_context_val as *mut c_void, gl_view_val as *mut c_void);
-            let _ = tx.send(result);
-        });
-
-        rx.recv().map_err(|e| format!("mpv init thread died: {e}"))?
-    }
-
-    fn init_on_thread(
         lib: LibMpv,
         gl_context: *mut c_void,
         gl_view: *mut c_void,
@@ -378,6 +359,7 @@ impl MpvInstance {
                 .join(format!("showbiz-mpv-{}.log", std::process::id()));
 
             let string_options = [
+                ("vo", "libmpv"),
                 ("idle", "yes"),
                 ("keep-open", "yes"),
                 ("log-file", &log_path.display().to_string()),
@@ -407,16 +389,6 @@ impl MpvInstance {
                 let err = lib.error_string(rc);
                 (lib.mpv_terminate_destroy)(handle);
                 return Err(format!("mpv_initialize failed: {err}"));
-            }
-
-            // Set vo=libmpv (must be set after mpv_initialize per mpv docs,
-            // but the official example sets it after init too)
-            let vo_key = CString::new("vo").unwrap();
-            let vo_val = CString::new("libmpv").unwrap();
-            let rc = (lib.mpv_set_option_string)(handle, vo_key.as_ptr(), vo_val.as_ptr());
-            if rc < 0 {
-                let err = lib.error_string(rc);
-                eprintln!("[showbiz-mpv] warning: vo=libmpv failed: {err} (trying anyway)");
             }
 
             // Create OpenGL init params with our get_proc_address
