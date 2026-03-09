@@ -775,7 +775,7 @@ export default function StoryboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className={`bg-background flex flex-col ${activeTab === "editor" ? "h-screen overflow-hidden" : "min-h-screen"}`}>
       {/* Main App Header */}
       <Header
         backHref={`/project/${storyboard.project_id}`}
