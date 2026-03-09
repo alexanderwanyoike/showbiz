@@ -196,13 +196,22 @@ impl MacosView {
 
             let parent: &NSView = &*(parent_ns_view as *const NSView);
 
-            // Get the parent's height to flip coordinates (NSView origin is bottom-left)
+            // The frontend sends physical pixels (getBoundingClientRect * scaleFactor).
+            // NSView frames use points (1 CSS pixel = 1 point). On Retina (2x),
+            // we must divide by the backing scale factor to convert back to points.
+            let scale: f64 = objc2::msg_send![parent.window().unwrap(), backingScaleFactor];
+            let x_pt = x as f64 / scale;
+            let y_pt = y as f64 / scale;
+            let w_pt = w as f64 / scale;
+            let h_pt = h as f64 / scale;
+
+            // Flip Y: NSView origin is bottom-left, CSS/web origin is top-left
             let parent_frame = parent.frame();
-            let flipped_y = parent_frame.size.height - (y as f64) - (h as f64);
+            let flipped_y = parent_frame.size.height - y_pt - h_pt;
 
             let frame = NSRect::new(
-                objc2_foundation::NSPoint::new(x as f64, flipped_y),
-                objc2_foundation::NSSize::new(w as f64, h as f64),
+                objc2_foundation::NSPoint::new(x_pt, flipped_y),
+                objc2_foundation::NSSize::new(w_pt, h_pt),
             );
 
             // Create pixel format: 3.2 Core Profile + double buffered + accelerated.
@@ -286,12 +295,19 @@ impl MacosView {
             let parent: &NSView = &*(parent_ns_view as *const NSView);
             let child: &NSView = &*(self.child_view as *const NSView);
 
+            // Convert physical pixels back to points (see create_child comment)
+            let scale: f64 = objc2::msg_send![parent.window().unwrap(), backingScaleFactor];
+            let x_pt = x as f64 / scale;
+            let y_pt = y as f64 / scale;
+            let w_pt = w as f64 / scale;
+            let h_pt = h as f64 / scale;
+
             let parent_frame = parent.frame();
-            let flipped_y = parent_frame.size.height - (y as f64) - (h as f64);
+            let flipped_y = parent_frame.size.height - y_pt - h_pt;
 
             let frame = NSRect::new(
-                objc2_foundation::NSPoint::new(x as f64, flipped_y),
-                objc2_foundation::NSSize::new(w as f64, h as f64),
+                objc2_foundation::NSPoint::new(x_pt, flipped_y),
+                objc2_foundation::NSSize::new(w_pt, h_pt),
             );
             child.setFrame(frame);
         }
