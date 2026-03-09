@@ -185,6 +185,7 @@ impl MacosView {
     ) -> Result<(*mut std::ffi::c_void, *mut std::ffi::c_void), String> {
         use objc2::rc::Retained;
         use objc2::MainThreadMarker;
+        #[allow(deprecated)] // NSOpenGL is deprecated but required by mpv's render API
         use objc2_app_kit::{NSOpenGLPixelFormat, NSOpenGLView, NSView};
         use objc2_foundation::NSRect;
         use std::ptr::NonNull;
@@ -311,6 +312,7 @@ impl MacosView {
                     &*(self.child_view as *const objc2_app_kit::NSView);
                 child.removeFromSuperview();
                 // Re-take ownership so it gets dropped
+                #[allow(deprecated)]
                 let _ = objc2::rc::Retained::from_raw(
                     self.child_view as *mut objc2_app_kit::NSOpenGLView,
                 );

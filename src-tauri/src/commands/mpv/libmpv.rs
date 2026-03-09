@@ -1,4 +1,5 @@
 #![cfg(target_os = "macos")]
+#![allow(deprecated)] // NSOpenGL is deprecated but required by mpv's render API
 
 use std::ffi::{c_char, c_int, c_void, CStr, CString};
 use std::path::{Path, PathBuf};
@@ -240,13 +241,15 @@ unsafe extern "C" fn mpv_render_update_callback(ctx: *mut c_void) {
     let lib = data.lib;
 
     // Dispatch rendering to the main thread (like the official example)
+    // dispatch_get_main_queue() is a C macro expanding to &_dispatch_main_q
+    #[link(name = "System")]
     extern "C" {
         fn dispatch_async_f(
             queue: *const c_void,
             context: *mut c_void,
             work: unsafe extern "C" fn(*mut c_void),
         );
-        fn dispatch_get_main_queue() -> *const c_void;
+        static _dispatch_main_q: c_void;
     }
 
     // Pack our pointers into a heap-allocated struct for the dispatch
@@ -323,7 +326,7 @@ unsafe extern "C" fn mpv_render_update_callback(ctx: *mut c_void) {
         ];
     }
 
-    dispatch_async_f(dispatch_get_main_queue(), work as *mut c_void, do_render);
+    dispatch_async_f(&_dispatch_main_q as *const c_void, work as *mut c_void, do_render);
 }
 
 pub struct MpvInstance {
