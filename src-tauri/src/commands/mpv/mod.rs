@@ -146,16 +146,19 @@ impl Drop for X11Window {
     }
 }
 
-// ─── macOS native subview ────────────────────────────────────────────────────
+// ─── macOS NSOpenGLView subview ──────────────────────────────────────────────
 //
-// On macOS, mpv's --wid renders behind the WKWebView when given the window's
-// content view. We create a native NSView subview on top of the WebView and
-// give *that* to mpv, mirroring the Linux X11 child-window approach.
+// On macOS, we use mpv's render API with an NSOpenGLView. The NSOpenGLView
+// provides the OpenGL context that mpv renders into. This replaces the
+// previous --wid approach which didn't work because the cocoa VO context
+// never gets probed (Vulkan fails with VK_ERROR_INCOMPATIBLE_DRIVER).
 
 #[cfg(target_os = "macos")]
 struct MacosView {
-    /// The child NSView we created (retained).
+    /// The child NSOpenGLView we created (retained as raw pointer).
     child_view: *mut std::ffi::c_void,
+    /// The NSOpenGLContext from the view (borrowed, not separately retained).
+    gl_context: *mut std::ffi::c_void,
 }
 
 #[cfg(target_os = "macos")]
@@ -166,11 +169,12 @@ impl MacosView {
     fn new() -> Self {
         Self {
             child_view: std::ptr::null_mut(),
+            gl_context: std::ptr::null_mut(),
         }
     }
 
-    /// Create a child NSView at the given geometry within the parent NSView.
-    /// Returns the child view pointer as u64 for mpv's --wid.
+    /// Create a child NSOpenGLView at the given geometry within the parent NSView.
+    /// Returns (gl_context_ptr, gl_view_ptr) for use with mpv's render API.
     fn create_child(
         &mut self,
         parent_ns_view: u64,
@@ -178,11 +182,13 @@ impl MacosView {
         y: i32,
         w: u32,
         h: u32,
-    ) -> Result<u64, String> {
+    ) -> Result<(*mut std::ffi::c_void, *mut std::ffi::c_void), String> {
         use objc2::rc::Retained;
         use objc2::MainThreadMarker;
-        use objc2_app_kit::NSView;
+        #[allow(deprecated)] // NSOpenGL is deprecated but required by mpv's render API
+        use objc2_app_kit::{NSOpenGLPixelFormat, NSOpenGLView, NSView};
         use objc2_foundation::NSRect;
+        use std::ptr::NonNull;
 
         unsafe {
             let mtm = MainThreadMarker::new()
@@ -199,15 +205,61 @@ impl MacosView {
                 objc2_foundation::NSSize::new(w as f64, h as f64),
             );
 
-            let child = NSView::initWithFrame(mtm.alloc(), frame);
-            child.setWantsLayer(true);
+            // Create pixel format with double buffering (matches official example)
+            #[allow(deprecated)]
+            use objc2_app_kit::NSOpenGLPixelFormatAttribute;
+            #[allow(deprecated)]
+            let mut attrs: [NSOpenGLPixelFormatAttribute; 2] = [
+                objc2_app_kit::NSOpenGLPFADoubleBuffer,
+                0,
+            ];
+            #[allow(deprecated)]
+            let pixel_format = NSOpenGLPixelFormat::initWithAttributes(
+                mtm.alloc(),
+                NonNull::new(attrs.as_mut_ptr()).unwrap(),
+            );
+            let pixel_format = pixel_format
+                .ok_or("Failed to create NSOpenGLPixelFormat")?;
 
-            // Add as subview — this puts it on top of the WebView
-            parent.addSubview(&child);
+            // Create NSOpenGLView with the pixel format
+            #[allow(deprecated)]
+            let gl_view = NSOpenGLView::initWithFrame_pixelFormat(
+                mtm.alloc(),
+                frame,
+                Some(&pixel_format),
+            );
+            let gl_view = gl_view
+                .ok_or("Failed to create NSOpenGLView")?;
 
-            let ptr = Retained::into_raw(child) as *mut std::ffi::c_void;
-            self.child_view = ptr;
-            Ok(ptr as u64)
+            // Get the OpenGL context and configure it
+            #[allow(deprecated)]
+            let gl_context = gl_view
+                .openGLContext()
+                .ok_or("NSOpenGLView has no OpenGL context")?;
+
+            // Set swap interval to 1 (vsync) using msg_send to avoid objc2-open-gl dep
+            let mut swap_interval: i32 = 1;
+            // NSOpenGLCPSwapInterval = 222
+            let swap_param: isize = 222;
+            let _: () = objc2::msg_send![
+                &*gl_context,
+                setValues: &mut swap_interval as *mut i32,
+                forParameter: swap_param
+            ];
+
+            // Make context current
+            gl_context.makeCurrentContext();
+
+            // Add as subview on top of the WebView
+            parent.addSubview(&gl_view);
+
+            // Store raw pointers
+            let gl_context_ptr = Retained::as_ptr(&gl_context) as *mut std::ffi::c_void;
+            let view_ptr = Retained::into_raw(gl_view) as *mut std::ffi::c_void;
+            self.child_view = view_ptr;
+            self.gl_context = gl_context_ptr;
+
+            Ok((gl_context_ptr, view_ptr))
         }
     }
 
@@ -260,11 +312,13 @@ impl MacosView {
                     &*(self.child_view as *const objc2_app_kit::NSView);
                 child.removeFromSuperview();
                 // Re-take ownership so it gets dropped
+                #[allow(deprecated)]
                 let _ = objc2::rc::Retained::from_raw(
-                    self.child_view as *mut objc2_app_kit::NSView,
+                    self.child_view as *mut objc2_app_kit::NSOpenGLView,
                 );
             }
             self.child_view = std::ptr::null_mut();
+            self.gl_context = std::ptr::null_mut();
         }
     }
 }
@@ -497,14 +551,16 @@ impl MpvController {
     ) -> Result<(), String> {
         self.stop();
 
-        // ─── macOS: in-process libmpv (NSView pointers are process-local) ────
+        // ─── macOS: in-process libmpv with render API ─────────────────────
         #[cfg(target_os = "macos")]
         {
+            // 1. Create NSOpenGLView on the main thread
             let mut macos = MacosView::new();
-            let child_wid = macos.create_child(parent_wid, x, y, w, h)?;
+            let (gl_context, gl_view) = macos.create_child(parent_wid, x, y, w, h)?;
             self.macos_view = Some(macos);
             self.parent_ns_view = parent_wid;
 
+            // 2. Load libmpv
             let dylib_path = libmpv::find_libmpv_dylib()?;
 
             // Set DYLD_LIBRARY_PATH so transitive dylib deps resolve
@@ -515,7 +571,13 @@ impl MpvController {
             }
 
             let lib = libmpv::LibMpv::load(&dylib_path)?;
-            let instance = libmpv::MpvInstance::new(lib, child_wid)?;
+
+            // 3. Create MpvInstance with render API (vo=libmpv, NO wid)
+            let instance = libmpv::MpvInstance::new(lib, gl_context, gl_view)?;
+
+            // 4. Set up the render update callback
+            instance.setup_render_callback();
+
             self.mpv_instance = Some(instance);
 
             return Ok(());
