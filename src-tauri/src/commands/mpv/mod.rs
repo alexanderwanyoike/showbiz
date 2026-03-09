@@ -230,10 +230,6 @@ impl MacosView {
             let gl_view = gl_view
                 .ok_or("Failed to create NSOpenGLView")?;
 
-            // Configure autoresizing
-            use objc2_app_kit::{NSViewWidthSizable, NSViewHeightSizable};
-            gl_view.setAutoresizingMask(NSViewWidthSizable | NSViewHeightSizable);
-
             // Get the OpenGL context and configure it
             #[allow(deprecated)]
             let gl_context = gl_view
