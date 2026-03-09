@@ -581,10 +581,14 @@ impl MpvController {
             // 3. Create MpvInstance with render API (vo=libmpv, NO wid)
             let instance = libmpv::MpvInstance::new(lib, gl_context, gl_view)?;
 
-            // 4. Set up the render update callback
-            instance.setup_render_callback();
-
+            // 4. Store instance FIRST (moves it to final memory location),
+            //    THEN set up the render callback. The callback stores a raw
+            //    pointer to self.lib — if we set it up before the move,
+            //    the pointer would dangle after the move into Option.
             self.mpv_instance = Some(instance);
+            if let Some(ref inst) = self.mpv_instance {
+                inst.setup_render_callback();
+            }
 
             return Ok(());
         }
