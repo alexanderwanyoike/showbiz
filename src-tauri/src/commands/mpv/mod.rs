@@ -199,7 +199,7 @@ impl MacosView {
             // The frontend sends physical pixels (getBoundingClientRect * scaleFactor).
             // NSView frames use points (1 CSS pixel = 1 point). On Retina (2x),
             // we must divide by the backing scale factor to convert back to points.
-            let scale: f64 = objc2::msg_send![parent.window().unwrap(), backingScaleFactor];
+            let scale: f64 = objc2::msg_send![&*parent.window().unwrap(), backingScaleFactor];
             let x_pt = x as f64 / scale;
             let y_pt = y as f64 / scale;
             let w_pt = w as f64 / scale;
@@ -296,7 +296,7 @@ impl MacosView {
             let child: &NSView = &*(self.child_view as *const NSView);
 
             // Convert physical pixels back to points (see create_child comment)
-            let scale: f64 = objc2::msg_send![parent.window().unwrap(), backingScaleFactor];
+            let scale: f64 = objc2::msg_send![&*parent.window().unwrap(), backingScaleFactor];
             let x_pt = x as f64 / scale;
             let y_pt = y as f64 / scale;
             let w_pt = w as f64 / scale;
