@@ -204,7 +204,7 @@ export default function TimelineEditor({
   return (
     <div className="flex flex-col flex-1 bg-muted/50 dark:bg-card overflow-hidden">
       {/* Preview Player - Theater Mode (large but leaves room for timeline) */}
-      <div className="flex-shrink-0 px-4 py-2 flex justify-center bg-black">
+      <div className="min-h-0 px-4 py-2 flex justify-center bg-black">
         <div className="w-full max-h-[55vh]" style={{ aspectRatio: '16/9', maxWidth: 'calc(55vh * 16 / 9)' }}>
           <PreviewPlayer
             clips={clips}
