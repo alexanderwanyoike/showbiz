@@ -177,10 +177,8 @@ unsafe fn find_webview_frame(parent: &objc2_app_kit::NSView) -> objc2_foundation
     for i in 0..count {
         let subview: *const objc2_app_kit::NSView = objc2::msg_send![&*subviews, objectAtIndex: i];
         if subview.is_null() { continue; }
-        let cls: *const std::ffi::c_void = objc2::msg_send![&*subview, class];
-        if cls.is_null() { continue; }
         let class_name: *const std::ffi::c_char = objc2::msg_send![
-            cls as *const objc2::runtime::AnyObject,
+            objc2::msg_send![&*subview, class],
             UTF8String
         ];
         if !class_name.is_null() {
