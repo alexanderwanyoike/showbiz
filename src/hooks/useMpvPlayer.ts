@@ -29,21 +29,11 @@ export interface MpvPlayer {
 }
 
 async function getRect(el: HTMLElement) {
-  const win = getCurrentWindow();
-  const scale = await win.scaleFactor();
+  const scale = await getCurrentWindow().scaleFactor();
   const r = el.getBoundingClientRect();
-  // On macOS, the parent NSView may extend under the title bar but
-  // getBoundingClientRect() is relative to the WebView content area.
-  // Use window position difference to get the exact title bar offset.
-  let titleBarOffset = 0;
-  if (navigator.userAgent.includes("Macintosh")) {
-    const outer = await win.outerPosition();
-    const inner = await win.innerPosition();
-    titleBarOffset = inner.y - outer.y;
-  }
   return {
     x: Math.round(r.left * scale),
-    y: Math.round(r.top * scale + titleBarOffset),
+    y: Math.round(r.top * scale),
     w: Math.round(r.width * scale),
     h: Math.round(r.height * scale),
   };

@@ -205,9 +205,13 @@ impl MacosView {
             let w_pt = w as f64 / scale;
             let h_pt = h as f64 / scale;
 
-            // Flip Y: NSView origin is bottom-left, CSS/web origin is top-left
-            let parent_frame = parent.frame();
-            let flipped_y = parent_frame.size.height - y_pt - h_pt;
+            // Flip Y: NSView origin is bottom-left, CSS/web origin is top-left.
+            // Use contentLayoutRect to get the usable area excluding title bar —
+            // with fullSizeContentView the parent extends behind the title bar
+            // but getBoundingClientRect is relative to the WebView content area.
+            let window = parent.window().unwrap();
+            let layout_rect: NSRect = objc2::msg_send![&*window, contentLayoutRect];
+            let flipped_y = layout_rect.origin.y + layout_rect.size.height - y_pt - h_pt;
 
             let frame = NSRect::new(
                 objc2_foundation::NSPoint::new(x_pt, flipped_y),
@@ -296,14 +300,16 @@ impl MacosView {
             let child: &NSView = &*(self.child_view as *const NSView);
 
             // Convert physical pixels back to points (see create_child comment)
-            let scale: f64 = objc2::msg_send![&*parent.window().unwrap(), backingScaleFactor];
+            let window = parent.window().unwrap();
+            let scale: f64 = objc2::msg_send![&*window, backingScaleFactor];
             let x_pt = x as f64 / scale;
             let y_pt = y as f64 / scale;
             let w_pt = w as f64 / scale;
             let h_pt = h as f64 / scale;
 
-            let parent_frame = parent.frame();
-            let flipped_y = parent_frame.size.height - y_pt - h_pt;
+            // Use contentLayoutRect for Y-flip (see create_child comment)
+            let layout_rect: NSRect = objc2::msg_send![&*window, contentLayoutRect];
+            let flipped_y = layout_rect.origin.y + layout_rect.size.height - y_pt - h_pt;
 
             let frame = NSRect::new(
                 objc2_foundation::NSPoint::new(x_pt, flipped_y),
