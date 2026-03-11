@@ -173,16 +173,18 @@ unsafe impl Send for MacosView {}
 #[cfg(target_os = "macos")]
 unsafe fn find_webview_frame(parent: &objc2_app_kit::NSView) -> objc2_foundation::NSRect {
     let subviews = parent.subviews();
-    for i in 0..subviews.len() {
-        let subview = &subviews[i];
+    let count: usize = objc2::msg_send![&*subviews, count];
+    for i in 0..count {
+        let subview: *const objc2_app_kit::NSView = objc2::msg_send![&*subviews, objectAtIndex: i];
+        if subview.is_null() { continue; }
         let class_name: *const std::ffi::c_char = objc2::msg_send![
-            objc2::msg_send![subview, class],
+            objc2::msg_send![&*subview, class],
             UTF8String
         ];
         if !class_name.is_null() {
             let name = std::ffi::CStr::from_ptr(class_name).to_string_lossy();
             if name.contains("WKWebView") {
-                return subview.frame();
+                return (*subview).frame();
             }
         }
     }
