@@ -164,32 +164,6 @@ struct MacosView {
 #[cfg(target_os = "macos")]
 unsafe impl Send for MacosView {}
 
-/// Find the WKWebView sibling in the parent's subviews and return its frame.
-/// Falls back to the parent's frame if no WKWebView is found.
-/// This is needed because the parent (WryWebViewParent) may extend under
-/// the macOS title bar, but getBoundingClientRect() is relative to the
-/// WebView content area. When the window is not maximized, the title bar
-/// offsets the WebView within the parent.
-#[cfg(target_os = "macos")]
-unsafe fn find_webview_frame(parent: &objc2_app_kit::NSView) -> objc2_foundation::NSRect {
-    let subviews = parent.subviews();
-    for i in 0..subviews.len() {
-        let subview = &subviews[i];
-        let class_name: *const std::ffi::c_char = objc2::msg_send![
-            objc2::msg_send![subview, class],
-            UTF8String
-        ];
-        if !class_name.is_null() {
-            let name = std::ffi::CStr::from_ptr(class_name).to_string_lossy();
-            if name.contains("WKWebView") {
-                return subview.frame();
-            }
-        }
-    }
-    // Fallback: use parent frame (origin 0,0 + parent size)
-    parent.frame()
-}
-
 #[cfg(target_os = "macos")]
 impl MacosView {
     fn new() -> Self {
@@ -231,12 +205,9 @@ impl MacosView {
             let w_pt = w as f64 / scale;
             let h_pt = h as f64 / scale;
 
-            // Flip Y: NSView origin is bottom-left, CSS/web origin is top-left.
-            // Use the WKWebView sibling's frame (not the parent's) because the parent
-            // may extend under the title bar. getBoundingClientRect() is relative to
-            // the WebView, so the Y-flip must use the WebView's frame as reference.
-            let webview_frame = find_webview_frame(parent);
-            let flipped_y = webview_frame.origin.y + webview_frame.size.height - y_pt - h_pt;
+            // Flip Y: NSView origin is bottom-left, CSS/web origin is top-left
+            let parent_frame = parent.frame();
+            let flipped_y = parent_frame.size.height - y_pt - h_pt;
 
             let frame = NSRect::new(
                 objc2_foundation::NSPoint::new(x_pt, flipped_y),
@@ -331,9 +302,8 @@ impl MacosView {
             let w_pt = w as f64 / scale;
             let h_pt = h as f64 / scale;
 
-            // Use WebView sibling frame for Y-flip (see create_child comment)
-            let webview_frame = find_webview_frame(parent);
-            let flipped_y = webview_frame.origin.y + webview_frame.size.height - y_pt - h_pt;
+            let parent_frame = parent.frame();
+            let flipped_y = parent_frame.size.height - y_pt - h_pt;
 
             let frame = NSRect::new(
                 objc2_foundation::NSPoint::new(x_pt, flipped_y),
