@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Plus, Download, Loader2, Sparkles, ImageIcon, Video, SlidersHorizontal } from "lucide-react";
+import { Plus, Loader2, Sparkles, ImageIcon, Video, SlidersHorizontal, Save } from "lucide-react";
 import { Header } from "../components/Header";
 import ShotCard from "../components/ShotCard";
 import TabNavigation from "../components/TabNavigation";
@@ -72,6 +72,8 @@ import {
   generateAndSaveVideoAction,
 } from "../actions/generation-actions";
 import { videoAssembler } from "../lib/video-assembler";
+import { save } from "@tauri-apps/plugin-dialog";
+import { saveAssembledVideo } from "../lib/tauri-api";
 import {
   ImageModelId,
   VideoModelId,
@@ -86,6 +88,7 @@ interface Shot {
   id: string;
   storyboard_id: string;
   order: number;
+  duration: number;
   image_prompt: string | null;
   image_url: string | null;
   video_prompt: string | null;
@@ -128,6 +131,7 @@ function shotFromShotWithUrls(s: ShotWithUrls): Shot {
     id: s.id,
     storyboard_id: s.storyboard_id,
     order: s.order,
+    duration: s.duration,
     image_prompt: s.image_prompt,
     image_url: s.image_url,
     video_prompt: s.video_prompt,
@@ -156,7 +160,6 @@ export default function StoryboardPage() {
 
   // Assembly State
   const [isAssembling, setIsAssembling] = useState(false);
-  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -409,8 +412,6 @@ export default function StoryboardPage() {
         // Reorder remaining shots
         return filtered.map((s, idx) => ({ ...s, order: idx + 1 }));
       });
-      // Reset final video since shots changed
-      setFinalVideoUrl(null);
     } catch (error) {
       console.error("Failed to delete shot:", error);
       alert("Failed to delete shot");
@@ -474,7 +475,6 @@ export default function StoryboardPage() {
 
       setIsModalOpen(false);
       // Reset final video since content changed
-      setFinalVideoUrl(null);
     } catch (error) {
       console.error("Image generation failed", error);
       alert("Failed to generate image");
@@ -506,8 +506,7 @@ export default function StoryboardPage() {
           await refreshVersionData(shotId);
 
           // Reset final video since content changed
-          setFinalVideoUrl(null);
-        } catch (error) {
+            } catch (error) {
           console.error("Failed to upload image:", error);
           alert("Failed to upload image");
         }
@@ -529,7 +528,6 @@ export default function StoryboardPage() {
       }
       await refreshVersionData(targetShotId);
       // Reset final video since content changed
-      setFinalVideoUrl(null);
     } catch (error) {
       console.error("Failed to copy image:", error);
       alert("Failed to copy image");
@@ -547,7 +545,6 @@ export default function StoryboardPage() {
       setShots(updatedShots.map(shotFromShotWithUrls));
       await refreshVersionData(shotId);
       // Reset final video since content changed
-      setFinalVideoUrl(null);
     } catch (error) {
       console.error("Failed to switch version:", error);
       alert("Failed to switch version");
@@ -563,7 +560,6 @@ export default function StoryboardPage() {
       setShots(updatedShots.map(shotFromShotWithUrls));
       await refreshVersionData(shotId);
       // Reset final video since content changed
-      setFinalVideoUrl(null);
     } catch (error) {
       console.error("Failed to switch video version:", error);
       alert("Failed to switch video version");
@@ -615,7 +611,6 @@ export default function StoryboardPage() {
       await refreshVersionData(shotId);
 
       setEditModalState({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null });
-      setFinalVideoUrl(null);
     } catch (error) {
       console.error("Image edit failed:", error);
       alert("Failed to edit image");
@@ -629,9 +624,6 @@ export default function StoryboardPage() {
   async function handleGenerateVideo(shotId: string) {
     const shot = shots.find((s) => s.id === shotId);
     if (!shot) return;
-
-    // Reset final video when regenerating
-    setFinalVideoUrl(null);
 
     // Set this shot to generating status
     setShots((prev) =>
@@ -741,8 +733,18 @@ export default function StoryboardPage() {
     setIsAssembling(true);
     try {
       const videoUrls = completedShots.map((s) => s.video_url!);
-      const assembledUrl = await videoAssembler.assembleVideos(videoUrls);
-      setFinalVideoUrl(assembledUrl);
+      const videoBytes = await videoAssembler.assembleVideos(videoUrls);
+
+      const defaultFilename = `${storyboard?.name.replace(/\s+/g, "_") || "movie"}.mp4`;
+      const savePath = await save({
+        defaultPath: defaultFilename,
+        filters: [{ name: "Video", extensions: ["mp4"] }],
+      });
+
+      if (savePath) {
+        await saveAssembledVideo(Array.from(videoBytes), savePath);
+        alert("Video exported successfully!");
+      }
     } catch (error) {
       console.error("Assembly failed:", error);
       alert("Failed to assemble videos. Check console for details.");
@@ -913,15 +915,25 @@ export default function StoryboardPage() {
           <Badge variant="secondary" className="text-sm">
             {shots.length} Shots • {totalDuration}s Total
           </Badge>
-          {finalVideoUrl && (
-            <Button asChild variant="outline" size="sm" className="text-primary">
-              <a
-                href={finalVideoUrl}
-                download={`${storyboard.name.replace(/\s+/g, "_")}.mp4`}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download MP4
-              </a>
+          {activeTab === "storyboard" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-primary"
+              onClick={handleExport}
+              disabled={isAssembling || !allShotsComplete}
+            >
+              {isAssembling ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Assembling...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Movie
+                </>
+              )}
             </Button>
           )}
         </div>

@@ -12,6 +12,7 @@
     {
       "identifier": "http:default",
       "allow": [{ "url": "https://*" }]
-    }
+    },
+    "dialog:default"
   ]
 }

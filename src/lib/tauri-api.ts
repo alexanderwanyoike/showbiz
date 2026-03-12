@@ -390,6 +390,11 @@ export async function getMediaBasePath(): Promise<string> {
   return invoke("get_media_path");
 }
 
+// --- Assembled Video Export ---
+export async function saveAssembledVideo(videoData: number[], savePath: string): Promise<void> {
+  return invoke("save_assembled_video", { videoData, savePath });
+}
+
 // --- Video save (used by generation-actions) ---
 export async function saveAndCompleteVideo(shotId: string, videoData: number[], mimeType: string): Promise<ShotWithUrls> {
   const shot: ShotWithUrls = await invoke("save_and_complete_video", { shotId, videoData, mimeType });

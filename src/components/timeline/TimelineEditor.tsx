@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { ZoomIn, ZoomOut, Download, Loader2 } from "lucide-react";
+import { ZoomIn, ZoomOut, Loader2 } from "lucide-react";
 import { TimelineEdit } from "../../lib/tauri-api";
-import { updateTimelineEdit } from "../../lib/tauri-api";
+import { updateTimelineEdit, saveAssembledVideo } from "../../lib/tauri-api";
 import {
   buildTimelineClips,
   Shot,
@@ -10,6 +10,7 @@ import { useTimelinePlayback } from "../../hooks/useTimelinePlayback";
 import { useMpvPlayer } from "../../hooks/useMpvPlayer";
 import { useTrimDrag } from "../../hooks/useTrimDrag";
 import { videoAssembler } from "../../lib/video-assembler";
+import { save } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import PreviewPlayer from "./PreviewPlayer";
 import TransportControls from "./TransportControls";
@@ -36,7 +37,6 @@ export default function TimelineEditor({
   const [localEdits, setLocalEdits] = useState<TimelineEdit[]>(edits);
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
   const [isExporting, setIsExporting] = useState(false);
-  const [exportedVideoUrl, setExportedVideoUrl] = useState<string | null>(null);
 
   const pixelsPerSecond = ZOOM_LEVELS[zoomIndex];
 
@@ -65,17 +65,26 @@ export default function TimelineEditor({
     }
 
     setIsExporting(true);
-    setExportedVideoUrl(null);
 
     try {
       const trimmedClips = clips.map((clip) => ({
         videoUrl: clip.shot.video_url!,
         trimIn: clip.edit?.trim_in ?? 0,
-        trimOut: clip.edit?.trim_out ?? 8,
+        trimOut: clip.edit?.trim_out ?? clip.shot.duration,
       }));
 
-      const url = await videoAssembler.assembleTrimmedVideos(trimmedClips);
-      setExportedVideoUrl(url);
+      const videoBytes = await videoAssembler.assembleTrimmedVideos(trimmedClips);
+
+      // Show save dialog
+      const savePath = await save({
+        defaultPath: "edited-video.mp4",
+        filters: [{ name: "Video", extensions: ["mp4"] }],
+      });
+
+      if (savePath) {
+        await saveAssembledVideo(Array.from(videoBytes), savePath);
+        alert("Video exported successfully!");
+      }
     } catch (error) {
       console.error("Export failed:", error);
       alert("Failed to export video. Check console for details.");
@@ -243,15 +252,6 @@ export default function TimelineEditor({
               "Export"
             )}
           </Button>
-
-          {exportedVideoUrl && (
-            <Button asChild variant="outline" size="sm">
-              <a href={exportedVideoUrl} download="edited-video.mp4">
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </a>
-            </Button>
-          )}
         </div>
       </div>
 
@@ -273,8 +273,8 @@ export default function TimelineEditor({
               pixelsPerSecond={pixelsPerSecond}
               selectedClipId={selectedClipId}
               onClipSelect={setSelectedClipId}
-              onTrimStart={(e, shotId, edge, trimIn, trimOut) =>
-                startTrim(e, shotId, edge, trimIn, trimOut)
+              onTrimStart={(e, shotId, edge, trimIn, trimOut, maxDuration) =>
+                startTrim(e, shotId, edge, trimIn, trimOut, maxDuration)
               }
             />
           </div>
