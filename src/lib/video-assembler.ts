@@ -1,5 +1,4 @@
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { toBlobURL } from "@ffmpeg/util";
 
 export class VideoAssembler {
   private ffmpeg: FFmpeg | null = null;
@@ -10,13 +9,15 @@ export class VideoAssembler {
 
     this.ffmpeg = new FFmpeg();
 
-    // Load ffmpeg.wasm files from CDN
-    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.4/dist/umd";
+    // Load ffmpeg.wasm files directly from CDN
+    // Using direct URLs instead of toBlobURL because WebKitGTK can't import
+    // ES modules from blob URLs inside workers.
+    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.4/dist/esm";
 
     try {
       await this.ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+        coreURL: `${baseURL}/ffmpeg-core.js`,
+        wasmURL: `${baseURL}/ffmpeg-core.wasm`,
       });
       this.isLoaded = true;
       console.log("FFmpeg loaded successfully");
@@ -26,7 +27,7 @@ export class VideoAssembler {
     }
   }
 
-  async assembleVideos(videoSources: string[]): Promise<string> {
+  async assembleVideos(videoSources: string[]): Promise<Uint8Array> {
     if (!this.ffmpeg || !this.isLoaded) {
       await this.load();
     }
@@ -85,19 +86,13 @@ export class VideoAssembler {
     }
 
     // 4. Read output file
-    let outputData: ArrayBuffer;
+    let outputData: Uint8Array;
     try {
       const fileData = await ffmpeg.readFile("output.mp4");
       if (typeof fileData === "string") {
-        // Convert string to ArrayBuffer if needed (shouldn't happen for binary)
-        const encoder = new TextEncoder();
-        outputData = encoder.encode(fileData).buffer as ArrayBuffer;
+        outputData = new TextEncoder().encode(fileData);
       } else {
-        // fileData is Uint8Array - get its underlying buffer
-        outputData = fileData.buffer.slice(
-          fileData.byteOffset,
-          fileData.byteOffset + fileData.byteLength
-        ) as ArrayBuffer;
+        outputData = fileData;
       }
     } catch (readError) {
       console.error("Failed to read output:", readError);
@@ -108,16 +103,12 @@ export class VideoAssembler {
       throw new Error("Output video is empty - concatenation may have failed");
     }
 
-    // 5. Create Blob URL
-    const blob = new Blob([outputData], { type: "video/mp4" });
-    const outputUrl = URL.createObjectURL(blob);
+    console.log("Assembly complete:", `${outputData.byteLength} bytes`);
 
-    console.log("Assembly complete:", outputUrl, `(${outputData.byteLength} bytes)`);
-
-    // 6. Cleanup all files from memory
+    // 5. Cleanup all files from memory
     await this.cleanup(ffmpeg, [...inputFiles, "list.txt", "output.mp4"]);
 
-    return outputUrl;
+    return outputData;
   }
 
   /**
@@ -168,7 +159,7 @@ export class VideoAssembler {
    */
   async assembleTrimmedVideos(
     clips: { videoUrl: string; trimIn: number; trimOut: number }[]
-  ): Promise<string> {
+  ): Promise<Uint8Array> {
     if (!this.ffmpeg || !this.isLoaded) {
       await this.load();
     }
@@ -258,17 +249,13 @@ export class VideoAssembler {
     }
 
     // 4. Read output file
-    let outputData: ArrayBuffer;
+    let outputData: Uint8Array;
     try {
       const fileData = await ffmpeg.readFile("output.mp4");
       if (typeof fileData === "string") {
-        const encoder = new TextEncoder();
-        outputData = encoder.encode(fileData).buffer as ArrayBuffer;
+        outputData = new TextEncoder().encode(fileData);
       } else {
-        outputData = fileData.buffer.slice(
-          fileData.byteOffset,
-          fileData.byteOffset + fileData.byteLength
-        ) as ArrayBuffer;
+        outputData = fileData;
       }
     } catch (readError) {
       console.error("Failed to read output:", readError);
@@ -279,20 +266,12 @@ export class VideoAssembler {
       throw new Error("Output video is empty - concatenation may have failed");
     }
 
-    // 5. Create Blob URL
-    const blob = new Blob([outputData], { type: "video/mp4" });
-    const outputUrl = URL.createObjectURL(blob);
+    console.log("Trimmed assembly complete:", `${outputData.byteLength} bytes`);
 
-    console.log(
-      "Trimmed assembly complete:",
-      outputUrl,
-      `(${outputData.byteLength} bytes)`
-    );
-
-    // 6. Cleanup all files from memory
+    // 5. Cleanup all files from memory
     await this.cleanup(ffmpeg, [...trimmedFiles, "list.txt", "output.mp4"]);
 
-    return outputUrl;
+    return outputData;
   }
 }
 

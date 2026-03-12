@@ -5,6 +5,7 @@ interface TrimState {
   edge: "in" | "out";
   initialValue: number;
   initialMouseX: number;
+  maxDuration: number;
 }
 
 interface UseTrimDragOptions {
@@ -49,7 +50,8 @@ export function useTrimDrag({
       shotId: string,
       edge: "in" | "out",
       currentTrimIn: number,
-      currentTrimOut: number
+      currentTrimOut: number,
+      maxDuration: number
     ) => {
       e.preventDefault();
       e.stopPropagation();
@@ -63,6 +65,7 @@ export function useTrimDrag({
         edge,
         initialValue: edge === "in" ? currentTrimIn : currentTrimOut,
         initialMouseX: e.clientX,
+        maxDuration,
       });
     },
     []
@@ -86,8 +89,8 @@ export function useTrimDrag({
         newTrimIn = snapToGrid(newTrimIn, precision);
         setCurrentTrimIn(newTrimIn);
       } else {
-        // Clamp trim_out: trim_in + 0.5 <= trim_out <= 8
-        newTrimOut = Math.max(newTrimIn + 0.5, Math.min(8, newValue));
+        // Clamp trim_out: trim_in + 0.5 <= trim_out <= maxDuration
+        newTrimOut = Math.max(newTrimIn + 0.5, Math.min(trimState.maxDuration, newValue));
         newTrimOut = snapToGrid(newTrimOut, precision);
         setCurrentTrimOut(newTrimOut);
       }
@@ -102,7 +105,7 @@ export function useTrimDrag({
     if (!trimState) return;
 
     const finalTrimIn = currentTrimIn ?? originalValuesRef.current?.trimIn ?? 0;
-    const finalTrimOut = currentTrimOut ?? originalValuesRef.current?.trimOut ?? 8;
+    const finalTrimOut = currentTrimOut ?? originalValuesRef.current?.trimOut ?? trimState.maxDuration;
 
     // Persist to database
     onTrimEnd(trimState.shotId, finalTrimIn, finalTrimOut);

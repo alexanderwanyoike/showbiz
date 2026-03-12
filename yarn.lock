@@ -1459,7 +1459,7 @@
     postcss "^8.4.41"
     tailwindcss "4.1.17"
 
-"@tauri-apps/api@^2", "@tauri-apps/api@^2.10.1":
+"@tauri-apps/api@^2", "@tauri-apps/api@^2.10.1", "@tauri-apps/api@^2.8.0":
   version "2.10.1"
   resolved "https://registry.yarnpkg.com/@tauri-apps/api/-/api-2.10.1.tgz#57c1bae6114ec33d977eb2b50dfefc25fa84fc93"
   integrity sha512-hKL/jWf293UDSUN09rR69hrToyIXBb8CjGaWC7gfinvnQrBVvnLr08FeFi38gxtugAVyVcTa5/FD/Xnkb1siBw==
@@ -1535,6 +1535,13 @@
     "@tauri-apps/cli-win32-arm64-msvc" "2.10.0"
     "@tauri-apps/cli-win32-ia32-msvc" "2.10.0"
     "@tauri-apps/cli-win32-x64-msvc" "2.10.0"
+
+"@tauri-apps/plugin-dialog@^2.6.0":
+  version "2.6.0"
+  resolved "https://registry.yarnpkg.com/@tauri-apps/plugin-dialog/-/plugin-dialog-2.6.0.tgz#e09bb26ab7008bfc4a1a044a5fb29ac0575f8898"
+  integrity sha512-q4Uq3eY87TdcYzXACiYSPhmpBA76shgmQswGkSVio4C82Sz2W4iehe9TnKYwbq7weHiL88Yw19XZm7v28+Micg==
+  dependencies:
+    "@tauri-apps/api" "^2.8.0"
 
 "@tauri-apps/plugin-http@^2.5.7":
   version "2.5.7"

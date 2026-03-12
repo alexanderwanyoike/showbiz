@@ -15,11 +15,10 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
-    headers: {
-      // Required for FFmpeg.wasm SharedArrayBuffer
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp",
-    },
+  },
+  // Exclude ffmpeg packages from Vite dep optimization (worker import breaks otherwise)
+  optimizeDeps: {
+    exclude: ["@ffmpeg/ffmpeg", "@ffmpeg/util"],
   },
   // Env variables starting with TAURI_ will be exposed
   envPrefix: ["VITE_", "TAURI_"],

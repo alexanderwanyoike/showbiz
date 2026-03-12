@@ -10,7 +10,8 @@ interface TimelineClipProps {
     e: React.MouseEvent,
     edge: "in" | "out",
     trimIn: number,
-    trimOut: number
+    trimOut: number,
+    maxDuration: number
   ) => void;
 }
 
@@ -33,16 +34,16 @@ export default function TimelineClip({
   onTrimStart,
 }: TimelineClipProps) {
   const trimIn = clip.edit?.trim_in ?? 0;
-  const trimOut = clip.edit?.trim_out ?? 8;
+  const trimOut = clip.edit?.trim_out ?? clip.shot.duration;
   const width = clip.effectiveDuration * pixelsPerSecond;
   const durationLabel = formatDuration(clip.effectiveDuration, pixelsPerSecond);
 
   const handleLeftHandleMouseDown = (e: React.MouseEvent) => {
-    onTrimStart(e, "in", trimIn, trimOut);
+    onTrimStart(e, "in", trimIn, trimOut, clip.shot.duration);
   };
 
   const handleRightHandleMouseDown = (e: React.MouseEvent) => {
-    onTrimStart(e, "out", trimIn, trimOut);
+    onTrimStart(e, "out", trimIn, trimOut, clip.shot.duration);
   };
 
   return (

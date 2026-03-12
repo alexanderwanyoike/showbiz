@@ -15,6 +15,7 @@ function makeShot(overrides: Partial<Shot> = {}): Shot {
     id: "shot-1",
     storyboard_id: "sb-1",
     order: 1,
+    duration: 8,
     image_prompt: null,
     image_url: null,
     video_prompt: null,
@@ -66,7 +67,7 @@ describe("buildTimelineClips", () => {
     expect(clips[0].effectiveDuration).toBe(4);
   });
 
-  it("defaults to 8s duration when no edit", () => {
+  it("uses shot.duration as default when no edit", () => {
     const clips = buildTimelineClips([makeShot()], []);
     expect(clips[0].effectiveDuration).toBe(8);
   });
