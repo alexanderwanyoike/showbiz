@@ -95,7 +95,7 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
       const clip = clips[currentClipIndex];
       if (!clip) return;
 
-      const trimOut = clip.edit?.trim_out ?? 8;
+      const trimOut = clip.edit?.trim_out ?? clip.shot.duration;
 
       if (pos >= trimOut - 0.05) {
         const nextIndex = currentClipIndex + 1;

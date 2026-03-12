@@ -11,7 +11,8 @@ interface TimelineTrackProps {
     shotId: string,
     edge: "in" | "out",
     trimIn: number,
-    trimOut: number
+    trimOut: number,
+    maxDuration: number
   ) => void;
 }
 
@@ -39,8 +40,8 @@ export default function TimelineTrack({
           pixelsPerSecond={pixelsPerSecond}
           isSelected={selectedClipId === clip.shot.id}
           onClick={() => onClipSelect(clip.shot.id)}
-          onTrimStart={(e, edge, trimIn, trimOut) =>
-            onTrimStart(e, clip.shot.id, edge, trimIn, trimOut)
+          onTrimStart={(e, edge, trimIn, trimOut, maxDuration) =>
+            onTrimStart(e, clip.shot.id, edge, trimIn, trimOut, maxDuration)
           }
         />
       ))}

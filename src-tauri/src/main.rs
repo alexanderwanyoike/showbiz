@@ -39,6 +39,7 @@ fn main() {
         .manage(app_state)
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             db::init(app.handle())?;
             media::init(app.handle())?;
@@ -106,6 +107,7 @@ fn main() {
             commands::timeline::reset_all_timeline_edits,
             // Media
             commands::media_cmd::get_media_path,
+            commands::media_cmd::save_assembled_video,
             // HTTP proxy (bypasses WebKit for cross-origin API calls)
             commands::http_client::http_request,
             // MPV video playback

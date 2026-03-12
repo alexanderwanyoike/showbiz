@@ -4,6 +4,7 @@ export interface Shot {
   id: string;
   storyboard_id: string;
   order: number;
+  duration: number;
   image_prompt: string | null;
   image_url: string | null;
   video_prompt: string | null;
@@ -33,7 +34,7 @@ export function buildTimelineClips(
     .map((shot) => {
       const edit = editMap.get(shot.id) || null;
       const trimIn = edit?.trim_in ?? 0;
-      const trimOut = edit?.trim_out ?? 8;
+      const trimOut = edit?.trim_out ?? shot.duration;
       const effectiveDuration = trimOut - trimIn;
 
       const clip: TimelineClip = {
