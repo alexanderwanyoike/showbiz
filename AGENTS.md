@@ -51,6 +51,15 @@ cd src-tauri && cargo test    # Run all Rust tests (61+)
 cd src-tauri && cargo check   # Type-check Rust
 ```
 
+## Git Workflow
+
+- `main ← dev ← feature branches`
+- Feature branches: off `dev`, PR back to `dev`
+- `main`: stable releases only, merged from `dev`
+- Tags on `main` trigger release builds (draft GitHub Release with artifacts)
+- Never force-push tags — bump patch version instead
+- Always new commits, never amend
+
 ## Key Constraints
 
 - HTMLVideoElement is broken in WebKit/Tauri WebView — do NOT use `<video>` tags for playback

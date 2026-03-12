@@ -202,6 +202,22 @@ Database stored at `{appDataDir}/data/showbiz.db`.
 - Falls back to environment variables (GEMINI_API_KEY, LTX_API_KEY)
 - Managed via Settings dialog
 
+## Git Workflow
+
+```
+main  ← stable releases only (tagged here, CI builds release artifacts)
+  └── dev  ← integration branch (PRs target here)
+        └── feature/...  ← feature branches (branch off dev, PR back to dev)
+```
+
+- **Feature branches**: branch off `dev`, PR back to `dev`
+- **`dev`**: daily integration. PRs trigger tests + build verification (no artifacts persisted)
+- **`main`**: stable only. Merged from `dev` when ready to release
+- **Tags**: only on `main`. Push a `v*` tag → CI builds all platforms and creates a draft GitHub Release with artifacts
+- **Never force-push tags.** If a fix is needed after tagging, bump to the next patch version
+- **Release titles**: just the version number (e.g. `v0.6.1`), no subtitles
+- **Always create a new commit** instead of amending
+
 ## Commands
 
 ```bash
