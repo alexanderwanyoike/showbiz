@@ -1,5 +1,4 @@
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { toBlobURL } from "@ffmpeg/util";
 
 export class VideoAssembler {
   private ffmpeg: FFmpeg | null = null;
@@ -10,13 +9,15 @@ export class VideoAssembler {
 
     this.ffmpeg = new FFmpeg();
 
-    // Load ffmpeg.wasm files from CDN
-    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.4/dist/umd";
+    // Load ffmpeg.wasm files directly from CDN
+    // Using direct URLs instead of toBlobURL because WebKitGTK can't import
+    // ES modules from blob URLs inside workers.
+    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.4/dist/esm";
 
     try {
       await this.ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+        coreURL: `${baseURL}/ffmpeg-core.js`,
+        wasmURL: `${baseURL}/ffmpeg-core.wasm`,
       });
       this.isLoaded = true;
       console.log("FFmpeg loaded successfully");
