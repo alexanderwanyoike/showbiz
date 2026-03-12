@@ -5,7 +5,7 @@ AI-powered video storyboard desktop application using Google's Imagen 4 and Veo 
 ## Rules
 
 ### 1. Research, don't guess
-When hitting platform-specific bugs (WebKit, Tauri, WASM, CSP, etc.), **always research** the actual root cause before attempting a fix. Use web search, read source code, check GitHub issues. One researched fix beats five guesses.
+**Always research before acting** — this applies to everything: bug fixes, new features, architecture decisions, planning, and ideation. Read source code, check docs, search the web, review GitHub issues. Understand the problem space before proposing or implementing a solution. Never trial-and-error your way through.
 
 ### 2. TDD for all TypeScript and Rust changes
 Write a **failing test first**, then implement the fix/feature to make it pass. This applies to:
@@ -13,9 +13,23 @@ Write a **failing test first**, then implement the fix/feature to make it pass. 
 - All new Rust commands and utilities (`#[cfg(test)]` modules)
 - Bug fixes: reproduce the bug in a test before fixing
 
-### 3. Always use yarn (never npm)
+### 3. Clean code practices
+- Meaningful names, small focused functions, single responsibility
+- No dead code, no commented-out code, no TODO comments without a tracking issue
+- DRY — extract shared logic, but don't abstract prematurely
+- Consistent patterns: if the codebase does something one way, follow that convention
+- Handle errors explicitly — no silent swallows, no bare `unwrap()` in production paths
 
-### 4. Always check the build
+### 4. Memory-safe Rust
+- Prefer safe Rust APIs over `unsafe` blocks whenever possible
+- Use owned types (`String`, `Vec<u8>`) over raw pointers
+- Prefer `.get()` over indexing, `Option`/`Result` over panics
+- If `unsafe` is genuinely needed, document why and keep the block minimal
+- Use `clippy` guidance: `cargo clippy` should pass clean
+
+### 5. Always use yarn (never npm)
+
+### 6. Always check the build
 Run `yarn build:frontend` and `cargo check` before considering work done.
 
 ## What It Does

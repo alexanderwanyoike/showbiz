@@ -5,16 +5,30 @@ AI-powered video storyboard desktop application (Tauri v2 + React 19 + Rust).
 ## Rules
 
 ### 1. Research, don't guess
-When hitting platform-specific bugs (WebKit, Tauri, WASM, CSP, etc.), **always research** the actual root cause before attempting a fix. Read source code, check GitHub issues, search the web. One researched fix beats five guesses.
+**Always research before acting** — this applies to everything: bug fixes, new features, architecture decisions, planning, and ideation. Read source code, check docs, search the web, review GitHub issues. Understand the problem space before proposing or implementing a solution. Never trial-and-error your way through.
 
 ### 2. TDD for all TypeScript and Rust changes
 Write a **failing test first**, then implement the fix/feature to make it pass.
 - TypeScript: Vitest, tests co-located in `src/lib/*.test.ts`
 - Rust: inline `#[cfg(test)] mod tests` in each module, uses `tempfile` crate
 
-### 3. Always use yarn (never npm)
+### 3. Clean code practices
+- Meaningful names, small focused functions, single responsibility
+- No dead code, no commented-out code, no TODO comments without a tracking issue
+- DRY — extract shared logic, but don't abstract prematurely
+- Consistent patterns: follow existing codebase conventions
+- Handle errors explicitly — no silent swallows, no bare `unwrap()` in production paths
 
-### 4. Always check the build
+### 4. Memory-safe Rust
+- Prefer safe Rust APIs over `unsafe` blocks whenever possible
+- Use owned types (`String`, `Vec<u8>`) over raw pointers
+- Prefer `.get()` over indexing, `Option`/`Result` over panics
+- If `unsafe` is genuinely needed, document why and keep the block minimal
+- `cargo clippy` should pass clean
+
+### 5. Always use yarn (never npm)
+
+### 6. Always check the build
 Run `yarn build:frontend` and `cargo check` before considering work done.
 
 ## Architecture
