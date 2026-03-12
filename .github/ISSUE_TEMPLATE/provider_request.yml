@@ -1,0 +1,44 @@
+name: Provider Request
+description: Request support for a new AI model provider
+labels: ["provider"]
+body:
+  - type: input
+    id: provider_name
+    attributes:
+      label: Provider / Model Name
+      placeholder: e.g. Stability AI, Runway Gen-4, Kling
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Model Type
+      options:
+        - Image Generation
+        - Video Generation
+        - Both
+    validations:
+      required: true
+
+  - type: textarea
+    id: api_info
+    attributes:
+      label: API Information
+      description: Link to docs, pricing, API access requirements, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Why This Provider?
+      description: What makes this provider valuable for Showbiz users?
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      description: Any quirks, limitations, or implementation considerations.
