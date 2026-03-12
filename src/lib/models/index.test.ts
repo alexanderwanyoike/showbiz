@@ -4,6 +4,7 @@ import {
   getVideoModel,
   getAvailableImageModels,
   getAvailableVideoModels,
+  getExperimentalVideoModels,
 } from "./index";
 
 describe("getImageModel", () => {
@@ -67,25 +68,20 @@ describe("getAvailableImageModels", () => {
 });
 
 describe("getAvailableVideoModels", () => {
-  it("returns 18 enabled video models (excludes disabled)", () => {
+  it("returns only the curated trusted video models", () => {
     const models = getAvailableVideoModels();
-    expect(models).toHaveLength(18);
+    expect(models).toHaveLength(6);
     const ids = models.map((m) => m.id);
     expect(ids).toContain("veo3");
     expect(ids).toContain("veo3-fast");
-    expect(ids).toContain("ltx-video");
     expect(ids).toContain("kling-3");
-    expect(ids).not.toContain("seedance-2"); // disabled
-    // fal models
-    expect(ids).toContain("kling-3-fal");
-    expect(ids).toContain("kling-2.6-fal");
-    expect(ids).toContain("hailuo-2.3-fal");
-    expect(ids).toContain("wan-2.2-fal");
-    // replicate models
-    expect(ids).toContain("kling-2.6-replicate");
-    expect(ids).toContain("wan-2.5-replicate");
-    expect(ids).toContain("hailuo-02-replicate");
-    expect(ids).toContain("luma-ray-3");
+    expect(ids).toContain("kling-2.6");
+    expect(ids).toContain("hailuo-2.3");
+    expect(ids).toContain("wan-2.6");
+    expect(ids).not.toContain("ltx-video");
+    expect(ids).not.toContain("sora-2-pro");
+    expect(ids).not.toContain("kling-3-fal");
+    expect(ids).not.toContain("kling-2.6-replicate");
   });
 
   it("each model has required fields", () => {
@@ -103,11 +99,23 @@ describe("getAvailableVideoModels", () => {
 
   it("fal/replicate models have provider field, others do not", () => {
     const models = getAvailableVideoModels();
-    const falModel = models.find((m) => m.id === "kling-2.6-fal");
-    expect(falModel?.provider).toBe("fal.ai");
-    const replicateModel = models.find((m) => m.id === "kling-2.6-replicate");
-    expect(replicateModel?.provider).toBe("Replicate");
+    const kieModel = models.find((m) => m.id === "kling-2.6");
+    expect(kieModel?.provider).toBe("kie.ai");
     const veo = models.find((m) => m.id === "veo3");
     expect(veo?.provider).toBeUndefined();
+  });
+});
+
+describe("getExperimentalVideoModels", () => {
+  it("returns the enabled video models outside the curated set", () => {
+    const models = getExperimentalVideoModels();
+    const ids = models.map((m) => m.id);
+
+    expect(ids).toContain("ltx-video");
+    expect(ids).toContain("sora-2-pro");
+    expect(ids).toContain("kling-3-fal");
+    expect(ids).toContain("kling-2.6-replicate");
+    expect(ids).not.toContain("veo3");
+    expect(ids).not.toContain("kling-3");
   });
 });
