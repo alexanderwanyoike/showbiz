@@ -3,7 +3,7 @@
   "name": "Sora 2 Pro",
   "description": "OpenAI's cinematic video model — 10–15s via kie.ai",
   "transport": "kie-video",
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "kie",
   "models": {
     "textToVideo": "sora-2-pro-text-to-video",

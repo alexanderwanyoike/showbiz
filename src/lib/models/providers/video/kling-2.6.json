@@ -3,7 +3,7 @@
   "name": "Kling 2.6",
   "description": "Kuaishou's efficient model — 5–10s with audio via kie.ai",
   "transport": "kie-video",
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "kie",
   "provider": "kie.ai",
   "modelFamily": "kling-2.6",

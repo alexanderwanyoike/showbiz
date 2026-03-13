@@ -6,7 +6,7 @@
   "transportOptions": {
     "model": "minimax/video-01-live"
   },
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "replicate",
   "provider": "Replicate",
   "modelFamily": "hailuo-2.3",

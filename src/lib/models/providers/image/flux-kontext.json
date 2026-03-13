@@ -6,7 +6,7 @@
   "transportOptions": {
     "endpoint": "flux-kontext-api/generate"
   },
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "kie",
   "provider": "kie.ai",
   "modelFamily": "flux-kontext",

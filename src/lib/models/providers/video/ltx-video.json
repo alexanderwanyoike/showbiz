@@ -3,7 +3,7 @@
   "name": "LTX Video",
   "description": "Fast, high-quality open-source video generation",
   "transport": "ltx",
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "ltx",
   "models": {
     "textToVideo": "ltx-2-pro",

@@ -6,7 +6,7 @@
   "transportOptions": {
     "endpoint": "fal-ai/flux/schnell"
   },
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "fal",
   "provider": "fal.ai",
   "modelFamily": "flux-schnell",
