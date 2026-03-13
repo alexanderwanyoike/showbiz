@@ -8,6 +8,15 @@ import type {
 } from "./types";
 import { videoProviders, imageProviders, videoConfigs, imageConfigs, getGroupedVideoModels, getGroupedImageModels, type ModelGroup } from "./registry";
 
+const CURATED_VIDEO_MODEL_IDS: readonly VideoModelId[] = [
+  "veo3",
+  "veo3-fast",
+  "kling-2.6",
+  "kling-3",
+  "hailuo-2.3",
+  "wan-2.6",
+];
+
 export function getImageModel(id: ImageModelId): ImageModelProvider {
   const model = imageProviders.get(id);
   if (!model) {
@@ -44,7 +53,27 @@ export function getAvailableImageModels(): ImageModelInfo[] {
 
 export function getAvailableVideoModels(): VideoModelInfo[] {
   return Array.from(videoProviders.values())
-    .filter((model) => model.enabled)
+    .filter((model) => model.enabled && CURATED_VIDEO_MODEL_IDS.includes(model.id))
+    .map((model) => {
+      const config = videoConfigs.find((c) => c.id === model.id);
+      return {
+        id: model.id,
+        name: model.name,
+        description: model.description,
+        enabled: model.enabled,
+        apiKeyProvider: model.apiKeyProvider,
+        provider: config?.provider,
+        capabilities: model.capabilities,
+        defaults: model.defaults,
+        supportsImageToVideo: model.supportsImageToVideo,
+        supportsTextToVideo: model.supportsTextToVideo,
+      };
+    });
+}
+
+export function getExperimentalVideoModels(): VideoModelInfo[] {
+  return Array.from(videoProviders.values())
+    .filter((model) => model.enabled && !CURATED_VIDEO_MODEL_IDS.includes(model.id))
     .map((model) => {
       const config = videoConfigs.find((c) => c.id === model.id);
       return {
