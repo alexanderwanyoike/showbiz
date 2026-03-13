@@ -31,12 +31,11 @@ You'll also need [**mpv**](https://mpv.io/) installed for video playback (see [P
 
 - **Project organization** — create projects, each containing multiple storyboards
 - **Shot-based workflow** — add shots to a storyboard, each with its own image and video prompt
-- **Multi-model image generation** — generate images with Imagen 4, Flux Kontext, Seedream, or Gemini-based models, or upload your own
-- **Image editing** — edit generated images with models that support it (Flux Kontext, Nano Banana, Nano Banana Pro)
+- **Image generation** — generate images with Nano Banana or Nano Banana Pro, or upload your own
+- **Image editing** — edit generated images with inpainting and prompt-based edits
 - **Image version tree** — every generation/edit creates a version; switch between versions non-destructively
-- **Multi-model video generation** — generate videos from images using 10+ models with configurable duration, resolution, and aspect ratio
+- **Video generation** — generate videos from images using Veo 3 or Veo 3 Fast with synchronized audio
 - **Video version tree** — regenerate videos and keep all versions; switch freely
-- **Audio support** — models like Veo 3, Kling 3, and Seedance 1.5 generate videos with synchronized audio
 - **Timeline editor** — arrange shots, trim clips, preview playback
 - **Video export** — assemble all shots into a single video via FFmpeg.wasm
 - **Embedded video playback** — mpv player embedded directly into the app window
@@ -47,28 +46,17 @@ You'll also need [**mpv**](https://mpv.io/) installed for video playback (see [P
 
 ### Image Generation
 
-| Model | Provider | API Key | Editing |
-|-------|----------|---------|---------|
-| Imagen 4 | Google | Gemini | — |
-| Nano Banana | Google (Gemini 2.5 Flash) | Gemini | Yes |
-| Nano Banana Pro | Google (Gemini 3 Pro) | Gemini | Yes |
-| Flux Kontext | Black Forest Labs via kie.ai | kie | Yes |
-| Seedream 4.5 | ByteDance via kie.ai | kie | — |
+| Model | Provider | Editing |
+|-------|----------|---------|
+| Nano Banana | Google (Gemini 2.5 Flash) | Yes |
+| Nano Banana Pro | Google (Gemini 3 Pro) | Yes |
 
 ### Video Generation
 
-| Model | Provider | API Key | Duration | Audio |
-|-------|----------|---------|----------|-------|
-| Veo 3 | Google | Gemini | 8s | Yes |
-| Veo 3.1 Fast | Google | Gemini | 8s | Yes |
-| Kling 3.0 | Kuaishou via kie.ai | kie | 3–15s | Yes |
-| Kling 2.6 | Kuaishou via kie.ai | kie | 5–10s | Yes |
-| Seedance 1.5 Pro | ByteDance via kie.ai | kie | 4–12s | Yes |
-| Hailuo 2.3 Pro | MiniMax via kie.ai | kie | 6s | — |
-| Wan 2.6 | Alibaba via kie.ai | kie | 5–15s | — |
-| Sora 2 Pro | OpenAI via kie.ai | kie | 10–15s | — |
-| Grok Imagine | xAI via kie.ai | kie | 6–10s | — |
-| LTX Video | Lightricks | LTX | 8s | — |
+| Model | Provider | Duration | Audio |
+|-------|----------|----------|-------|
+| Veo 3 | Google | 8s | Yes |
+| Veo 3 Fast | Google | 8s | Yes |
 
 All models support both text-to-video and image-to-video generation.
 
@@ -78,9 +66,7 @@ You need at least one API key to generate content. Configure them in **Settings*
 
 | Key | Environment Variable | Models |
 |-----|---------------------|--------|
-| **Gemini** | `GEMINI_API_KEY` | Imagen 4, Nano Banana, Nano Banana Pro, Veo 3, Veo 3.1 Fast |
-| **kie.ai** | `KIE_API_KEY` | Flux Kontext, Seedream, Kling, Seedance, Hailuo, Wan, Sora, Grok |
-| **LTX** | `LTX_API_KEY` | LTX Video |
+| **Gemini** | `GEMINI_API_KEY` | Nano Banana, Nano Banana Pro, Veo 3, Veo 3 Fast |
 
 Keys are stored in the local SQLite database and never leave your machine except to authenticate API calls.
 
