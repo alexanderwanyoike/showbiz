@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Plus, Loader2, Sparkles, ImageIcon, Video, SlidersHorizontal, Save } from "lucide-react";
+import { Plus, Loader2, Sparkles, ImageIcon, Video, SlidersHorizontal, Save, ChevronRight } from "lucide-react";
 import { Header } from "../components/Header";
 import ShotCard from "../components/ShotCard";
 import TabNavigation from "../components/TabNavigation";
@@ -85,6 +85,7 @@ import {
 } from "../lib/models";
 import type { VideoGenerationSettings } from "../lib/models/types";
 import { normalizeWorkspaceMode } from "../lib/workstation-shell";
+import { getAdjacentShotIds, getSelectedShotId } from "../lib/storyboard-workspace";
 
 interface Shot {
   id: string;
@@ -151,6 +152,7 @@ export default function StoryboardPage() {
 
   const [storyboard, setStoryboard] = useState<Storyboard | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
+  const [selectedShotId, setSelectedShotId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
@@ -226,6 +228,13 @@ export default function StoryboardPage() {
     if (id) loadData();
   }, [id]);
 
+  useEffect(() => {
+    const resolvedSelection = getSelectedShotId(shots, selectedShotId);
+    if (resolvedSelection !== (selectedShotId ?? null)) {
+      setSelectedShotId(resolvedSelection ?? undefined);
+    }
+  }, [shots, selectedShotId]);
+
   async function loadData() {
     if (!id) return;
     setIsLoading(true);
@@ -244,6 +253,13 @@ export default function StoryboardPage() {
       setStoryboard(storyboardData);
       const mappedShots = shotsData.map(shotFromShotWithUrls);
       setShots(mappedShots);
+      setSelectedShotId((currentSelectedShotId) => {
+        const resolvedSelection = getSelectedShotId(
+          mappedShots,
+          currentSelectedShotId
+        );
+        return resolvedSelection ?? undefined;
+      });
       setTimelineEdits(editsData);
       setEditedName(storyboardData.name);
       setImageModel((storyboardData.image_model as ImageModelId) || "imagen4");
@@ -368,6 +384,7 @@ export default function StoryboardPage() {
       const newShotData = await createShot(id);
       const newShot = shotFromShotWithUrls(newShotData);
       setShots((prev) => [...prev, newShot]);
+      setSelectedShotId(newShot.id);
     } catch (error) {
       console.error("Failed to create shot:", error);
       alert("Failed to create shot");
@@ -757,6 +774,17 @@ export default function StoryboardPage() {
     shots.length > 0 && shots.every((s) => s.status === "complete");
 
   const totalDuration = shots.length * 8; // Veo 3 generates 8s videos
+  const selectedShot = shots.find((shot) => shot.id === selectedShotId) ?? null;
+  const selectedShotCardData = selectedShot ? mapShotToCardData(selectedShot) : null;
+  const selectedShotVersions = selectedShot ? shotVersions[selectedShot.id] || [] : [];
+  const selectedShotCurrentVersion = selectedShot ? shotCurrentVersions[selectedShot.id] || null : null;
+  const selectedShotVersionCount = selectedShot ? shotVersionCounts[selectedShot.id] || 0 : 0;
+  const selectedShotVideoVersions = selectedShot ? shotVideoVersions[selectedShot.id] || [] : [];
+  const selectedShotCurrentVideoVersion = selectedShot ? shotCurrentVideoVersions[selectedShot.id] || null : null;
+  const selectedShotVideoVersionCount = selectedShot ? shotVideoVersionCounts[selectedShot.id] || 0 : 0;
+  const adjacentShots = selectedShot
+    ? shots.filter((shot) => getAdjacentShotIds(shots, selectedShot.id).includes(shot.id))
+    : [];
 
   if (isLoading) {
     return (
@@ -787,18 +815,218 @@ export default function StoryboardPage() {
       </Header>
       <OpenProjectShell
         title={storyboard.name}
-        subtitle={`${shots.length} shots in this workstation`}
+        subtitle={workspaceMode === "storyboard" ? "Storyboard workspace" : "Timeline workspace"}
         toolbar={
           <>
-            {workspaceMode === "storyboard" && <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-sm">
+              {shots.length} Shots • {totalDuration}s Total
+            </Badge>
+          </>
+        }
+        className={workspaceMode === "timeline" ? "h-full overflow-hidden" : undefined}
+      >
+      <main className="flex-1 p-4 md:p-6" style={{ display: workspaceMode === "storyboard" ? undefined : "none" }}>
+        <div className="grid h-full min-h-[calc(100vh-13rem)] gap-4 xl:grid-cols-[17rem_minmax(0,1fr)_20rem]">
+          <aside className="flex min-h-0 flex-col rounded-xl border border-border/70 bg-card/70">
+            <div className="border-b border-border/70 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Shot Rail
+              </p>
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto p-3">
+              {shots.map((shot) => (
+                <button
+                  key={shot.id}
+                  onClick={() => setSelectedShotId(shot.id)}
+                  className={`w-full rounded-lg border px-3 py-3 text-left transition-colors ${
+                    shot.id === selectedShotId
+                      ? "border-primary/50 bg-primary/10"
+                      : "border-border/70 bg-background/70 hover:bg-secondary/70"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-16 overflow-hidden rounded-md border border-border/70 bg-muted">
+                      {shot.image_url ? (
+                        <img
+                          src={shot.image_url}
+                          alt={`Shot ${shot.order}`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                          <ImageIcon className="h-4 w-4" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-foreground">
+                          Shot {shot.order}
+                        </span>
+                        <span className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                          {shot.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {shot.image_prompt || "No image prompt yet"}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="border-t border-border/70 p-3">
+              <Button onClick={handleAddShot} className="w-full justify-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add Shot
+              </Button>
+            </div>
+          </aside>
+
+          <section className="flex min-h-0 flex-col gap-4 rounded-xl border border-border/70 bg-card/60 p-4">
+            {selectedShot && selectedShotCardData ? (
+              <>
+                <div className="flex items-center justify-between gap-4 border-b border-border/70 pb-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Focused Shot
+                    </p>
+                    <h2 className="mt-1 text-lg font-semibold text-foreground">
+                      Shot {selectedShot.order}
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>{selectedShot.duration}s</span>
+                    <ChevronRight className="h-4 w-4" />
+                    <span>{selectedShot.status}</span>
+                  </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <ShotCard
+                    shot={selectedShotCardData}
+                    index={shots.findIndex((shot) => shot.id === selectedShot.id)}
+                    totalShots={shots.length}
+                    otherShotsWithImages={shots
+                      .filter((shot) => shot.id !== selectedShot.id && shot.image_url)
+                      .map((shot) => ({
+                        id: shot.id,
+                        order: shot.order,
+                        image_url: shot.image_url!,
+                      }))}
+                    versions={selectedShotVersions}
+                    currentVersion={selectedShotCurrentVersion}
+                    versionCount={selectedShotVersionCount}
+                    videoVersions={selectedShotVideoVersions}
+                    currentVideoVersion={selectedShotCurrentVideoVersion}
+                    videoVersionCount={selectedShotVideoVersionCount}
+                    onUpdate={handleUpdateShot}
+                    onDelete={handleDeleteShot}
+                    onMove={handleMoveShot}
+                    onGenerateImage={openImageModal}
+                    onUploadImage={handleUploadImage}
+                    onCopyImageFromShot={handleCopyImageFromShot}
+                    onGenerateVideo={handleGenerateVideo}
+                    onVersionSelect={handleVersionSelect}
+                    onBranchFrom={handleBranchFrom}
+                    onEditImage={handleOpenEditModal}
+                    onVideoVersionSelect={handleVideoVersionSelect}
+                    onGenerateVideoPrompt={handleGenerateVideoPrompt}
+                    onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
+                    isGeneratingPrompt={generatingPromptShots.has(selectedShot.id)}
+                    isEnhancingPrompt={enhancingPromptShots.has(selectedShot.id)}
+                  />
+                </div>
+
+                {adjacentShots.length > 0 ? (
+                  <div className="border-t border-border/70 pt-4">
+                    <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Adjacent Shots
+                    </p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {adjacentShots.map((shot) => (
+                        <button
+                          key={shot.id}
+                          onClick={() => setSelectedShotId(shot.id)}
+                          className="overflow-hidden rounded-lg border border-border/70 bg-background/70 text-left transition-colors hover:bg-secondary/70"
+                        >
+                          <div className="aspect-video bg-muted">
+                            {shot.image_url ? (
+                              <img
+                                src={shot.image_url}
+                                alt={`Shot ${shot.order}`}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                <ImageIcon className="h-5 w-5" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="px-3 py-2">
+                            <p className="text-sm font-medium text-foreground">
+                              Shot {shot.order}
+                            </p>
+                            <p className="mt-1 truncate text-xs text-muted-foreground">
+                              {shot.image_prompt || "No image prompt yet"}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-border text-muted-foreground">
+                Create a shot to start storyboarding.
+              </div>
+            )}
+          </section>
+
+          <aside className="flex min-h-0 flex-col gap-4 rounded-xl border border-border/70 bg-card/70 p-4">
+            <section className="space-y-3 border-b border-border/70 pb-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Inspector
+                </p>
+                <h3 className="mt-1 text-base font-semibold text-foreground">
+                  {selectedShot ? `Shot ${selectedShot.order}` : "No shot selected"}
+                </h3>
+              </div>
+              <div className="grid gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>Status</span>
+                  <span className="text-foreground">{selectedShot?.status ?? "empty"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Image versions</span>
+                  <span className="text-foreground">{selectedShotVersionCount}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Video versions</span>
+                  <span className="text-foreground">{selectedShotVideoVersionCount}</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-3 border-b border-border/70 pb-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Models
+              </p>
               <ModelPicker
                 groups={imageGroups}
                 value={imageModel}
                 onSelect={(id) => handleChangeImageModel(id as ImageModelId)}
                 trigger={
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <ImageIcon className="h-4 w-4" />
-                    {imageModels.find((m) => m.id === imageModel)?.name || "Image"}
+                  <Button variant="outline" size="sm" className="w-full justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4" />
+                      Image
+                    </span>
+                    <span className="truncate text-muted-foreground">
+                      {imageModels.find((m) => m.id === imageModel)?.name || "Select"}
+                    </span>
                   </Button>
                 }
               />
@@ -808,9 +1036,14 @@ export default function StoryboardPage() {
                 value={videoModel}
                 onSelect={(id) => handleChangeVideoModel(id as VideoModelId)}
                 trigger={
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Video className="h-4 w-4" />
-                    {videoModels.find((m) => m.id === videoModel)?.name || "Video"}
+                  <Button variant="outline" size="sm" className="w-full justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <Video className="h-4 w-4" />
+                      Video
+                    </span>
+                    <span className="truncate text-muted-foreground">
+                      {videoModels.find((m) => m.id === videoModel)?.name || "Select"}
+                    </span>
                   </Button>
                 }
               />
@@ -818,8 +1051,12 @@ export default function StoryboardPage() {
               {hasConfigurableSettings && currentVideoModel && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-1 px-2">
-                      <SlidersHorizontal className="h-4 w-4" />
+                    <Button variant="outline" size="sm" className="w-full justify-between gap-2">
+                      <span className="flex items-center gap-2">
+                        <SlidersHorizontal className="h-4 w-4" />
+                        Video Settings
+                      </span>
+                      <span className="text-muted-foreground">{videoSettings.duration}s</span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-56 space-y-4">
@@ -910,90 +1147,53 @@ export default function StoryboardPage() {
                   </PopoverContent>
                 </Popover>
               )}
-            </div>}
+            </section>
 
-            <Badge variant="secondary" className="text-sm">
-              {shots.length} Shots • {totalDuration}s Total
-            </Badge>
-
-            {workspaceMode === "storyboard" ? (
+            <section className="space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Sequence Actions
+              </p>
               <Button
                 variant="outline"
                 size="sm"
-                className="text-primary"
+                className="w-full justify-start gap-2"
+                onClick={() => selectedShot && openImageModal(selectedShot.id)}
+                disabled={!selectedShot}
+              >
+                <Sparkles className="h-4 w-4" />
+                Generate Image
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2"
+                onClick={() => selectedShot && handleGenerateVideo(selectedShot.id)}
+                disabled={!selectedShot}
+              >
+                <Video className="h-4 w-4" />
+                Generate Video
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start gap-2 text-primary"
                 onClick={handleExport}
                 disabled={isAssembling || !allShotsComplete}
               >
                 {isAssembling ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                     Assembling...
                   </>
                 ) : (
                   <>
-                    <Save className="mr-2 h-4 w-4" />
+                    <Save className="h-4 w-4" />
                     Save Movie
                   </>
                 )}
               </Button>
-            ) : null}
-          </>
-        }
-        className={workspaceMode === "timeline" ? "h-full overflow-hidden" : undefined}
-      >
-      <main className="flex-1 p-4 md:p-6" style={{ display: workspaceMode === "storyboard" ? undefined : "none" }}>
-        {/* Shots Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {shots.map((shot, index) => {
-            // Get other shots with images for the copy feature
-            const otherShotsWithImages = shots
-              .filter((s) => s.id !== shot.id && s.image_url)
-              .map((s) => ({
-                id: s.id,
-                order: s.order,
-                image_url: s.image_url!,
-              }));
-
-            return (
-              <ShotCard
-                key={shot.id}
-                shot={mapShotToCardData(shot)}
-                index={index}
-                totalShots={shots.length}
-                otherShotsWithImages={otherShotsWithImages}
-                versions={shotVersions[shot.id] || []}
-                currentVersion={shotCurrentVersions[shot.id] || null}
-                versionCount={shotVersionCounts[shot.id] || 0}
-                videoVersions={shotVideoVersions[shot.id] || []}
-                currentVideoVersion={shotCurrentVideoVersions[shot.id] || null}
-                videoVersionCount={shotVideoVersionCounts[shot.id] || 0}
-                onUpdate={handleUpdateShot}
-                onDelete={handleDeleteShot}
-                onMove={handleMoveShot}
-                onGenerateImage={openImageModal}
-                onUploadImage={handleUploadImage}
-                onCopyImageFromShot={handleCopyImageFromShot}
-                onGenerateVideo={handleGenerateVideo}
-                onVersionSelect={handleVersionSelect}
-                onBranchFrom={handleBranchFrom}
-                onEditImage={handleOpenEditModal}
-                onVideoVersionSelect={handleVideoVersionSelect}
-                onGenerateVideoPrompt={handleGenerateVideoPrompt}
-                onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
-                isGeneratingPrompt={generatingPromptShots.has(shot.id)}
-                isEnhancingPrompt={enhancingPromptShots.has(shot.id)}
-              />
-            );
-          })}
-
-          {/* Add Shot Card */}
-          <button
-            onClick={handleAddShot}
-            className="aspect-video border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
-          >
-            <Plus className="h-8 w-8 mb-2" />
-            <span className="text-sm font-medium">Add Shot</span>
-          </button>
+            </section>
+          </aside>
         </div>
       </main>
       {workspaceMode === "timeline" && (
