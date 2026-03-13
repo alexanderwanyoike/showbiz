@@ -3,7 +3,7 @@
   "name": "Grok Imagine",
   "description": "xAI's video generation model — 6–10s via kie.ai",
   "transport": "kie-video",
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "kie",
   "models": {
     "textToVideo": "grok-imagine/text-to-video",

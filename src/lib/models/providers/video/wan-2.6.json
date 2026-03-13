@@ -3,7 +3,7 @@
   "name": "Wan 2.6",
   "description": "Alibaba's high-quality video model — 5–15s via kie.ai",
   "transport": "kie-video",
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "kie",
   "provider": "kie.ai",
   "modelFamily": "wan",

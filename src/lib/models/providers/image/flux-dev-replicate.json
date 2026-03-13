@@ -6,7 +6,7 @@
   "transportOptions": {
     "model": "black-forest-labs/flux-dev"
   },
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "replicate",
   "provider": "Replicate",
   "modelFamily": "flux-dev",

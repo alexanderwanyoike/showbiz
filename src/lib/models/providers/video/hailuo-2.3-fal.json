@@ -7,7 +7,7 @@
     "textToVideoEndpoint": "fal-ai/minimax-video/video-01-live/text-to-video",
     "imageToVideoEndpoint": "fal-ai/minimax-video/video-01-live/image-to-video"
   },
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "fal",
   "provider": "fal.ai",
   "modelFamily": "hailuo-2.3",

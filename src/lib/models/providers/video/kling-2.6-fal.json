@@ -7,7 +7,7 @@
     "textToVideoEndpoint": "fal-ai/kling-video/v2.6/standard/text-to-video",
     "imageToVideoEndpoint": "fal-ai/kling-video/v2.6/standard/image-to-video"
   },
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "fal",
   "provider": "fal.ai",
   "modelFamily": "kling-2.6",

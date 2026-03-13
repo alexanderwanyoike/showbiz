@@ -3,7 +3,7 @@
   "name": "Hailuo 2.3 Pro",
   "description": "MiniMax's high-fidelity 6s video model via kie.ai",
   "transport": "kie-video",
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "kie",
   "provider": "kie.ai",
   "modelFamily": "hailuo-2.3",

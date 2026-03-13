@@ -3,7 +3,7 @@
   "name": "Seedance 1.5 Pro",
   "description": "ByteDance's cinematic model with audio — 4–12s via kie.ai",
   "transport": "kie-video",
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "kie",
   "models": {
     "textToVideo": "bytedance/seedance-1.5-pro",

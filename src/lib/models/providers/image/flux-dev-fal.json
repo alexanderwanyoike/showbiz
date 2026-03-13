@@ -6,7 +6,7 @@
   "transportOptions": {
     "endpoint": "fal-ai/flux/dev"
   },
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "fal",
   "provider": "fal.ai",
   "modelFamily": "flux-dev",
