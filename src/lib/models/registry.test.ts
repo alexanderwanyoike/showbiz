@@ -13,15 +13,11 @@ describe("video configs", () => {
     }
   });
 
-  it("seedance-2 is disabled", () => {
-    const seedance = videoConfigs.find((c) => c.id === "seedance-2");
-    expect(seedance).toBeDefined();
-    expect(seedance!.enabled).toBe(false);
-  });
-
-  it("all other video models are enabled", () => {
+  it("only veo models are enabled", () => {
     const enabled = videoConfigs.filter((c) => c.enabled);
-    expect(enabled).toHaveLength(18);
+    expect(enabled).toHaveLength(2);
+    const enabledIds = enabled.map((c) => c.id).sort();
+    expect(enabledIds).toEqual(["veo3", "veo3-fast"]);
   });
 
   it("creates providers for all configs", () => {
@@ -40,9 +36,11 @@ describe("image configs", () => {
     }
   });
 
-  it("all image models are enabled", () => {
+  it("only nano banana models are enabled", () => {
     const enabled = imageConfigs.filter((c) => c.enabled);
-    expect(enabled).toHaveLength(9);
+    expect(enabled).toHaveLength(2);
+    const enabledIds = enabled.map((c) => c.id).sort();
+    expect(enabledIds).toEqual(["nano-banana", "nano-banana-pro"]);
   });
 
   it("creates providers for all configs", () => {
@@ -53,22 +51,17 @@ describe("image configs", () => {
 describe("model grouping", () => {
   it("groups same-family video models", () => {
     const groups = getGroupedVideoModels();
-    const klingGroup = groups.find((g) => g.family === "kling-3");
-    expect(klingGroup).toBeDefined();
-    expect(klingGroup!.models.length).toBeGreaterThanOrEqual(2);
-  });
-
-  it("puts unique models in single-entry groups", () => {
-    const groups = getGroupedVideoModels();
     const veo3Group = groups.find((g) => g.family === "veo3");
     expect(veo3Group).toBeDefined();
-    expect(veo3Group!.models).toHaveLength(1);
+    expect(veo3Group!.models.length).toBeGreaterThanOrEqual(1);
   });
 
   it("excludes disabled models from groups", () => {
     const groups = getGroupedVideoModels();
     const allModelIds = groups.flatMap((g) => g.models.map((m) => m.id));
     expect(allModelIds).not.toContain("seedance-2");
+    expect(allModelIds).not.toContain("kling-3");
+    expect(allModelIds).not.toContain("ltx-video");
   });
 
   it("every enabled video model is in exactly one group", () => {
@@ -79,22 +72,16 @@ describe("model grouping", () => {
     expect(new Set(allModelIds).size).toBe(enabledCount);
   });
 
-  it("groups same-family image models", () => {
+  it("every enabled image model is in exactly one group", () => {
     const groups = getGroupedImageModels();
-    const fluxSchnellGroup = groups.find((g) => g.family === "flux-schnell");
-    expect(fluxSchnellGroup).toBeDefined();
-    expect(fluxSchnellGroup!.models.length).toBeGreaterThanOrEqual(2);
+    const allModelIds = groups.flatMap((g) => g.models.map((m) => m.id));
+    const enabledCount = Array.from(imageProviders.values()).filter((m) => m.enabled).length;
+    expect(allModelIds).toHaveLength(enabledCount);
+    expect(new Set(allModelIds).size).toBe(enabledCount);
   });
 
-  it("grouped models include provider field from config", () => {
+  it("veo3 group has no provider field", () => {
     const groups = getGroupedVideoModels();
-    const klingGroup = groups.find((g) => g.family === "kling-2.6");
-    expect(klingGroup).toBeDefined();
-    const falModel = klingGroup!.models.find((m) => m.id === "kling-2.6-fal");
-    expect(falModel?.provider).toBe("fal.ai");
-    const replicateModel = klingGroup!.models.find((m) => m.id === "kling-2.6-replicate");
-    expect(replicateModel?.provider).toBe("Replicate");
-
     const veo3Group = groups.find((g) => g.family === "veo3");
     expect(veo3Group).toBeDefined();
     expect(veo3Group!.models[0].provider).toBeUndefined();

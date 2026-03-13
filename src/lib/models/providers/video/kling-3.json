@@ -3,7 +3,7 @@
   "name": "Kling 3.0",
   "description": "Kuaishou's latest model — multi-shot, motion control, 3–15s via kie.ai",
   "transport": "kie-video",
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "kie",
   "provider": "kie.ai",
   "modelFamily": "kling-3",

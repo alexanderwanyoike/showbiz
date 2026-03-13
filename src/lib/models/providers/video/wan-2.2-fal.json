@@ -7,7 +7,7 @@
     "textToVideoEndpoint": "fal-ai/wan/v2.1/text-to-video",
     "imageToVideoEndpoint": "fal-ai/wan/v2.1/image-to-video"
   },
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "fal",
   "provider": "fal.ai",
   "modelFamily": "wan",
