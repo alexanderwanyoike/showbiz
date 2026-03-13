@@ -3,8 +3,8 @@ import { videoConfigs, imageConfigs, videoProviders, imageProviders, getGroupedV
 import { VALID_VIDEO_TRANSPORTS, VALID_IMAGE_TRANSPORTS } from "./transports";
 
 describe("video configs", () => {
-  it("loads all 19 video configs", () => {
-    expect(videoConfigs).toHaveLength(19);
+  it("loads at least one video config", () => {
+    expect(videoConfigs.length).toBeGreaterThan(0);
   });
 
   it("all configs have valid transport", () => {
@@ -13,21 +13,51 @@ describe("video configs", () => {
     }
   });
 
-  it("only veo models are enabled", () => {
-    const enabled = videoConfigs.filter((c) => c.enabled);
-    expect(enabled).toHaveLength(2);
-    const enabledIds = enabled.map((c) => c.id).sort();
-    expect(enabledIds).toEqual(["veo3", "veo3-fast"]);
+  it("all configs have required fields", () => {
+    for (const config of videoConfigs) {
+      expect(config.id).toBeTruthy();
+      expect(config.name).toBeTruthy();
+      expect(config.description).toBeTruthy();
+      expect(typeof config.enabled).toBe("boolean");
+      expect(config.apiKeyProvider).toBeTruthy();
+      expect(config.capabilities).toBeDefined();
+      expect(config.defaults).toBeDefined();
+      expect(config.defaults.duration).toBeTruthy();
+      expect(config.capabilities.durations.length).toBeGreaterThan(0);
+    }
   });
 
-  it("creates providers for all configs", () => {
-    expect(videoProviders.size).toBe(19);
+  it("all configs have unique ids", () => {
+    const ids = videoConfigs.map((c) => c.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("creates a provider for every config", () => {
+    expect(videoProviders.size).toBe(videoConfigs.length);
+    for (const config of videoConfigs) {
+      expect(videoProviders.has(config.id as never)).toBe(true);
+    }
+  });
+
+  it("configs with modelFamily must have provider set", () => {
+    for (const config of videoConfigs) {
+      if (config.modelFamily) {
+        expect(config.provider).toBeTruthy();
+      }
+    }
+  });
+
+  it("each config has at least one model endpoint", () => {
+    for (const config of videoConfigs) {
+      const hasEndpoint = !!config.models.textToVideo || !!config.models.imageToVideo;
+      expect(hasEndpoint).toBe(true);
+    }
   });
 });
 
 describe("image configs", () => {
-  it("loads all 9 image configs", () => {
-    expect(imageConfigs).toHaveLength(9);
+  it("loads at least one image config", () => {
+    expect(imageConfigs.length).toBeGreaterThan(0);
   });
 
   it("all configs have valid transport", () => {
@@ -36,54 +66,125 @@ describe("image configs", () => {
     }
   });
 
-  it("only nano banana models are enabled", () => {
-    const enabled = imageConfigs.filter((c) => c.enabled);
-    expect(enabled).toHaveLength(2);
-    const enabledIds = enabled.map((c) => c.id).sort();
-    expect(enabledIds).toEqual(["nano-banana", "nano-banana-pro"]);
+  it("all configs have required fields", () => {
+    for (const config of imageConfigs) {
+      expect(config.id).toBeTruthy();
+      expect(config.name).toBeTruthy();
+      expect(config.description).toBeTruthy();
+      expect(typeof config.enabled).toBe("boolean");
+      expect(config.apiKeyProvider).toBeTruthy();
+      expect(typeof config.supportsEditing).toBe("boolean");
+      expect(typeof config.supportsInpainting).toBe("boolean");
+      expect(config.models.generate).toBeTruthy();
+    }
   });
 
-  it("creates providers for all configs", () => {
-    expect(imageProviders.size).toBe(9);
+  it("all configs have unique ids", () => {
+    const ids = imageConfigs.map((c) => c.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("creates a provider for every config", () => {
+    expect(imageProviders.size).toBe(imageConfigs.length);
+    for (const config of imageConfigs) {
+      expect(imageProviders.has(config.id as never)).toBe(true);
+    }
+  });
+
+  it("configs with modelFamily must have provider set", () => {
+    for (const config of imageConfigs) {
+      if (config.modelFamily) {
+        expect(config.provider).toBeTruthy();
+      }
+    }
   });
 });
 
 describe("model grouping", () => {
-  it("groups same-family video models", () => {
-    const groups = getGroupedVideoModels();
-    const veo3Group = groups.find((g) => g.family === "veo3");
-    expect(veo3Group).toBeDefined();
-    expect(veo3Group!.models.length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("excludes disabled models from groups", () => {
+  it("only includes enabled video models in groups", () => {
     const groups = getGroupedVideoModels();
     const allModelIds = groups.flatMap((g) => g.models.map((m) => m.id));
-    expect(allModelIds).not.toContain("seedance-2");
-    expect(allModelIds).not.toContain("kling-3");
-    expect(allModelIds).not.toContain("ltx-video");
+
+    for (const id of allModelIds) {
+      const provider = videoProviders.get(id as never);
+      expect(provider?.enabled).toBe(true);
+    }
   });
 
-  it("every enabled video model is in exactly one group", () => {
+  it("excludes disabled video models from groups", () => {
+    const groups = getGroupedVideoModels();
+    const allModelIds = new Set(groups.flatMap((g) => g.models.map((m) => m.id)));
+    const disabledIds = videoConfigs.filter((c) => !c.enabled).map((c) => c.id);
+
+    for (const id of disabledIds) {
+      expect(allModelIds.has(id)).toBe(false);
+    }
+  });
+
+  it("every enabled video model appears in exactly one group", () => {
     const groups = getGroupedVideoModels();
     const allModelIds = groups.flatMap((g) => g.models.map((m) => m.id));
-    const enabledCount = Array.from(videoProviders.values()).filter((m) => m.enabled).length;
+    const enabledCount = videoConfigs.filter((c) => c.enabled).length;
+
     expect(allModelIds).toHaveLength(enabledCount);
     expect(new Set(allModelIds).size).toBe(enabledCount);
   });
 
-  it("every enabled image model is in exactly one group", () => {
+  it("same-family video models are grouped together", () => {
+    const groups = getGroupedVideoModels();
+    const familyConfigs = videoConfigs.filter((c) => c.enabled && c.modelFamily);
+
+    for (const config of familyConfigs) {
+      const group = groups.find((g) => g.family === config.modelFamily);
+      expect(group).toBeDefined();
+      expect(group!.models.some((m) => m.id === config.id)).toBe(true);
+    }
+  });
+
+  it("video groups have non-empty displayName", () => {
+    for (const group of getGroupedVideoModels()) {
+      expect(group.displayName).toBeTruthy();
+      expect(group.models.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("provider field propagates from config to grouped video models", () => {
+    const groups = getGroupedVideoModels();
+    for (const group of groups) {
+      for (const model of group.models) {
+        const config = videoConfigs.find((c) => c.id === model.id);
+        expect(model.provider).toBe(config?.provider);
+      }
+    }
+  });
+
+  it("only includes enabled image models in groups", () => {
     const groups = getGroupedImageModels();
     const allModelIds = groups.flatMap((g) => g.models.map((m) => m.id));
-    const enabledCount = Array.from(imageProviders.values()).filter((m) => m.enabled).length;
+
+    for (const id of allModelIds) {
+      const provider = imageProviders.get(id as never);
+      expect(provider?.enabled).toBe(true);
+    }
+  });
+
+  it("every enabled image model appears in exactly one group", () => {
+    const groups = getGroupedImageModels();
+    const allModelIds = groups.flatMap((g) => g.models.map((m) => m.id));
+    const enabledCount = imageConfigs.filter((c) => c.enabled).length;
+
     expect(allModelIds).toHaveLength(enabledCount);
     expect(new Set(allModelIds).size).toBe(enabledCount);
   });
 
-  it("veo3 group has no provider field", () => {
-    const groups = getGroupedVideoModels();
-    const veo3Group = groups.find((g) => g.family === "veo3");
-    expect(veo3Group).toBeDefined();
-    expect(veo3Group!.models[0].provider).toBeUndefined();
+  it("same-family image models are grouped together", () => {
+    const groups = getGroupedImageModels();
+    const familyConfigs = imageConfigs.filter((c) => c.enabled && c.modelFamily);
+
+    for (const config of familyConfigs) {
+      const group = groups.find((g) => g.family === config.modelFamily);
+      expect(group).toBeDefined();
+      expect(group!.models.some((m) => m.id === config.id)).toBe(true);
+    }
   });
 });

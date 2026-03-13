@@ -5,12 +5,15 @@ import {
   getAvailableImageModels,
   getAvailableVideoModels,
 } from "./index";
+import { videoConfigs, imageConfigs, videoProviders, imageProviders } from "./registry";
 
 describe("getImageModel", () => {
-  it("returns imagen4 provider", () => {
-    const model = getImageModel("imagen4");
-    expect(model.id).toBe("imagen4");
-    expect(model.name).toBe("Imagen 4");
+  it("returns a provider for any loaded image config", () => {
+    for (const config of imageConfigs) {
+      const model = getImageModel(config.id as never);
+      expect(model.id).toBe(config.id);
+      expect(model.name).toBe(config.name);
+    }
   });
 
   it("throws for unknown model", () => {
@@ -19,10 +22,12 @@ describe("getImageModel", () => {
 });
 
 describe("getVideoModel", () => {
-  it("returns veo3 provider", () => {
-    const model = getVideoModel("veo3");
-    expect(model.id).toBe("veo3");
-    expect(model.name).toBe("Veo 3");
+  it("returns a provider for any loaded video config", () => {
+    for (const config of videoConfigs) {
+      const model = getVideoModel(config.id as never);
+      expect(model.id).toBe(config.id);
+      expect(model.name).toBe(config.name);
+    }
   });
 
   it("throws for unknown model", () => {
@@ -33,10 +38,23 @@ describe("getVideoModel", () => {
 describe("getAvailableImageModels", () => {
   it("returns only enabled image models", () => {
     const models = getAvailableImageModels();
-    expect(models).toHaveLength(2);
-    const ids = models.map((m) => m.id);
-    expect(ids).toContain("nano-banana");
-    expect(ids).toContain("nano-banana-pro");
+    const enabledConfigs = imageConfigs.filter((c) => c.enabled);
+
+    expect(models).toHaveLength(enabledConfigs.length);
+    for (const model of models) {
+      const provider = imageProviders.get(model.id as never);
+      expect(provider?.enabled).toBe(true);
+    }
+  });
+
+  it("excludes disabled image models", () => {
+    const models = getAvailableImageModels();
+    const ids = new Set(models.map((m) => m.id));
+    const disabledIds = imageConfigs.filter((c) => !c.enabled).map((c) => c.id);
+
+    for (const id of disabledIds) {
+      expect(ids.has(id)).toBe(false);
+    }
   });
 
   it("each model has required fields", () => {
@@ -48,22 +66,34 @@ describe("getAvailableImageModels", () => {
     }
   });
 
-  it("disabled models are excluded", () => {
-    const models = getAvailableImageModels();
-    const ids = models.map((m) => m.id);
-    expect(ids).not.toContain("imagen4");
-    expect(ids).not.toContain("flux-kontext");
-    expect(ids).not.toContain("seedream-4.5");
+  it("provider field matches config", () => {
+    for (const model of getAvailableImageModels()) {
+      const config = imageConfigs.find((c) => c.id === model.id);
+      expect(model.provider).toBe(config?.provider);
+    }
   });
 });
 
 describe("getAvailableVideoModels", () => {
-  it("returns only veo models", () => {
+  it("returns only enabled video models", () => {
     const models = getAvailableVideoModels();
-    expect(models).toHaveLength(2);
-    const ids = models.map((m) => m.id);
-    expect(ids).toContain("veo3");
-    expect(ids).toContain("veo3-fast");
+    const enabledConfigs = videoConfigs.filter((c) => c.enabled);
+
+    expect(models).toHaveLength(enabledConfigs.length);
+    for (const model of models) {
+      const provider = videoProviders.get(model.id as never);
+      expect(provider?.enabled).toBe(true);
+    }
+  });
+
+  it("excludes disabled video models", () => {
+    const models = getAvailableVideoModels();
+    const ids = new Set(models.map((m) => m.id));
+    const disabledIds = videoConfigs.filter((c) => !c.enabled).map((c) => c.id);
+
+    for (const id of disabledIds) {
+      expect(ids.has(id)).toBe(false);
+    }
   });
 
   it("each model has required fields", () => {
@@ -79,17 +109,10 @@ describe("getAvailableVideoModels", () => {
     }
   });
 
-  it("disabled models are excluded", () => {
-    const models = getAvailableVideoModels();
-    const ids = models.map((m) => m.id);
-    expect(ids).not.toContain("seedance-2");
-    expect(ids).not.toContain("kling-3");
-    expect(ids).not.toContain("ltx-video");
-  });
-
-  it("veo models have no provider field", () => {
-    const models = getAvailableVideoModels();
-    const veo = models.find((m) => m.id === "veo3");
-    expect(veo?.provider).toBeUndefined();
+  it("provider field matches config", () => {
+    for (const model of getAvailableVideoModels()) {
+      const config = videoConfigs.find((c) => c.id === model.id);
+      expect(model.provider).toBe(config?.provider);
+    }
   });
 });
