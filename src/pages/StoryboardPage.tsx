@@ -775,8 +775,8 @@ export default function StoryboardPage() {
       <OpenProjectShell
         className={workspaceMode === "timeline" ? "h-full overflow-hidden" : undefined}
       >
-      <main className="flex-1 p-2" style={{ display: workspaceMode === "storyboard" ? undefined : "none" }}>
-        <div className="grid h-full min-h-0 grid-cols-[15rem_minmax(0,1fr)_20rem] gap-2">
+      <main className="flex-1 min-h-0 p-2" style={{ display: workspaceMode === "storyboard" ? undefined : "none" }}>
+        <div className="grid h-full min-h-0 grid-cols-[13rem_minmax(0,1fr)_17rem] gap-2">
           <aside className="flex min-h-0 flex-col rounded-md border border-border/70 bg-card/65">
             <div className="flex items-center justify-between border-b border-border/70 px-3 py-2">
               <div>
@@ -827,8 +827,8 @@ export default function StoryboardPage() {
             </div>
           </aside>
 
-          <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_13rem] gap-2">
-            <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_18rem] gap-2">
+          <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_11.5rem] gap-2">
+            <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_16rem] gap-2">
               <div className="flex min-h-0 flex-col rounded-md border border-border/70 bg-card/65">
                 <div className="flex items-center justify-between border-b border-border/70 px-3 py-2">
                   <div className="flex items-center gap-2">
@@ -849,7 +849,7 @@ export default function StoryboardPage() {
                   </div>
                 </div>
                 <div className="min-h-0 flex-1 p-2">
-                  <div className="flex h-full min-h-[18rem] items-center justify-center rounded-md border border-border/70 bg-black">
+                  <div className="flex h-full min-h-[15rem] items-center justify-center rounded-md border border-border/70 bg-black">
                     {selectedShot?.image_url ? (
                       <img
                         src={selectedShot.image_url}
@@ -1043,7 +1043,7 @@ export default function StoryboardPage() {
               </aside>
             </div>
 
-            <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_15rem] gap-2">
+            <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_13rem] gap-2">
               <div className="grid min-h-0 grid-cols-2 gap-2">
                 <div className="flex min-h-0 flex-col rounded-md border border-border/70 bg-card/65">
                   <div className="border-b border-border/70 px-3 py-2">
