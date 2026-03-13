@@ -4,6 +4,7 @@ import { Plus, Loader2, Sparkles, ImageIcon, Video, SlidersHorizontal, Save } fr
 import { Header } from "../components/Header";
 import ShotCard from "../components/ShotCard";
 import TabNavigation from "../components/TabNavigation";
+import { OpenProjectShell } from "../components/OpenProjectShell";
 import TimelineEditor from "../components/timeline/TimelineEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +84,7 @@ import {
   getGroupedImageModels,
 } from "../lib/models";
 import type { VideoGenerationSettings } from "../lib/models/types";
+import { normalizeWorkspaceMode } from "../lib/workstation-shell";
 
 interface Shot {
   id: string;
@@ -143,17 +145,15 @@ function shotFromShotWithUrls(s: ShotWithUrls): Shot {
 }
 
 export default function StoryboardPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id, mode } = useParams<{ id: string; mode: string }>();
   const navigate = useNavigate();
+  const workspaceMode = normalizeWorkspaceMode(mode);
 
   const [storyboard, setStoryboard] = useState<Storyboard | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
-
-  // Tab State
-  const [activeTab, setActiveTab] = useState<"storyboard" | "editor">("storyboard");
 
   // Timeline Edit State
   const [timelineEdits, setTimelineEdits] = useState<TimelineEdit[]>([]);
@@ -777,170 +777,171 @@ export default function StoryboardPage() {
   }
 
   return (
-    <div className={`bg-background flex flex-col ${activeTab === "editor" ? "h-dvh overflow-hidden" : "min-h-screen"}`}>
-      {/* Main App Header */}
+    <div className={`bg-background flex flex-col ${workspaceMode === "timeline" ? "h-dvh overflow-hidden" : "min-h-screen"}`}>
       <Header
         backHref={`/project/${storyboard.project_id}`}
         backLabel="Project"
         title={storyboard.name}
       >
-        {/* Inline controls in header */}
-        <div className="flex items-center gap-4">
-          <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
-
-          {/* Model Selectors — storyboard tab only */}
-          {activeTab === "storyboard" && <div className="flex items-center gap-2">
-            <ModelPicker
-              groups={imageGroups}
-              value={imageModel}
-              onSelect={(id) => handleChangeImageModel(id as ImageModelId)}
-              trigger={
-                <Button variant="outline" size="sm" className="gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  {imageModels.find((m) => m.id === imageModel)?.name || "Image"}
-                </Button>
-              }
-            />
-
-            <ModelPicker
-              groups={videoGroups}
-              value={videoModel}
-              onSelect={(id) => handleChangeVideoModel(id as VideoModelId)}
-              trigger={
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Video className="h-4 w-4" />
-                  {videoModels.find((m) => m.id === videoModel)?.name || "Video"}
-                </Button>
-              }
-            />
-
-            {/* Video Settings Popover */}
-            {hasConfigurableSettings && currentVideoModel && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1 px-2">
-                    <SlidersHorizontal className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-56 space-y-4">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {currentVideoModel.name} Settings
-                  </p>
-
-                  {currentVideoModel.capabilities.durations.length > 1 && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Duration</label>
-                      <Select
-                        value={videoSettings.duration}
-                        onValueChange={(v) =>
-                          setVideoSettings((prev) => ({ ...prev, duration: v }))
-                        }
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currentVideoModel.capabilities.durations.map((d) => (
-                            <SelectItem key={d} value={d}>
-                              {d}s
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {(currentVideoModel.capabilities.resolutions?.length ?? 0) > 1 && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Resolution</label>
-                      <Select
-                        value={videoSettings.resolution ?? ""}
-                        onValueChange={(v) =>
-                          setVideoSettings((prev) => ({ ...prev, resolution: v }))
-                        }
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currentVideoModel.capabilities.resolutions!.map((r) => (
-                            <SelectItem key={r} value={r}>
-                              {r}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {(currentVideoModel.capabilities.aspectRatios?.length ?? 0) > 1 && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Aspect Ratio</label>
-                      <Select
-                        value={videoSettings.aspectRatio ?? ""}
-                        onValueChange={(v) =>
-                          setVideoSettings((prev) => ({ ...prev, aspectRatio: v }))
-                        }
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currentVideoModel.capabilities.aspectRatios!.map((a) => (
-                            <SelectItem key={a} value={a}>
-                              {a}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {currentVideoModel.capabilities.hasAudio && (
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-medium">Audio</label>
-                      <Switch
-                        checked={videoSettings.audio ?? false}
-                        onCheckedChange={(checked) =>
-                          setVideoSettings((prev) => ({ ...prev, audio: checked }))
-                        }
-                      />
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
-            )}
-          </div>}
-
-          <Badge variant="secondary" className="text-sm">
-            {shots.length} Shots • {totalDuration}s Total
-          </Badge>
-          {activeTab === "storyboard" && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-primary"
-              onClick={handleExport}
-              disabled={isAssembling || !allShotsComplete}
-            >
-              {isAssembling ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Assembling...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Movie
-                </>
-              )}
-            </Button>
-          )}
-        </div>
+        <TabNavigation storyboardId={storyboard.id} activeMode={workspaceMode} />
       </Header>
+      <OpenProjectShell
+        title={storyboard.name}
+        subtitle={`${shots.length} shots in this workstation`}
+        toolbar={
+          <>
+            {workspaceMode === "storyboard" && <div className="flex items-center gap-2">
+              <ModelPicker
+                groups={imageGroups}
+                value={imageModel}
+                onSelect={(id) => handleChangeImageModel(id as ImageModelId)}
+                trigger={
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    {imageModels.find((m) => m.id === imageModel)?.name || "Image"}
+                  </Button>
+                }
+              />
 
-      {/* Main Content — storyboard kept mounted (hidden) to preserve loaded images */}
-      <main className="flex-1 p-4 md:p-6" style={{ display: activeTab === "storyboard" ? undefined : "none" }}>
+              <ModelPicker
+                groups={videoGroups}
+                value={videoModel}
+                onSelect={(id) => handleChangeVideoModel(id as VideoModelId)}
+                trigger={
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Video className="h-4 w-4" />
+                    {videoModels.find((m) => m.id === videoModel)?.name || "Video"}
+                  </Button>
+                }
+              />
+
+              {hasConfigurableSettings && currentVideoModel && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1 px-2">
+                      <SlidersHorizontal className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-56 space-y-4">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {currentVideoModel.name} Settings
+                    </p>
+
+                    {currentVideoModel.capabilities.durations.length > 1 && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium">Duration</label>
+                        <Select
+                          value={videoSettings.duration}
+                          onValueChange={(v) =>
+                            setVideoSettings((prev) => ({ ...prev, duration: v }))
+                          }
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currentVideoModel.capabilities.durations.map((d) => (
+                              <SelectItem key={d} value={d}>
+                                {d}s
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {(currentVideoModel.capabilities.resolutions?.length ?? 0) > 1 && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium">Resolution</label>
+                        <Select
+                          value={videoSettings.resolution ?? ""}
+                          onValueChange={(v) =>
+                            setVideoSettings((prev) => ({ ...prev, resolution: v }))
+                          }
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currentVideoModel.capabilities.resolutions!.map((r) => (
+                              <SelectItem key={r} value={r}>
+                                {r}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {(currentVideoModel.capabilities.aspectRatios?.length ?? 0) > 1 && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium">Aspect Ratio</label>
+                        <Select
+                          value={videoSettings.aspectRatio ?? ""}
+                          onValueChange={(v) =>
+                            setVideoSettings((prev) => ({ ...prev, aspectRatio: v }))
+                          }
+                        >
+                          <SelectTrigger className="h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currentVideoModel.capabilities.aspectRatios!.map((a) => (
+                              <SelectItem key={a} value={a}>
+                                {a}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {currentVideoModel.capabilities.hasAudio && (
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium">Audio</label>
+                        <Switch
+                          checked={videoSettings.audio ?? false}
+                          onCheckedChange={(checked) =>
+                            setVideoSettings((prev) => ({ ...prev, audio: checked }))
+                          }
+                        />
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>}
+
+            <Badge variant="secondary" className="text-sm">
+              {shots.length} Shots • {totalDuration}s Total
+            </Badge>
+
+            {workspaceMode === "storyboard" ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-primary"
+                onClick={handleExport}
+                disabled={isAssembling || !allShotsComplete}
+              >
+                {isAssembling ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Assembling...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Movie
+                  </>
+                )}
+              </Button>
+            ) : null}
+          </>
+        }
+        className={workspaceMode === "timeline" ? "h-full overflow-hidden" : undefined}
+      >
+      <main className="flex-1 p-4 md:p-6" style={{ display: workspaceMode === "storyboard" ? undefined : "none" }}>
         {/* Shots Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {shots.map((shot, index) => {
@@ -995,7 +996,7 @@ export default function StoryboardPage() {
           </button>
         </div>
       </main>
-      {activeTab === "editor" && (
+      {workspaceMode === "timeline" && (
         <TimelineEditor
           storyboardId={id!}
           shots={shots}
@@ -1003,6 +1004,7 @@ export default function StoryboardPage() {
           onEditsChange={setTimelineEdits}
         />
       )}
+      </OpenProjectShell>
 
 
       {/* Image Generation Modal */}
