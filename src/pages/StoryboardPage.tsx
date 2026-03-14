@@ -5,6 +5,8 @@ import { Header } from "../components/Header";
 import ShotCard from "../components/ShotCard";
 import TabNavigation from "../components/TabNavigation";
 import TimelineEditor from "../components/timeline/TimelineEditor";
+import StoryboardModeView from "../components/StoryboardModeView";
+import EditorModeView from "../components/EditorModeView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -152,6 +154,9 @@ export default function StoryboardPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
 
+  // Selection State
+  const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
+
   // Tab State
   const [activeTab, setActiveTab] = useState<"storyboard" | "editor">("storyboard");
 
@@ -244,6 +249,9 @@ export default function StoryboardPage() {
       setStoryboard(storyboardData);
       const mappedShots = shotsData.map(shotFromShotWithUrls);
       setShots(mappedShots);
+      if (mappedShots.length > 0) {
+        setSelectedShotId(mappedShots[0].id);
+      }
       setTimelineEdits(editsData);
       setEditedName(storyboardData.name);
       setImageModel((storyboardData.image_model as ImageModelId) || "imagen4");
@@ -777,7 +785,7 @@ export default function StoryboardPage() {
   }
 
   return (
-    <div className={`bg-background flex flex-col ${activeTab === "editor" ? "h-dvh overflow-hidden" : "min-h-screen"}`}>
+    <div className="bg-background flex flex-col h-dvh overflow-hidden">
       {/* Main App Header */}
       <Header
         backHref={`/project/${storyboard.project_id}`}
@@ -939,68 +947,102 @@ export default function StoryboardPage() {
         </div>
       </Header>
 
-      {/* Main Content — storyboard kept mounted (hidden) to preserve loaded images */}
-      <main className="flex-1 p-4 md:p-6" style={{ display: activeTab === "storyboard" ? undefined : "none" }}>
-        {/* Shots Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {shots.map((shot, index) => {
-            // Get other shots with images for the copy feature
-            const otherShotsWithImages = shots
-              .filter((s) => s.id !== shot.id && s.image_url)
-              .map((s) => ({
-                id: s.id,
-                order: s.order,
-                image_url: s.image_url!,
-              }));
+      {activeTab === "storyboard" && (
+        <StoryboardModeView
+          shotListSlot={
+            <div className="h-full overflow-y-auto p-2">
+              {shots.map((shot, index) => {
+                const otherShotsWithImages = shots
+                  .filter((s) => s.id !== shot.id && s.image_url)
+                  .map((s) => ({ id: s.id, order: s.order, image_url: s.image_url! }));
+                return (
+                  <div
+                    key={shot.id}
+                    className={`mb-2 cursor-pointer rounded ${
+                      selectedShotId === shot.id ? "ring-2 ring-primary" : ""
+                    }`}
+                    onClick={() => setSelectedShotId(shot.id)}
+                  >
+                    <ShotCard
+                      shot={mapShotToCardData(shot)}
+                      index={index}
+                      totalShots={shots.length}
+                      otherShotsWithImages={otherShotsWithImages}
+                      versions={shotVersions[shot.id] || []}
+                      currentVersion={shotCurrentVersions[shot.id] || null}
+                      versionCount={shotVersionCounts[shot.id] || 0}
+                      videoVersions={shotVideoVersions[shot.id] || []}
+                      currentVideoVersion={shotCurrentVideoVersions[shot.id] || null}
+                      videoVersionCount={shotVideoVersionCounts[shot.id] || 0}
+                      onUpdate={handleUpdateShot}
+                      onDelete={handleDeleteShot}
+                      onMove={handleMoveShot}
+                      onGenerateImage={openImageModal}
+                      onUploadImage={handleUploadImage}
+                      onCopyImageFromShot={handleCopyImageFromShot}
+                      onGenerateVideo={handleGenerateVideo}
+                      onVersionSelect={handleVersionSelect}
+                      onBranchFrom={handleBranchFrom}
+                      onEditImage={handleOpenEditModal}
+                      onVideoVersionSelect={handleVideoVersionSelect}
+                      onGenerateVideoPrompt={handleGenerateVideoPrompt}
+                      onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
+                      isGeneratingPrompt={generatingPromptShots.has(shot.id)}
+                      isEnhancingPrompt={enhancingPromptShots.has(shot.id)}
+                    />
+                  </div>
+                );
+              })}
+              <button
+                onClick={handleAddShot}
+                className="w-full py-4 border-2 border-dashed border-border rounded flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors mt-2"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Add Shot
+              </button>
+            </div>
+          }
+          previewSlot={
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              {selectedShotId ? (
+                <p className="text-sm">Shot preview — Card 4 will replace this</p>
+              ) : (
+                <p className="text-sm">Select a shot to preview</p>
+              )}
+            </div>
+          }
+          inspectorSlot={
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              {selectedShotId ? (
+                <p className="text-sm">Inspector — Card 5 will replace this</p>
+              ) : (
+                <p className="text-sm">Select a shot to inspect</p>
+              )}
+            </div>
+          }
+        />
+      )}
 
-            return (
-              <ShotCard
-                key={shot.id}
-                shot={mapShotToCardData(shot)}
-                index={index}
-                totalShots={shots.length}
-                otherShotsWithImages={otherShotsWithImages}
-                versions={shotVersions[shot.id] || []}
-                currentVersion={shotCurrentVersions[shot.id] || null}
-                versionCount={shotVersionCounts[shot.id] || 0}
-                videoVersions={shotVideoVersions[shot.id] || []}
-                currentVideoVersion={shotCurrentVideoVersions[shot.id] || null}
-                videoVersionCount={shotVideoVersionCounts[shot.id] || 0}
-                onUpdate={handleUpdateShot}
-                onDelete={handleDeleteShot}
-                onMove={handleMoveShot}
-                onGenerateImage={openImageModal}
-                onUploadImage={handleUploadImage}
-                onCopyImageFromShot={handleCopyImageFromShot}
-                onGenerateVideo={handleGenerateVideo}
-                onVersionSelect={handleVersionSelect}
-                onBranchFrom={handleBranchFrom}
-                onEditImage={handleOpenEditModal}
-                onVideoVersionSelect={handleVideoVersionSelect}
-                onGenerateVideoPrompt={handleGenerateVideoPrompt}
-                onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
-                isGeneratingPrompt={generatingPromptShots.has(shot.id)}
-                isEnhancingPrompt={enhancingPromptShots.has(shot.id)}
-              />
-            );
-          })}
-
-          {/* Add Shot Card */}
-          <button
-            onClick={handleAddShot}
-            className="aspect-video border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
-          >
-            <Plus className="h-8 w-8 mb-2" />
-            <span className="text-sm font-medium">Add Shot</span>
-          </button>
-        </div>
-      </main>
       {activeTab === "editor" && (
-        <TimelineEditor
-          storyboardId={id!}
-          shots={shots}
-          edits={timelineEdits}
-          onEditsChange={setTimelineEdits}
+        <EditorModeView
+          mediaPoolSlot={
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              <p className="text-sm">Media pool — Card 6 will replace this</p>
+            </div>
+          }
+          viewerSlot={
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              <p className="text-sm">Viewer — Card 6 will replace this</p>
+            </div>
+          }
+          detailTimelineSlot={
+            <TimelineEditor
+              storyboardId={id!}
+              shots={shots}
+              edits={timelineEdits}
+              onEditsChange={setTimelineEdits}
+            />
+          }
         />
       )}
 
