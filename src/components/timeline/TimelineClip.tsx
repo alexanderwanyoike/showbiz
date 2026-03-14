@@ -67,9 +67,13 @@ export default function TimelineClip({
         />
       )}
 
-      {/* Shot Number Overlay */}
-      <div className="absolute top-1 left-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded font-medium">
-        #{clip.shot.order}
+      {/* Clip Name Overlay */}
+      <div
+        className="absolute top-1 left-4 right-4 text-white text-[10px] font-medium truncate pointer-events-none"
+        style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}
+      >
+        Shot {clip.shot.order}
+        {clip.shot.image_prompt ? ` - ${clip.shot.image_prompt}` : ""}
       </div>
 
       {/* Duration Badge */}
