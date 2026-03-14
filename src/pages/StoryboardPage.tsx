@@ -3,8 +3,14 @@ import { useNavigate, useParams } from "react-router";
 import { Plus, Loader2, Sparkles, ImageIcon, Video, SlidersHorizontal, Save } from "lucide-react";
 import { Header } from "../components/Header";
 import ShotCard from "../components/ShotCard";
+import ShotList from "../components/ShotList";
+import ShotPreview from "../components/ShotPreview";
+import ShotInspector from "../components/ShotInspector";
+import MediaPool from "../components/MediaPool";
 import TabNavigation from "../components/TabNavigation";
 import TimelineEditor from "../components/timeline/TimelineEditor";
+import StoryboardModeView from "../components/StoryboardModeView";
+import EditorModeView from "../components/EditorModeView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -152,6 +158,9 @@ export default function StoryboardPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
 
+  // Selection State
+  const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
+
   // Tab State
   const [activeTab, setActiveTab] = useState<"storyboard" | "editor">("storyboard");
 
@@ -244,6 +253,9 @@ export default function StoryboardPage() {
       setStoryboard(storyboardData);
       const mappedShots = shotsData.map(shotFromShotWithUrls);
       setShots(mappedShots);
+      if (mappedShots.length > 0) {
+        setSelectedShotId(mappedShots[0].id);
+      }
       setTimelineEdits(editsData);
       setEditedName(storyboardData.name);
       setImageModel((storyboardData.image_model as ImageModelId) || "imagen4");
@@ -407,6 +419,9 @@ export default function StoryboardPage() {
   async function handleDeleteShot(shotId: string) {
     try {
       await deleteShot(shotId);
+      if (selectedShotId === shotId) {
+        setSelectedShotId(null);
+      }
       setShots((prev) => {
         const filtered = prev.filter((s) => s.id !== shotId);
         // Reorder remaining shots
@@ -777,7 +792,7 @@ export default function StoryboardPage() {
   }
 
   return (
-    <div className={`bg-background flex flex-col ${activeTab === "editor" ? "h-dvh overflow-hidden" : "min-h-screen"}`}>
+    <div className="bg-background flex flex-col h-dvh overflow-hidden">
       {/* Main App Header */}
       <Header
         backHref={`/project/${storyboard.project_id}`}
@@ -939,68 +954,105 @@ export default function StoryboardPage() {
         </div>
       </Header>
 
-      {/* Main Content — storyboard kept mounted (hidden) to preserve loaded images */}
-      <main className="flex-1 p-4 md:p-6" style={{ display: activeTab === "storyboard" ? undefined : "none" }}>
-        {/* Shots Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {shots.map((shot, index) => {
-            // Get other shots with images for the copy feature
-            const otherShotsWithImages = shots
-              .filter((s) => s.id !== shot.id && s.image_url)
-              .map((s) => ({
+      {activeTab === "storyboard" && (
+        <StoryboardModeView
+          shotListSlot={
+            <ShotList
+              shots={shots.map(shot => ({
+                id: shot.id,
+                order: shot.order,
+                image_prompt: shot.image_prompt,
+                image_url: shot.image_url,
+                video_url: shot.video_url,
+                status: shot.status,
+              }))}
+              selectedShotId={selectedShotId}
+              onSelectShot={setSelectedShotId}
+              onAddShot={handleAddShot}
+              onMoveShot={handleMoveShot}
+              onDeleteShot={handleDeleteShot}
+            />
+          }
+          previewSlot={
+            <ShotPreview
+              shot={selectedShotId ? (() => {
+                const s = shots.find(s => s.id === selectedShotId);
+                return s ? {
+                  id: s.id,
+                  order: s.order,
+                  image_url: s.image_url,
+                  video_url: s.video_url,
+                  status: s.status,
+                } : null;
+              })() : null}
+            />
+          }
+          inspectorSlot={
+            <ShotInspector
+              shot={selectedShotId ? (() => {
+                const s = shots.find(s => s.id === selectedShotId);
+                return s ? {
+                  id: s.id,
+                  order: s.order,
+                  image_prompt: s.image_prompt,
+                  image_url: s.image_url,
+                  video_prompt: s.video_prompt,
+                  video_url: s.video_url,
+                  status: s.status,
+                  error_message: s.error_message,
+                } : null;
+              })() : null}
+              onGenerateImage={openImageModal}
+              onUploadImage={handleUploadImage}
+              onGenerateVideo={handleGenerateVideo}
+              onUpdateShot={(shotId, updates) => handleUpdateShot(shotId, updates)}
+              versions={selectedShotId ? (shotVersions[selectedShotId] || []) : []}
+              currentVersion={selectedShotId ? (shotCurrentVersions[selectedShotId] || null) : null}
+              versionCount={selectedShotId ? (shotVersionCounts[selectedShotId] || 0) : 0}
+              videoVersions={selectedShotId ? (shotVideoVersions[selectedShotId] || []) : []}
+              currentVideoVersion={selectedShotId ? (shotCurrentVideoVersions[selectedShotId] || null) : null}
+              videoVersionCount={selectedShotId ? (shotVideoVersionCounts[selectedShotId] || 0) : 0}
+              onVersionSelect={handleVersionSelect}
+              onBranchFrom={handleBranchFrom}
+              onEditImage={handleOpenEditModal}
+              onVideoVersionSelect={handleVideoVersionSelect}
+              onGenerateVideoPrompt={handleGenerateVideoPrompt}
+              onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
+              isGeneratingPrompt={selectedShotId ? generatingPromptShots.has(selectedShotId) : false}
+              isEnhancingPrompt={selectedShotId ? enhancingPromptShots.has(selectedShotId) : false}
+            />
+          }
+        />
+      )}
+
+      {activeTab === "editor" && (
+        <EditorModeView
+          mediaPoolSlot={
+            <MediaPool
+              shots={shots.map(s => ({
                 id: s.id,
                 order: s.order,
-                image_url: s.image_url!,
-              }));
-
-            return (
-              <ShotCard
-                key={shot.id}
-                shot={mapShotToCardData(shot)}
-                index={index}
-                totalShots={shots.length}
-                otherShotsWithImages={otherShotsWithImages}
-                versions={shotVersions[shot.id] || []}
-                currentVersion={shotCurrentVersions[shot.id] || null}
-                versionCount={shotVersionCounts[shot.id] || 0}
-                videoVersions={shotVideoVersions[shot.id] || []}
-                currentVideoVersion={shotCurrentVideoVersions[shot.id] || null}
-                videoVersionCount={shotVideoVersionCounts[shot.id] || 0}
-                onUpdate={handleUpdateShot}
-                onDelete={handleDeleteShot}
-                onMove={handleMoveShot}
-                onGenerateImage={openImageModal}
-                onUploadImage={handleUploadImage}
-                onCopyImageFromShot={handleCopyImageFromShot}
-                onGenerateVideo={handleGenerateVideo}
-                onVersionSelect={handleVersionSelect}
-                onBranchFrom={handleBranchFrom}
-                onEditImage={handleOpenEditModal}
-                onVideoVersionSelect={handleVideoVersionSelect}
-                onGenerateVideoPrompt={handleGenerateVideoPrompt}
-                onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
-                isGeneratingPrompt={generatingPromptShots.has(shot.id)}
-                isEnhancingPrompt={enhancingPromptShots.has(shot.id)}
-              />
-            );
-          })}
-
-          {/* Add Shot Card */}
-          <button
-            onClick={handleAddShot}
-            className="aspect-video border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
-          >
-            <Plus className="h-8 w-8 mb-2" />
-            <span className="text-sm font-medium">Add Shot</span>
-          </button>
-        </div>
-      </main>
-      {activeTab === "editor" && (
-        <TimelineEditor
-          storyboardId={id!}
-          shots={shots}
-          edits={timelineEdits}
-          onEditsChange={setTimelineEdits}
+                image_url: s.image_url,
+                video_url: s.video_url,
+                status: s.status,
+                duration: 8,
+              }))}
+            />
+          }
+          viewerSlot={
+            <div className="h-full flex flex-col items-center justify-center bg-black">
+              <div className="text-gray-500 text-sm">Program Monitor</div>
+              <div className="text-gray-600 text-xs mt-1">Timeline playback preview shown here</div>
+            </div>
+          }
+          detailTimelineSlot={
+            <TimelineEditor
+              storyboardId={id!}
+              shots={shots}
+              edits={timelineEdits}
+              onEditsChange={setTimelineEdits}
+            />
+          }
         />
       )}
 
