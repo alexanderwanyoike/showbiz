@@ -3,6 +3,10 @@ import { useNavigate, useParams } from "react-router";
 import { Plus, Loader2, Sparkles, ImageIcon, Video, SlidersHorizontal, Save } from "lucide-react";
 import { Header } from "../components/Header";
 import ShotCard from "../components/ShotCard";
+import ShotList from "../components/ShotList";
+import ShotPreview from "../components/ShotPreview";
+import ShotInspector from "../components/ShotInspector";
+import MediaPool from "../components/MediaPool";
 import TabNavigation from "../components/TabNavigation";
 import TimelineEditor from "../components/timeline/TimelineEditor";
 import StoryboardModeView from "../components/StoryboardModeView";
@@ -415,6 +419,9 @@ export default function StoryboardPage() {
   async function handleDeleteShot(shotId: string) {
     try {
       await deleteShot(shotId);
+      if (selectedShotId === shotId) {
+        setSelectedShotId(null);
+      }
       setShots((prev) => {
         const filtered = prev.filter((s) => s.id !== shotId);
         // Reorder remaining shots
@@ -950,75 +957,70 @@ export default function StoryboardPage() {
       {activeTab === "storyboard" && (
         <StoryboardModeView
           shotListSlot={
-            <div className="h-full overflow-y-auto p-2">
-              {shots.map((shot, index) => {
-                const otherShotsWithImages = shots
-                  .filter((s) => s.id !== shot.id && s.image_url)
-                  .map((s) => ({ id: s.id, order: s.order, image_url: s.image_url! }));
-                return (
-                  <div
-                    key={shot.id}
-                    className={`mb-2 cursor-pointer rounded ${
-                      selectedShotId === shot.id ? "ring-2 ring-primary" : ""
-                    }`}
-                    onClick={() => setSelectedShotId(shot.id)}
-                  >
-                    <ShotCard
-                      shot={mapShotToCardData(shot)}
-                      index={index}
-                      totalShots={shots.length}
-                      otherShotsWithImages={otherShotsWithImages}
-                      versions={shotVersions[shot.id] || []}
-                      currentVersion={shotCurrentVersions[shot.id] || null}
-                      versionCount={shotVersionCounts[shot.id] || 0}
-                      videoVersions={shotVideoVersions[shot.id] || []}
-                      currentVideoVersion={shotCurrentVideoVersions[shot.id] || null}
-                      videoVersionCount={shotVideoVersionCounts[shot.id] || 0}
-                      onUpdate={handleUpdateShot}
-                      onDelete={handleDeleteShot}
-                      onMove={handleMoveShot}
-                      onGenerateImage={openImageModal}
-                      onUploadImage={handleUploadImage}
-                      onCopyImageFromShot={handleCopyImageFromShot}
-                      onGenerateVideo={handleGenerateVideo}
-                      onVersionSelect={handleVersionSelect}
-                      onBranchFrom={handleBranchFrom}
-                      onEditImage={handleOpenEditModal}
-                      onVideoVersionSelect={handleVideoVersionSelect}
-                      onGenerateVideoPrompt={handleGenerateVideoPrompt}
-                      onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
-                      isGeneratingPrompt={generatingPromptShots.has(shot.id)}
-                      isEnhancingPrompt={enhancingPromptShots.has(shot.id)}
-                    />
-                  </div>
-                );
-              })}
-              <button
-                onClick={handleAddShot}
-                className="w-full py-4 border-2 border-dashed border-border rounded flex items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors mt-2"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Add Shot
-              </button>
-            </div>
+            <ShotList
+              shots={shots.map(shot => ({
+                id: shot.id,
+                order: shot.order,
+                image_prompt: shot.image_prompt,
+                image_url: shot.image_url,
+                video_url: shot.video_url,
+                status: shot.status,
+              }))}
+              selectedShotId={selectedShotId}
+              onSelectShot={setSelectedShotId}
+              onAddShot={handleAddShot}
+              onMoveShot={handleMoveShot}
+              onDeleteShot={handleDeleteShot}
+            />
           }
           previewSlot={
-            <div className="h-full flex items-center justify-center text-muted-foreground">
-              {selectedShotId ? (
-                <p className="text-sm">Shot preview — Card 4 will replace this</p>
-              ) : (
-                <p className="text-sm">Select a shot to preview</p>
-              )}
-            </div>
+            <ShotPreview
+              shot={selectedShotId ? (() => {
+                const s = shots.find(s => s.id === selectedShotId);
+                return s ? {
+                  id: s.id,
+                  order: s.order,
+                  image_url: s.image_url,
+                  video_url: s.video_url,
+                  status: s.status,
+                } : null;
+              })() : null}
+            />
           }
           inspectorSlot={
-            <div className="h-full flex items-center justify-center text-muted-foreground">
-              {selectedShotId ? (
-                <p className="text-sm">Inspector — Card 5 will replace this</p>
-              ) : (
-                <p className="text-sm">Select a shot to inspect</p>
-              )}
-            </div>
+            <ShotInspector
+              shot={selectedShotId ? (() => {
+                const s = shots.find(s => s.id === selectedShotId);
+                return s ? {
+                  id: s.id,
+                  order: s.order,
+                  image_prompt: s.image_prompt,
+                  image_url: s.image_url,
+                  video_prompt: s.video_prompt,
+                  video_url: s.video_url,
+                  status: s.status,
+                  error_message: s.error_message,
+                } : null;
+              })() : null}
+              onGenerateImage={openImageModal}
+              onUploadImage={handleUploadImage}
+              onGenerateVideo={handleGenerateVideo}
+              onUpdateShot={(shotId, updates) => handleUpdateShot(shotId, updates)}
+              versions={selectedShotId ? (shotVersions[selectedShotId] || []) : []}
+              currentVersion={selectedShotId ? (shotCurrentVersions[selectedShotId] || null) : null}
+              versionCount={selectedShotId ? (shotVersionCounts[selectedShotId] || 0) : 0}
+              videoVersions={selectedShotId ? (shotVideoVersions[selectedShotId] || []) : []}
+              currentVideoVersion={selectedShotId ? (shotCurrentVideoVersions[selectedShotId] || null) : null}
+              videoVersionCount={selectedShotId ? (shotVideoVersionCounts[selectedShotId] || 0) : 0}
+              onVersionSelect={handleVersionSelect}
+              onBranchFrom={handleBranchFrom}
+              onEditImage={handleOpenEditModal}
+              onVideoVersionSelect={handleVideoVersionSelect}
+              onGenerateVideoPrompt={handleGenerateVideoPrompt}
+              onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
+              isGeneratingPrompt={selectedShotId ? generatingPromptShots.has(selectedShotId) : false}
+              isEnhancingPrompt={selectedShotId ? enhancingPromptShots.has(selectedShotId) : false}
+            />
           }
         />
       )}
@@ -1026,13 +1028,21 @@ export default function StoryboardPage() {
       {activeTab === "editor" && (
         <EditorModeView
           mediaPoolSlot={
-            <div className="h-full flex items-center justify-center text-muted-foreground">
-              <p className="text-sm">Media pool — Card 6 will replace this</p>
-            </div>
+            <MediaPool
+              shots={shots.map(s => ({
+                id: s.id,
+                order: s.order,
+                image_url: s.image_url,
+                video_url: s.video_url,
+                status: s.status,
+                duration: 8,
+              }))}
+            />
           }
           viewerSlot={
-            <div className="h-full flex items-center justify-center text-muted-foreground">
-              <p className="text-sm">Viewer — Card 6 will replace this</p>
+            <div className="h-full flex flex-col items-center justify-center bg-black">
+              <div className="text-gray-500 text-sm">Program Monitor</div>
+              <div className="text-gray-600 text-xs mt-1">Timeline playback preview shown here</div>
             </div>
           }
           detailTimelineSlot={
