@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ZoomIn, ZoomOut, Loader2 } from "lucide-react";
+import { ZoomIn, ZoomOut, Loader2, MousePointer2, Scissors, SplitSquareHorizontal } from "lucide-react";
 import { TimelineEdit } from "../../lib/tauri-api";
 import { updateTimelineEdit, saveAssembledVideo } from "../../lib/tauri-api";
 import {
@@ -16,6 +16,7 @@ import PreviewPlayer from "./PreviewPlayer";
 import TransportControls from "./TransportControls";
 import TimelineRuler from "./TimelineRuler";
 import TimelineTrack from "./TimelineTrack";
+import TrackHeader from "./TrackHeader";
 
 interface TimelineEditorProps {
   storyboardId: string;
@@ -193,6 +194,18 @@ export default function TimelineEditor({
           e.preventDefault();
           playback.skipForward();
           break;
+        case "KeyJ":
+          e.preventDefault();
+          playback.skipBackward();
+          break;
+        case "KeyK":
+          e.preventDefault();
+          playback.pause();
+          break;
+        case "KeyL":
+          e.preventDefault();
+          playback.play();
+          break;
         case "Equal":
         case "NumpadAdd":
           e.preventDefault();
@@ -256,28 +269,78 @@ export default function TimelineEditor({
       </div>
 
       {/* Timeline Area */}
-      <div className="flex-1 overflow-x-auto border-t border-border p-4">
-        <div className="min-w-fit">
-          {/* Timeline Ruler */}
-          <TimelineRuler
-            totalDuration={playback.totalDuration}
-            pixelsPerSecond={pixelsPerSecond}
-            currentTime={playback.currentTime}
-            onSeek={playback.seek}
-          />
-
-          {/* Timeline Track */}
-          <div className="mt-2">
-            <TimelineTrack
-              clips={clips}
-              pixelsPerSecond={pixelsPerSecond}
-              selectedClipId={selectedClipId}
-              onClipSelect={setSelectedClipId}
-              onTrimStart={(e, shotId, edge, trimIn, trimOut, maxDuration) =>
-                startTrim(e, shotId, edge, trimIn, trimOut, maxDuration)
-              }
-            />
+      <div className="flex-1 border-t border-border flex flex-col overflow-hidden">
+        <div className="flex-1 flex overflow-hidden">
+          {/* Track Headers (fixed left column) */}
+          <div className="flex-shrink-0 flex flex-col">
+            {/* Spacer for ruler height */}
+            <div className="h-6 bg-muted/80 border-r border-border" />
+            {/* Video track header */}
+            <div className="mt-0.5 h-12">
+              <TrackHeader name="V1 Main Video" type="video" />
+            </div>
+            {/* Audio track header placeholder */}
+            <div className="mt-0.5 h-8">
+              <TrackHeader name="A1 Audio" type="audio" />
+            </div>
           </div>
+
+          {/* Scrollable timeline content */}
+          <div className="flex-1 overflow-x-auto p-4">
+            <div className="min-w-fit">
+              {/* Timeline Ruler */}
+              <TimelineRuler
+                totalDuration={playback.totalDuration}
+                pixelsPerSecond={pixelsPerSecond}
+                currentTime={playback.currentTime}
+                onSeek={playback.seek}
+              />
+
+              {/* Timeline Track */}
+              <div className="mt-0.5">
+                <TimelineTrack
+                  clips={clips}
+                  pixelsPerSecond={pixelsPerSecond}
+                  selectedClipId={selectedClipId}
+                  onClipSelect={setSelectedClipId}
+                  onTrimStart={(e, shotId, edge, trimIn, trimOut, maxDuration) =>
+                    startTrim(e, shotId, edge, trimIn, trimOut, maxDuration)
+                  }
+                />
+              </div>
+
+              {/* Empty audio track placeholder */}
+              <div className="mt-0.5 h-8 bg-secondary/50 rounded border border-dashed border-border/50" />
+            </div>
+          </div>
+        </div>
+
+        {/* Editing Toolbar */}
+        <div className="flex-shrink-0 px-4 py-1 bg-muted/80 border-t border-border flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            title="Select tool (V)"
+          >
+            <MousePointer2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            title="Trim tool (T)"
+          >
+            <SplitSquareHorizontal className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            title="Razor tool (C)"
+          >
+            <Scissors className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
 
@@ -285,6 +348,7 @@ export default function TimelineEditor({
       <div className="flex-shrink-0 px-4 py-2 bg-muted text-muted-foreground text-xs border-t border-border flex items-center justify-between">
         <div>
           <span className="mr-4">Space: Play/Pause</span>
+          <span className="mr-4">J/K/L: Rev/Stop/Play</span>
           <span className="mr-4">Arrow Keys: Skip 5s</span>
           <span className="mr-4">+/-: Zoom</span>
           <span>Drag clip edges to trim</span>
