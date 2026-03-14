@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Plus, Clapperboard, Loader2 } from "lucide-react";
+import { Plus, Clapperboard, Loader2, Search } from "lucide-react";
 import { Header } from "../components/Header";
 import StoryboardCard from "../components/StoryboardCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   getProject,
   getStoryboardsWithPreview,
@@ -27,6 +26,7 @@ export default function ProjectPage() {
   const [showNewStoryboardInput, setShowNewStoryboardInput] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Load project and storyboards on mount
   useEffect(() => {
@@ -106,6 +106,10 @@ export default function ProjectPage() {
     }
   }
 
+  const filteredStoryboards = storyboards.filter((s) =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -129,30 +133,28 @@ export default function ProjectPage() {
       <Header backHref="/" backLabel="Projects" title={project.name} />
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="px-6 py-6">
         {/* Project Name Editor */}
-        <div className="mb-8">
+        <div className="mb-4">
           {isEditingName ? (
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleUpdateProjectName();
-                  if (e.key === "Escape") {
-                    setIsEditingName(false);
-                    setEditedName(project.name);
-                  }
-                }}
-                onBlur={handleUpdateProjectName}
-                className="text-2xl font-bold h-auto py-1 px-2 max-w-md"
-                autoFocus
-              />
-            </div>
+            <Input
+              type="text"
+              value={editedName}
+              onChange={(e) => setEditedName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleUpdateProjectName();
+                if (e.key === "Escape") {
+                  setIsEditingName(false);
+                  setEditedName(project.name);
+                }
+              }}
+              onBlur={handleUpdateProjectName}
+              className="text-xl font-bold h-auto py-1 px-2 max-w-md"
+              autoFocus
+            />
           ) : (
             <h1
-              className="text-2xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors inline-block"
+              className="text-xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors inline-block"
               onClick={() => setIsEditingName(true)}
               title="Click to edit"
             >
@@ -161,87 +163,98 @@ export default function ProjectPage() {
           )}
         </div>
 
-        {/* Section Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-foreground">Storyboards</h2>
-          {!showNewStoryboardInput && (
-            <Button onClick={() => setShowNewStoryboardInput(true)}>
-              <Plus className="h-4 w-4 mr-2" />
+        {/* Top bar: search + new storyboard */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search storyboards..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9"
+            />
+          </div>
+          <div className="flex-1" />
+          {showNewStoryboardInput ? (
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                placeholder="Storyboard name..."
+                value={newStoryboardName}
+                onChange={(e) => setNewStoryboardName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateStoryboard();
+                  if (e.key === "Escape") {
+                    setShowNewStoryboardInput(false);
+                    setNewStoryboardName("");
+                  }
+                }}
+                className="h-9 w-56"
+                autoFocus
+              />
+              <Button
+                size="sm"
+                onClick={handleCreateStoryboard}
+                disabled={isCreating || !newStoryboardName.trim()}
+              >
+                {isCreating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Create"
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowNewStoryboardInput(false);
+                  setNewStoryboardName("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button size="sm" onClick={() => setShowNewStoryboardInput(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
               New Storyboard
             </Button>
           )}
         </div>
 
-        {/* New Storyboard Input */}
-        {showNewStoryboardInput && (
-          <Card className="mb-6">
-            <CardContent className="pt-4">
-              <div className="flex gap-3">
-                <Input
-                  type="text"
-                  placeholder="Storyboard name..."
-                  value={newStoryboardName}
-                  onChange={(e) => setNewStoryboardName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCreateStoryboard();
-                    if (e.key === "Escape") {
-                      setShowNewStoryboardInput(false);
-                      setNewStoryboardName("");
-                    }
-                  }}
-                  autoFocus
-                />
-                <Button
-                  onClick={handleCreateStoryboard}
-                  disabled={isCreating || !newStoryboardName.trim()}
-                >
-                  {isCreating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Create"
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowNewStoryboardInput(false);
-                    setNewStoryboardName("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Storyboards */}
-        {storyboards.length === 0 ? (
-          <Card className="border-2 border-dashed">
-            <CardContent className="text-center py-16">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-                <Clapperboard className="h-8 w-8" />
-              </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                No storyboards yet
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                Create a storyboard to start building your video
-              </p>
-              {!showNewStoryboardInput && (
-                <Button onClick={() => setShowNewStoryboardInput(true)} size="lg">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Storyboard
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+        {filteredStoryboards.length === 0 && storyboards.length === 0 ? (
+          <div className="text-center py-24">
+            <Clapperboard className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
+            <h3 className="text-base font-medium text-foreground mb-1">
+              No storyboards yet
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Create a storyboard to start building your video
+            </p>
+            {!showNewStoryboardInput && (
+              <Button size="sm" onClick={() => setShowNewStoryboardInput(true)}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                Create Storyboard
+              </Button>
+            )}
+          </div>
+        ) : filteredStoryboards.length === 0 ? (
+          <div className="text-center py-24">
+            <Search className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+            <p className="text-sm text-muted-foreground">
+              No storyboards matching &quot;{searchQuery}&quot;
+            </p>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {storyboards.map((storyboard) => (
+          <div
+            className="grid gap-6"
+            style={{
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            }}
+          >
+            {filteredStoryboards.map((storyboard) => (
               <StoryboardCard
                 key={storyboard.id}
                 id={storyboard.id}
@@ -251,6 +264,15 @@ export default function ProjectPage() {
                 onDelete={handleDeleteStoryboard}
               />
             ))}
+          </div>
+        )}
+
+        {/* Bottom status bar */}
+        {!isLoading && storyboards.length > 0 && (
+          <div className="mt-8 text-xs text-muted-foreground">
+            {filteredStoryboards.length === storyboards.length
+              ? `${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`
+              : `${filteredStoryboards.length} of ${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`}
           </div>
         )}
       </main>
