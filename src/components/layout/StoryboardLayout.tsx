@@ -13,7 +13,7 @@ export function StoryboardLayout({
 }: StoryboardLayoutProps) {
   return (
     <div
-      className="flex-1 bg-background"
+      className="flex-1 min-h-0 bg-background"
       style={{
         display: "grid",
         gridTemplateColumns: "280px 1fr 320px",

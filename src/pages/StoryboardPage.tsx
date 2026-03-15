@@ -10,7 +10,7 @@ import MediaPool from "../components/MediaPool";
 import TabNavigation from "../components/TabNavigation";
 import TimelineEditor from "../components/timeline/TimelineEditor";
 import StoryboardModeView from "../components/StoryboardModeView";
-import EditorModeView from "../components/EditorModeView";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +49,8 @@ import {
   getShotImageBase64,
   copyImageFromShot,
   getTimelineEdits,
+  ensureDefaultTracks,
+  getTimelineClips,
   getImageVersions,
   getCurrentImageVersion,
   getVersionCount,
@@ -65,6 +67,8 @@ import type {
   Storyboard,
   ShotWithUrls,
   TimelineEdit,
+  TimelineTrack,
+  TimelineClipRow,
   ImageVersionNode,
   ImageVersionWithUrl,
   VideoVersionNode,
@@ -166,6 +170,8 @@ export default function StoryboardPage() {
 
   // Timeline Edit State
   const [timelineEdits, setTimelineEdits] = useState<TimelineEdit[]>([]);
+  const [timelineTracks, setTimelineTracks] = useState<TimelineTrack[]>([]);
+  const [timelineClipRows, setTimelineClipRows] = useState<TimelineClipRow[]>([]);
 
   // Assembly State
   const [isAssembling, setIsAssembling] = useState(false);
@@ -239,10 +245,12 @@ export default function StoryboardPage() {
     if (!id) return;
     setIsLoading(true);
     try {
-      const [storyboardData, shotsData, editsData] = await Promise.all([
+      const [storyboardData, shotsData, editsData, tracksData, clipsData] = await Promise.all([
         getStoryboard(id),
         getShots(id),
         getTimelineEdits(id),
+        ensureDefaultTracks(id),
+        getTimelineClips(id),
       ]);
 
       if (!storyboardData) {
@@ -257,6 +265,8 @@ export default function StoryboardPage() {
         setSelectedShotId(mappedShots[0].id);
       }
       setTimelineEdits(editsData);
+      setTimelineTracks(tracksData);
+      setTimelineClipRows(clipsData);
       setEditedName(storyboardData.name);
       setImageModel((storyboardData.image_model as ImageModelId) || "imagen4");
       const loadedVideoModel = (storyboardData.video_model as VideoModelId) || "veo3";
@@ -1026,8 +1036,9 @@ export default function StoryboardPage() {
       )}
 
       {activeTab === "editor" && (
-        <EditorModeView
-          mediaPoolSlot={
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          {/* Media Pool — left sidebar */}
+          <div className="w-56 flex-shrink-0 border-r border-border overflow-hidden">
             <MediaPool
               shots={shots.map(s => ({
                 id: s.id,
@@ -1038,22 +1049,19 @@ export default function StoryboardPage() {
                 duration: 8,
               }))}
             />
-          }
-          viewerSlot={
-            <div className="h-full flex flex-col items-center justify-center bg-black">
-              <div className="text-gray-500 text-sm">Program Monitor</div>
-              <div className="text-gray-600 text-xs mt-1">Timeline playback preview shown here</div>
-            </div>
-          }
-          detailTimelineSlot={
-            <TimelineEditor
-              storyboardId={id!}
-              shots={shots}
-              edits={timelineEdits}
-              onEditsChange={setTimelineEdits}
-            />
-          }
-        />
+          </div>
+          {/* Timeline Editor — fills remaining space (has its own preview + transport) */}
+          <TimelineEditor
+            storyboardId={id!}
+            shots={shots}
+            edits={timelineEdits}
+            onEditsChange={setTimelineEdits}
+            tracks={timelineTracks}
+            clipRows={timelineClipRows}
+            onTracksChange={setTimelineTracks}
+            onClipsChange={setTimelineClipRows}
+          />
+        </div>
       )}
 
 

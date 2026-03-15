@@ -115,8 +115,52 @@ fn migrate(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
 
         CREATE INDEX IF NOT EXISTS idx_video_versions_shot ON video_versions(shot_id);
         CREATE INDEX IF NOT EXISTS idx_video_versions_parent ON video_versions(parent_version_id);
+
+        CREATE TABLE IF NOT EXISTS timeline_tracks (
+            id TEXT PRIMARY KEY,
+            storyboard_id TEXT NOT NULL REFERENCES storyboards(id) ON DELETE CASCADE,
+            track_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            track_type TEXT NOT NULL CHECK(track_type IN ('video', 'audio')),
+            position INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(storyboard_id, track_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_timeline_tracks_storyboard ON timeline_tracks(storyboard_id);
+
+        CREATE TABLE IF NOT EXISTS timeline_clips (
+            id TEXT PRIMARY KEY,
+            storyboard_id TEXT NOT NULL REFERENCES storyboards(id) ON DELETE CASCADE,
+            shot_id TEXT NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+            track_id TEXT NOT NULL,
+            start_time REAL NOT NULL DEFAULT 0.0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_timeline_clips_storyboard ON timeline_clips(storyboard_id);
         "#,
     )?;
+
+    // Migration: Replace position-based timeline_clips with start_time-based
+    let has_start_time: bool = conn
+        .prepare("PRAGMA table_info(timeline_clips)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .any(|col| col == "start_time");
+
+    if !has_start_time {
+        conn.execute_batch(
+            "DROP TABLE IF EXISTS timeline_clips;
+             CREATE TABLE timeline_clips (
+                 id TEXT PRIMARY KEY,
+                 storyboard_id TEXT NOT NULL REFERENCES storyboards(id) ON DELETE CASCADE,
+                 shot_id TEXT NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+                 track_id TEXT NOT NULL,
+                 start_time REAL NOT NULL DEFAULT 0.0,
+                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+             );
+             CREATE INDEX IF NOT EXISTS idx_timeline_clips_storyboard ON timeline_clips(storyboard_id);",
+        )?;
+    }
 
     // Migration: Add model columns to existing storyboards table if they don't exist
     let has_image_model: bool = conn

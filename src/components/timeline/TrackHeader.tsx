@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Lock, Unlock, Eye, EyeOff, Volume2, VolumeX } from "lucide-react";
+import { Lock, Unlock, Eye, EyeOff, Volume2, VolumeX, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TrackHeaderProps {
   name: string;
   type: "video" | "audio";
+  onRemove?: () => void;
+  canRemove?: boolean;
 }
 
-export default function TrackHeader({ name, type }: TrackHeaderProps) {
+export default function TrackHeader({ name, type, onRemove, canRemove }: TrackHeaderProps) {
   const [isLocked, setIsLocked] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
@@ -57,6 +59,17 @@ export default function TrackHeader({ name, type }: TrackHeaderProps) {
             ) : (
               <Volume2 className="h-3 w-3 text-muted-foreground" />
             )}
+          </Button>
+        )}
+        {canRemove && onRemove && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 ml-auto"
+            onClick={onRemove}
+            title="Remove track"
+          >
+            <X className="h-3 w-3 text-muted-foreground" />
           </Button>
         )}
       </div>

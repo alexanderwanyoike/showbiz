@@ -105,6 +105,16 @@ fn main() {
             commands::timeline::update_timeline_edit,
             commands::timeline::reset_timeline_edit,
             commands::timeline::reset_all_timeline_edits,
+            // Timeline Tracks & Clips
+            commands::timeline::get_timeline_tracks,
+            commands::timeline::create_timeline_track,
+            commands::timeline::delete_timeline_track,
+            commands::timeline::ensure_default_tracks,
+            commands::timeline::get_timeline_clips,
+            commands::timeline::add_timeline_clip,
+            commands::timeline::remove_timeline_clip,
+            commands::timeline::remove_all_timeline_clips,
+            commands::timeline::move_timeline_clip,
             // Media
             commands::media_cmd::get_media_path,
             commands::media_cmd::save_assembled_video,

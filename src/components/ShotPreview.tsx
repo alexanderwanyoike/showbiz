@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { ImageIcon, Play, Film, Loader2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { invoke } from "@tauri-apps/api/core";
@@ -17,11 +17,97 @@ interface ShotPreviewProps {
 
 export default function ShotPreview({ shot }: ShotPreviewProps) {
   const [showMpv, setShowMpv] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mpvActiveRef = useRef(false);
 
-  // Reset mpv overlay when shot changes
-  useEffect(() => {
+  // Stop mpv helper
+  const stopMpv = useCallback(() => {
+    if (mpvActiveRef.current) {
+      mpvActiveRef.current = false;
+      invoke("mpv_stop").catch(() => {});
+    }
     setShowMpv(false);
-  }, [shot?.id]);
+  }, []);
+
+  // Reset when shot changes
+  useEffect(() => {
+    stopMpv();
+  }, [shot?.id, stopMpv]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (mpvActiveRef.current) {
+        invoke("mpv_stop").catch(() => {});
+      }
+    };
+  }, []);
+
+  // Start mpv when showMpv becomes true
+  useEffect(() => {
+    if (!showMpv || !shot?.video_url) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    let destroyed = false;
+
+    async function startMpv() {
+      const scale = await getCurrentWindow().scaleFactor();
+      const r = el!.getBoundingClientRect();
+      const rect = {
+        x: Math.round(r.left * scale),
+        y: Math.round(r.top * scale),
+        w: Math.round(r.width * scale),
+        h: Math.round(r.height * scale),
+      };
+      await invoke("mpv_start", rect);
+      if (destroyed) { invoke("mpv_stop"); return; }
+
+      mpvActiveRef.current = true;
+
+      const path = assetUrlToPath(shot!.video_url!);
+      if (path) {
+        await invoke("mpv_load_file", { path });
+        await invoke("mpv_resume");
+      }
+    }
+
+    async function sync() {
+      if (!el || destroyed) return;
+      const scale = await getCurrentWindow().scaleFactor();
+      const r = el.getBoundingClientRect();
+      invoke("mpv_update_geometry", {
+        x: Math.round(r.left * scale),
+        y: Math.round(r.top * scale),
+        w: Math.round(r.width * scale),
+        h: Math.round(r.height * scale),
+      }).catch(() => {});
+    }
+
+    startMpv().catch(console.error);
+
+    // Sync geometry on window move/resize
+    let unlistenMove: (() => void) | undefined;
+    let unlistenResize: (() => void) | undefined;
+    const win = getCurrentWindow();
+    win.onMoved(sync).then((fn) => { if (!destroyed) unlistenMove = fn; else fn(); });
+    win.onResized(sync).then((fn) => { if (!destroyed) unlistenResize = fn; else fn(); });
+
+    // ResizeObserver for layout changes
+    const observer = new ResizeObserver(sync);
+    observer.observe(el);
+
+    return () => {
+      destroyed = true;
+      observer.disconnect();
+      unlistenMove?.();
+      unlistenResize?.();
+      if (mpvActiveRef.current) {
+        mpvActiveRef.current = false;
+        invoke("mpv_stop").catch(() => {});
+      }
+    };
+  }, [showMpv, shot?.video_url]);
 
   if (!shot) {
     return (
@@ -47,6 +133,21 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
               <ImageIcon className="h-10 w-10 mb-2 opacity-40" />
               <p className="text-sm">Generate or upload an image</p>
             </div>
+          ) : showMpv && hasVideo ? (
+            <>
+              {/* Inline mpv container — replaces the image */}
+              <div
+                ref={containerRef}
+                className="absolute inset-0 bg-black"
+              />
+              {/* Stop button overlaid on video */}
+              <button
+                onClick={stopMpv}
+                className="absolute top-2 right-2 z-10 bg-black/60 hover:bg-black/80 rounded p-1 text-white transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </>
           ) : (
             <>
               {hasImage && (
@@ -68,7 +169,7 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
               )}
 
               {/* Play video button */}
-              {hasVideo && !isGenerating && !showMpv && (
+              {hasVideo && !isGenerating && (
                 <button
                   onClick={() => setShowMpv(true)}
                   className="absolute inset-0 flex items-center justify-center group/play"
@@ -92,104 +193,6 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
           {shot.status}
         </span>
       </div>
-
-      {/* MPV overlay */}
-      {showMpv && hasVideo && (
-        <PreviewMpvOverlay
-          videoUrl={shot.video_url!}
-          onClose={() => setShowMpv(false)}
-        />
-      )}
     </div>
-  );
-}
-
-// ─── MPV overlay for preview video playback ─────────────────────────────────
-
-interface PreviewMpvOverlayProps {
-  videoUrl: string;
-  onClose: () => void;
-}
-
-function PreviewMpvOverlay({ videoUrl, onClose }: PreviewMpvOverlayProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    let destroyed = false;
-
-    async function startMpv() {
-      const scale = await getCurrentWindow().scaleFactor();
-      const r = el!.getBoundingClientRect();
-      const rect = {
-        x: Math.round(r.left * scale),
-        y: Math.round(r.top * scale),
-        w: Math.round(r.width * scale),
-        h: Math.round(r.height * scale),
-      };
-      await invoke("mpv_start", rect);
-      if (destroyed) { invoke("mpv_stop"); return; }
-
-      const path = assetUrlToPath(videoUrl);
-      if (path) {
-        await invoke("mpv_load_file", { path });
-        await invoke("mpv_resume");
-      }
-
-      const win = getCurrentWindow();
-      const unlistenMove = await win.onMoved(sync);
-      const unlistenResize = await win.onResized(sync);
-      if (destroyed) {
-        unlistenMove(); unlistenResize();
-        return;
-      }
-      (el as HTMLDivElement & { _mpvCleanup?: () => void })._mpvCleanup = () => {
-        unlistenMove(); unlistenResize();
-      };
-    }
-
-    async function sync() {
-      if (!el || destroyed) return;
-      const scale = await getCurrentWindow().scaleFactor();
-      const r = el.getBoundingClientRect();
-      invoke("mpv_update_geometry", {
-        x: Math.round(r.left * scale),
-        y: Math.round(r.top * scale),
-        w: Math.round(r.width * scale),
-        h: Math.round(r.height * scale),
-      }).catch(() => {});
-    }
-
-    startMpv().catch(console.error);
-
-    return () => {
-      destroyed = true;
-      (el as HTMLDivElement & { _mpvCleanup?: () => void })._mpvCleanup?.();
-      invoke("mpv_stop").catch(() => {});
-    };
-  }, [videoUrl]);
-
-  return (
-    <>
-      <div
-        className="fixed inset-0 z-50 bg-black/80"
-        onClick={onClose}
-      />
-      <div className="fixed top-4 left-0 right-0 z-[60] flex items-center justify-end px-6 pointer-events-none">
-        <button
-          className="text-white bg-black/60 hover:bg-black/80 rounded p-1 pointer-events-auto"
-          onClick={onClose}
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-      <div className="fixed inset-0 z-[55] flex items-center justify-center pointer-events-none">
-        <div
-          ref={containerRef}
-          className="w-full max-w-4xl aspect-video bg-black"
-        />
-      </div>
-    </>
   );
 }
