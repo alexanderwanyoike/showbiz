@@ -1,10 +1,12 @@
+import type { VideoGenerationRequest } from "../generation/types";
+
 export type ImageModelId =
   | "imagen4" | "nano-banana" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5"
-  | "flux-schnell-fal" | "flux-dev-fal"
+  | "flux-schnell-fal" | "flux-dev-fal" | "flux-kontext-fal"
   | "flux-schnell-replicate" | "flux-dev-replicate";
 export type VideoModelId =
   | "veo3" | "veo3-fast" | "ltx-video"
-  | "kling-3" | "kling-2.6" | "seedance-2" | "seedance-1.5"
+  | "kling-3" | "kling-2.6" | "seedance-2" | "seedance-1.5" | "seedance-2-fal"
   | "hailuo-2.3" | "wan-2.6" | "sora-2-pro" | "grok-imagine"
   | "kling-3-fal" | "kling-2.6-fal" | "hailuo-2.3-fal" | "wan-2.2-fal"
   | "kling-2.6-replicate" | "wan-2.5-replicate" | "hailuo-02-replicate" | "luma-ray-3";
@@ -21,6 +23,34 @@ export interface VideoGenerationSettings {
   resolution?: string;
   aspectRatio?: string;
   audio?: boolean;
+}
+
+export interface VideoModelModeCapabilities {
+  textToVideo?: {
+    endpoint: string;
+  };
+  imageToVideo?: {
+    endpoint: string;
+    supportsStartImage?: boolean;
+    supportsEndImage?: boolean;
+  };
+  referenceToVideo?: {
+    endpoint: string;
+    imageReferencesMax?: number;
+    promptSyntax?: string;
+  };
+}
+
+export interface ImageModelModeCapabilities {
+  textToImage?: {
+    enabled: boolean;
+    endpoint?: string;
+  };
+  imageToImage?: {
+    enabled: boolean;
+    endpoint?: string;
+    imageInput?: string;
+  };
 }
 
 export interface ImageModelProvider {
@@ -52,6 +82,7 @@ export interface VideoModelProvider {
   enabled: boolean;
   apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
   capabilities: VideoModelCapabilities;
+  modeCapabilities: VideoModelModeCapabilities;
   defaults: VideoGenerationSettings;
   supportsImageToVideo: boolean;
   supportsTextToVideo: boolean;
@@ -67,6 +98,10 @@ export interface VideoModelProvider {
     apiKey: string,
     settings?: VideoGenerationSettings
   ): Promise<Blob>;
+  generateVideoFromRequest?(
+    request: VideoGenerationRequest,
+    apiKey: string
+  ): Promise<Blob>;
 }
 
 export interface ImageModelInfo {
@@ -78,6 +113,7 @@ export interface ImageModelInfo {
   provider?: string;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
+  modeCapabilities?: ImageModelModeCapabilities;
 }
 
 export interface VideoModelInfo {
@@ -88,6 +124,7 @@ export interface VideoModelInfo {
   apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
   provider?: string;
   capabilities: VideoModelCapabilities;
+  modeCapabilities: VideoModelModeCapabilities;
   defaults: VideoGenerationSettings;
   supportsImageToVideo: boolean;
   supportsTextToVideo: boolean;

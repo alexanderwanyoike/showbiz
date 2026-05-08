@@ -750,7 +750,7 @@ mod tests {
     #[test]
     fn cascade_delete_storyboard_removes_tracks_and_clips() {
         let conn = crate::db::tests::open_test_db();
-        let (proj_id, sb_id) = setup_storyboard(&conn);
+        let (_proj_id, sb_id) = setup_storyboard(&conn);
         let shot_id = insert_shot(&conn, &sb_id);
 
         create_timeline_track_db(&conn, &sb_id, "video").unwrap();

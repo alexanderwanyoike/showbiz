@@ -1,0 +1,32 @@
+{
+  "id": "flux-kontext-fal",
+  "name": "Flux Kontext",
+  "description": "Black Forest Labs' image editing model via fal.ai",
+  "transport": "fal-image",
+  "transportOptions": {
+    "endpoint": "fal-ai/flux-pro/kontext/text-to-image",
+    "editEndpoint": "fal-ai/flux-pro/kontext",
+    "directInference": true
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "flux-kontext",
+  "models": {
+    "generate": "flux-kontext-fal",
+    "edit": "flux-kontext-fal"
+  },
+  "generationModes": {
+    "textToImage": {
+      "enabled": true,
+      "endpoint": "fal-ai/flux-pro/kontext/text-to-image"
+    },
+    "imageToImage": {
+      "enabled": true,
+      "endpoint": "fal-ai/flux-pro/kontext",
+      "imageInput": "image_url"
+    }
+  },
+  "supportsEditing": true,
+  "supportsInpainting": false
+}

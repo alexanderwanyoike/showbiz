@@ -3,8 +3,10 @@ import { useNavigate, useParams } from "react-router";
 import { Plus, Clapperboard, Loader2, Search } from "lucide-react";
 import { Header } from "../components/Header";
 import StoryboardCard from "../components/StoryboardCard";
+import ProjectBibleView from "../components/ProjectBibleView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getProject,
   getStoryboardsWithPreview,
@@ -27,6 +29,7 @@ export default function ProjectPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"storyboards" | "bible">("storyboards");
 
   // Load project and storyboards on mount
   useEffect(() => {
@@ -163,6 +166,17 @@ export default function ProjectPage() {
           )}
         </div>
 
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "storyboards" | "bible")} className="mb-6">
+          <TabsList>
+            <TabsTrigger value="storyboards">Storyboards</TabsTrigger>
+            <TabsTrigger value="bible">Bible</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {activeTab === "bible" ? (
+          <ProjectBibleView projectId={project.id} />
+        ) : (
+          <>
         {/* Top bar: search + new storyboard */}
         <div className="flex items-center gap-4 mb-6">
           <div className="relative flex-1 max-w-sm">
@@ -274,6 +288,8 @@ export default function ProjectPage() {
               ? `${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`
               : `${filteredStoryboards.length} of ${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`}
           </div>
+        )}
+          </>
         )}
       </main>
     </div>

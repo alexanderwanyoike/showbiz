@@ -1,9 +1,15 @@
+import { useEffect, useState } from "react";
 import { Plus, ChevronUp, ChevronDown, Trash2, Loader2 } from "lucide-react";
+import { thumbnailGenerator } from "../lib/thumbnail-generator";
+import { resolvePreviewStill } from "../lib/video-preview";
 
 export interface ShotListItem {
   id: string;
   order: number;
   image_prompt: string | null;
+  video_prompt: string | null;
+  intent_action: string | null;
+  compiled_prompt: string | null;
   image_url: string | null;
   video_url: string | null;
   status: "pending" | "generating" | "complete" | "failed";
@@ -45,6 +51,10 @@ function truncatePrompt(prompt: string | null): string {
   return prompt.slice(0, 40) + "...";
 }
 
+function shotListPrompt(shot: ShotListItem): string | null {
+  return shot.intent_action || shot.video_prompt || shot.compiled_prompt || shot.image_prompt;
+}
+
 export default function ShotList({
   shots,
   selectedShotId,
@@ -53,6 +63,24 @@ export default function ShotList({
   onMoveShot,
   onDeleteShot,
 }: ShotListProps) {
+  const [posters, setPosters] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    for (const shot of shots) {
+      if (shot.image_url || !shot.video_url || posters[shot.id]) continue;
+      thumbnailGenerator
+        .extractFrame(shot.video_url, 0)
+        .then((frame) => {
+          if (!cancelled) setPosters((prev) => ({ ...prev, [shot.id]: frame }));
+        })
+        .catch(() => {});
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [shots, posters]);
+
   return (
     <div className="h-full flex flex-col overflow-y-auto">
       <div className="flex-1">
@@ -61,6 +89,8 @@ export default function ShotList({
           const hasImage = !!shot.image_url;
           const hasVideo = !!shot.video_url;
           const isGenerating = shot.status === "generating";
+          const previewStill = resolvePreviewStill(shot.image_url, posters[shot.id]);
+          const prompt = shotListPrompt(shot);
 
           return (
             <div
@@ -74,9 +104,9 @@ export default function ShotList({
             >
               {/* Thumbnail */}
               <div className="relative w-20 shrink-0 aspect-video bg-muted rounded-sm overflow-hidden">
-                {shot.image_url ? (
+                {previewStill ? (
                   <img
-                    src={shot.image_url}
+                    src={previewStill}
                     alt={`Shot ${shot.order}`}
                     className="w-full h-full object-cover"
                   />
@@ -104,7 +134,7 @@ export default function ShotList({
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground truncate mt-0.5">
-                  {truncatePrompt(shot.image_prompt)}
+                  {truncatePrompt(prompt)}
                 </p>
                 <span className="text-xs font-mono text-muted-foreground/70 tabular-nums">
                   {formatTimecode(shot.order)}

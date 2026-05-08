@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { assetUrlToPath } from "../lib/tauri-api";
+import { thumbnailGenerator } from "../lib/thumbnail-generator";
+import { clampPlaybackTime, formatPlaybackTime, resolvePreviewStill } from "../lib/video-preview";
 
 interface ShotPreviewProps {
   shot: {
@@ -17,8 +19,13 @@ interface ShotPreviewProps {
 
 export default function ShotPreview({ shot }: ShotPreviewProps) {
   const [showMpv, setShowMpv] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const mpvActiveRef = useRef(false);
+  const pendingSeekRef = useRef(0);
 
   // Stop mpv helper
   const stopMpv = useCallback(() => {
@@ -27,12 +34,46 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
       invoke("mpv_stop").catch(() => {});
     }
     setShowMpv(false);
+    setPosition(0);
+    pendingSeekRef.current = 0;
   }, []);
 
   // Reset when shot changes
   useEffect(() => {
     stopMpv();
   }, [shot?.id, stopMpv]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDuration(0);
+    setPosition(0);
+    setPosterUrl(null);
+    if (!shot?.video_url) return;
+
+    thumbnailGenerator
+      .getVideoDuration(shot.video_url)
+      .then((loadedDuration) => {
+        if (!cancelled) setDuration(loadedDuration);
+      })
+      .catch(() => {
+        if (!cancelled) setDuration(0);
+      });
+
+    if (!shot.image_url) {
+      thumbnailGenerator
+        .extractFrame(shot.video_url, 0)
+        .then((frame) => {
+          if (!cancelled) setPosterUrl(frame);
+        })
+        .catch(() => {
+          if (!cancelled) setPosterUrl(null);
+        });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shot?.image_url, shot?.video_url]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -68,6 +109,9 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
       const path = assetUrlToPath(shot!.video_url!);
       if (path) {
         await invoke("mpv_load_file", { path });
+        if (pendingSeekRef.current > 0) {
+          await invoke("mpv_seek", { seconds: pendingSeekRef.current });
+        }
         await invoke("mpv_resume");
       }
     }
@@ -109,6 +153,37 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
     };
   }, [showMpv, shot?.video_url]);
 
+  useEffect(() => {
+    if (!showMpv) return;
+
+    const interval = window.setInterval(async () => {
+      if (isSeeking) return;
+      try {
+        const current = await invoke<number>("mpv_get_position");
+        setPosition(clampPlaybackTime(current, duration));
+      } catch {
+        // mpv may briefly have no time-pos during load or after stop.
+      }
+    }, 250);
+
+    return () => window.clearInterval(interval);
+  }, [showMpv, duration, isSeeking]);
+
+  async function seekTo(nextPosition: number) {
+    const clamped = clampPlaybackTime(nextPosition, duration);
+    setPosition(clamped);
+    if (!showMpv) {
+      pendingSeekRef.current = clamped;
+      setShowMpv(true);
+      return;
+    }
+    try {
+      await invoke("mpv_seek", { seconds: clamped });
+    } catch (error) {
+      console.error("Failed to seek preview:", error);
+    }
+  }
+
   if (!shot) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
@@ -120,6 +195,7 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
 
   const hasImage = !!shot.image_url;
   const hasVideo = !!shot.video_url;
+  const previewStill = resolvePreviewStill(shot.image_url, posterUrl);
   const isGenerating = shot.status === "generating";
   const isEmpty = !hasImage && !hasVideo;
 
@@ -150,9 +226,9 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
             </>
           ) : (
             <>
-              {hasImage && (
+              {previewStill && (
                 <img
-                  src={shot.image_url!}
+                  src={previewStill}
                   alt={`Shot ${shot.order}`}
                   className="w-full h-full object-contain"
                 />
@@ -185,13 +261,38 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
       </div>
 
       {/* Info bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-background/80 border-t border-border text-xs text-muted-foreground">
-        <span className="font-mono">
-          Shot #{shot.order}
-        </span>
-        <span className="font-mono uppercase">
-          {shot.status}
-        </span>
+      <div className="space-y-1.5 bg-background/80 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-mono">
+            Shot #{shot.order}
+          </span>
+          <span className="font-mono">
+            {formatPlaybackTime(position)} / {formatPlaybackTime(duration)}
+          </span>
+          <span className="font-mono uppercase">
+            {shot.status}
+          </span>
+        </div>
+        {hasVideo && (
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            step={0.05}
+            value={Math.min(position, duration || position)}
+            disabled={!duration}
+            className="block h-1.5 w-full accent-primary"
+            onPointerDown={() => setIsSeeking(true)}
+            onPointerUp={(event) => {
+              setIsSeeking(false);
+              seekTo(Number((event.currentTarget as HTMLInputElement).value));
+            }}
+            onChange={(event) => setPosition(Number(event.currentTarget.value))}
+            onKeyDown={(event) => {
+              if (event.key === " " || event.key === "Enter") event.preventDefault();
+            }}
+          />
+        )}
       </div>
     </div>
   );

@@ -15,6 +15,25 @@ export interface VideoModelConfig {
     textToVideo?: string;
     imageToVideo?: string;
   };
+  generationModes?: {
+    textToVideo?: {
+      endpoint: string;
+    };
+    imageToVideo?: {
+      endpoint: string;
+      inputs?: {
+        startImage?: boolean;
+        endImage?: boolean;
+      };
+    };
+    referenceToVideo?: {
+      endpoint: string;
+      inputs?: {
+        imageReferences?: { max: number };
+      };
+      promptSyntax?: string;
+    };
+  };
   paramMapping?: {
     duration?: string;
     resolution?: string;
@@ -41,6 +60,17 @@ export interface ImageModelConfig {
   models: {
     generate: string;
     edit?: string;
+  };
+  generationModes?: {
+    textToImage?: {
+      enabled: boolean;
+      endpoint?: string;
+    };
+    imageToImage?: {
+      enabled: boolean;
+      endpoint?: string;
+      imageInput?: string;
+    };
   };
   supportsEditing: boolean;
   supportsInpainting: boolean;
@@ -85,6 +115,24 @@ export function validateVideoConfig(raw: unknown): VideoModelConfig {
     throw new Error(
       `Video config "${config.id}": must have at least one of models.textToVideo or models.imageToVideo`
     );
+  }
+
+  if (config.generationModes !== undefined) {
+    const modes = config.generationModes as Record<string, unknown>;
+    const referenceMode = modes.referenceToVideo as Record<string, unknown> | undefined;
+    if (referenceMode) {
+      if (typeof referenceMode.endpoint !== "string" || !referenceMode.endpoint) {
+        throw new Error(`Video config "${config.id}": referenceToVideo.endpoint is required`);
+      }
+      const inputs = referenceMode.inputs as Record<string, unknown> | undefined;
+      const imageReferences = inputs?.imageReferences as Record<string, unknown> | undefined;
+      if (imageReferences) {
+        const max = imageReferences.max;
+        if (typeof max !== "number" || max <= 0) {
+          throw new Error(`Video config "${config.id}": imageReferences.max must be greater than 0`);
+        }
+      }
+    }
   }
 
   const capabilities = config.capabilities as Record<string, unknown>;
@@ -135,6 +183,16 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
   const models = config.models as Record<string, unknown>;
   if (!models.generate) {
     throw new Error(`Image config "${config.id}": models.generate is required`);
+  }
+
+  if (config.generationModes !== undefined) {
+    const modes = config.generationModes as Record<string, unknown>;
+    for (const [modeName, mode] of Object.entries(modes)) {
+      const modeConfig = mode as Record<string, unknown>;
+      if (typeof modeConfig.enabled !== "boolean") {
+        throw new Error(`Image config "${config.id}": ${modeName}.enabled must be boolean`);
+      }
+    }
   }
 
   return config as unknown as ImageModelConfig;

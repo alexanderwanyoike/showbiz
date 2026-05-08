@@ -15,6 +15,25 @@
     "textToVideo": "seedance-2-fal-t2v",
     "imageToVideo": "seedance-2-fal-i2v"
   },
+  "generationModes": {
+    "textToVideo": {
+      "endpoint": "bytedance/seedance-2.0/text-to-video"
+    },
+    "imageToVideo": {
+      "endpoint": "bytedance/seedance-2.0/image-to-video",
+      "inputs": {
+        "startImage": true,
+        "endImage": true
+      }
+    },
+    "referenceToVideo": {
+      "endpoint": "bytedance/seedance-2.0/reference-to-video",
+      "inputs": {
+        "imageReferences": { "max": 9 }
+      },
+      "promptSyntax": "@ImageN"
+    }
+  },
   "paramMapping": {
     "duration": "duration",
     "resolution": "resolution",

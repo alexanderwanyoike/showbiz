@@ -194,6 +194,18 @@ pub fn delete_project(
         }
     }
 
+    let mut bible_stmt = conn
+        .prepare("SELECT id FROM bibles WHERE project_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let bible_ids: Vec<String> = bible_stmt
+        .query_map(params![id], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+    for bible_id in &bible_ids {
+        media::delete_bible_media(&app, bible_id);
+    }
+
     // Delete the project (cascades to storyboards and shots)
     let changes = conn
         .execute("DELETE FROM projects WHERE id = ?1", params![id])

@@ -76,6 +76,42 @@ describe("validateVideoConfig", () => {
       validateVideoConfig({ ...validConfig, provider: "" })
     ).toThrow('"provider" must be a non-empty string');
   });
+
+  it("accepts explicit video generation modes", () => {
+    expect(() =>
+      validateVideoConfig({
+        ...validConfig,
+        generationModes: {
+          textToVideo: {
+            endpoint: "provider/text",
+          },
+          imageToVideo: {
+            endpoint: "provider/image",
+            inputs: { startImage: true, endImage: true },
+          },
+          referenceToVideo: {
+            endpoint: "provider/reference",
+            inputs: { imageReferences: { max: 9 } },
+            promptSyntax: "@ImageN",
+          },
+        },
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects invalid reference limits", () => {
+    expect(() =>
+      validateVideoConfig({
+        ...validConfig,
+        generationModes: {
+          referenceToVideo: {
+            endpoint: "provider/reference",
+            inputs: { imageReferences: { max: 0 } },
+          },
+        },
+      })
+    ).toThrow("imageReferences.max must be greater than 0");
+  });
 });
 
 describe("validateImageConfig", () => {
@@ -140,5 +176,21 @@ describe("validateImageConfig", () => {
     expect(() =>
       validateImageConfig({ ...validConfig, provider: "" })
     ).toThrow('"provider" must be a non-empty string');
+  });
+
+  it("accepts explicit image generation modes", () => {
+    expect(() =>
+      validateImageConfig({
+        ...validConfig,
+        generationModes: {
+          textToImage: { enabled: true },
+          imageToImage: {
+            enabled: true,
+            endpoint: "provider/edit",
+            imageInput: "image_url",
+          },
+        },
+      })
+    ).not.toThrow();
   });
 });
