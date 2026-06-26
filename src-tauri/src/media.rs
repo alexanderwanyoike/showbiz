@@ -224,6 +224,40 @@ pub fn delete_mask_images(app: &AppHandle, shot_id: &str) -> bool {
     }
 }
 
+pub fn bible_image_relative_path(bible_id: &str, variant_id: &str, ext: &str) -> String {
+    format!("bible/{}/{}.{}", bible_id, variant_id, ext)
+}
+
+pub fn save_bible_image(
+    app: &AppHandle,
+    bible_id: &str,
+    variant_id: &str,
+    base64_data_url: &str,
+) -> Result<String, String> {
+    let base = get_media_base_dir(app);
+    let (mime_subtype, bytes) = parse_data_url(base64_data_url)?;
+    let ext = image_ext(&mime_subtype);
+    let relative_path = bible_image_relative_path(bible_id, variant_id, ext);
+    let filepath = base.join(&relative_path);
+    if let Some(parent) = filepath.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create bible media dir: {}", e))?;
+    }
+    std::fs::write(&filepath, &bytes)
+        .map_err(|e| format!("Failed to write bible image: {}", e))?;
+    Ok(relative_path)
+}
+
+pub fn delete_bible_media(app: &AppHandle, bible_id: &str) -> bool {
+    let base = get_media_base_dir(app);
+    let bible_dir = base.join("bible").join(bible_id);
+    if bible_dir.exists() {
+        std::fs::remove_dir_all(&bible_dir).is_ok()
+    } else {
+        false
+    }
+}
+
 /// Save a version video from raw bytes. Returns relative path like "videos/versions/shotid/vN.ext".
 pub fn save_version_video(
     app: &AppHandle,
@@ -356,5 +390,13 @@ mod tests {
     fn video_mime_to_ext_bare_subtype() {
         assert_eq!(video_mime_to_ext("mp4"), "mp4");
         assert_eq!(video_mime_to_ext("webm"), "webm");
+    }
+
+    #[test]
+    fn bible_image_path_is_stable() {
+        assert_eq!(
+            bible_image_relative_path("bible-1", "variant-1", "png"),
+            "bible/bible-1/variant-1.png"
+        );
     }
 }

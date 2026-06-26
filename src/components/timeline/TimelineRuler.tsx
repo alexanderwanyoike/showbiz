@@ -98,11 +98,11 @@ export default function TimelineRuler({
 
       {/* Playhead indicator */}
       <div
-        className="absolute top-0 w-0.5 h-full bg-destructive pointer-events-none z-10"
+        className="absolute top-0 w-0.5 h-full bg-red-500 pointer-events-none z-10"
         style={{ left: playheadPosition }}
       >
-        {/* Playhead triangle */}
-        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-destructive" />
+        {/* Playhead triangle handle */}
+        <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-red-500" />
       </div>
     </div>
   );

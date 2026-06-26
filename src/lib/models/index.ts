@@ -55,6 +55,7 @@ export function getAvailableVideoModels(): VideoModelInfo[] {
         apiKeyProvider: model.apiKeyProvider,
         provider: config?.provider,
         capabilities: model.capabilities,
+        modeCapabilities: model.modeCapabilities,
         defaults: model.defaults,
         supportsImageToVideo: model.supportsImageToVideo,
         supportsTextToVideo: model.supportsTextToVideo,

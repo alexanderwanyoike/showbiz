@@ -53,6 +53,12 @@ describe("video configs", () => {
       expect(hasEndpoint).toBe(true);
     }
   });
+
+  it("Seedance 2 fal exposes reference-to-video capability", () => {
+    const provider = videoProviders.get("seedance-2-fal" as never);
+    expect(provider?.modeCapabilities.referenceToVideo?.imageReferencesMax).toBe(9);
+    expect(provider?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
+  });
 });
 
 describe("image configs", () => {
@@ -97,6 +103,18 @@ describe("image configs", () => {
         expect(config.provider).toBeTruthy();
       }
     }
+  });
+
+  it("Flux Kontext fal exposes image-to-image capability", () => {
+    const provider = imageProviders.get("flux-kontext-fal" as never);
+    expect(provider?.supportsImageEditing).toBe(true);
+    expect(provider?.modeCapabilities?.imageToImage?.enabled).toBe(true);
+  });
+
+  it("Flux Kontext fal uses separate text and edit endpoints", () => {
+    const config = imageConfigs.find((c) => c.id === "flux-kontext-fal");
+    expect(config?.transportOptions?.endpoint).toBe("fal-ai/flux-pro/kontext/text-to-image");
+    expect(config?.transportOptions?.editEndpoint).toBe("fal-ai/flux-pro/kontext");
   });
 });
 

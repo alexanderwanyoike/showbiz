@@ -1,3 +1,4 @@
+pub mod bibles;
 pub mod http_client;
 pub mod mpv;
 pub mod image_versions;

@@ -2,6 +2,7 @@ import { getApiKey, saveShotImage, saveAndCompleteVideo, getShotImageBase64, get
 import { getImageModel, getVideoModel, ImageModelId, VideoModelId } from "../lib/models";
 import { generateText } from "../lib/models/gemini-text";
 import type { VideoGenerationSettings } from "../lib/models/types";
+import type { VideoGenerationRequest } from "../lib/generation/types";
 
 export async function generateImageAction(prompt: string, modelId: ImageModelId = "imagen4"): Promise<string> {
   const model = getImageModel(modelId);
@@ -65,6 +66,64 @@ export async function generateAndSaveVideoAction(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return { success: false, videoUrl: null, error: errorMessage };
+  }
+}
+
+export async function generateAndSaveVideoRequestAction(
+  shotId: string,
+  modelId: VideoModelId,
+  request: VideoGenerationRequest
+): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
+  const model = getVideoModel(modelId);
+  const apiKey = await getApiKey(model.apiKeyProvider);
+  if (!apiKey) {
+    return { success: false, videoUrl: null, error: `${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.` };
+  }
+  try {
+    let effectiveRequest = request;
+    if (request.mode === "image-to-video" && !request.startImage) {
+      effectiveRequest = {
+        ...request,
+        startImage: await getShotImageBase64(shotId),
+      };
+    }
+    const videoBlob = model.generateVideoFromRequest
+      ? await model.generateVideoFromRequest(effectiveRequest, apiKey)
+      : await model.generateVideoBlob!(
+          effectiveRequest.prompt,
+          effectiveRequest.startImage ?? null,
+          apiKey,
+          effectiveRequest.settings
+        );
+
+    const arrayBuffer = await videoBlob.arrayBuffer();
+    const videoData = Array.from(new Uint8Array(arrayBuffer));
+    const mimeType = videoBlob.type || "video/mp4";
+    const currentVersion = await getCurrentVideoVersion(shotId);
+    const settingsJson = JSON.stringify({
+      ...effectiveRequest.settings,
+      generationMode: effectiveRequest.mode,
+      references: effectiveRequest.references?.map((ref) => ({
+        id: ref.id,
+        assetId: ref.assetId,
+        kind: ref.kind,
+        mediaType: ref.mediaType,
+        label: ref.label,
+        promptAlias: ref.promptAlias,
+      })) ?? [],
+    });
+    const result = await createVideoGenerationVersion(
+      shotId,
+      videoData,
+      mimeType,
+      effectiveRequest.prompt,
+      settingsJson,
+      modelId,
+      currentVersion?.id ?? null
+    );
+    return { success: true, videoUrl: result.video_url };
+  } catch (error) {
+    return { success: false, videoUrl: null, error: error instanceof Error ? error.message : String(error) };
   }
 }
 

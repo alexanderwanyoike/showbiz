@@ -1,8 +1,45 @@
 import type { VideoTransport } from "./types";
 import type { VideoModelConfig } from "../config-schema";
 import type { VideoGenerationSettings } from "../types";
-import { submitFalQueue, pollFalResult, uploadImageToFal } from "../fal-shared";
+import type { VideoGenerationRequest } from "../../generation/types";
+import { submitFalQueueRequest, pollFalResult, uploadImageToFal } from "../fal-shared";
 import { fetch } from "../http";
+
+function mapSettings(
+  input: Record<string, unknown>,
+  config: VideoModelConfig,
+  settings: VideoGenerationSettings
+) {
+  const mapping = config.paramMapping ?? {};
+  if (mapping.duration) input[mapping.duration] = settings.duration;
+  if (mapping.aspectRatio && settings.aspectRatio)
+    input[mapping.aspectRatio] = settings.aspectRatio;
+  if (mapping.resolution && settings.resolution)
+    input[mapping.resolution] = settings.resolution;
+  if (mapping.audio !== undefined && settings.audio !== undefined)
+    input[mapping.audio] = settings.audio;
+}
+
+async function submitAndDownload(
+  endpointId: string,
+  input: Record<string, unknown>,
+  apiKey: string
+): Promise<Blob> {
+  const queueRequest = await submitFalQueueRequest(endpointId, input, apiKey);
+  const result = await pollFalResult<{ video: { url: string } }>(
+    endpointId,
+    queueRequest.requestId,
+    apiKey,
+    {
+      statusUrl: queueRequest.statusUrl,
+      responseUrl: queueRequest.responseUrl,
+    }
+  );
+  const videoRes = await fetch(result.video.url);
+  if (!videoRes.ok)
+    throw new Error(`Failed to download fal video: ${videoRes.status}`);
+  return videoRes.blob();
+}
 
 export const falVideoTransport: VideoTransport = {
   async generateVideo(
@@ -27,14 +64,7 @@ export const falVideoTransport: VideoTransport = {
       ...(config.fixedParams ?? {}),
     };
 
-    // Map settings to API field names via paramMapping
-    if (mapping.duration) input[mapping.duration] = settings.duration;
-    if (mapping.aspectRatio && settings.aspectRatio)
-      input[mapping.aspectRatio] = settings.aspectRatio;
-    if (mapping.resolution && settings.resolution)
-      input[mapping.resolution] = settings.resolution;
-    if (mapping.audio !== undefined && settings.audio !== undefined)
-      input[mapping.audio] = settings.audio;
+    mapSettings(input, config, settings);
 
     // Handle image input for I2V
     if (imageBase64) {
@@ -43,18 +73,48 @@ export const falVideoTransport: VideoTransport = {
       input[imageKey] = imageUrl;
     }
 
-    // Submit and poll
-    const requestId = await submitFalQueue(endpointId, input, apiKey);
-    const result = await pollFalResult<{ video: { url: string } }>(
-      endpointId,
-      requestId,
-      apiKey
-    );
+    return submitAndDownload(endpointId, input, apiKey);
+  },
 
-    // Download video
-    const videoRes = await fetch(result.video.url);
-    if (!videoRes.ok)
-      throw new Error(`Failed to download fal video: ${videoRes.status}`);
-    return videoRes.blob();
+  async generateVideoRequest(
+    config: VideoModelConfig,
+    request: VideoGenerationRequest,
+    apiKey: string
+  ): Promise<Blob> {
+    const input: Record<string, unknown> = {
+      prompt: request.prompt,
+      ...(config.fixedParams ?? {}),
+    };
+    mapSettings(input, config, request.settings);
+
+    if (request.mode === "reference-to-video") {
+      const mode = config.generationModes?.referenceToVideo;
+      if (!mode) throw new Error(`${config.name} does not support reference-to-video`);
+      input.image_urls = (request.references ?? [])
+        .filter((ref) => ref.mediaType === "image")
+        .map((ref) => uploadImageToFal(ref.data));
+      return submitAndDownload(mode.endpoint, input, apiKey);
+    }
+
+    if (request.mode === "image-to-video") {
+      const mode = config.generationModes?.imageToVideo;
+      const opts = (config.transportOptions ?? {}) as Record<string, string>;
+      const endpoint = mode?.endpoint ?? opts.imageToVideoEndpoint ?? config.models.imageToVideo;
+      if (!endpoint) throw new Error(`${config.name} does not support image-to-video`);
+      if (request.startImage) {
+        const imageKey = config.paramMapping?.imageInput ?? "image_url";
+        input[imageKey] = uploadImageToFal(request.startImage);
+      }
+      if (request.endImage) {
+        input.end_image_url = uploadImageToFal(request.endImage);
+      }
+      return submitAndDownload(endpoint, input, apiKey);
+    }
+
+    const mode = config.generationModes?.textToVideo;
+    const opts = (config.transportOptions ?? {}) as Record<string, string>;
+    const endpoint = mode?.endpoint ?? opts.textToVideoEndpoint ?? config.models.textToVideo;
+    if (!endpoint) throw new Error(`${config.name} does not support text-to-video`);
+    return submitAndDownload(endpoint, input, apiKey);
   },
 };

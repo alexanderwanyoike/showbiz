@@ -54,6 +54,11 @@ fn migrate(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             image_prompt TEXT,
             image_path TEXT,
             video_prompt TEXT,
+            intent_action TEXT,
+            intent_camera TEXT,
+            intent_mood TEXT,
+            compiled_prompt TEXT,
+            prompt_override TEXT,
             video_path TEXT,
             status TEXT NOT NULL DEFAULT 'pending',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -115,8 +120,141 @@ fn migrate(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
 
         CREATE INDEX IF NOT EXISTS idx_video_versions_shot ON video_versions(shot_id);
         CREATE INDEX IF NOT EXISTS idx_video_versions_parent ON video_versions(parent_version_id);
+
+        CREATE TABLE IF NOT EXISTS timeline_tracks (
+            id TEXT PRIMARY KEY,
+            storyboard_id TEXT NOT NULL REFERENCES storyboards(id) ON DELETE CASCADE,
+            track_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            track_type TEXT NOT NULL CHECK(track_type IN ('video', 'audio')),
+            position INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(storyboard_id, track_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_timeline_tracks_storyboard ON timeline_tracks(storyboard_id);
+
+        CREATE TABLE IF NOT EXISTS timeline_clips (
+            id TEXT PRIMARY KEY,
+            storyboard_id TEXT NOT NULL REFERENCES storyboards(id) ON DELETE CASCADE,
+            shot_id TEXT NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+            track_id TEXT NOT NULL,
+            start_time REAL NOT NULL DEFAULT 0.0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_timeline_clips_storyboard ON timeline_clips(storyboard_id);
+
+        CREATE TABLE IF NOT EXISTS bibles (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            description TEXT,
+            is_default INTEGER NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_bibles_project ON bibles(project_id);
+
+        CREATE TABLE IF NOT EXISTS bible_assets (
+            id TEXT PRIMARY KEY,
+            bible_id TEXT NOT NULL REFERENCES bibles(id) ON DELETE CASCADE,
+            asset_type TEXT NOT NULL CHECK(asset_type IN ('character', 'location', 'prop', 'style', 'reference', 'note')),
+            name TEXT NOT NULL,
+            summary TEXT,
+            description TEXT,
+            tags_json TEXT,
+            rules_json TEXT,
+            consent_confirmed INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'approved', 'archived')),
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_bible_assets_bible ON bible_assets(bible_id);
+
+        CREATE TABLE IF NOT EXISTS bible_asset_variants (
+            id TEXT PRIMARY KEY,
+            asset_id TEXT NOT NULL REFERENCES bible_assets(id) ON DELETE CASCADE,
+            parent_variant_id TEXT REFERENCES bible_asset_variants(id) ON DELETE SET NULL,
+            name TEXT,
+            status TEXT NOT NULL DEFAULT 'candidate' CHECK(status IN ('candidate', 'approved', 'rejected')),
+            media_path TEXT,
+            prompt TEXT,
+            negative_prompt TEXT,
+            model_id TEXT,
+            source_kind TEXT NOT NULL CHECK(source_kind IN ('uploaded', 'generated', 'edited', 'imported')),
+            is_primary INTEGER NOT NULL DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_bible_asset_variants_asset ON bible_asset_variants(asset_id);
+
+        CREATE TABLE IF NOT EXISTS bible_snapshots (
+            id TEXT PRIMARY KEY,
+            bible_id TEXT NOT NULL REFERENCES bibles(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            notes TEXT,
+            snapshot_json TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_bible_snapshots_bible ON bible_snapshots(bible_id);
+
+        CREATE TABLE IF NOT EXISTS storyboard_bibles (
+            storyboard_id TEXT NOT NULL REFERENCES storyboards(id) ON DELETE CASCADE,
+            bible_id TEXT NOT NULL REFERENCES bibles(id) ON DELETE CASCADE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (storyboard_id, bible_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_storyboard_bibles_storyboard ON storyboard_bibles(storyboard_id);
+
+        CREATE TABLE IF NOT EXISTS shot_asset_refs (
+            id TEXT PRIMARY KEY,
+            shot_id TEXT NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+            asset_id TEXT NOT NULL REFERENCES bible_assets(id) ON DELETE CASCADE,
+            variant_id TEXT REFERENCES bible_asset_variants(id) ON DELETE SET NULL,
+            role TEXT NOT NULL DEFAULT 'reference',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_shot_asset_refs_shot ON shot_asset_refs(shot_id);
+
+        CREATE TRIGGER IF NOT EXISTS trg_projects_create_main_bible
+        AFTER INSERT ON projects
+        WHEN NOT EXISTS (SELECT 1 FROM bibles WHERE project_id = NEW.id)
+        BEGIN
+            INSERT INTO bibles (id, project_id, name, is_default)
+            VALUES ('bible-' || NEW.id, NEW.id, 'Main Bible', 1);
+        END;
         "#,
     )?;
+
+    conn.execute_batch(
+        r#"
+        INSERT OR IGNORE INTO bibles (id, project_id, name, is_default)
+        SELECT 'bible-' || p.id, p.id, 'Main Bible', 1
+        FROM projects p
+        WHERE NOT EXISTS (SELECT 1 FROM bibles b WHERE b.project_id = p.id);
+        "#,
+    )?;
+
+    // Migration: Replace position-based timeline_clips with start_time-based
+    let has_start_time: bool = conn
+        .prepare("PRAGMA table_info(timeline_clips)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .any(|col| col == "start_time");
+
+    if !has_start_time {
+        conn.execute_batch(
+            "DROP TABLE IF EXISTS timeline_clips;
+             CREATE TABLE timeline_clips (
+                 id TEXT PRIMARY KEY,
+                 storyboard_id TEXT NOT NULL REFERENCES storyboards(id) ON DELETE CASCADE,
+                 shot_id TEXT NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+                 track_id TEXT NOT NULL,
+                 start_time REAL NOT NULL DEFAULT 0.0,
+                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+             );
+             CREATE INDEX IF NOT EXISTS idx_timeline_clips_storyboard ON timeline_clips(storyboard_id);",
+        )?;
+    }
 
     // Migration: Add model columns to existing storyboards table if they don't exist
     let has_image_model: bool = conn
@@ -141,6 +279,23 @@ fn migrate(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         conn.execute_batch(
             "ALTER TABLE storyboards ADD COLUMN video_model TEXT NOT NULL DEFAULT 'veo3'",
         )?;
+    }
+
+    for (column, sql_type) in [
+        ("intent_action", "TEXT"),
+        ("intent_camera", "TEXT"),
+        ("intent_mood", "TEXT"),
+        ("compiled_prompt", "TEXT"),
+        ("prompt_override", "TEXT"),
+    ] {
+        let exists: bool = conn
+            .prepare("PRAGMA table_info(shots)")?
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .any(|col| col == column);
+        if !exists {
+            conn.execute_batch(&format!("ALTER TABLE shots ADD COLUMN {} {}", column, sql_type))?;
+        }
     }
 
     // Migration: Create initial image versions for existing shots with images
@@ -274,5 +429,79 @@ pub mod tests {
         let ids: Vec<String> = (0..100).map(|_| generate_id("x")).collect();
         let unique: std::collections::HashSet<&String> = ids.iter().collect();
         assert_eq!(ids.len(), unique.len(), "All IDs should be unique");
+    }
+
+    #[test]
+    fn migrations_create_bible_tables() {
+        let conn = open_test_db();
+        for table in [
+            "bibles",
+            "bible_assets",
+            "bible_asset_variants",
+            "bible_snapshots",
+            "storyboard_bibles",
+            "shot_asset_refs",
+        ] {
+            let count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                    rusqlite::params![table],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 1, "missing table {table}");
+        }
+    }
+
+    #[test]
+    fn creating_project_creates_main_bible() {
+        let conn = open_test_db();
+        let project_id = generate_id("proj");
+        conn.execute(
+            "INSERT INTO projects (id, name) VALUES (?1, ?2)",
+            rusqlite::params![project_id, "Series"],
+        )
+        .unwrap();
+
+        let bible_name: String = conn
+            .query_row(
+                "SELECT name FROM bibles WHERE project_id = ?1",
+                rusqlite::params![project_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(bible_name, "Main Bible");
+    }
+
+    #[test]
+    fn deleting_project_cascades_bible_data() {
+        let conn = open_test_db();
+        let project_id = generate_id("proj");
+        conn.execute(
+            "INSERT INTO projects (id, name) VALUES (?1, ?2)",
+            rusqlite::params![project_id, "Series"],
+        )
+        .unwrap();
+        let bible_id: String = conn
+            .query_row(
+                "SELECT id FROM bibles WHERE project_id = ?1",
+                rusqlite::params![project_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let asset_id = generate_id("asset");
+        conn.execute(
+            "INSERT INTO bible_assets (id, bible_id, asset_type, name) VALUES (?1, ?2, 'character', 'Mara')",
+            rusqlite::params![asset_id, bible_id],
+        )
+        .unwrap();
+        conn.execute("DELETE FROM projects WHERE id = ?1", rusqlite::params![project_id])
+            .unwrap();
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM bible_assets", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
     }
 }

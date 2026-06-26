@@ -1,11 +1,5 @@
 import { Link } from "react-router";
 import { Film, Trash2 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -39,35 +33,36 @@ export default function ProjectCard({
   });
 
   return (
-    <Card className="group overflow-hidden hover:shadow-md transition-all">
+    <div className="group relative">
       <Link to={`/project/${id}`} className="block">
-        <CardHeader className="pb-2">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                {name}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Updated {formattedDate}
-              </p>
-            </div>
-            <div className="ml-4 p-2 rounded-lg bg-primary/10 text-primary opacity-70 group-hover:opacity-100 transition-opacity">
-              <Film className="h-6 w-6" />
-            </div>
+        {/* 16:9 Thumbnail */}
+        <div className="aspect-video relative rounded-md overflow-hidden bg-muted/50 group-hover:brightness-125 transition-all duration-200">
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/40">
+            <Film className="h-10 w-10" />
           </div>
-        </CardHeader>
-        <CardContent className="pb-0" />
+        </div>
+
+        {/* Text below thumbnail */}
+        <div className="mt-2 px-0.5">
+          <h3 className="text-sm font-medium text-foreground truncate">
+            {name}
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Last modified: {formattedDate}
+          </p>
+        </div>
       </Link>
-      <CardFooter className="pt-2 flex justify-end">
+
+      {/* Delete button — appears on hover */}
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
               variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              size="icon"
+              className="h-7 w-7 bg-black/60 hover:bg-black/80 text-white hover:text-white rounded-sm"
             >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Delete
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -90,7 +85,7 @@ export default function ProjectCard({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }

@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Plus, Film, Loader2 } from "lucide-react";
+import { Plus, Film, Loader2, Search } from "lucide-react";
 import { Header } from "../components/Header";
 import ProjectCard from "../components/ProjectCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   getProjects,
   createProject,
@@ -20,6 +19,7 @@ export default function WorkspacePage() {
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [showNewProjectInput, setShowNewProjectInput] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Load projects on mount
   useEffect(() => {
@@ -67,105 +67,116 @@ export default function WorkspacePage() {
     }
   }
 
+  const filteredProjects = projects.filter((p) =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Section Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">Projects</h2>
-            <p className="text-muted-foreground text-sm mt-1">
-              Your AI-powered video storyboard workspace
-            </p>
+      <main className="px-6 py-6">
+        {/* Top bar: search + new project */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9"
+            />
           </div>
-          {!showNewProjectInput && (
-            <Button onClick={() => setShowNewProjectInput(true)}>
-              <Plus className="h-4 w-4 mr-2" />
+          <div className="flex-1" />
+          {showNewProjectInput ? (
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                placeholder="Project name..."
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateProject();
+                  if (e.key === "Escape") {
+                    setShowNewProjectInput(false);
+                    setNewProjectName("");
+                  }
+                }}
+                className="h-9 w-56"
+                autoFocus
+              />
+              <Button
+                size="sm"
+                onClick={handleCreateProject}
+                disabled={isCreating || !newProjectName.trim()}
+              >
+                {isCreating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Create"
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowNewProjectInput(false);
+                  setNewProjectName("");
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button size="sm" onClick={() => setShowNewProjectInput(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
               New Project
             </Button>
           )}
         </div>
 
-        {/* New Project Input */}
-        {showNewProjectInput && (
-          <Card className="mb-6">
-            <CardContent className="pt-4">
-              <div className="flex gap-3">
-                <Input
-                  type="text"
-                  placeholder="Project name..."
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCreateProject();
-                    if (e.key === "Escape") {
-                      setShowNewProjectInput(false);
-                      setNewProjectName("");
-                    }
-                  }}
-                  autoFocus
-                />
-                <Button
-                  onClick={handleCreateProject}
-                  disabled={isCreating || !newProjectName.trim()}
-                >
-                  {isCreating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Create"
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowNewProjectInput(false);
-                    setNewProjectName("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Loading State */}
         {isLoading ? (
-          <div className="text-center py-12 text-muted-foreground flex items-center justify-center gap-2">
+          <div className="text-center py-24 text-muted-foreground flex items-center justify-center gap-2">
             <Loader2 className="h-5 w-5 animate-spin" />
             Loading projects...
           </div>
-        ) : projects.length === 0 ? (
+        ) : filteredProjects.length === 0 && projects.length === 0 ? (
           /* Empty State */
-          <Card className="border-2 border-dashed">
-            <CardContent className="text-center py-16">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-                <Film className="h-8 w-8" />
-              </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                No projects yet
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                Create your first project to get started
-              </p>
-              {!showNewProjectInput && (
-                <Button onClick={() => setShowNewProjectInput(true)} size="lg">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Project
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          <div className="text-center py-24">
+            <Film className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
+            <h3 className="text-base font-medium text-foreground mb-1">
+              No projects yet
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Create your first project to get started
+            </p>
+            {!showNewProjectInput && (
+              <Button size="sm" onClick={() => setShowNewProjectInput(true)}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                Create Project
+              </Button>
+            )}
+          </div>
+        ) : filteredProjects.length === 0 ? (
+          /* No search results */
+          <div className="text-center py-24">
+            <Search className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+            <p className="text-sm text-muted-foreground">
+              No projects matching &quot;{searchQuery}&quot;
+            </p>
+          </div>
         ) : (
           /* Projects Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((project) => (
+          <div
+            className="grid gap-6"
+            style={{
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            }}
+          >
+            {filteredProjects.map((project) => (
               <ProjectCard
                 key={project.id}
                 id={project.id}
@@ -174,6 +185,15 @@ export default function WorkspacePage() {
                 onDelete={handleDeleteProject}
               />
             ))}
+          </div>
+        )}
+
+        {/* Bottom status bar */}
+        {!isLoading && projects.length > 0 && (
+          <div className="mt-8 text-xs text-muted-foreground">
+            {filteredProjects.length === projects.length
+              ? `${projects.length} project${projects.length === 1 ? "" : "s"}`
+              : `${filteredProjects.length} of ${projects.length} project${projects.length === 1 ? "" : "s"}`}
           </div>
         )}
       </main>

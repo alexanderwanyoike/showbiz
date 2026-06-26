@@ -158,7 +158,8 @@ export class VideoAssembler {
    * Each clip specifies its source video and trim in/out points
    */
   async assembleTrimmedVideos(
-    clips: { videoUrl: string; trimIn: number; trimOut: number }[]
+    clips: { videoUrl: string; trimIn: number; trimOut: number }[],
+    onProgress?: (percent: number, stage: string) => void
   ): Promise<Uint8Array> {
     if (!this.ffmpeg || !this.isLoaded) {
       await this.load();
@@ -201,6 +202,7 @@ export class VideoAssembler {
         console.log(
           `Trimmed ${outputFilename}: ${clip.trimIn.toFixed(2)}s - ${clip.trimOut.toFixed(2)}s (${duration.toFixed(2)}s)`
         );
+        onProgress?.(Math.round(((i + 1) / clips.length) * 90), `Trimming clip ${i + 1}/${clips.length}...`);
 
         // Clean up input file to save memory
         await ffmpeg.deleteFile(inputFilename);
@@ -216,6 +218,7 @@ export class VideoAssembler {
 
     // 3. Run concat with re-encoding for seamless joins
     console.log("Running ffmpeg concat with re-encoding...");
+    onProgress?.(90, "Concatenating...");
 
     try {
       await ffmpeg.exec([
@@ -267,6 +270,7 @@ export class VideoAssembler {
     }
 
     console.log("Trimmed assembly complete:", `${outputData.byteLength} bytes`);
+    onProgress?.(100, "Complete");
 
     // 5. Cleanup all files from memory
     await this.cleanup(ffmpeg, [...trimmedFiles, "list.txt", "output.mp4"]);

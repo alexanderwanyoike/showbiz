@@ -13,6 +13,11 @@ pub struct ShotWithUrls {
     pub image_prompt: Option<String>,
     pub image_path: Option<String>,
     pub video_prompt: Option<String>,
+    pub intent_action: Option<String>,
+    pub intent_camera: Option<String>,
+    pub intent_mood: Option<String>,
+    pub compiled_prompt: Option<String>,
+    pub prompt_override: Option<String>,
     pub video_path: Option<String>,
     pub status: String,
     pub created_at: String,
@@ -26,6 +31,11 @@ pub struct ShotUpdates {
     pub duration: Option<i64>,
     pub image_prompt: Option<String>,
     pub video_prompt: Option<String>,
+    pub intent_action: Option<String>,
+    pub intent_camera: Option<String>,
+    pub intent_mood: Option<String>,
+    pub compiled_prompt: Option<String>,
+    pub prompt_override: Option<String>,
     pub status: Option<String>,
 }
 
@@ -45,7 +55,8 @@ fn query_shot_with_urls(
     let mut stmt = conn
         .prepare(
             r#"SELECT id, storyboard_id, "order", duration, image_prompt, image_path,
-                      video_prompt, video_path, status, created_at, updated_at
+                      video_prompt, intent_action, intent_camera, intent_mood, compiled_prompt,
+                      prompt_override, video_path, status, created_at, updated_at
                FROM shots WHERE id = ?1"#,
         )
         .map_err(|e| e.to_string())?;
@@ -53,7 +64,7 @@ fn query_shot_with_urls(
     let shot = stmt
         .query_row(params![shot_id], |row| {
             let image_path: Option<String> = row.get(5)?;
-            let video_path: Option<String> = row.get(7)?;
+            let video_path: Option<String> = row.get(12)?;
 
             let image_url = image_path.as_ref().map(|p| make_media_url(app, p));
             let video_url = video_path.as_ref().map(|p| make_media_url(app, p));
@@ -66,10 +77,15 @@ fn query_shot_with_urls(
                 image_prompt: row.get(4)?,
                 image_path,
                 video_prompt: row.get(6)?,
+                intent_action: row.get(7)?,
+                intent_camera: row.get(8)?,
+                intent_mood: row.get(9)?,
+                compiled_prompt: row.get(10)?,
+                prompt_override: row.get(11)?,
                 video_path,
-                status: row.get(8)?,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+                status: row.get(13)?,
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
                 image_url,
                 video_url,
             })
@@ -89,7 +105,8 @@ pub fn get_shots(
     let mut stmt = conn
         .prepare(
             r#"SELECT id, storyboard_id, "order", duration, image_prompt, image_path,
-                      video_prompt, video_path, status, created_at, updated_at
+                      video_prompt, intent_action, intent_camera, intent_mood, compiled_prompt,
+                      prompt_override, video_path, status, created_at, updated_at
                FROM shots WHERE storyboard_id = ?1 ORDER BY "order" ASC"#,
         )
         .map_err(|e| e.to_string())?;
@@ -97,7 +114,7 @@ pub fn get_shots(
     let shots = stmt
         .query_map(params![storyboard_id], |row| {
             let image_path: Option<String> = row.get(5)?;
-            let video_path: Option<String> = row.get(7)?;
+            let video_path: Option<String> = row.get(12)?;
 
             let image_url = image_path.as_ref().map(|p| make_media_url(&app, p));
             let video_url = video_path.as_ref().map(|p| make_media_url(&app, p));
@@ -110,10 +127,15 @@ pub fn get_shots(
                 image_prompt: row.get(4)?,
                 image_path,
                 video_prompt: row.get(6)?,
+                intent_action: row.get(7)?,
+                intent_camera: row.get(8)?,
+                intent_mood: row.get(9)?,
+                compiled_prompt: row.get(10)?,
+                prompt_override: row.get(11)?,
                 video_path,
-                status: row.get(8)?,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+                status: row.get(13)?,
+                created_at: row.get(14)?,
+                updated_at: row.get(15)?,
                 image_url,
                 video_url,
             })
@@ -178,6 +200,26 @@ pub fn update_shot(
     if let Some(ref video_prompt) = updates.video_prompt {
         set_clauses.push("video_prompt = ?".to_string());
         param_values.push(Box::new(video_prompt.clone()));
+    }
+    if let Some(ref intent_action) = updates.intent_action {
+        set_clauses.push("intent_action = ?".to_string());
+        param_values.push(Box::new(intent_action.clone()));
+    }
+    if let Some(ref intent_camera) = updates.intent_camera {
+        set_clauses.push("intent_camera = ?".to_string());
+        param_values.push(Box::new(intent_camera.clone()));
+    }
+    if let Some(ref intent_mood) = updates.intent_mood {
+        set_clauses.push("intent_mood = ?".to_string());
+        param_values.push(Box::new(intent_mood.clone()));
+    }
+    if let Some(ref compiled_prompt) = updates.compiled_prompt {
+        set_clauses.push("compiled_prompt = ?".to_string());
+        param_values.push(Box::new(compiled_prompt.clone()));
+    }
+    if let Some(ref prompt_override) = updates.prompt_override {
+        set_clauses.push("prompt_override = ?".to_string());
+        param_values.push(Box::new(prompt_override.clone()));
     }
     if let Some(ref status) = updates.status {
         set_clauses.push("status = ?".to_string());

@@ -50,6 +50,11 @@ export interface ShotWithUrls {
   image_path: string | null;
   image_url: string | null;
   video_prompt: string | null;
+  intent_action: string | null;
+  intent_camera: string | null;
+  intent_mood: string | null;
+  compiled_prompt: string | null;
+  prompt_override: string | null;
   video_path: string | null;
   video_url: string | null;
   status: string;
@@ -123,6 +128,116 @@ export interface TimelineEdit {
   updated_at: string;
 }
 
+export interface TimelineTrack {
+  id: string;
+  storyboard_id: string;
+  track_id: string;
+  name: string;
+  track_type: "video" | "audio";
+  position: number;
+  created_at: string;
+}
+
+export interface TimelineClipRow {
+  id: string;
+  storyboard_id: string;
+  shot_id: string;
+  track_id: string;
+  start_time: number;
+  created_at: string;
+}
+
+export type BibleAssetType = "character" | "location" | "prop" | "style" | "reference" | "note";
+export type BibleAssetVariantStatus = "candidate" | "approved" | "rejected";
+
+export interface Bible {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BibleAsset {
+  id: string;
+  bible_id: string;
+  asset_type: BibleAssetType;
+  name: string;
+  summary: string | null;
+  description: string | null;
+  tags_json: string | null;
+  rules_json: string | null;
+  consent_confirmed: boolean;
+  status: "draft" | "approved" | "archived";
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BibleAssetInput {
+  asset_type: BibleAssetType;
+  name: string;
+  summary?: string | null;
+  description?: string | null;
+  tags_json?: string | null;
+  rules_json?: string | null;
+  consent_confirmed: boolean;
+}
+
+export interface BibleAssetVariant {
+  id: string;
+  asset_id: string;
+  parent_variant_id: string | null;
+  name: string | null;
+  status: BibleAssetVariantStatus;
+  media_path: string | null;
+  media_url: string | null;
+  prompt: string | null;
+  negative_prompt: string | null;
+  model_id: string | null;
+  source_kind: "uploaded" | "generated" | "edited" | "imported";
+  is_primary: boolean;
+  created_at: string;
+}
+
+export interface BibleAssetVariantInput {
+  parent_variant_id?: string | null;
+  name?: string | null;
+  status?: BibleAssetVariantStatus | null;
+  image_base64?: string | null;
+  prompt?: string | null;
+  negative_prompt?: string | null;
+  model_id?: string | null;
+  source_kind: "uploaded" | "generated" | "edited" | "imported";
+  is_primary: boolean;
+}
+
+export interface BibleSnapshot {
+  id: string;
+  bible_id: string;
+  name: string;
+  notes: string | null;
+  snapshot_json: string;
+  created_at: string;
+}
+
+export interface ShotAssetRef {
+  id: string;
+  shot_id: string;
+  asset_id: string;
+  variant_id: string | null;
+  role: string;
+  created_at: string;
+}
+
+export interface ShotAssetRefInput {
+  asset_id: string;
+  variant_id?: string | null;
+  role?: string | null;
+}
+
 // --- Projects ---
 export async function getProjects(): Promise<Project[]> {
   return invoke("get_projects");
@@ -176,6 +291,101 @@ export async function deleteStoryboard(id: string): Promise<boolean> {
 
 export async function updateStoryboardModels(id: string, imageModel: string, videoModel: string): Promise<Storyboard> {
   return invoke("update_storyboard_models", { id, imageModel, videoModel });
+}
+
+// --- Bibles ---
+function convertBibleVariantUrls(variant: BibleAssetVariant): BibleAssetVariant {
+  return {
+    ...variant,
+    media_url: mediaUrl(variant.media_url),
+  };
+}
+
+export async function getBibles(projectId: string): Promise<Bible[]> {
+  return invoke("get_bibles", { projectId });
+}
+
+export async function createBible(projectId: string, name: string, description?: string | null): Promise<Bible> {
+  return invoke("create_bible", { projectId, name, description: description ?? null });
+}
+
+export async function updateBible(id: string, name: string, description?: string | null): Promise<Bible> {
+  return invoke("update_bible", { id, name, description: description ?? null });
+}
+
+export async function deleteBible(id: string): Promise<boolean> {
+  return invoke("delete_bible", { id });
+}
+
+export async function getBibleAssets(bibleId: string): Promise<BibleAsset[]> {
+  return invoke("get_bible_assets", { bibleId });
+}
+
+export async function createBibleAsset(bibleId: string, input: BibleAssetInput): Promise<BibleAsset> {
+  return invoke("create_bible_asset", { bibleId, input });
+}
+
+export async function updateBibleAsset(id: string, input: BibleAssetInput): Promise<BibleAsset> {
+  return invoke("update_bible_asset", { id, input });
+}
+
+export async function deleteBibleAsset(id: string): Promise<boolean> {
+  return invoke("delete_bible_asset", { id });
+}
+
+export async function getBibleAssetVariants(assetId: string): Promise<BibleAssetVariant[]> {
+  const variants: BibleAssetVariant[] = await invoke("get_bible_asset_variants", { assetId });
+  return variants.map(convertBibleVariantUrls);
+}
+
+export async function createBibleAssetVariant(assetId: string, input: BibleAssetVariantInput): Promise<BibleAssetVariant> {
+  const variant: BibleAssetVariant = await invoke("create_bible_asset_variant", { assetId, input });
+  return convertBibleVariantUrls(variant);
+}
+
+export async function updateBibleAssetVariantStatus(
+  id: string,
+  status: BibleAssetVariantStatus,
+  isPrimary: boolean
+): Promise<BibleAssetVariant> {
+  const variant: BibleAssetVariant = await invoke("update_bible_asset_variant_status", { id, status, isPrimary });
+  return convertBibleVariantUrls(variant);
+}
+
+export async function deleteBibleAssetVariant(id: string): Promise<boolean> {
+  return invoke("delete_bible_asset_variant", { id });
+}
+
+export async function getBibleVariantImageBase64(variantId: string): Promise<string | null> {
+  return invoke("get_bible_variant_image_base64", { variantId });
+}
+
+export async function getStoryboardBibles(storyboardId: string): Promise<Bible[]> {
+  return invoke("get_storyboard_bibles", { storyboardId });
+}
+
+export async function attachStoryboardBible(storyboardId: string, bibleId: string): Promise<boolean> {
+  return invoke("attach_storyboard_bible", { storyboardId, bibleId });
+}
+
+export async function detachStoryboardBible(storyboardId: string, bibleId: string): Promise<boolean> {
+  return invoke("detach_storyboard_bible", { storyboardId, bibleId });
+}
+
+export async function getShotAssetRefs(shotId: string): Promise<ShotAssetRef[]> {
+  return invoke("get_shot_asset_refs", { shotId });
+}
+
+export async function setShotAssetRefs(shotId: string, refs: ShotAssetRefInput[]): Promise<ShotAssetRef[]> {
+  return invoke("set_shot_asset_refs", { shotId, refs });
+}
+
+export async function createBibleSnapshot(bibleId: string, name: string, notes?: string | null): Promise<BibleSnapshot> {
+  return invoke("create_bible_snapshot", { bibleId, name, notes: notes ?? null });
+}
+
+export async function getBibleSnapshots(bibleId: string): Promise<BibleSnapshot[]> {
+  return invoke("get_bible_snapshots", { bibleId });
 }
 
 // --- Shots ---
@@ -383,6 +593,44 @@ export async function resetTimelineEdit(shotId: string): Promise<boolean> {
 
 export async function resetAllTimelineEdits(storyboardId: string): Promise<boolean> {
   return invoke("reset_all_timeline_edits", { storyboardId });
+}
+
+// --- Timeline Tracks ---
+export async function getTimelineTracks(storyboardId: string): Promise<TimelineTrack[]> {
+  return invoke("get_timeline_tracks", { storyboardId });
+}
+
+export async function createTimelineTrack(storyboardId: string, trackType: string): Promise<TimelineTrack> {
+  return invoke("create_timeline_track", { storyboardId, trackType });
+}
+
+export async function deleteTimelineTrack(id: string): Promise<boolean> {
+  return invoke("delete_timeline_track", { id });
+}
+
+export async function ensureDefaultTracks(storyboardId: string): Promise<TimelineTrack[]> {
+  return invoke("ensure_default_tracks", { storyboardId });
+}
+
+// --- Timeline Clips ---
+export async function getTimelineClips(storyboardId: string): Promise<TimelineClipRow[]> {
+  return invoke("get_timeline_clips", { storyboardId });
+}
+
+export async function addTimelineClip(storyboardId: string, shotId: string, trackId: string, startTime: number): Promise<TimelineClipRow> {
+  return invoke("add_timeline_clip", { storyboardId, shotId, trackId, startTime });
+}
+
+export async function removeTimelineClip(id: string): Promise<boolean> {
+  return invoke("remove_timeline_clip", { id });
+}
+
+export async function removeAllTimelineClips(storyboardId: string): Promise<boolean> {
+  return invoke("remove_all_timeline_clips", { storyboardId });
+}
+
+export async function moveTimelineClip(clipId: string, targetTrackId: string, startTime: number): Promise<void> {
+  return invoke("move_timeline_clip", { clipId, targetTrackId, startTime });
 }
 
 // --- Media Helper ---
