@@ -89,28 +89,9 @@ describe("validateVideoConfig", () => {
             endpoint: "provider/image",
             inputs: { startImage: true, endImage: true },
           },
-          referenceToVideo: {
-            endpoint: "provider/reference",
-            inputs: { imageReferences: { max: 9 } },
-            promptSyntax: "@ImageN",
-          },
         },
       })
     ).not.toThrow();
-  });
-
-  it("rejects invalid reference limits", () => {
-    expect(() =>
-      validateVideoConfig({
-        ...validConfig,
-        generationModes: {
-          referenceToVideo: {
-            endpoint: "provider/reference",
-            inputs: { imageReferences: { max: 0 } },
-          },
-        },
-      })
-    ).toThrow("imageReferences.max must be greater than 0");
   });
 });
 

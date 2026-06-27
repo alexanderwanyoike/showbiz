@@ -25,13 +25,6 @@
         "startImage": true,
         "endImage": true
       }
-    },
-    "referenceToVideo": {
-      "endpoint": "bytedance/seedance-2.0/reference-to-video",
-      "inputs": {
-        "imageReferences": { "max": 9 }
-      },
-      "promptSyntax": "@ImageN"
     }
   },
   "paramMapping": {

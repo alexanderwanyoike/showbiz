@@ -49,12 +49,9 @@ export interface ShotWithUrls {
   image_prompt: string | null;
   image_path: string | null;
   image_url: string | null;
+  end_frame_path: string | null;
+  end_frame_url: string | null;
   video_prompt: string | null;
-  intent_action: string | null;
-  intent_camera: string | null;
-  intent_mood: string | null;
-  compiled_prompt: string | null;
-  prompt_override: string | null;
   video_path: string | null;
   video_url: string | null;
   status: string;
@@ -214,30 +211,6 @@ export interface BibleAssetVariantInput {
   is_primary: boolean;
 }
 
-export interface BibleSnapshot {
-  id: string;
-  bible_id: string;
-  name: string;
-  notes: string | null;
-  snapshot_json: string;
-  created_at: string;
-}
-
-export interface ShotAssetRef {
-  id: string;
-  shot_id: string;
-  asset_id: string;
-  variant_id: string | null;
-  role: string;
-  created_at: string;
-}
-
-export interface ShotAssetRefInput {
-  asset_id: string;
-  variant_id?: string | null;
-  role?: string | null;
-}
-
 // --- Projects ---
 export async function getProjects(): Promise<Project[]> {
   return invoke("get_projects");
@@ -360,39 +333,12 @@ export async function getBibleVariantImageBase64(variantId: string): Promise<str
   return invoke("get_bible_variant_image_base64", { variantId });
 }
 
-export async function getStoryboardBibles(storyboardId: string): Promise<Bible[]> {
-  return invoke("get_storyboard_bibles", { storyboardId });
-}
-
-export async function attachStoryboardBible(storyboardId: string, bibleId: string): Promise<boolean> {
-  return invoke("attach_storyboard_bible", { storyboardId, bibleId });
-}
-
-export async function detachStoryboardBible(storyboardId: string, bibleId: string): Promise<boolean> {
-  return invoke("detach_storyboard_bible", { storyboardId, bibleId });
-}
-
-export async function getShotAssetRefs(shotId: string): Promise<ShotAssetRef[]> {
-  return invoke("get_shot_asset_refs", { shotId });
-}
-
-export async function setShotAssetRefs(shotId: string, refs: ShotAssetRefInput[]): Promise<ShotAssetRef[]> {
-  return invoke("set_shot_asset_refs", { shotId, refs });
-}
-
-export async function createBibleSnapshot(bibleId: string, name: string, notes?: string | null): Promise<BibleSnapshot> {
-  return invoke("create_bible_snapshot", { bibleId, name, notes: notes ?? null });
-}
-
-export async function getBibleSnapshots(bibleId: string): Promise<BibleSnapshot[]> {
-  return invoke("get_bible_snapshots", { bibleId });
-}
-
 // --- Shots ---
 function convertShotUrls(shot: ShotWithUrls): ShotWithUrls {
   return {
     ...shot,
     image_url: mediaUrl(shot.image_url),
+    end_frame_url: mediaUrl(shot.end_frame_url),
     video_url: mediaUrl(shot.video_url),
   };
 }
@@ -432,6 +378,20 @@ export async function saveShotVideo(id: string, base64DataUrl: string): Promise<
 
 export async function getShotImageBase64(shotId: string): Promise<string | null> {
   return invoke("get_shot_image_base64", { shotId });
+}
+
+export async function saveShotEndFrame(id: string, base64DataUrl: string): Promise<ShotWithUrls | null> {
+  const shot: ShotWithUrls | null = await invoke("save_shot_end_frame", { id, base64DataUrl });
+  return shot ? convertShotUrls(shot) : null;
+}
+
+export async function clearShotEndFrame(id: string): Promise<ShotWithUrls | null> {
+  const shot: ShotWithUrls | null = await invoke("clear_shot_end_frame", { id });
+  return shot ? convertShotUrls(shot) : null;
+}
+
+export async function getShotEndFrameBase64(shotId: string): Promise<string | null> {
+  return invoke("get_shot_end_frame_base64", { shotId });
 }
 
 export async function copyImageFromShot(targetShotId: string, sourceShotId: string): Promise<ShotWithUrls | null> {

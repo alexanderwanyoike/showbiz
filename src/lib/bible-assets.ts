@@ -102,9 +102,9 @@ export function resolveSelectedVariantId<T extends VariantChoiceSource>(
 
 export interface ShotVideoSourceInput {
   imageUrl: string | null;
-  selectedRefs: Array<{ variant_id?: string | null }>;
+  prompt: string | null;
 }
 
 export function hasUsableShotVideoSource(input: ShotVideoSourceInput): boolean {
-  return !!input.imageUrl || input.selectedRefs.some((ref) => !!ref.variant_id);
+  return !!input.imageUrl || !!input.prompt?.trim();
 }

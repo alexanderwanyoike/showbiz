@@ -29,13 +29,6 @@ function videoModeCapabilities(config: VideoModelConfig) {
       : config.models.imageToVideo
         ? { endpoint: config.models.imageToVideo, supportsStartImage: true, supportsEndImage: false }
         : undefined,
-    referenceToVideo: explicit?.referenceToVideo
-      ? {
-          endpoint: explicit.referenceToVideo.endpoint,
-          imageReferencesMax: explicit.referenceToVideo.inputs?.imageReferences?.max,
-          promptSyntax: explicit.referenceToVideo.promptSyntax,
-        }
-      : undefined,
   };
 }
 

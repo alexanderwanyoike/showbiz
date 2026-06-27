@@ -53,12 +53,8 @@ fn migrate(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             duration INTEGER NOT NULL DEFAULT 8,
             image_prompt TEXT,
             image_path TEXT,
+            end_frame_path TEXT,
             video_prompt TEXT,
-            intent_action TEXT,
-            intent_camera TEXT,
-            intent_mood TEXT,
-            compiled_prompt TEXT,
-            prompt_override TEXT,
             video_path TEXT,
             status TEXT NOT NULL DEFAULT 'pending',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -187,34 +183,6 @@ fn migrate(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         );
         CREATE INDEX IF NOT EXISTS idx_bible_asset_variants_asset ON bible_asset_variants(asset_id);
 
-        CREATE TABLE IF NOT EXISTS bible_snapshots (
-            id TEXT PRIMARY KEY,
-            bible_id TEXT NOT NULL REFERENCES bibles(id) ON DELETE CASCADE,
-            name TEXT NOT NULL,
-            notes TEXT,
-            snapshot_json TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE INDEX IF NOT EXISTS idx_bible_snapshots_bible ON bible_snapshots(bible_id);
-
-        CREATE TABLE IF NOT EXISTS storyboard_bibles (
-            storyboard_id TEXT NOT NULL REFERENCES storyboards(id) ON DELETE CASCADE,
-            bible_id TEXT NOT NULL REFERENCES bibles(id) ON DELETE CASCADE,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (storyboard_id, bible_id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_storyboard_bibles_storyboard ON storyboard_bibles(storyboard_id);
-
-        CREATE TABLE IF NOT EXISTS shot_asset_refs (
-            id TEXT PRIMARY KEY,
-            shot_id TEXT NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
-            asset_id TEXT NOT NULL REFERENCES bible_assets(id) ON DELETE CASCADE,
-            variant_id TEXT REFERENCES bible_asset_variants(id) ON DELETE SET NULL,
-            role TEXT NOT NULL DEFAULT 'reference',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE INDEX IF NOT EXISTS idx_shot_asset_refs_shot ON shot_asset_refs(shot_id);
-
         CREATE TRIGGER IF NOT EXISTS trg_projects_create_main_bible
         AFTER INSERT ON projects
         WHEN NOT EXISTS (SELECT 1 FROM bibles WHERE project_id = NEW.id)
@@ -281,22 +249,22 @@ fn migrate(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         )?;
     }
 
-    for (column, sql_type) in [
-        ("intent_action", "TEXT"),
-        ("intent_camera", "TEXT"),
-        ("intent_mood", "TEXT"),
-        ("compiled_prompt", "TEXT"),
-        ("prompt_override", "TEXT"),
-    ] {
-        let exists: bool = conn
-            .prepare("PRAGMA table_info(shots)")?
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .any(|col| col == column);
-        if !exists {
-            conn.execute_batch(&format!("ALTER TABLE shots ADD COLUMN {} {}", column, sql_type))?;
-        }
+    // Migration: shots gain an optional end frame for start/end-frame video generation
+    let has_end_frame: bool = conn
+        .prepare("PRAGMA table_info(shots)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .any(|col| col == "end_frame_path");
+    if !has_end_frame {
+        conn.execute_batch("ALTER TABLE shots ADD COLUMN end_frame_path TEXT")?;
     }
+
+    // Migration: drop the removed reference-to-video tables from existing databases
+    conn.execute_batch(
+        "DROP TABLE IF EXISTS shot_asset_refs;
+         DROP TABLE IF EXISTS storyboard_bibles;
+         DROP TABLE IF EXISTS bible_snapshots;",
+    )?;
 
     // Migration: Create initial image versions for existing shots with images
     let mut stmt = conn.prepare(
@@ -434,14 +402,7 @@ pub mod tests {
     #[test]
     fn migrations_create_bible_tables() {
         let conn = open_test_db();
-        for table in [
-            "bibles",
-            "bible_assets",
-            "bible_asset_variants",
-            "bible_snapshots",
-            "storyboard_bibles",
-            "shot_asset_refs",
-        ] {
+        for table in ["bibles", "bible_assets", "bible_asset_variants"] {
             let count: i64 = conn
                 .query_row(
                     "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
@@ -450,6 +411,37 @@ pub mod tests {
                 )
                 .unwrap();
             assert_eq!(count, 1, "missing table {table}");
+        }
+    }
+
+    #[test]
+    fn migrations_drop_reference_to_video_tables() {
+        let conn = open_test_db();
+        for table in ["shot_asset_refs", "storyboard_bibles", "bible_snapshots"] {
+            let count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+                    rusqlite::params![table],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(count, 0, "table {table} should be removed");
+        }
+    }
+
+    #[test]
+    fn shots_have_end_frame_and_no_compile_columns() {
+        let conn = open_test_db();
+        let columns: Vec<String> = conn
+            .prepare("PRAGMA table_info(shots)")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert!(columns.contains(&"end_frame_path".to_string()));
+        for removed in ["intent_action", "intent_camera", "intent_mood", "compiled_prompt", "prompt_override"] {
+            assert!(!columns.contains(&removed.to_string()), "shots should not have {removed}");
         }
     }
 

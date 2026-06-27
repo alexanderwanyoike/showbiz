@@ -1,4 +1,4 @@
-import { getApiKey, saveShotImage, saveAndCompleteVideo, getShotImageBase64, getVersionImageBase64, createVideoGenerationVersion, getCurrentVideoVersion } from "../lib/tauri-api";
+import { getApiKey, getShotImageBase64, getShotEndFrameBase64, createVideoGenerationVersion, getCurrentVideoVersion } from "../lib/tauri-api";
 import { getImageModel, getVideoModel, ImageModelId, VideoModelId } from "../lib/models";
 import { generateText } from "../lib/models/gemini-text";
 import type { VideoGenerationSettings } from "../lib/models/types";
@@ -81,10 +81,11 @@ export async function generateAndSaveVideoRequestAction(
   }
   try {
     let effectiveRequest = request;
-    if (request.mode === "image-to-video" && !request.startImage) {
+    if (request.mode === "image-to-video") {
       effectiveRequest = {
         ...request,
-        startImage: await getShotImageBase64(shotId),
+        startImage: request.startImage ?? (await getShotImageBase64(shotId)),
+        endImage: request.endImage ?? (await getShotEndFrameBase64(shotId)),
       };
     }
     const videoBlob = model.generateVideoFromRequest
@@ -103,14 +104,6 @@ export async function generateAndSaveVideoRequestAction(
     const settingsJson = JSON.stringify({
       ...effectiveRequest.settings,
       generationMode: effectiveRequest.mode,
-      references: effectiveRequest.references?.map((ref) => ({
-        id: ref.id,
-        assetId: ref.assetId,
-        kind: ref.kind,
-        mediaType: ref.mediaType,
-        label: ref.label,
-        promptAlias: ref.promptAlias,
-      })) ?? [],
     });
     const result = await createVideoGenerationVersion(
       shotId,

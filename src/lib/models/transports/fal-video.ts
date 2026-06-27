@@ -87,15 +87,6 @@ export const falVideoTransport: VideoTransport = {
     };
     mapSettings(input, config, request.settings);
 
-    if (request.mode === "reference-to-video") {
-      const mode = config.generationModes?.referenceToVideo;
-      if (!mode) throw new Error(`${config.name} does not support reference-to-video`);
-      input.image_urls = (request.references ?? [])
-        .filter((ref) => ref.mediaType === "image")
-        .map((ref) => uploadImageToFal(ref.data));
-      return submitAndDownload(mode.endpoint, input, apiKey);
-    }
-
     if (request.mode === "image-to-video") {
       const mode = config.generationModes?.imageToVideo;
       const opts = (config.transportOptions ?? {}) as Record<string, string>;

@@ -34,11 +34,6 @@ export interface VideoModelModeCapabilities {
     supportsStartImage?: boolean;
     supportsEndImage?: boolean;
   };
-  referenceToVideo?: {
-    endpoint: string;
-    imageReferencesMax?: number;
-    promptSyntax?: string;
-  };
 }
 
 export interface ImageModelModeCapabilities {

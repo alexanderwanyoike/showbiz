@@ -50,13 +50,12 @@ import {
   getVideoVersionCount,
   switchToVideoVersion,
   getBibles,
-  getStoryboardBibles,
-  attachStoryboardBible,
   getBibleAssets,
   getBibleAssetVariants,
-  getShotAssetRefs,
-  setShotAssetRefs,
   getBibleVariantImageBase64,
+  getShotEndFrameBase64,
+  saveShotEndFrame,
+  clearShotEndFrame,
 } from "../lib/tauri-api";
 import type {
   Storyboard,
@@ -68,11 +67,8 @@ import type {
   ImageVersionWithUrl,
   VideoVersionNode,
   VideoVersionWithUrl,
-  Bible,
   BibleAsset,
   BibleAssetVariant,
-  ShotAssetRef,
-  ShotAssetRefInput,
 } from "../lib/tauri-api";
 import {
   generateImageAction,
@@ -93,10 +89,9 @@ import {
   getGroupedImageModels,
 } from "../lib/models";
 import type { VideoGenerationSettings } from "../lib/models/types";
-import { compileShotPrompt } from "../lib/generation/prompt-compiler";
-import { buildAutoVideoGenerationRequest } from "../lib/generation/request-builder";
-import type { GenerationReference } from "../lib/generation/types";
-import { hasCompiledPromptForGeneration, shouldClearCompiledPrompt } from "../lib/generation/compile-review";
+import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
+import type { VideoGenerationRequest } from "../lib/generation/types";
+import type { ShotFrameRole } from "../components/ShotInspector";
 import {
   invalidateGenerationRun,
   isCurrentGenerationRun,
@@ -111,12 +106,8 @@ interface Shot {
   duration: number;
   image_prompt: string | null;
   image_url: string | null;
+  end_frame_url: string | null;
   video_prompt: string | null;
-  intent_action: string | null;
-  intent_camera: string | null;
-  intent_mood: string | null;
-  compiled_prompt: string | null;
-  prompt_override: string | null;
   video_url: string | null;
   status: "pending" | "generating" | "complete" | "failed";
   error_message?: string | null;
@@ -137,18 +128,7 @@ interface ShotCardData {
   error_message?: string | null;
 }
 
-type ShotUpdateInput = Partial<
-  Pick<
-    Shot,
-    | "video_prompt"
-    | "intent_action"
-    | "intent_camera"
-    | "intent_mood"
-    | "compiled_prompt"
-    | "prompt_override"
-    | "status"
-  >
->;
+type ShotUpdateInput = Partial<Pick<Shot, "video_prompt" | "status">>;
 
 function mapShotToCardData(shot: Shot): ShotCardData {
   return {
@@ -172,12 +152,8 @@ function shotFromShotWithUrls(s: ShotWithUrls): Shot {
     duration: s.duration,
     image_prompt: s.image_prompt,
     image_url: s.image_url,
+    end_frame_url: s.end_frame_url,
     video_prompt: s.video_prompt,
-    intent_action: s.intent_action,
-    intent_camera: s.intent_camera,
-    intent_mood: s.intent_mood,
-    compiled_prompt: s.compiled_prompt,
-    prompt_override: s.prompt_override,
     video_url: s.video_url,
     status: s.status as Shot["status"],
     created_at: s.created_at,
@@ -205,10 +181,8 @@ export default function StoryboardPage() {
   const [timelineEdits, setTimelineEdits] = useState<TimelineEdit[]>([]);
   const [timelineTracks, setTimelineTracks] = useState<TimelineTrack[]>([]);
   const [timelineClipRows, setTimelineClipRows] = useState<TimelineClipRow[]>([]);
-  const [attachedBibles, setAttachedBibles] = useState<Bible[]>([]);
   const [bibleAssets, setBibleAssets] = useState<BibleAsset[]>([]);
   const [bibleVariants, setBibleVariants] = useState<Record<string, BibleAssetVariant[]>>({});
-  const [shotAssetRefs, setShotAssetRefsState] = useState<Record<string, ShotAssetRef[]>>({});
 
   // Assembly State
   const [isAssembling, setIsAssembling] = useState(false);
@@ -303,7 +277,7 @@ export default function StoryboardPage() {
         setVideoSettings({ ...loadedModel.defaults });
       }
 
-      await loadBibleData(storyboardData, mappedShots);
+      await loadBibleData(storyboardData);
 
       // Load version data for each shot
       await loadVersionDataForShots(mappedShots);
@@ -315,28 +289,14 @@ export default function StoryboardPage() {
     }
   }
 
-  async function loadBibleData(storyboardData: Storyboard, shotsData: Shot[]) {
-    let bibles = await getStoryboardBibles(storyboardData.id);
-    if (bibles.length === 0) {
-      const projectBibles = await getBibles(storyboardData.project_id);
-      if (projectBibles[0]) {
-        await attachStoryboardBible(storyboardData.id, projectBibles[0].id);
-        bibles = [projectBibles[0]];
-      }
-    }
-    setAttachedBibles(bibles);
-
+  async function loadBibleData(storyboardData: Storyboard) {
+    const bibles = await getBibles(storyboardData.project_id);
     const assets = (await Promise.all(bibles.map((bible) => getBibleAssets(bible.id)))).flat();
     setBibleAssets(assets);
     const variantEntries = await Promise.all(
       assets.map(async (asset) => [asset.id, await getBibleAssetVariants(asset.id)] as const)
     );
     setBibleVariants(Object.fromEntries(variantEntries));
-
-    const refEntries = await Promise.all(
-      shotsData.map(async (shot) => [shot.id, await getShotAssetRefs(shot.id)] as const)
-    );
-    setShotAssetRefsState(Object.fromEntries(refEntries));
   }
 
   async function loadVersionDataForShots(shotsData: Shot[]) {
@@ -453,20 +413,6 @@ export default function StoryboardPage() {
     shotId: string,
     updates: ShotUpdateInput
   ) {
-    const clearCompiledPrompt = shouldClearCompiledPrompt(updates);
-    const compiledPrompt =
-      updates.compiled_prompt !== undefined
-        ? updates.compiled_prompt
-        : clearCompiledPrompt
-          ? ""
-          : undefined;
-    const promptOverride =
-      updates.prompt_override !== undefined
-        ? updates.prompt_override
-        : clearCompiledPrompt
-          ? ""
-          : undefined;
-
     // Optimistic update for UI responsiveness
     setShots((prev) =>
       prev.map((s) =>
@@ -474,11 +420,6 @@ export default function StoryboardPage() {
           ? {
               ...s,
               video_prompt: updates.video_prompt ?? s.video_prompt,
-              intent_action: updates.intent_action ?? s.intent_action,
-              intent_camera: updates.intent_camera ?? s.intent_camera,
-              intent_mood: updates.intent_mood ?? s.intent_mood,
-              compiled_prompt: compiledPrompt !== undefined ? compiledPrompt : s.compiled_prompt,
-              prompt_override: promptOverride !== undefined ? promptOverride : s.prompt_override,
               status: updates.status ?? s.status,
             }
           : s
@@ -489,11 +430,6 @@ export default function StoryboardPage() {
     try {
       await updateShot(shotId, {
         video_prompt: updates.video_prompt,
-        intent_action: updates.intent_action,
-        intent_camera: updates.intent_camera,
-        intent_mood: updates.intent_mood,
-        compiled_prompt: compiledPrompt,
-        prompt_override: promptOverride,
         status: updates.status,
       });
     } catch (error) {
@@ -585,36 +521,59 @@ export default function StoryboardPage() {
     }
   }
 
-  async function handleUploadImage(shotId: string, file: File) {
+  async function handleUploadFrame(shotId: string, role: ShotFrameRole, file: File) {
     if (!id) return;
     const reader = new FileReader();
     reader.onload = async (e) => {
-      if (typeof e.target?.result === "string") {
-        try {
-          // Get current version to use as parent (if exists)
-          const currentVersion = shotCurrentVersions[shotId];
-
-          // Create a new version for uploaded image
-          await createGenerationVersion(
-            shotId,
-            "Uploaded image",
-            e.target.result,
-            currentVersion?.id || null
-          );
-
-          // Reload shot data and version data
-          const updatedShots = await getShots(id);
-          setShots(updatedShots.map(shotFromShotWithUrls));
-          await refreshVersionData(shotId);
-
-          // Reset final video since content changed
-            } catch (error) {
-          console.error("Failed to upload image:", error);
-          alert("Failed to upload image");
-        }
+      if (typeof e.target?.result !== "string") return;
+      try {
+        await setShotFrameFromDataUrl(shotId, role, e.target.result);
+      } catch (error) {
+        console.error("Failed to upload frame:", error);
+        alert("Failed to upload frame");
       }
     };
     reader.readAsDataURL(file);
+  }
+
+  // Set a shot's start or end frame from a base64 data URL.
+  // The start frame is versioned (image_versions); the end frame is a single slot.
+  async function setShotFrameFromDataUrl(shotId: string, role: ShotFrameRole, dataUrl: string) {
+    if (!id) return;
+    if (role === "start") {
+      const currentVersion = shotCurrentVersions[shotId];
+      await createGenerationVersion(shotId, "Uploaded frame", dataUrl, currentVersion?.id || null);
+      await refreshVersionData(shotId);
+    } else {
+      await saveShotEndFrame(shotId, dataUrl);
+    }
+    const updatedShots = await getShots(id);
+    setShots(updatedShots.map(shotFromShotWithUrls));
+  }
+
+  async function handleClearEndFrame(shotId: string) {
+    if (!id) return;
+    try {
+      await clearShotEndFrame(shotId);
+      const updatedShots = await getShots(id);
+      setShots(updatedShots.map(shotFromShotWithUrls));
+    } catch (error) {
+      console.error("Failed to clear end frame:", error);
+    }
+  }
+
+  async function handleUseBibleImageAsFrame(shotId: string, role: ShotFrameRole, variantId: string) {
+    try {
+      const dataUrl = await getBibleVariantImageBase64(variantId);
+      if (!dataUrl) {
+        alert("That Bible image has no data yet.");
+        return;
+      }
+      await setShotFrameFromDataUrl(shotId, role, dataUrl);
+    } catch (error) {
+      console.error("Failed to use Bible image as frame:", error);
+      alert("Failed to use Bible image as frame");
+    }
   }
 
   // --- Copy Image from Another Shot ---
@@ -723,87 +682,18 @@ export default function StoryboardPage() {
 
   // --- Video Generation (Per-Shot) ---
 
-  async function buildShotGenerationReferences(
-    shotId: string,
-    includeImageData: boolean
-  ): Promise<GenerationReference[]> {
-    const selectedRefs = shotAssetRefs[shotId] ?? [];
-    const references: GenerationReference[] = [];
-
-    for (const ref of selectedRefs) {
-      const asset = bibleAssets.find((item) => item.id === ref.asset_id);
-      if (!asset) {
-        throw new Error("Selected Bible reference no longer exists.");
-      }
-      if (!ref.variant_id) {
-        throw new Error(`${asset.name} has no selected variant.`);
-      }
-      const variant = bibleVariants[asset.id]?.find((item) => item.id === ref.variant_id);
-      if (!variant) {
-        throw new Error(`${asset.name} selected variant no longer exists.`);
-      }
-      const data = includeImageData ? await getBibleVariantImageBase64(ref.variant_id) : "";
-      if (includeImageData && !data) {
-        throw new Error(`${asset.name} selected variant has no image data.`);
-      }
-      references.push({
-        id: variant.id,
-        assetId: asset.id,
-        kind: asset.asset_type === "note" ? "reference" : asset.asset_type,
-        mediaType: "image",
-        label: asset.name,
-        data,
-        description: asset.description,
-        rules: asset.rules_json,
-        variantPrompt: variant.prompt,
-      });
-    }
-
-    return references;
-  }
-
-  async function handleCompileVideoPrompt(shotId: string) {
-    const shot = shots.find((s) => s.id === shotId);
-    if (!shot) return;
-
-    try {
-      const references = await buildShotGenerationReferences(shotId, false);
-      const compiled = compileShotPrompt({
-        action: shot.intent_action ?? shot.video_prompt ?? "",
-        camera: shot.intent_camera,
-        mood: shot.intent_mood,
-        references,
-        includeAliases: true,
-      });
-      await handleUpdateShot(shotId, {
-        compiled_prompt: compiled.prompt,
-        prompt_override: "",
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`Video prompt compile failed for shot ${shotId}:`, errorMessage);
-      setShots((prev) =>
-        prev.map((s) =>
-          s.id === shotId
-            ? { ...s, status: "failed" as const, error_message: errorMessage }
-            : s
-        )
-      );
-    }
-  }
-
   async function handleGenerateVideo(shotId: string) {
     const shot = shots.find((s) => s.id === shotId);
     if (!shot) return;
     if (!currentVideoModel) return;
     const runId = startGenerationRun(videoGenerationRuns.current, shotId);
 
-    const compiledPrompt = shot.compiled_prompt?.trim();
-    if (!hasCompiledPromptForGeneration(compiledPrompt)) {
+    const prompt = shot.video_prompt?.trim() ?? "";
+    if (!shot.image_url && !prompt) {
       setShots((prev) =>
         prev.map((s) =>
           s.id === shotId
-            ? { ...s, status: "failed" as const, error_message: "Compile and review the video prompt before generating." }
+            ? { ...s, status: "failed" as const, error_message: "Add a start frame or a prompt before generating." }
             : s
         )
       );
@@ -819,15 +709,21 @@ export default function StoryboardPage() {
     );
 
     try {
-      const references = await buildShotGenerationReferences(shotId, true);
       const startImage = shot.image_url ? await getShotImageBase64(shotId) : null;
-      const request = buildAutoVideoGenerationRequest({
-        capabilities: currentVideoModel.modeCapabilities,
-        prompt: compiledPrompt!,
+      const supportsEndFrame = currentVideoModel.modeCapabilities.imageToVideo?.supportsEndImage === true;
+      const endImage =
+        supportsEndFrame && shot.end_frame_url ? await getShotEndFrameBase64(shotId) : null;
+      const mode = chooseVideoGenerationMode(currentVideoModel.modeCapabilities, {
+        hasStartImage: !!startImage,
+      });
+      const request: VideoGenerationRequest = {
+        mode,
+        prompt,
         settings: videoSettings,
         startImage,
-        references,
-      });
+        endImage: mode === "image-to-video" ? endImage : null,
+      };
+      validateVideoGenerationRequest(currentVideoModel.modeCapabilities, request);
 
       const result = await generateAndSaveVideoRequestAction(shotId, videoModel, request);
       if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
@@ -882,12 +778,6 @@ export default function StoryboardPage() {
     } catch (error) {
       console.error("Failed to persist cancelled generation status:", error);
     }
-  }
-
-  async function handleSetShotAssetRefs(shotId: string, refs: ShotAssetRefInput[]) {
-    const updatedRefs = await setShotAssetRefs(shotId, refs);
-    setShotAssetRefsState((prev) => ({ ...prev, [shotId]: updatedRefs }));
-    await handleUpdateShot(shotId, { compiled_prompt: "", prompt_override: "" });
   }
 
   // --- Prompt Generation ---
@@ -1079,8 +969,6 @@ export default function StoryboardPage() {
                 order: shot.order,
                 image_prompt: shot.image_prompt,
                 video_prompt: shot.video_prompt,
-                intent_action: shot.intent_action,
-                compiled_prompt: shot.compiled_prompt,
                 image_url: shot.image_url,
                 video_url: shot.video_url,
                 status: shot.status,
@@ -1115,20 +1003,17 @@ export default function StoryboardPage() {
                   order: s.order,
                   image_prompt: s.image_prompt,
                   image_url: s.image_url,
+                  end_frame_url: s.end_frame_url,
                   video_prompt: s.video_prompt,
-                  intent_action: s.intent_action,
-                  intent_camera: s.intent_camera,
-                  intent_mood: s.intent_mood,
-                  compiled_prompt: s.compiled_prompt,
-                  prompt_override: s.prompt_override,
                   video_url: s.video_url,
                   status: s.status,
                   error_message: s.error_message,
                 } : null;
               })() : null}
               onGenerateImage={openImageModal}
-              onUploadImage={handleUploadImage}
-              onCompileVideoPrompt={handleCompileVideoPrompt}
+              onUploadFrame={handleUploadFrame}
+              onClearEndFrame={handleClearEndFrame}
+              onUseBibleImageAsFrame={handleUseBibleImageAsFrame}
               onGenerateVideo={handleGenerateVideo}
               onCancelVideoGeneration={handleCancelVideoGeneration}
               onUpdateShot={(shotId, updates) => handleUpdateShot(shotId, updates)}
@@ -1137,8 +1022,6 @@ export default function StoryboardPage() {
               onVideoSettingsChange={setVideoSettings}
               bibleAssets={bibleAssets}
               bibleVariants={bibleVariants}
-              selectedAssetRefs={selectedShotId ? (shotAssetRefs[selectedShotId] || []) : []}
-              onSetAssetRefs={handleSetShotAssetRefs}
               versions={selectedShotId ? (shotVersions[selectedShotId] || []) : []}
               currentVersion={selectedShotId ? (shotCurrentVersions[selectedShotId] || null) : null}
               versionCount={selectedShotId ? (shotVersionCounts[selectedShotId] || 0) : 0}

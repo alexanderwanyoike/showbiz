@@ -110,12 +110,12 @@ describe("getAvailableVideoModels", () => {
     }
   });
 
-  it("exposes Seedance fal reference-to-video capabilities to pages", () => {
+  it("exposes Seedance fal start/end-frame capability to pages", () => {
     const seedance = getAvailableVideoModels().find((model) => model.id === "seedance-2-fal");
-    expect(seedance?.modeCapabilities.referenceToVideo?.endpoint).toBe(
-      "bytedance/seedance-2.0/reference-to-video"
+    expect(seedance?.modeCapabilities.imageToVideo?.endpoint).toBe(
+      "bytedance/seedance-2.0/image-to-video"
     );
-    expect(seedance?.modeCapabilities.referenceToVideo?.imageReferencesMax).toBe(9);
+    expect(seedance?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
   });
 
   it("provider field matches config", () => {

@@ -12,17 +12,14 @@ pub struct ShotWithUrls {
     pub duration: i64,
     pub image_prompt: Option<String>,
     pub image_path: Option<String>,
+    pub end_frame_path: Option<String>,
     pub video_prompt: Option<String>,
-    pub intent_action: Option<String>,
-    pub intent_camera: Option<String>,
-    pub intent_mood: Option<String>,
-    pub compiled_prompt: Option<String>,
-    pub prompt_override: Option<String>,
     pub video_path: Option<String>,
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
     pub image_url: Option<String>,
+    pub end_frame_url: Option<String>,
     pub video_url: Option<String>,
 }
 
@@ -31,11 +28,6 @@ pub struct ShotUpdates {
     pub duration: Option<i64>,
     pub image_prompt: Option<String>,
     pub video_prompt: Option<String>,
-    pub intent_action: Option<String>,
-    pub intent_camera: Option<String>,
-    pub intent_mood: Option<String>,
-    pub compiled_prompt: Option<String>,
-    pub prompt_override: Option<String>,
     pub status: Option<String>,
 }
 
@@ -55,8 +47,7 @@ fn query_shot_with_urls(
     let mut stmt = conn
         .prepare(
             r#"SELECT id, storyboard_id, "order", duration, image_prompt, image_path,
-                      video_prompt, intent_action, intent_camera, intent_mood, compiled_prompt,
-                      prompt_override, video_path, status, created_at, updated_at
+                      end_frame_path, video_prompt, video_path, status, created_at, updated_at
                FROM shots WHERE id = ?1"#,
         )
         .map_err(|e| e.to_string())?;
@@ -64,9 +55,11 @@ fn query_shot_with_urls(
     let shot = stmt
         .query_row(params![shot_id], |row| {
             let image_path: Option<String> = row.get(5)?;
-            let video_path: Option<String> = row.get(12)?;
+            let end_frame_path: Option<String> = row.get(6)?;
+            let video_path: Option<String> = row.get(8)?;
 
             let image_url = image_path.as_ref().map(|p| make_media_url(app, p));
+            let end_frame_url = end_frame_path.as_ref().map(|p| make_media_url(app, p));
             let video_url = video_path.as_ref().map(|p| make_media_url(app, p));
 
             Ok(ShotWithUrls {
@@ -76,17 +69,14 @@ fn query_shot_with_urls(
                 duration: row.get(3)?,
                 image_prompt: row.get(4)?,
                 image_path,
-                video_prompt: row.get(6)?,
-                intent_action: row.get(7)?,
-                intent_camera: row.get(8)?,
-                intent_mood: row.get(9)?,
-                compiled_prompt: row.get(10)?,
-                prompt_override: row.get(11)?,
+                end_frame_path,
+                video_prompt: row.get(7)?,
                 video_path,
-                status: row.get(13)?,
-                created_at: row.get(14)?,
-                updated_at: row.get(15)?,
+                status: row.get(9)?,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
                 image_url,
+                end_frame_url,
                 video_url,
             })
         })
@@ -105,8 +95,7 @@ pub fn get_shots(
     let mut stmt = conn
         .prepare(
             r#"SELECT id, storyboard_id, "order", duration, image_prompt, image_path,
-                      video_prompt, intent_action, intent_camera, intent_mood, compiled_prompt,
-                      prompt_override, video_path, status, created_at, updated_at
+                      end_frame_path, video_prompt, video_path, status, created_at, updated_at
                FROM shots WHERE storyboard_id = ?1 ORDER BY "order" ASC"#,
         )
         .map_err(|e| e.to_string())?;
@@ -114,9 +103,11 @@ pub fn get_shots(
     let shots = stmt
         .query_map(params![storyboard_id], |row| {
             let image_path: Option<String> = row.get(5)?;
-            let video_path: Option<String> = row.get(12)?;
+            let end_frame_path: Option<String> = row.get(6)?;
+            let video_path: Option<String> = row.get(8)?;
 
             let image_url = image_path.as_ref().map(|p| make_media_url(&app, p));
+            let end_frame_url = end_frame_path.as_ref().map(|p| make_media_url(&app, p));
             let video_url = video_path.as_ref().map(|p| make_media_url(&app, p));
 
             Ok(ShotWithUrls {
@@ -126,17 +117,14 @@ pub fn get_shots(
                 duration: row.get(3)?,
                 image_prompt: row.get(4)?,
                 image_path,
-                video_prompt: row.get(6)?,
-                intent_action: row.get(7)?,
-                intent_camera: row.get(8)?,
-                intent_mood: row.get(9)?,
-                compiled_prompt: row.get(10)?,
-                prompt_override: row.get(11)?,
+                end_frame_path,
+                video_prompt: row.get(7)?,
                 video_path,
-                status: row.get(13)?,
-                created_at: row.get(14)?,
-                updated_at: row.get(15)?,
+                status: row.get(9)?,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
                 image_url,
+                end_frame_url,
                 video_url,
             })
         })
@@ -201,26 +189,6 @@ pub fn update_shot(
         set_clauses.push("video_prompt = ?".to_string());
         param_values.push(Box::new(video_prompt.clone()));
     }
-    if let Some(ref intent_action) = updates.intent_action {
-        set_clauses.push("intent_action = ?".to_string());
-        param_values.push(Box::new(intent_action.clone()));
-    }
-    if let Some(ref intent_camera) = updates.intent_camera {
-        set_clauses.push("intent_camera = ?".to_string());
-        param_values.push(Box::new(intent_camera.clone()));
-    }
-    if let Some(ref intent_mood) = updates.intent_mood {
-        set_clauses.push("intent_mood = ?".to_string());
-        param_values.push(Box::new(intent_mood.clone()));
-    }
-    if let Some(ref compiled_prompt) = updates.compiled_prompt {
-        set_clauses.push("compiled_prompt = ?".to_string());
-        param_values.push(Box::new(compiled_prompt.clone()));
-    }
-    if let Some(ref prompt_override) = updates.prompt_override {
-        set_clauses.push("prompt_override = ?".to_string());
-        param_values.push(Box::new(prompt_override.clone()));
-    }
     if let Some(ref status) = updates.status {
         set_clauses.push("status = ?".to_string());
         param_values.push(Box::new(status.clone()));
@@ -254,16 +222,19 @@ pub fn delete_shot(
     let conn = state.0.lock().map_err(|e| e.to_string())?;
 
     // Get shot to find media paths
-    let shot_data: Option<(Option<String>, Option<String>)> = conn
+    let shot_data: Option<(Option<String>, Option<String>, Option<String>)> = conn
         .query_row(
-            "SELECT image_path, video_path FROM shots WHERE id = ?1",
+            "SELECT image_path, end_frame_path, video_path FROM shots WHERE id = ?1",
             params![id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .ok();
 
-    if let Some((image_path, video_path)) = shot_data {
+    if let Some((image_path, end_frame_path, video_path)) = shot_data {
         if let Some(path) = image_path {
+            media::delete_media(&app, &path);
+        }
+        if let Some(path) = end_frame_path {
             media::delete_media(&app, &path);
         }
         if let Some(path) = video_path {
@@ -350,6 +321,70 @@ pub fn save_shot_image(
 }
 
 #[tauri::command]
+pub fn save_shot_end_frame(
+    id: String,
+    base64_data_url: String,
+    app: AppHandle,
+    state: State<'_, DbState>,
+) -> Result<ShotWithUrls, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    // Delete old end frame if present
+    let old_end_frame: Option<String> = conn
+        .query_row(
+            "SELECT end_frame_path FROM shots WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .ok()
+        .flatten();
+
+    if let Some(path) = old_end_frame {
+        media::delete_media(&app, &path);
+    }
+
+    let end_frame_path = media::save_end_frame(&app, &id, &base64_data_url)?;
+
+    conn.execute(
+        "UPDATE shots SET end_frame_path = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+        params![end_frame_path, id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    query_shot_with_urls(&conn, &app, &id)
+}
+
+#[tauri::command]
+pub fn clear_shot_end_frame(
+    id: String,
+    app: AppHandle,
+    state: State<'_, DbState>,
+) -> Result<ShotWithUrls, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    let old_end_frame: Option<String> = conn
+        .query_row(
+            "SELECT end_frame_path FROM shots WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .ok()
+        .flatten();
+
+    if let Some(path) = old_end_frame {
+        media::delete_media(&app, &path);
+    }
+
+    conn.execute(
+        "UPDATE shots SET end_frame_path = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?1",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    query_shot_with_urls(&conn, &app, &id)
+}
+
+#[tauri::command]
 pub fn save_shot_video(
     id: String,
     base64_data_url: String,
@@ -403,6 +438,29 @@ pub fn get_shot_image_base64(
         .flatten();
 
     match image_path {
+        Some(path) => media::get_image_as_base64(&app, &path),
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
+pub fn get_shot_end_frame_base64(
+    shot_id: String,
+    app: AppHandle,
+    state: State<'_, DbState>,
+) -> Result<Option<String>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    let end_frame_path: Option<String> = conn
+        .query_row(
+            "SELECT end_frame_path FROM shots WHERE id = ?1",
+            params![shot_id],
+            |row| row.get(0),
+        )
+        .ok()
+        .flatten();
+
+    match end_frame_path {
         Some(path) => media::get_image_as_base64(&app, &path),
         None => Ok(None),
     }
