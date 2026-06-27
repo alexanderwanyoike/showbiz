@@ -1,11 +1,11 @@
 # Showbiz
 
-AI-powered video storyboard desktop application using Google's Imagen 4 and Veo 3 APIs.
+AI-powered video storyboard desktop application. Each shot is built from a start frame and an optional end frame plus a prompt; the video model animates between the frames. A project "bible" keeps characters, locations, props and styles consistent and composes scene frames from them. Shots are assembled into a final movie.
 
 ## Rules
 
 ### 1. Research, don't guess
-**Always research before acting** — this applies to everything: bug fixes, new features, architecture decisions, planning, and ideation. Read source code, check docs, search the web, review GitHub issues. Understand the problem space before proposing or implementing a solution. Never trial-and-error your way through.
+**Always research before acting** - this applies to everything: bug fixes, new features, architecture decisions, planning, and ideation. Read source code, check docs, search the web, review GitHub issues. Understand the problem space before proposing or implementing a solution. Never trial-and-error your way through.
 
 ### 2. TDD for all TypeScript and Rust changes
 Write a **failing test first**, then implement the fix/feature to make it pass. This applies to:
@@ -16,9 +16,9 @@ Write a **failing test first**, then implement the fix/feature to make it pass. 
 ### 3. Clean code practices
 - Meaningful names, small focused functions, single responsibility
 - No dead code, no commented-out code, no TODO comments without a tracking issue
-- DRY — extract shared logic, but don't abstract prematurely
+- DRY - extract shared logic, but don't abstract prematurely
 - Consistent patterns: if the codebase does something one way, follow that convention
-- Handle errors explicitly — no silent swallows, no bare `unwrap()` in production paths
+- Handle errors explicitly - no silent swallows, no bare `unwrap()` in production paths
 
 ### 4. Memory-safe Rust
 - Prefer safe Rust APIs over `unsafe` blocks whenever possible
@@ -36,10 +36,10 @@ Run `yarn build:frontend` and `cargo check` before considering work done.
 
 Showbiz lets users create video storyboards by:
 1. Creating projects to organize work
-2. Creating storyboards within projects
-3. Adding shots to storyboards
-4. Generating images for each shot using Imagen 4 (or uploading images)
-5. Generating 8-second videos from those images using Veo 3
+2. Building a project **bible** of reusable, consistent assets (characters, locations, props, styles) and composing **scene frames** from them
+3. Creating storyboards within projects and adding shots
+4. Giving each shot a **start frame** and an optional **end frame** plus a prompt. Frames come from the bible composer, image generation, or upload
+5. Generating a video that animates between the start and end frames
 6. Assembling all shot videos into a final movie using FFmpeg.wasm
 
 ## Tech Stack
@@ -48,16 +48,16 @@ Showbiz lets users create video storyboards by:
 - **Frontend**: React 19 + Vite
 - **Routing**: React Router v7 (3 routes)
 - **Backend**: Rust (database, file I/O)
-- **Database**: SQLite via rusqlite
-- **Image Generation**: Google Imagen 4 (`imagen-4.0-generate-001`)
-- **Video Generation**: Google Veo 3 (`veo-3.0-generate-001`), Veo 3.1 Fast, LTX Video
+- **Database**: SQLite via rusqlite, migrations via `rusqlite_migration`
+- **Image generation / scene composition**: Gemini image models (Nano Banana = 2.5 Flash via `generateContent`; Nano Banana 2 = 3.1 Flash and Nano Banana Pro = 3 Pro via the Interactions API), OpenAI GPT Image 2, Flux (via fal). Multi-reference composition through a shared `composeImage` transport interface.
+- **Video generation**: Google Veo 3 / Veo 3.1 Fast, Seedance 2 (start/end-frame, via fal). Provider registry driven by JSON configs.
 - **Video Assembly**: FFmpeg.wasm (browser-based, single-threaded build)
 - **Video Playback**: mpv (external process on Linux/Windows, libmpv on macOS)
 - **Styling**: Tailwind CSS v4
 
 ## Architecture
 
-**Hybrid backend**: Rust handles DB + file I/O. TypeScript handles API calls to model providers (Imagen, Veo, LTX). API keys are fetched securely from Rust, passed to TS for the API call, then discarded.
+**Hybrid backend**: Rust handles DB + file I/O. TypeScript handles API calls to model providers (image, video, text). API keys are fetched securely from Rust, passed to TS for the API call, then discarded. Cross-origin API calls are proxied through a Rust `http_request` command (the WebView cannot make them directly), which sends a single JSON string body, so providers must use JSON endpoints (not multipart).
 
 **Video playback**: mpv, NOT HTML5 `<video>` (broken in WebKit/Tauri WebView). Embedded via X11 child windows (Linux), in-process libmpv (macOS), native views (Windows).
 
@@ -67,8 +67,8 @@ Showbiz lets users create video storyboards by:
 
 ### FFmpeg.wasm
 
-- Uses **single-threaded** `@ffmpeg/core` (NOT `@ffmpeg/core-mt`) — does NOT require SharedArrayBuffer
-- Core loaded from CDN (`unpkg.com`) using **ESM** build (not UMD — UMD fails in WebKitGTK module workers)
+- Uses **single-threaded** `@ffmpeg/core` (NOT `@ffmpeg/core-mt`) - does NOT require SharedArrayBuffer
+- Core loaded from CDN (`unpkg.com`) using **ESM** build (not UMD - UMD fails in WebKitGTK module workers)
 - CSP must include `https://unpkg.com` in `script-src` for dynamic import inside worker
 - CSP must include `wasm-unsafe-eval` in `script-src` for WASM compilation
 - `Cross-Origin-Embedder-Policy: unsafe-none` required in Tauri headers (WebKitGTK injects COEP by default which blocks workers)
@@ -82,51 +82,60 @@ src/                              # React app (Vite)
   App.tsx                         # React Router setup (3 routes)
   globals.css                     # Tailwind CSS theme
   pages/
-    WorkspacePage.tsx              # Projects list
-    ProjectPage.tsx                # Storyboards list
-    StoryboardPage.tsx             # Storyboard editor (shots)
+    WorkspacePage.tsx              # Projects grid
+    ProjectPage.tsx                # Storyboards list + project bible
+    StoryboardPage.tsx             # Storyboard shell (storyboard + editor modes)
   components/
-    Header.tsx, ProjectCard.tsx, StoryboardCard.tsx
-    ShotCard.tsx, ImageVersionTimeline.tsx
-    SettingsDialog.tsx, TabNavigation.tsx
-    theme-provider.tsx, mode-toggle.tsx
-    timeline/                     # Timeline editor components
+    ProjectBibleView.tsx          # Bible: assets, variants, scene-frame composer
+    ShotList.tsx ShotPreview.tsx ShotInspector.tsx  # Storyboard-mode zones
+    MediaPool.tsx                 # Editor-mode media grid
+    StoryboardModeView.tsx EditorModeView.tsx       # Slot-based mode views
+    layout/                       # Zone layout system
+    timeline/                     # Multi-track timeline editor
+    ImageVersionTimeline.tsx VideoVersionTimeline.tsx
+    SettingsDialog.tsx Header.tsx ProjectCard.tsx StoryboardCard.tsx
   lib/
-    tauri-api.ts                  # Bridge layer (invoke wrappers, replaces server actions)
-    models/                       # Model providers (Imagen, Veo, LTX, Gemini text)
+    tauri-api.ts                  # Bridge layer (invoke wrappers)
+    models/
+      providers/{image,video}/*.json  # One JSON config per model
+      transports/                 # Per-API adapters: google-image,
+                                  #   google-interactions-image, openai-image,
+                                  #   fal-*, kie-*, replicate-*
+      registry.ts config-schema.ts types.ts
+    generation/                   # video-modes (mode + validation), run-guard, types
+    bible-assets.ts               # Bible variant helpers
     video-assembler.ts            # FFmpeg.wasm concatenation
     timeline-utils.ts             # Timeline clip utilities
     thumbnail-generator.ts        # Video thumbnail generation
   actions/
-    generation-actions.ts         # Hybrid: gets API key from Rust, calls API in TS
+    generation-actions.ts         # Image/video gen + composeFrameAction
   hooks/
-    useTrimDrag.ts, useVideoPool.ts, useTimelinePlayback.ts
+    useTrimDrag.ts useVideoPool.ts useTimelinePlayback.ts
 
 src-tauri/                        # Rust backend
   src/
     main.rs                       # Command registration + plugin init
-    db.rs                         # SQLite schema + migrations
+    db.rs                         # Migration runner (rusqlite_migration)
+    migrations/                   # Numbered .sql migration files (append-only)
     media.rs                      # File I/O (save/read/delete)
     commands/
       projects.rs                 # Project + storyboard CRUD
-      shots.rs                    # Shot CRUD + media save
-      settings.rs                 # API key management
-      image_versions.rs           # Version tree
+      shots.rs                    # Shot CRUD, start/end frame media
+      bibles.rs                   # Bible, assets, variants CRUD
+      settings.rs                 # API key storage
+      image_versions.rs           # Image version tree
       video_versions.rs           # Video version tree
-      timeline.rs                 # Timeline edits
+      timeline.rs                 # Timeline edits, tracks, clips
       media_cmd.rs                # Media path utility + assembled video export
       mpv/                        # mpv video player control
-      http_client.rs              # HTTP proxy for cross-origin API calls
-  capabilities/main.json          # Tauri v2 permissions (dialog, etc.)
+      http_client.rs              # JSON HTTP proxy for cross-origin API calls
+  capabilities/main.json          # Tauri v2 permissions
   Cargo.toml
   tauri.conf.json
 
-components/ui/                    # shadcn components (unchanged)
-lib/utils.ts                      # cn() utility (unchanged)
-index.html                        # Vite entry
-vite.config.ts
-package.json
-tsconfig.json
+components/ui/                    # shadcn components
+lib/utils.ts                      # cn() utility
+index.html vite.config.ts package.json tsconfig.json
 ```
 
 ## Tests
@@ -134,63 +143,71 @@ tsconfig.json
 ### TypeScript (Vitest)
 
 ```bash
-yarn test          # Run all 170+ tests (watch mode)
+yarn test          # Run all 267 tests (watch mode)
 yarn test --run    # Run once, exit
 ```
 
-Tests are co-located with source in `src/lib/`:
-- `src/lib/timeline-utils.test.ts` — timeline clip building, duration, time mapping
-- `src/lib/tauri-api.test.ts` — asset URL conversion
-- `src/lib/seek-utils.test.ts` — seek utilities
-- `src/lib/models/*.test.ts` — model registry, capabilities, polling, config schemas, provider-specific logic (fal, replicate, veo)
+Tests are co-located with source under `src/lib/`:
+- `timeline-utils`, `seek-utils`, `video-preview` - timeline + playback utilities
+- `tauri-api` - asset URL conversion
+- `bible-assets` - variant selection, export, shot video source
+- `generation/video-modes` - generation mode selection + request validation
+- `generation/run-guard` - generation run guarding
+- `models/*` - registry, capabilities, config schema, polling
+- `models/transports/*` - per-API request/response shapes (google-image, google-interactions-image, openai-image, fal-image, fal-video)
 
 ### Rust (cargo test)
 
 ```bash
-cd src-tauri && cargo test    # Run all 61+ tests
+cd src-tauri && cargo test    # Run all 83 tests
 ```
 
 Tests use inline `#[cfg(test)] mod tests` in each module:
-- `media.rs` — data URL parsing, MIME type mapping, extension mapping
-- `db.rs` — ID generation
-- `commands/projects.rs` — CRUD, cascade deletes
-- `commands/settings.rs` — API key storage
-- `commands/timeline.rs` — timeline edit upsert
-- `commands/image_versions.rs` — version tree
-- `commands/video_versions.rs` — video version tree, constraints
-- `commands/mpv/mod.rs` — mpv controller
-
-Rust tests use `tempfile` crate for isolated DB instances.
+- `db.rs` - migration validity, schema (start/end frame, scene asset type, cascades), ID generation
+- `media.rs` - data URL parsing, MIME type and extension mapping
+- `commands/{projects,settings,timeline,image_versions,video_versions,bibles}.rs` - CRUD, cascades, constraints
+- `commands/mpv/mod.rs` - mpv controller
 
 ## Database Schema
 
-Six tables with cascade deletes (SQLite via rusqlite):
-- **projects**: id, name, created_at, updated_at
-- **storyboards**: id, project_id (FK), name, image_model, video_model, created_at, updated_at
-- **shots**: id, storyboard_id (FK), order, duration, image_prompt, image_path, video_prompt, video_path, status, created_at, updated_at
-- **timeline_edits**: id, storyboard_id (FK), shot_id (FK), trim_in, trim_out, UNIQUE(storyboard_id, shot_id)
+Twelve tables with cascade deletes (SQLite via rusqlite). The schema lives in `src-tauri/src/migrations/` and is applied by `rusqlite_migration`, tracked via SQLite's `user_version`. To change the schema, add a new numbered `.sql` file; never edit a shipped migration.
+
+- **projects**: id, name, timestamps
+- **storyboards**: id, project_id (FK), name, image_model, video_model, timestamps
+- **shots**: id, storyboard_id (FK), order, duration, image_prompt, image_path (start frame), **end_frame_path**, video_prompt, video_path, status, timestamps
+- **timeline_edits / timeline_tracks / timeline_clips**: multi-track timeline state
 - **settings**: key (PK), value, updated_at
-- **image_versions**: id, shot_id (FK), parent_version_id (self-ref FK), version_number, edit_type, image_path, prompt, edit_prompt, mask_path, is_current
+- **image_versions / video_versions**: per-shot version trees (self-ref FK, edit_type, is_current)
+- **bibles**: id, project_id (FK), name, is_default (auto-created per project via trigger)
+- **bible_assets**: id, bible_id (FK), asset_type (`character`/`location`/`prop`/`style`/`reference`/`note`/`scene`), name, status
+- **bible_asset_variants**: id, asset_id (FK), media_path, prompt, source_kind, status, is_primary (the images, including composed scene frames)
 
 Database stored at `{appDataDir}/data/showbiz.db`.
 
 ## Media Storage
 
-- Images: `{appDataDir}/media/images/{shot-id}.{ext}`
+- Start frame: `{appDataDir}/media/images/{shot-id}.{ext}`
+- End frame: `{appDataDir}/media/images/{shot-id}_end.{ext}`
 - Videos: `{appDataDir}/media/videos/{shot-id}.{ext}`
 - Version images: `{appDataDir}/media/images/versions/{shot-id}/vN.{ext}`
+- Bible variant images: `{appDataDir}/media/bible/{bible-id}/{variant-id}.{ext}`
 - Masks: `{appDataDir}/media/masks/{shot-id}/{version-id}.png`
 - Database stores relative paths, frontend uses `convertFileSrc()` for asset:// URLs
 - Cache-busting timestamps added to URLs for regeneration
 
 ## Key Implementation Details
 
+### Frame Composition
+1. `composeImage(prompt, referenceImages[])` on the image transport interface takes a prompt plus one or more base64 reference images and returns a single image
+2. The bible scene composer routes selected assets (their primary variant images) into `composeFrameAction`, which calls `composeImage` on the chosen engine
+3. Implemented per engine: `google-image` (Gemini 2.5, `generateContent` multi-part), `google-interactions-image` (Gemini 3, Interactions API), `openai-image` (GPT Image 2, Responses API)
+4. Composed frames are stored as bible `scene` variants, then assigned to a shot's start or end frame from the inspector
+
 ### Video Generation Flow
-1. TS gets API key from Rust (invoke `get_api_key`)
-2. TS calls model API (fetch)
-3. TS sends video bytes to Rust (invoke `save_and_complete_video`)
-4. Rust saves file + updates DB
-5. Returns absolute path, frontend converts to asset:// URL
+1. Mode is chosen from the shot's frames: a start frame (with optional end frame) gives image-to-video, otherwise text-to-video
+2. TS gets the API key from Rust (`get_api_key`), reads the frame(s) as base64, calls the model API
+3. TS sends the video bytes to Rust (`save_and_complete_video` / video-version commands)
+4. Rust saves the file + updates the DB, returns the path, frontend converts to an `asset://` URL
 
 ### Video Export Flow
 1. FFmpeg.wasm assembles videos in-memory → returns `Uint8Array`
@@ -198,9 +215,9 @@ Database stored at `{appDataDir}/data/showbiz.db`.
 3. Bytes written to disk via Rust `save_assembled_video` command
 
 ### API Keys
-- Stored in DB settings table
-- Falls back to environment variables (GEMINI_API_KEY, LTX_API_KEY)
-- Managed via Settings dialog
+- Stored in the DB `settings` table, managed via the Settings dialog
+- Providers: `gemini`, `openai`, `ltx`, `kie`, `fal`, `replicate`
+- Fetched on demand from Rust for a single API call; not persisted in TS
 
 ## Git Workflow
 
