@@ -26,13 +26,6 @@ export interface VideoModelConfig {
         endImage?: boolean;
       };
     };
-    referenceToVideo?: {
-      endpoint: string;
-      inputs?: {
-        imageReferences?: { max: number };
-      };
-      promptSyntax?: string;
-    };
   };
   paramMapping?: {
     duration?: string;
@@ -115,24 +108,6 @@ export function validateVideoConfig(raw: unknown): VideoModelConfig {
     throw new Error(
       `Video config "${config.id}": must have at least one of models.textToVideo or models.imageToVideo`
     );
-  }
-
-  if (config.generationModes !== undefined) {
-    const modes = config.generationModes as Record<string, unknown>;
-    const referenceMode = modes.referenceToVideo as Record<string, unknown> | undefined;
-    if (referenceMode) {
-      if (typeof referenceMode.endpoint !== "string" || !referenceMode.endpoint) {
-        throw new Error(`Video config "${config.id}": referenceToVideo.endpoint is required`);
-      }
-      const inputs = referenceMode.inputs as Record<string, unknown> | undefined;
-      const imageReferences = inputs?.imageReferences as Record<string, unknown> | undefined;
-      if (imageReferences) {
-        const max = imageReferences.max;
-        if (typeof max !== "number" || max <= 0) {
-          throw new Error(`Video config "${config.id}": imageReferences.max must be greater than 0`);
-        }
-      }
-    }
   }
 
   const capabilities = config.capabilities as Record<string, unknown>;

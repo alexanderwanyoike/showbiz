@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Loader2, Sparkles, Upload, Video, ImageIcon, AlertCircle } from "lucide-react";
+import { ChevronDown, Loader2, Sparkles, Upload, Video, ImageIcon, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -14,10 +14,11 @@ import {
 import ImageVersionTimeline from "./ImageVersionTimeline";
 import VideoVersionTimeline from "./VideoVersionTimeline";
 import type { ImageVersionNode, ImageVersionWithUrl, VideoVersionNode, VideoVersionWithUrl } from "../lib/tauri-api";
-import type { BibleAsset, BibleAssetVariant, ShotAssetRefInput } from "../lib/tauri-api";
-import { findDefaultVariant, hasUsableShotVideoSource, resolveSelectedVariantId } from "../lib/bible-assets";
-import { hasCompiledPromptForGeneration } from "../lib/generation/compile-review";
+import type { BibleAsset, BibleAssetVariant } from "../lib/tauri-api";
+import { hasUsableShotVideoSource } from "../lib/bible-assets";
 import type { VideoGenerationSettings, VideoModelInfo } from "../lib/models/types";
+
+export type ShotFrameRole = "start" | "end";
 
 export interface ShotInspectorProps {
   shot: {
@@ -25,31 +26,25 @@ export interface ShotInspectorProps {
     order: number;
     image_prompt: string | null;
     image_url: string | null;
+    end_frame_url: string | null;
     video_prompt: string | null;
-    intent_action: string | null;
-    intent_camera: string | null;
-    intent_mood: string | null;
-    compiled_prompt: string | null;
-    prompt_override: string | null;
-    video_url: string | null;
     status: "pending" | "generating" | "complete" | "failed";
     error_message?: string | null;
   } | null;
-  // Image actions
+  // Frame actions
   onGenerateImage: (shotId: string) => void;
-  onUploadImage: (shotId: string, file: File) => void;
+  onUploadFrame: (shotId: string, role: ShotFrameRole, file: File) => void;
+  onClearEndFrame: (shotId: string) => void;
+  onUseBibleImageAsFrame: (shotId: string, role: ShotFrameRole, variantId: string) => void;
   // Video actions
-  onCompileVideoPrompt: (shotId: string) => void;
   onGenerateVideo: (shotId: string) => void;
   onCancelVideoGeneration: (shotId: string) => void;
-  onUpdateShot: (shotId: string, updates: { video_prompt?: string; intent_action?: string; intent_camera?: string; intent_mood?: string; compiled_prompt?: string; prompt_override?: string }) => void;
+  onUpdateShot: (shotId: string, updates: { video_prompt?: string }) => void;
   videoModel: VideoModelInfo | null;
   videoSettings: VideoGenerationSettings;
   onVideoSettingsChange: (settings: VideoGenerationSettings) => void;
   bibleAssets: BibleAsset[];
   bibleVariants: Record<string, BibleAssetVariant[]>;
-  selectedAssetRefs: ShotAssetRefInput[];
-  onSetAssetRefs: (shotId: string, refs: ShotAssetRefInput[]) => void;
   // Version data
   versions: ImageVersionNode[];
   currentVersion: ImageVersionWithUrl | null;
@@ -67,6 +62,11 @@ export interface ShotInspectorProps {
   onEnhanceVideoPrompt: (shotId: string) => void;
   isGeneratingPrompt: boolean;
   isEnhancingPrompt: boolean;
+}
+
+interface BibleFrameOption {
+  variantId: string;
+  label: string;
 }
 
 function InspectorSection({
@@ -93,11 +93,62 @@ function InspectorSection({
   );
 }
 
+function FramePreview({ url, label }: { url: string | null; label: string }) {
+  return (
+    <div className="relative aspect-video w-full overflow-hidden rounded border border-border/60 bg-muted">
+      {url ? (
+        <img src={url} alt={label} className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground/50">
+          <ImageIcon className="h-5 w-5" />
+          <span className="text-[10px]">No {label.toLowerCase()}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BibleFramePicker({
+  options,
+  onPick,
+}: {
+  options: BibleFrameOption[];
+  onPick: (variantId: string) => void;
+}) {
+  if (options.length === 0) return null;
+  return (
+    <Select value="" onValueChange={onPick}>
+      <SelectTrigger className="h-8 w-full text-xs">
+        <SelectValue placeholder="From Bible" />
+      </SelectTrigger>
+      <SelectContent className="max-h-72">
+        {options.map((option) => (
+          <SelectItem key={option.variantId} value={option.variantId} className="text-xs">
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function uploadFramePicker(onFile: (file: File) => void) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.onchange = (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) onFile(file);
+  };
+  input.click();
+}
+
 export default function ShotInspector({
   shot,
   onGenerateImage,
-  onUploadImage,
-  onCompileVideoPrompt,
+  onUploadFrame,
+  onClearEndFrame,
+  onUseBibleImageAsFrame,
   onGenerateVideo,
   onCancelVideoGeneration,
   onUpdateShot,
@@ -106,8 +157,6 @@ export default function ShotInspector({
   onVideoSettingsChange,
   bibleAssets,
   bibleVariants,
-  selectedAssetRefs,
-  onSetAssetRefs,
   versions,
   currentVersion,
   versionCount,
@@ -131,10 +180,22 @@ export default function ShotInspector({
     );
   }
 
+  const bibleFrameOptions: BibleFrameOption[] = bibleAssets.flatMap((asset) =>
+    (bibleVariants[asset.id] ?? [])
+      .filter((variant) => !!variant.media_url)
+      .map((variant) => ({
+        variantId: variant.id,
+        label: `${asset.name} · ${variant.name ?? variant.source_kind}`,
+      }))
+  );
+
   const canGenerateVideo = hasUsableShotVideoSource({
     imageUrl: shot.image_url,
-    selectedRefs: selectedAssetRefs,
-  }) && hasCompiledPromptForGeneration(shot.compiled_prompt);
+    prompt: shot.video_prompt,
+  });
+
+  const supportsEndFrame = videoModel?.modeCapabilities.imageToVideo?.supportsEndImage === true;
+
   const hasVideoSettings =
     !!videoModel &&
     (videoModel.capabilities.durations.length > 1 ||
@@ -152,15 +213,10 @@ export default function ShotInspector({
         </Badge>
       </div>
 
-      {/* Image Prompt Section */}
-      <InspectorSection title="Image Prompt">
-        <Textarea
-          className="min-h-[60px] text-sm resize-none"
-          placeholder="No image prompt set"
-          value={shot.image_prompt || ""}
-          readOnly
-        />
-        <div className="flex gap-2 mt-2">
+      {/* Start Frame Section */}
+      <InspectorSection title="Start Frame">
+        <FramePreview url={shot.image_url} label="Start frame" />
+        <div className="mt-2 flex gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -174,21 +230,20 @@ export default function ShotInspector({
             size="sm"
             variant="outline"
             className="text-xs"
-            onClick={() => {
-              const input = document.createElement("input");
-              input.type = "file";
-              input.accept = "image/*";
-              input.onchange = (e) => {
-                const file = (e.target as HTMLInputElement).files?.[0];
-                if (file) onUploadImage(shot.id, file);
-              };
-              input.click();
-            }}
+            onClick={() => uploadFramePicker((file) => onUploadFrame(shot.id, "start", file))}
           >
             <Upload className="h-3 w-3 mr-1" />
             Upload
           </Button>
         </div>
+        {bibleFrameOptions.length > 0 && (
+          <div className="mt-2">
+            <BibleFramePicker
+              options={bibleFrameOptions}
+              onPick={(variantId) => onUseBibleImageAsFrame(shot.id, "start", variantId)}
+            />
+          </div>
+        )}
       </InspectorSection>
 
       {/* Image Versions Section */}
@@ -205,28 +260,57 @@ export default function ShotInspector({
         </InspectorSection>
       )}
 
-      {/* Video Prompt Section */}
-      <InspectorSection title="Video Prompt">
+      {/* End Frame Section */}
+      <InspectorSection title="End Frame" defaultOpen={!!shot.end_frame_url}>
+        {!supportsEndFrame ? (
+          <p className="text-[11px] text-muted-foreground">
+            {videoModel?.name ?? "This model"} doesn't support an end frame. The start frame and prompt drive the shot.
+          </p>
+        ) : (
+          <>
+            <FramePreview url={shot.end_frame_url} label="End frame" />
+            <div className="mt-2 flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 text-xs"
+                onClick={() => uploadFramePicker((file) => onUploadFrame(shot.id, "end", file))}
+              >
+                <Upload className="h-3 w-3 mr-1" />
+                Upload
+              </Button>
+              {shot.end_frame_url && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  onClick={() => onClearEndFrame(shot.id)}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              )}
+            </div>
+            {bibleFrameOptions.length > 0 && (
+              <div className="mt-2">
+                <BibleFramePicker
+                  options={bibleFrameOptions}
+                  onPick={(variantId) => onUseBibleImageAsFrame(shot.id, "end", variantId)}
+                />
+              </div>
+            )}
+          </>
+        )}
+      </InspectorSection>
+
+      {/* Prompt Section */}
+      <InspectorSection title="Prompt">
         <Textarea
-          className="min-h-[60px] text-sm resize-none"
-          placeholder="Describe the shot action..."
-          value={shot.intent_action ?? shot.video_prompt ?? ""}
-          onChange={(e) => onUpdateShot(shot.id, { video_prompt: e.target.value, intent_action: e.target.value })}
+          className="min-h-[88px] text-sm resize-y"
+          placeholder="Describe the motion between the frames..."
+          value={shot.video_prompt ?? ""}
+          onChange={(e) => onUpdateShot(shot.id, { video_prompt: e.target.value })}
         />
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <Textarea
-            className="min-h-[44px] text-xs resize-none"
-            placeholder="Camera"
-            value={shot.intent_camera || ""}
-            onChange={(e) => onUpdateShot(shot.id, { intent_camera: e.target.value })}
-          />
-          <Textarea
-            className="min-h-[44px] text-xs resize-none"
-            placeholder="Mood"
-            value={shot.intent_mood || ""}
-            onChange={(e) => onUpdateShot(shot.id, { intent_mood: e.target.value })}
-          />
-        </div>
         <div className="flex gap-2 mt-2">
           <Button
             size="sm"
@@ -258,113 +342,6 @@ export default function ShotInspector({
           </Button>
         </div>
       </InspectorSection>
-
-      {bibleAssets.length > 0 && (
-        <InspectorSection title="Bible References">
-          <div className="space-y-1.5">
-            {bibleAssets.map((asset) => {
-              const variants = bibleVariants[asset.id] ?? [];
-              const defaultVariant = findDefaultVariant(variants);
-              const selectedRef = selectedAssetRefs.find((ref) => ref.asset_id === asset.id);
-              const selectedVariantId = resolveSelectedVariantId(selectedRef?.variant_id, variants);
-              const selectedVariant = variants.find((variant) => variant.id === selectedVariantId) ?? defaultVariant;
-              const checked = !!selectedRef;
-              return (
-                <div key={asset.id} className="space-y-1 rounded border border-border/60 p-2">
-                  <label className="flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={!defaultVariant}
-                      onChange={(e) => {
-                        const next = e.target.checked
-                          ? [
-                              ...selectedAssetRefs.filter((ref) => ref.asset_id !== asset.id),
-                              { asset_id: asset.id, variant_id: selectedVariantId ?? defaultVariant?.id ?? null, role: asset.asset_type },
-                            ]
-                          : selectedAssetRefs.filter((ref) => ref.asset_id !== asset.id);
-                        onSetAssetRefs(shot.id, next);
-                      }}
-                    />
-                    <span className="truncate font-medium">{asset.name}</span>
-                    <span className="text-muted-foreground">{asset.asset_type}</span>
-                  </label>
-                  {checked && variants.length > 0 && (
-                    <div className="space-y-1.5">
-                      {selectedVariant && (
-                        <div className="flex items-center gap-2 rounded bg-muted/50 p-1.5">
-                          <div className="h-12 w-16 shrink-0 overflow-hidden rounded bg-muted">
-                            {selectedVariant.media_url ? (
-                              <img
-                                src={selectedVariant.media_url}
-                                alt={selectedVariant.name ?? asset.name}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="h-full w-full flex items-center justify-center">
-                                <ImageIcon className="h-4 w-4 text-muted-foreground/50" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-medium">{selectedVariant.name ?? selectedVariant.source_kind}</p>
-                            <p className="truncate text-[10px] text-muted-foreground">
-                              {selectedVariant.status} · {selectedVariant.source_kind}
-                              {selectedVariant.is_primary ? " · Primary" : ""}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      <Select
-                        value={selectedVariantId ?? ""}
-                        onValueChange={(variantId) => {
-                          const next = [
-                            ...selectedAssetRefs.filter((ref) => ref.asset_id !== asset.id),
-                            { asset_id: asset.id, variant_id: variantId, role: asset.asset_type },
-                          ];
-                          onSetAssetRefs(shot.id, next);
-                        }}
-                      >
-                        <SelectTrigger className="h-8 w-full text-xs">
-                          <SelectValue placeholder="Variant" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-72 min-w-72">
-                          {variants.map((variant) => (
-                            <SelectItem key={variant.id} value={variant.id} className="py-2">
-                              <div className="flex items-center gap-2">
-                                <div className="h-10 w-14 shrink-0 overflow-hidden rounded bg-muted">
-                                  {variant.media_url ? (
-                                    <img
-                                      src={variant.media_url}
-                                      alt={variant.name ?? asset.name}
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="h-full w-full flex items-center justify-center">
-                                      <ImageIcon className="h-4 w-4 text-muted-foreground/50" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="truncate text-xs">{variant.name ?? variant.source_kind}</p>
-                                  <p className="truncate text-[10px] text-muted-foreground">
-                                    {variant.status} · {variant.source_kind}
-                                    {variant.is_primary ? " · Primary" : ""}
-                                  </p>
-                                </div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </InspectorSection>
-      )}
 
       {/* Generate Video Section */}
       <InspectorSection title="Generate Video">
@@ -454,31 +431,6 @@ export default function ShotInspector({
             )}
           </div>
         )}
-        <div className="mb-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 text-[11px] text-muted-foreground">
-          <Badge variant={hasCompiledPromptForGeneration(shot.compiled_prompt) ? "secondary" : "outline"} className="text-[10px]">
-            1
-          </Badge>
-          <span>Compile and review prompt</span>
-          <Badge variant={shot.status === "generating" || shot.video_url ? "secondary" : "outline"} className="text-[10px]">
-            2
-          </Badge>
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="mb-2 w-full text-xs"
-          onClick={() => onCompileVideoPrompt(shot.id)}
-          disabled={!hasUsableShotVideoSource({ imageUrl: shot.image_url, selectedRefs: selectedAssetRefs })}
-        >
-          <Sparkles className="h-3 w-3 mr-1" />
-          Compile Prompt
-        </Button>
-        <Textarea
-          className="mb-2 min-h-[132px] text-xs resize-y"
-          placeholder="Compile the video prompt before generating."
-          value={shot.compiled_prompt || ""}
-          onChange={(e) => onUpdateShot(shot.id, { compiled_prompt: e.target.value, prompt_override: e.target.value })}
-        />
         <Button
           size="sm"
           className="w-full text-xs"

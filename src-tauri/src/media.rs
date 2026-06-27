@@ -115,6 +115,23 @@ pub fn save_image(app: &AppHandle, shot_id: &str, base64_data_url: &str) -> Resu
     Ok(format!("images/{}", filename))
 }
 
+/// Save a shot's end frame from a base64 data URL. Returns relative path like "images/shotid_end.ext".
+pub fn save_end_frame(
+    app: &AppHandle,
+    shot_id: &str,
+    base64_data_url: &str,
+) -> Result<String, String> {
+    let base = get_media_base_dir(app);
+    let (mime_subtype, bytes) = parse_data_url(base64_data_url)?;
+    let ext = image_ext(&mime_subtype);
+    let filename = format!("{}_end.{}", shot_id, ext);
+    let filepath = base.join("images").join(&filename);
+
+    std::fs::write(&filepath, &bytes).map_err(|e| format!("Failed to write end frame: {}", e))?;
+
+    Ok(format!("images/{}", filename))
+}
+
 /// Save a video from a base64 data URL. Returns relative path like "videos/shotid.ext".
 pub fn save_video(app: &AppHandle, shot_id: &str, base64_data_url: &str) -> Result<String, String> {
     let base = get_media_base_dir(app);

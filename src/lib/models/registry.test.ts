@@ -54,9 +54,9 @@ describe("video configs", () => {
     }
   });
 
-  it("Seedance 2 fal exposes reference-to-video capability", () => {
+  it("Seedance 2 fal exposes start/end-frame image-to-video capability", () => {
     const provider = videoProviders.get("seedance-2-fal" as never);
-    expect(provider?.modeCapabilities.referenceToVideo?.imageReferencesMax).toBe(9);
+    expect(provider?.modeCapabilities.imageToVideo?.supportsStartImage).toBe(true);
     expect(provider?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
   });
 });

@@ -8,8 +8,6 @@ export interface ShotListItem {
   order: number;
   image_prompt: string | null;
   video_prompt: string | null;
-  intent_action: string | null;
-  compiled_prompt: string | null;
   image_url: string | null;
   video_url: string | null;
   status: "pending" | "generating" | "complete" | "failed";
@@ -52,7 +50,7 @@ function truncatePrompt(prompt: string | null): string {
 }
 
 function shotListPrompt(shot: ShotListItem): string | null {
-  return shot.intent_action || shot.video_prompt || shot.compiled_prompt || shot.image_prompt;
+  return shot.video_prompt || shot.image_prompt;
 }
 
 export default function ShotList({

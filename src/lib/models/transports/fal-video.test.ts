@@ -20,9 +20,8 @@ vi.mock("../http", () => ({
   }),
 }));
 
-import { submitFalQueueRequest, pollFalResult } from "../fal-shared";
+import { submitFalQueueRequest } from "../fal-shared";
 const mockSubmitFalQueueRequest = vi.mocked(submitFalQueueRequest);
-const mockPollFalResult = vi.mocked(pollFalResult);
 
 const seedanceConfig: VideoModelConfig = {
   id: "seedance-2-fal",
@@ -41,11 +40,6 @@ const seedanceConfig: VideoModelConfig = {
       endpoint: "bytedance/seedance-2.0/image-to-video",
       inputs: { startImage: true, endImage: true },
     },
-    referenceToVideo: {
-      endpoint: "bytedance/seedance-2.0/reference-to-video",
-      inputs: { imageReferences: { max: 9 } },
-      promptSyntax: "@ImageN",
-    },
   },
   paramMapping: {
     duration: "duration",
@@ -61,43 +55,6 @@ const seedanceConfig: VideoModelConfig = {
 describe("falVideoTransport.generateVideoRequest", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it("maps Seedance reference-to-video references to image_urls", async () => {
-    await falVideoTransport.generateVideoRequest!(seedanceConfig, {
-      mode: "reference-to-video",
-      prompt: "Use @Image1",
-      settings: { duration: "8", audio: true },
-      references: [
-        {
-          id: "var-1",
-          assetId: "asset-1",
-          kind: "character",
-          mediaType: "image",
-          label: "Mara",
-          data: "data:image/png;base64,abc",
-        },
-      ],
-    }, "key");
-
-    expect(mockSubmitFalQueueRequest).toHaveBeenCalledWith(
-      "bytedance/seedance-2.0/reference-to-video",
-      expect.objectContaining({
-        prompt: "Use @Image1",
-        image_urls: ["data:image/png;base64,abc"],
-        generate_audio: true,
-      }),
-      "key"
-    );
-    expect(mockPollFalResult).toHaveBeenCalledWith(
-      "bytedance/seedance-2.0/reference-to-video",
-      "req-1",
-      "key",
-      {
-        statusUrl: "https://queue.fal.run/status",
-        responseUrl: "https://queue.fal.run/response",
-      }
-    );
   });
 
   it("maps Seedance image-to-video end frame to end_image_url", async () => {

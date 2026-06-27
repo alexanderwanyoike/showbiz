@@ -125,20 +125,15 @@ describe("resolveSelectedVariantId", () => {
 });
 
 describe("hasUsableShotVideoSource", () => {
-  it("allows generation when a shot has an image", () => {
-    expect(hasUsableShotVideoSource({ imageUrl: "asset://shot.png", selectedRefs: [] })).toBe(true);
+  it("allows generation when a shot has a start frame", () => {
+    expect(hasUsableShotVideoSource({ imageUrl: "asset://shot.png", prompt: null })).toBe(true);
   });
 
-  it("allows generation when a Bible reference variant is selected", () => {
-    expect(
-      hasUsableShotVideoSource({
-        imageUrl: null,
-        selectedRefs: [{ asset_id: "asset", variant_id: "variant" }],
-      })
-    ).toBe(true);
+  it("allows text-to-video generation when only a prompt is present", () => {
+    expect(hasUsableShotVideoSource({ imageUrl: null, prompt: "A wide establishing shot" })).toBe(true);
   });
 
-  it("blocks generation when there is no image and no selected variant reference", () => {
-    expect(hasUsableShotVideoSource({ imageUrl: null, selectedRefs: [] })).toBe(false);
+  it("blocks generation when there is no start frame and no prompt", () => {
+    expect(hasUsableShotVideoSource({ imageUrl: null, prompt: "   " })).toBe(false);
   });
 });
