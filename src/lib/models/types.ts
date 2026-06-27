@@ -3,7 +3,7 @@ import type { VideoGenerationRequest } from "../generation/types";
 export type ImageModelId =
   | "imagen4" | "nano-banana" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5"
   | "flux-schnell-fal" | "flux-dev-fal" | "flux-kontext-fal"
-  | "flux-schnell-replicate" | "flux-dev-replicate";
+  | "flux-schnell-replicate" | "flux-dev-replicate" | "gpt-image-2";
 export type VideoModelId =
   | "veo3" | "veo3-fast" | "ltx-video"
   | "kling-3" | "kling-2.6" | "seedance-2" | "seedance-1.5" | "seedance-2-fal"
@@ -53,7 +53,7 @@ export interface ImageModelProvider {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
   generateImage(prompt: string, apiKey: string): Promise<string>;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
@@ -81,7 +81,7 @@ export interface VideoModelProvider {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
   capabilities: VideoModelCapabilities;
   modeCapabilities: VideoModelModeCapabilities;
   defaults: VideoGenerationSettings;
@@ -110,7 +110,7 @@ export interface ImageModelInfo {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
   provider?: string;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
@@ -122,7 +122,7 @@ export interface VideoModelInfo {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
   provider?: string;
   capabilities: VideoModelCapabilities;
   modeCapabilities: VideoModelModeCapabilities;

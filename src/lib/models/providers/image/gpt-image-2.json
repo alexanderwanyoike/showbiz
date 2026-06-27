@@ -1,0 +1,21 @@
+{
+  "id": "gpt-image-2",
+  "name": "GPT Image 2",
+  "description": "OpenAI's image model with multi-reference scene composition (via the Responses API)",
+  "transport": "openai-image",
+  "transportOptions": {
+    "responsesModel": "gpt-5.1"
+  },
+  "enabled": true,
+  "apiKeyProvider": "openai",
+  "provider": "OpenAI",
+  "models": {
+    "generate": "gpt-image-2",
+    "edit": "gpt-image-2"
+  },
+  "supportsEditing": true,
+  "supportsInpainting": false,
+  "fixedParams": {
+    "size": "1024x1024"
+  }
+}

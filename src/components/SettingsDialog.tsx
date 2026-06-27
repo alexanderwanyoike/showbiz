@@ -37,15 +37,26 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   // Input states for each provider
   const [geminiKey, setGeminiKey] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
   const [ltxKey, setLtxKey] = useState("");
   const [kieKey, setKieKey] = useState("");
   const [falKey, setFalKey] = useState("");
   const [replicateKey, setReplicateKey] = useState("");
   const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showLtxKey, setShowLtxKey] = useState(false);
   const [showKieKey, setShowKieKey] = useState(false);
   const [showFalKey, setShowFalKey] = useState(false);
   const [showReplicateKey, setShowReplicateKey] = useState(false);
+
+  const keyInputs: Record<ApiKeyProvider, { value: string; clear: () => void }> = {
+    gemini: { value: geminiKey, clear: () => setGeminiKey("") },
+    openai: { value: openaiKey, clear: () => setOpenaiKey("") },
+    ltx: { value: ltxKey, clear: () => setLtxKey("") },
+    kie: { value: kieKey, clear: () => setKieKey("") },
+    fal: { value: falKey, clear: () => setFalKey("") },
+    replicate: { value: replicateKey, clear: () => setReplicateKey("") },
+  };
 
   useEffect(() => {
     if (open) {
@@ -66,19 +77,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   }
 
   async function handleSaveKey(provider: ApiKeyProvider) {
-    const key = provider === "gemini" ? geminiKey : provider === "ltx" ? ltxKey : provider === "kie" ? kieKey : provider === "fal" ? falKey : replicateKey;
+    const key = keyInputs[provider].value;
     if (!key.trim()) return;
 
     setSavingProvider(provider);
     try {
       const result = await saveApiKeyAction(provider, key);
       if (result.success) {
-        // Clear the input and refresh status
-        if (provider === "gemini") setGeminiKey("");
-        else if (provider === "ltx") setLtxKey("");
-        else if (provider === "kie") setKieKey("");
-        else if (provider === "fal") setFalKey("");
-        else setReplicateKey("");
+        keyInputs[provider].clear();
         await loadApiKeyStatus();
       } else {
         alert(result.error || "Failed to save API key");
@@ -211,6 +217,16 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               setGeminiKey,
               showGeminiKey,
               setShowGeminiKey
+            )}
+
+            {renderApiKeySection(
+              "openai",
+              "OpenAI",
+              "Required for GPT Image 2 (scene composition)",
+              openaiKey,
+              setOpenaiKey,
+              showOpenaiKey,
+              setShowOpenaiKey
             )}
 
             {renderApiKeySection(
