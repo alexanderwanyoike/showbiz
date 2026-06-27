@@ -116,6 +116,12 @@ describe("image configs", () => {
     expect(config?.transportOptions?.endpoint).toBe("fal-ai/flux-pro/kontext/text-to-image");
     expect(config?.transportOptions?.editEndpoint).toBe("fal-ai/flux-pro/kontext");
   });
+
+  it("Nano Banana exposes multi-reference composition", () => {
+    const provider = imageProviders.get("nano-banana" as never);
+    expect(provider?.supportsComposition).toBe(true);
+    expect(typeof provider?.composeImage).toBe("function");
+  });
 });
 
 describe("model grouping", () => {

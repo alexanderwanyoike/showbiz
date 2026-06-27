@@ -31,4 +31,13 @@ export interface ImageTransport {
     sourceImageBase64: string,
     apiKey: string
   ): Promise<string>;
+
+  // Generate a single image from a prompt plus one or more reference images
+  // (multi-image composition: e.g. a character + a location + a style).
+  composeImage?(
+    config: ImageModelConfig,
+    prompt: string,
+    referenceImages: string[],
+    apiKey: string
+  ): Promise<string>;
 }
