@@ -144,7 +144,7 @@ export interface TimelineClipRow {
   created_at: string;
 }
 
-export type BibleAssetType = "character" | "location" | "prop" | "style" | "reference" | "note";
+export type BibleAssetType = "character" | "location" | "prop" | "style" | "reference" | "note" | "scene";
 export type BibleAssetVariantStatus = "candidate" | "approved" | "rejected";
 
 export interface Bible {

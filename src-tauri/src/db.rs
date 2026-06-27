@@ -153,7 +153,7 @@ fn migrate(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         CREATE TABLE IF NOT EXISTS bible_assets (
             id TEXT PRIMARY KEY,
             bible_id TEXT NOT NULL REFERENCES bibles(id) ON DELETE CASCADE,
-            asset_type TEXT NOT NULL CHECK(asset_type IN ('character', 'location', 'prop', 'style', 'reference', 'note')),
+            asset_type TEXT NOT NULL CHECK(asset_type IN ('character', 'location', 'prop', 'style', 'reference', 'note', 'scene')),
             name TEXT NOT NULL,
             summary TEXT,
             description TEXT,
@@ -265,6 +265,40 @@ fn migrate(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
          DROP TABLE IF EXISTS storyboard_bibles;
          DROP TABLE IF EXISTS bible_snapshots;",
     )?;
+
+    // Migration: allow the 'scene' asset type (composed frames) on existing databases.
+    // SQLite cannot alter a CHECK constraint, so rebuild bible_assets when 'scene' is absent.
+    // The rebuild preserves all rows, so bible_asset_variants foreign keys stay valid.
+    let bible_assets_sql: String = conn
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bible_assets'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or_default();
+    if !bible_assets_sql.is_empty() && !bible_assets_sql.contains("'scene'") {
+        conn.execute_batch(
+            "CREATE TABLE bible_assets_new (
+                 id TEXT PRIMARY KEY,
+                 bible_id TEXT NOT NULL REFERENCES bibles(id) ON DELETE CASCADE,
+                 asset_type TEXT NOT NULL CHECK(asset_type IN ('character', 'location', 'prop', 'style', 'reference', 'note', 'scene')),
+                 name TEXT NOT NULL,
+                 summary TEXT,
+                 description TEXT,
+                 tags_json TEXT,
+                 rules_json TEXT,
+                 consent_confirmed INTEGER NOT NULL DEFAULT 0,
+                 status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'approved', 'archived')),
+                 sort_order INTEGER NOT NULL DEFAULT 0,
+                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+             );
+             INSERT INTO bible_assets_new SELECT * FROM bible_assets;
+             DROP TABLE bible_assets;
+             ALTER TABLE bible_assets_new RENAME TO bible_assets;
+             CREATE INDEX IF NOT EXISTS idx_bible_assets_bible ON bible_assets(bible_id);",
+        )?;
+    }
 
     // Migration: Create initial image versions for existing shots with images
     let mut stmt = conn.prepare(
@@ -495,5 +529,38 @@ pub mod tests {
             .query_row("SELECT COUNT(*) FROM bible_assets", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn scene_asset_type_is_allowed() {
+        let conn = open_test_db();
+        let project_id = generate_id("proj");
+        conn.execute(
+            "INSERT INTO projects (id, name) VALUES (?1, ?2)",
+            rusqlite::params![project_id, "Series"],
+        )
+        .unwrap();
+        let bible_id: String = conn
+            .query_row(
+                "SELECT id FROM bibles WHERE project_id = ?1",
+                rusqlite::params![project_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let asset_id = generate_id("asset");
+        conn.execute(
+            "INSERT INTO bible_assets (id, bible_id, asset_type, name) VALUES (?1, ?2, 'scene', 'Mara at the gate')",
+            rusqlite::params![asset_id, bible_id],
+        )
+        .unwrap();
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM bible_assets WHERE asset_type = 'scene'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
     }
 }

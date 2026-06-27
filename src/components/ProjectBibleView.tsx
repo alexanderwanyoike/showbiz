@@ -29,7 +29,7 @@ import {
   type BibleAssetType,
   type BibleAssetVariant,
 } from "../lib/tauri-api";
-import { editImageAction, generateImageAction } from "../actions/generation-actions";
+import { composeFrameAction, editImageAction, generateImageAction } from "../actions/generation-actions";
 import { getAvailableImageModels, type ImageModelId } from "../lib/models";
 import {
   buildGeneratedVariantName,
@@ -40,7 +40,10 @@ import {
   getVariantGenerationFields,
 } from "../lib/bible-assets";
 
-const assetTypes: BibleAssetType[] = ["character", "location", "prop", "style", "reference", "note"];
+const assetTypes: BibleAssetType[] = ["character", "location", "prop", "style", "reference", "note", "scene"];
+
+// Asset types whose primary image can seed a composed scene frame.
+const COMPOSABLE_REF_TYPES: BibleAssetType[] = ["character", "location", "prop", "style", "reference"];
 const MAX_BIBLE_IMAGE_SIDE = 1600;
 const BIBLE_IMAGE_QUALITY = 0.9;
 
@@ -105,6 +108,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   const [assetRules, setAssetRules] = useState("");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [variantPrompt, setVariantPrompt] = useState("");
+  const [sceneRefAssetIds, setSceneRefAssetIds] = useState<Set<string>>(new Set());
   const [imageModel, setImageModel] = useState<ImageModelId>("nano-banana");
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [spotlightVariantId, setSpotlightVariantId] = useState<string | null>(null);
@@ -121,6 +125,28 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     () => assets.filter((asset) => typeFilter === "all" || asset.asset_type === typeFilter),
     [assets, typeFilter]
   );
+
+  const isScene = assetType === "scene";
+
+  // Assets usable as references when composing a scene frame (those with a usable image).
+  const sceneReferenceAssets = useMemo(
+    () =>
+      assets.filter(
+        (asset) =>
+          COMPOSABLE_REF_TYPES.includes(asset.asset_type) &&
+          (variants[asset.id] ?? []).some((variant) => variant.media_url)
+      ),
+    [assets, variants]
+  );
+
+  function toggleSceneRef(assetId: string) {
+    setSceneRefAssetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(assetId)) next.delete(assetId);
+      else next.add(assetId);
+      return next;
+    });
+  }
 
   useEffect(() => {
     loadBibles();
@@ -162,6 +188,10 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
         : selectedPrimaryVariant?.id ?? null
     );
   }, [selectedAssetId, selectedVariants, selectedPrimaryVariant]);
+
+  useEffect(() => {
+    setSceneRefAssetIds(new Set());
+  }, [selectedAssetId]);
 
   async function loadBibles() {
     setIsLoading(true);
@@ -283,6 +313,23 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     }
   }
 
+  // Fetch the primary image of each asset selected as a scene reference.
+  async function collectSceneReferenceImages(): Promise<string[]> {
+    const images: string[] = [];
+    for (const refAssetId of sceneRefAssetIds) {
+      const refVariants = variants[refAssetId] ?? [];
+      const primary =
+        refVariants.find((variant) => variant.is_primary && variant.media_url) ??
+        refVariants.find((variant) => variant.media_url) ??
+        null;
+      if (primary) {
+        const base64 = await getBibleVariantImageBase64(primary.id);
+        if (base64) images.push(base64);
+      }
+    }
+    return images;
+  }
+
   async function handleGenerateVariant() {
     if (!variantPrompt.trim()) return;
     setIsBusy(true);
@@ -293,18 +340,35 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
         setErrorMessage("Enter an asset name before generating a variant.");
         return;
       }
-      const currentPrimary = (variants[asset.id] ?? []).find((variant) => variant.is_primary && variant.media_url) ?? null;
-      const sourceVariant = chooseVariantSource(selectedVariant, currentPrimary);
-      const sourceBase64 = sourceVariant ? await getBibleVariantImageBase64(sourceVariant.id) : null;
-      const generatedBase64 = sourceBase64
-        ? await editImageAction(sourceBase64, variantPrompt, imageModel)
-        : await generateImageAction(variantPrompt, imageModel);
+
+      let generatedBase64: string;
+      let sourceVariantId: string | null = null;
+      let sourceKind: "generated" | "edited" = "generated";
+
+      if (asset.asset_type === "scene") {
+        const referenceImages = await collectSceneReferenceImages();
+        if (referenceImages.length === 0) {
+          setErrorMessage("Select at least one reference (character, location, ...) to compose a scene frame.");
+          return;
+        }
+        generatedBase64 = await composeFrameAction(variantPrompt, referenceImages, imageModel);
+      } else {
+        const currentPrimary = (variants[asset.id] ?? []).find((variant) => variant.is_primary && variant.media_url) ?? null;
+        const sourceVariant = chooseVariantSource(selectedVariant, currentPrimary);
+        const sourceBase64 = sourceVariant ? await getBibleVariantImageBase64(sourceVariant.id) : null;
+        generatedBase64 = sourceBase64
+          ? await editImageAction(sourceBase64, variantPrompt, imageModel)
+          : await generateImageAction(variantPrompt, imageModel);
+        sourceVariantId = sourceVariant?.id ?? null;
+        sourceKind = sourceVariant ? "edited" : "generated";
+      }
+
       const imageBase64 = await prepareBibleImageDataUrl(generatedBase64);
       const variant = await createBibleAssetVariant(asset.id, {
-        parent_variant_id: sourceVariant?.id ?? null,
+        parent_variant_id: sourceVariantId,
         name: buildGeneratedVariantName(variantPrompt),
         image_base64: imageBase64,
-        source_kind: sourceVariant ? "edited" : "generated",
+        source_kind: sourceKind,
         prompt: variantPrompt,
         model_id: imageModel,
         status: "candidate",
@@ -569,15 +633,58 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
               {imageModels.map((model) => <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>)}
             </SelectContent>
           </Select>
+
+          {isScene && (
+            <div className="space-y-1.5 rounded border border-border/60 p-2">
+              <p className="text-xs font-medium text-muted-foreground">References (consistent characters, locations, props, style)</p>
+              {sceneReferenceAssets.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">
+                  Create and approve a character, location, prop or style first, then compose a frame from them.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {sceneReferenceAssets.map((asset) => {
+                    const primary =
+                      (variants[asset.id] ?? []).find((v) => v.is_primary && v.media_url) ??
+                      (variants[asset.id] ?? []).find((v) => v.media_url) ??
+                      null;
+                    const active = sceneRefAssetIds.has(asset.id);
+                    return (
+                      <button
+                        key={asset.id}
+                        type="button"
+                        onClick={() => toggleSceneRef(asset.id)}
+                        className={`flex items-center gap-1.5 rounded border px-1.5 py-1 text-[11px] transition-colors ${active ? "border-primary bg-primary/10" : "border-border hover:bg-muted"}`}
+                        title={`${asset.name} (${asset.asset_type})`}
+                      >
+                        <span className="h-7 w-7 shrink-0 overflow-hidden rounded bg-muted">
+                          {primary?.media_url ? (
+                            <img src={primary.media_url} alt={asset.name} className="h-full w-full object-cover" />
+                          ) : null}
+                        </span>
+                        <span className="max-w-24 truncate">{asset.name}</span>
+                        {active && <Check className="h-3 w-3 text-primary" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           <Textarea
             className="field-sizing-fixed min-h-40 resize-y overflow-auto leading-5"
-            placeholder="Generate or transform variant..."
+            placeholder={isScene ? "Describe the moment to compose (the references keep characters consistent)..." : "Generate or transform variant..."}
             value={variantPrompt}
             onChange={(e) => setVariantPrompt(e.target.value)}
           />
-          <Button className="w-full" disabled={isBusy || !variantPrompt.trim()} onClick={handleGenerateVariant}>
+          <Button
+            className="w-full"
+            disabled={isBusy || !variantPrompt.trim() || (isScene && sceneRefAssetIds.size === 0)}
+            onClick={handleGenerateVariant}
+          >
             {isBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            Generate Variant
+            {isScene ? "Compose Frame" : "Generate Variant"}
           </Button>
         </div>
 
