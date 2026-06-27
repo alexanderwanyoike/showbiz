@@ -9,6 +9,7 @@ import { falImageTransport } from "./fal-image";
 import { replicateVideoTransport } from "./replicate-video";
 import { replicateImageTransport } from "./replicate-image";
 import { openaiImageTransport } from "./openai-image";
+import { googleInteractionsImageTransport } from "./google-interactions-image";
 
 const videoTransports: Record<string, VideoTransport> = {
   "kie-video": kieVideoTransport,
@@ -24,6 +25,7 @@ const imageTransports: Record<string, ImageTransport> = {
   "fal-image": falImageTransport,
   "replicate-image": replicateImageTransport,
   "openai-image": openaiImageTransport,
+  "google-interactions-image": googleInteractionsImageTransport,
 };
 
 export function getVideoTransport(id: string): VideoTransport {
