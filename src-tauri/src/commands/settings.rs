@@ -36,6 +36,7 @@ pub fn get_api_key_status(state: State<'_, DbState>) -> Result<Vec<ApiKeyStatus>
 
     let providers = vec![
         ("gemini", "Google AI (Gemini)"),
+        ("openai", "OpenAI"),
         ("ltx", "LTX Video"),
         ("kie", "Kie AI"),
         ("fal", "fal.ai"),
