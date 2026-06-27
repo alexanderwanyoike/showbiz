@@ -160,6 +160,17 @@ function imageConfigToProvider(config: ImageModelConfig): ImageModelProvider {
     };
   }
 
+  if (config.supportsEditing && transport.composeImage) {
+    provider.supportsComposition = true;
+    provider.composeImage = async (
+      prompt: string,
+      referenceImages: string[],
+      apiKey: string
+    ): Promise<string> => {
+      return transport.composeImage!(config, prompt, referenceImages, apiKey);
+    };
+  }
+
   return provider;
 }
 

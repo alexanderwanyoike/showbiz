@@ -81,21 +81,26 @@ async function generateContentGenerate(
   return extractImageFromGenerateContent(data as Record<string, unknown>, config.name);
 }
 
-async function generateContentEdit(
+function toInlineDataPart(dataUrl: string): { inline_data: { mime_type: string; data: string } } {
+  const matches = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+  if (!matches) {
+    throw new Error("Invalid reference image data URL format");
+  }
+  return { inline_data: { mime_type: matches[1], data: matches[2] } };
+}
+
+// Generate an image from a prompt plus one or more reference images. Drives both
+// single-image edit and multi-image composition (a character + a location + a style).
+async function generateContentCompose(
   config: ImageModelConfig,
-  editPrompt: string,
-  sourceImageBase64: string,
+  prompt: string,
+  referenceImages: string[],
   apiKey: string
 ): Promise<string> {
   const modelId = config.models.edit ?? config.models.generate;
   const url = `${BASE_URL}/models/${modelId}:generateContent`;
 
-  const matches = sourceImageBase64.match(/^data:(image\/\w+);base64,(.+)$/);
-  if (!matches) {
-    throw new Error("Invalid source image data URL format");
-  }
-  const mimeType = matches[1];
-  const imageData = matches[2];
+  const imageParts = referenceImages.map(toInlineDataPart);
 
   const response = await fetch(url, {
     method: "POST",
@@ -104,14 +109,7 @@ async function generateContentEdit(
       "x-goog-api-key": apiKey,
     },
     body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { text: editPrompt },
-            { inline_data: { mime_type: mimeType, data: imageData } },
-          ],
-        },
-      ],
+      contents: [{ parts: [{ text: prompt }, ...imageParts] }],
       generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
     }),
   });
@@ -148,6 +146,22 @@ export const googleImageTransport: ImageTransport = {
     if (apiPattern === "predict") {
       throw new Error(`${config.name} does not support image editing.`);
     }
-    return generateContentEdit(config, editPrompt, sourceImageBase64, apiKey);
+    return generateContentCompose(config, editPrompt, [sourceImageBase64], apiKey);
+  },
+
+  async composeImage(
+    config: ImageModelConfig,
+    prompt: string,
+    referenceImages: string[],
+    apiKey: string
+  ): Promise<string> {
+    const apiPattern = config.transportOptions?.apiPattern as string | undefined;
+    if (apiPattern === "predict") {
+      throw new Error(`${config.name} does not support multi-reference composition.`);
+    }
+    if (referenceImages.length === 0) {
+      throw new Error("composeImage requires at least one reference image");
+    }
+    return generateContentCompose(config, prompt, referenceImages, apiKey);
   },
 };

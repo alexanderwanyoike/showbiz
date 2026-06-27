@@ -68,6 +68,12 @@ export interface ImageModelProvider {
     maskBase64: string,
     apiKey: string
   ): Promise<string>;
+  supportsComposition?: boolean;
+  composeImage?(
+    prompt: string,
+    referenceImages: string[],
+    apiKey: string
+  ): Promise<string>;
 }
 
 export interface VideoModelProvider {

@@ -133,6 +133,26 @@ export async function editImageAction(sourceImageBase64: string, editPrompt: str
   }
 }
 
+// Compose a single frame from a prompt plus one or more reference images
+// (e.g. a Bible character + a location + a style). Used by the frame composer.
+export async function composeFrameAction(
+  prompt: string,
+  referenceImages: string[],
+  modelId: ImageModelId = "nano-banana"
+): Promise<string> {
+  const model = getImageModel(modelId);
+  const apiKey = await getApiKey(model.apiKeyProvider);
+  if (!apiKey) throw new Error(`${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`);
+  if (!model.composeImage) throw new Error(`${model.name} does not support multi-reference composition.`);
+  if (referenceImages.length === 0) throw new Error("Select at least one reference to compose a frame.");
+  try {
+    return await model.composeImage(prompt, referenceImages, apiKey);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Frame composition failed: ${errorMessage}`);
+  }
+}
+
 export async function generateVideoPromptFromImage(imageBase64: string): Promise<string> {
   const apiKey = await getApiKey("gemini");
   if (!apiKey) throw new Error("Gemini API key is not configured. Please add it in Settings.");
