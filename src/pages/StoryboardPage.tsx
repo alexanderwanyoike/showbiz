@@ -72,6 +72,7 @@ import type {
 } from "../lib/tauri-api";
 import {
   generateImageAction,
+  composeFrameAction,
   editImageAction,
   generateVideoPromptFromImage,
   enhanceVideoPrompt,
@@ -91,7 +92,7 @@ import {
 import type { VideoGenerationSettings } from "../lib/models/types";
 import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
 import type { VideoGenerationRequest } from "../lib/generation/types";
-import type { ShotFrameRole } from "../components/ShotInspector";
+import type { ShotFrameRole, FrameComposeSelection } from "../components/ShotInspector";
 import {
   invalidateGenerationRun,
   isCurrentGenerationRun,
@@ -482,12 +483,6 @@ export default function StoryboardPage() {
 
   // --- Image Handlers ---
 
-  function openImageModal(shotId: string) {
-    setActiveShotId(shotId);
-    setImagePrompt("");
-    setIsModalOpen(true);
-  }
-
   async function handleGenerateImage() {
     if (!id || !activeShotId || !imagePrompt) return;
 
@@ -562,17 +557,30 @@ export default function StoryboardPage() {
     }
   }
 
-  async function handleUseBibleImageAsFrame(shotId: string, role: ShotFrameRole, variantId: string) {
+  // Compose a shot's start/end frame from selected characters + a location + a prompt.
+  // With no references selected it falls back to plain text-to-image.
+  async function handleComposeFrame(
+    shotId: string,
+    role: ShotFrameRole,
+    selection: FrameComposeSelection
+  ) {
+    if (!id) return;
+    const { characterVariantIds, locationVariantId, prompt } = selection;
+    if (!prompt.trim()) return;
     try {
-      const dataUrl = await getBibleVariantImageBase64(variantId);
-      if (!dataUrl) {
-        alert("That Bible image has no data yet.");
-        return;
-      }
+      const variantIds = [...characterVariantIds, ...(locationVariantId ? [locationVariantId] : [])];
+      const images = (
+        await Promise.all(variantIds.map((variantId) => getBibleVariantImageBase64(variantId)))
+      ).filter((image): image is string => !!image);
+      const dataUrl =
+        images.length > 0
+          ? await composeFrameAction(prompt, images, imageModel)
+          : await generateImageAction(prompt, imageModel);
       await setShotFrameFromDataUrl(shotId, role, dataUrl);
     } catch (error) {
-      console.error("Failed to use Bible image as frame:", error);
-      alert("Failed to use Bible image as frame");
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Failed to compose frame:", message);
+      alert(`Failed to make frame: ${message}`);
     }
   }
 
@@ -1010,10 +1018,9 @@ export default function StoryboardPage() {
                   error_message: s.error_message,
                 } : null;
               })() : null}
-              onGenerateImage={openImageModal}
+              onComposeFrame={handleComposeFrame}
               onUploadFrame={handleUploadFrame}
               onClearEndFrame={handleClearEndFrame}
-              onUseBibleImageAsFrame={handleUseBibleImageAsFrame}
               onGenerateVideo={handleGenerateVideo}
               onCancelVideoGeneration={handleCancelVideoGeneration}
               onUpdateShot={(shotId, updates) => handleUpdateShot(shotId, updates)}
