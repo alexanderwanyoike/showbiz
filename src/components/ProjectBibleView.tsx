@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, ImageIcon, Loader2, Maximize2, Plus, Trash2, Upload, Sparkles, X } from "lucide-react";
+import { Check, ImageIcon, Loader2, Maximize2, Plus, RefreshCw, Trash2, Upload, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,6 +65,28 @@ function prepareBibleImageDataUrl(dataUrl: string): Promise<string> {
 
 function primaryPicture(variants: BibleAssetVariant[]): BibleAssetVariant | null {
   return variants.find((v) => v.is_primary && v.media_url) ?? variants.find((v) => v.media_url) ?? null;
+}
+
+// A frame's compose recipe, stored as JSON on the frame asset so it can be retaken.
+interface FrameRecipe {
+  characters: string[]; // character asset ids (compose uses each one's primary picture)
+  location: string | null; // location asset id (for display)
+  locationVariantId: string | null; // the chosen location view (compose uses this picture)
+  prompt: string;
+}
+
+function parseRecipe(rulesJson: string | null): FrameRecipe {
+  try {
+    const r = JSON.parse(rulesJson || "{}");
+    return {
+      characters: Array.isArray(r.characters) ? r.characters : [],
+      location: r.location ?? null,
+      locationVariantId: r.locationVariantId ?? null,
+      prompt: typeof r.prompt === "string" ? r.prompt : "",
+    };
+  } catch {
+    return { characters: [], location: null, locationVariantId: null, prompt: "" };
+  }
 }
 
 function pickImageFile(onFile: (file: File) => void) {
@@ -358,6 +380,86 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setAssets((prev) => prev.filter((a) => a.id !== asset.id));
   }
 
+  // Compose a frame image from a recipe (character primaries + a location view + prompt).
+  async function composeFrameImage(recipe: FrameRecipe, prompt: string): Promise<string> {
+    const variantIds: string[] = [];
+    for (const cid of recipe.characters) {
+      const pic = primaryPicture(variants[cid] ?? []);
+      if (pic) variantIds.push(pic.id);
+    }
+    if (recipe.locationVariantId) variantIds.push(recipe.locationVariantId);
+    const images = (
+      await Promise.all(variantIds.map((vid) => getBibleVariantImageBase64(vid)))
+    ).filter((x): x is string => !!x);
+    const raw =
+      images.length > 0
+        ? await composeFrameAction(prompt, images, imageModel)
+        : await generateImageAction(prompt, imageModel);
+    return prepareBibleImageDataUrl(raw);
+  }
+
+  async function handleMakeFrame(recipe: FrameRecipe) {
+    if (!bibleId || !recipe.prompt.trim()) return;
+    setError(null);
+    setBusyId("make-frame");
+    try {
+      const dataUrl = await composeFrameImage(recipe, recipe.prompt);
+      const asset = await createBibleAsset(bibleId, {
+        asset_type: "reference",
+        name: recipe.prompt.slice(0, 50) || "Frame",
+        summary: null,
+        description: null,
+        tags_json: null,
+        rules_json: JSON.stringify(recipe),
+        consent_confirmed: false,
+      });
+      setAssets((prev) => [asset, ...prev]);
+      setVariants((prev) => ({ ...prev, [asset.id]: [] }));
+      await createBibleAssetVariant(asset.id, {
+        name: recipe.prompt.slice(0, 40),
+        image_base64: dataUrl,
+        source_kind: "generated",
+        status: "approved",
+        prompt: recipe.prompt,
+        model_id: imageModel,
+        is_primary: true,
+      });
+      await refreshAsset(asset.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Retake a frame (re-roll its recipe), optionally with a tweaked prompt (a variation).
+  // The new take becomes the frame's primary.
+  async function handleRetakeFrame(frame: BibleAsset, promptOverride?: string) {
+    setError(null);
+    setBusyId(frame.id);
+    try {
+      const recipe = parseRecipe(frame.rules_json);
+      const prompt = (promptOverride ?? recipe.prompt).trim();
+      if (!prompt) return;
+      const dataUrl = await composeFrameImage(recipe, prompt);
+      const take = await createBibleAssetVariant(frame.id, {
+        name: prompt.slice(0, 40),
+        image_base64: dataUrl,
+        source_kind: "generated",
+        status: "approved",
+        prompt,
+        model_id: imageModel,
+        is_primary: false,
+      });
+      await updateBibleAssetVariantStatus(take.id, "approved", true);
+      await refreshAsset(frame.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   if (!bibleId) {
     return <div className="p-6 text-sm text-muted-foreground">Loading bible…</div>;
   }
@@ -421,32 +523,13 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             locations={locations}
             frames={frames}
             variants={variants}
-            imageModel={imageModel}
-            onMade={() => load()}
+            busyId={busyId}
+            onMakeFrame={handleMakeFrame}
+            onRetake={handleRetakeFrame}
+            onSetPrimary={handleSetPrimary}
+            onDeleteTake={handleDeletePicture}
             onDeleteFrame={handleDeleteAsset}
-            getVariantImage={getBibleVariantImageBase64}
             onExpand={setLightbox}
-            createFrame={async (name, dataUrl, prompt) => {
-              const asset = await createBibleAsset(bibleId, {
-                asset_type: "reference",
-                name,
-                summary: null,
-                description: null,
-                tags_json: null,
-                rules_json: null,
-                consent_confirmed: false,
-              });
-              await createBibleAssetVariant(asset.id, {
-                name,
-                image_base64: await prepareBibleImageDataUrl(dataUrl),
-                source_kind: "generated",
-                status: "approved",
-                prompt,
-                model_id: imageModel,
-                is_primary: true,
-              });
-            }}
-            setError={setError}
           />
         )}
       </div>
@@ -584,37 +667,37 @@ function AssetTab({
   );
 }
 
-// Frames: compose a picture from characters + a location + a prompt.
+// Frames: compose from characters + a location + a prompt, then manage takes.
 function FramesTab({
   characters,
   locations,
   frames,
   variants,
-  imageModel,
-  onMade,
+  busyId,
+  onMakeFrame,
+  onRetake,
+  onSetPrimary,
+  onDeleteTake,
   onDeleteFrame,
   onExpand,
-  getVariantImage,
-  createFrame,
-  setError,
 }: {
   characters: BibleAsset[];
   locations: BibleAsset[];
   frames: BibleAsset[];
   variants: Record<string, BibleAssetVariant[]>;
-  imageModel: ImageModelId;
-  onMade: () => void;
+  busyId: string | null;
+  onMakeFrame: (recipe: FrameRecipe) => Promise<void>;
+  onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<void>;
+  onSetPrimary: (variant: BibleAssetVariant) => void;
+  onDeleteTake: (variant: BibleAssetVariant) => void;
   onDeleteFrame: (asset: BibleAsset) => void;
   onExpand: (url: string) => void;
-  getVariantImage: (variantId: string) => Promise<string | null>;
-  createFrame: (name: string, dataUrl: string, prompt: string) => Promise<void>;
-  setError: (m: string | null) => void;
 }) {
   const [selectedChars, setSelectedChars] = useState<Set<string>>(new Set());
   const [locationId, setLocationId] = useState<string | null>(null);
   const [locationVariantId, setLocationVariantId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
-  const [busy, setBusy] = useState(false);
+  const making = busyId === "make-frame";
 
   function toggleChar(id: string) {
     setSelectedChars((prev) => {
@@ -638,29 +721,13 @@ function FramesTab({
   const locationViews = locationId ? (variants[locationId] ?? []).filter((v) => v.media_url) : [];
 
   async function makeFrame() {
-    setError(null);
-    setBusy(true);
-    try {
-      const variantIds: string[] = [];
-      for (const cid of selectedChars) {
-        const pic = primaryPicture(variants[cid] ?? []);
-        if (pic) variantIds.push(pic.id);
-      }
-      if (locationVariantId) variantIds.push(locationVariantId);
-
-      const images = (await Promise.all(variantIds.map((id) => getVariantImage(id)))).filter((x): x is string => !!x);
-      const dataUrl =
-        images.length > 0
-          ? await composeFrameAction(prompt, images, imageModel)
-          : await generateImageAction(prompt, imageModel);
-      await createFrame(prompt.slice(0, 50) || "Frame", dataUrl, prompt);
-      setPrompt("");
-      onMade();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
+    await onMakeFrame({
+      characters: [...selectedChars],
+      location: locationId,
+      locationVariantId,
+      prompt,
+    });
+    setPrompt("");
   }
 
   return (
@@ -726,8 +793,8 @@ function FramesTab({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
-        <Button size="sm" className="text-xs" disabled={busy || !prompt.trim()} onClick={makeFrame}>
-          {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+        <Button size="sm" className="text-xs" disabled={making || !prompt.trim()} onClick={makeFrame}>
+          {making ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
           Make frame
         </Button>
       </div>
@@ -735,24 +802,118 @@ function FramesTab({
       {frames.length === 0 ? (
         <p className="text-sm text-muted-foreground">No frames yet. Compose one above, then use it as a shot's start/end frame.</p>
       ) : (
-        <div className="flex flex-wrap gap-3">
-          {frames.map((f) => {
-            const pic = primaryPicture(variants[f.id] ?? []);
-            return (
-              <div key={f.id} className="w-72 space-y-1">
-                <Tile
-                  url={pic?.media_url ?? null}
-                  label={f.name}
-                  size="lg"
-                  onDelete={() => onDeleteFrame(f)}
-                  onExpand={() => pic?.media_url && onExpand(pic.media_url)}
-                />
-                <PictureMeta variant={pic} />
-              </div>
-            );
-          })}
+        <div className="space-y-3">
+          {frames.map((f) => (
+            <FrameCard
+              key={f.id}
+              frame={f}
+              takes={(variants[f.id] ?? []).filter((v) => v.media_url)}
+              characters={characters}
+              locations={locations}
+              busy={busyId === f.id}
+              onRetake={onRetake}
+              onSetPrimary={onSetPrimary}
+              onDeleteTake={onDeleteTake}
+              onDeleteFrame={onDeleteFrame}
+              onExpand={onExpand}
+            />
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// A single frame: primary take + meta, its other takes, and retake/variation.
+function FrameCard({
+  frame,
+  takes,
+  characters,
+  locations,
+  busy,
+  onRetake,
+  onSetPrimary,
+  onDeleteTake,
+  onDeleteFrame,
+  onExpand,
+}: {
+  frame: BibleAsset;
+  takes: BibleAssetVariant[];
+  characters: BibleAsset[];
+  locations: BibleAsset[];
+  busy: boolean;
+  onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<void>;
+  onSetPrimary: (variant: BibleAssetVariant) => void;
+  onDeleteTake: (variant: BibleAssetVariant) => void;
+  onDeleteFrame: (asset: BibleAsset) => void;
+  onExpand: (url: string) => void;
+}) {
+  const recipe = parseRecipe(frame.rules_json);
+  const primary = primaryPicture(takes);
+  const [variation, setVariation] = useState(recipe.prompt);
+
+  const builtFrom = [
+    ...recipe.characters.map((id) => characters.find((c) => c.id === id)?.name).filter(Boolean),
+    recipe.location ? locations.find((l) => l.id === recipe.location)?.name : null,
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <div className="rounded border border-border p-3">
+      <div className="flex gap-3">
+        <Tile
+          url={primary?.media_url ?? null}
+          size="lg"
+          onExpand={() => primary?.media_url && onExpand(primary.media_url)}
+        />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex items-start justify-between gap-2">
+            <span className="truncate text-sm font-medium">{frame.name}</span>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDeleteFrame(frame)} title="Delete frame">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+          <PictureMeta variant={primary} />
+          {builtFrom && <p className="text-[10px] text-muted-foreground">Built from: {builtFrom}</p>}
+
+          {takes.length > 1 && (
+            <div>
+              <p className="mb-1 text-[10px] text-muted-foreground">Takes (click to use)</p>
+              <div className="flex flex-wrap gap-1.5">
+                {takes.map((t) => (
+                  <Tile
+                    key={t.id}
+                    url={t.media_url}
+                    active={t.is_primary}
+                    onClick={() => onSetPrimary(t)}
+                    onDelete={() => onDeleteTake(t)}
+                    onExpand={() => t.media_url && onExpand(t.media_url)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <Button size="sm" variant="outline" className="text-xs" disabled={busy} onClick={() => onRetake(frame)}>
+              {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+              Retake
+            </Button>
+          </div>
+
+          <div className="flex items-end gap-2">
+            <Textarea
+              className="min-h-[40px] flex-1 text-xs resize-none"
+              placeholder="Tweak the prompt for a variation..."
+              value={variation}
+              onChange={(e) => setVariation(e.target.value)}
+            />
+            <Button size="sm" className="text-xs" disabled={busy || !variation.trim()} onClick={() => onRetake(frame, variation)}>
+              <Sparkles className="h-3 w-3 mr-1" />
+              Variation
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
