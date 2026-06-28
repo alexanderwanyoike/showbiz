@@ -215,7 +215,7 @@ export default function StoryboardPage() {
   // Frames composed in the Bible (scene assets) that a shot can pick as start/end.
   const frameOptions: FrameOption[] = useMemo(() => {
     return bibleAssets
-      .filter((a) => a.asset_type === "scene")
+      .filter((a) => a.asset_type === "reference")
       .map((a) => {
         const pics = bibleVariants[a.id] ?? [];
         const pic = pics.find((v) => v.is_primary && v.media_url) ?? pics.find((v) => v.media_url);

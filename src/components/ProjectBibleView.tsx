@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, ImageIcon, Loader2, Plus, Trash2, Upload, Sparkles } from "lucide-react";
+import { Check, ImageIcon, Loader2, Maximize2, Plus, Trash2, Upload, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -84,27 +84,54 @@ interface ProjectBibleViewProps {
   projectId: string;
 }
 
-// A small image tile used for pictures, characters and locations.
+// A full-screen view of one picture.
+function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-6" onClick={onClose}>
+      <img
+        src={url}
+        alt=""
+        className="max-h-full max-w-full rounded object-contain shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 rounded-full bg-white/15 p-2 text-white hover:bg-white/25"
+        title="Close"
+      >
+        <X className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
+
+// An image tile used for pictures, characters, locations and frames.
 function Tile({
   url,
   label,
   active,
+  size = "sm",
   onClick,
   onDelete,
+  onExpand,
 }: {
   url: string | null;
   label?: string;
   active?: boolean;
+  size?: "sm" | "lg";
   onClick?: () => void;
   onDelete?: () => void;
+  onExpand?: () => void;
 }) {
+  const dims = size === "lg" ? "h-44 w-72" : "h-20 w-28";
   return (
     <div className="relative">
       <button
         type="button"
         onClick={onClick}
         title={label}
-        className={`relative block h-20 w-28 overflow-hidden rounded border bg-muted text-[10px] transition-colors ${active ? "border-primary ring-2 ring-primary" : "border-border hover:border-foreground/40"}`}
+        className={`relative block ${dims} overflow-hidden rounded border bg-muted text-[10px] transition-colors ${active ? "border-primary ring-2 ring-primary" : "border-border hover:border-foreground/40"}`}
       >
         {url ? (
           <img src={url} alt={label ?? ""} className="h-full w-full object-cover" />
@@ -122,6 +149,16 @@ function Tile({
           </span>
         )}
       </button>
+      {onExpand && url && (
+        <button
+          type="button"
+          onClick={onExpand}
+          className="absolute bottom-1 right-1 rounded bg-black/60 p-1 text-white hover:bg-black/80"
+          title="View full"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
+      )}
       {onDelete && (
         <button
           type="button"
@@ -174,6 +211,17 @@ function AddPicture({
   );
 }
 
+// Shows what made a picture: the model and the prompt (so you can see/reuse it).
+function PictureMeta({ variant }: { variant: BibleAssetVariant | null }) {
+  if (!variant?.prompt) return null;
+  return (
+    <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground" title={variant.prompt}>
+      {variant.model_id ? <span className="font-medium text-foreground/70">{variant.model_id} · </span> : null}
+      {variant.prompt}
+    </p>
+  );
+}
+
 export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   const [bibleId, setBibleId] = useState<string | null>(null);
   const [assets, setAssets] = useState<BibleAsset[]>([]);
@@ -182,6 +230,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   const [imageModel, setImageModel] = useState<ImageModelId>("nano-banana");
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const imageModels = getAvailableImageModels();
 
   useEffect(() => {
@@ -212,7 +261,9 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
 
   const characters = assets.filter((a) => a.asset_type === "character");
   const locations = assets.filter((a) => a.asset_type === "location");
-  const frames = assets.filter((a) => a.asset_type === "scene");
+  // Frames are stored as "reference"-type bible assets: that value is allowed on
+  // every database, whereas "scene" only exists in the newer schema.
+  const frames = assets.filter((a) => a.asset_type === "reference");
 
   async function imageFromPrompt(prompt: string): Promise<string> {
     const raw = await generateImageAction(prompt, imageModel);
@@ -360,6 +411,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             onSetPrimary={handleSetPrimary}
             onDeletePicture={handleDeletePicture}
             onDeleteAsset={handleDeleteAsset}
+            onExpand={setLightbox}
           />
         )}
 
@@ -373,9 +425,10 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             onMade={() => load()}
             onDeleteFrame={handleDeleteAsset}
             getVariantImage={getBibleVariantImageBase64}
-            createFrame={async (name, dataUrl) => {
+            onExpand={setLightbox}
+            createFrame={async (name, dataUrl, prompt) => {
               const asset = await createBibleAsset(bibleId, {
-                asset_type: "scene",
+                asset_type: "reference",
                 name,
                 summary: null,
                 description: null,
@@ -388,7 +441,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
                 image_base64: await prepareBibleImageDataUrl(dataUrl),
                 source_kind: "generated",
                 status: "approved",
-                prompt: name,
+                prompt,
                 model_id: imageModel,
                 is_primary: true,
               });
@@ -397,6 +450,8 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
           />
         )}
       </div>
+
+      {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
     </div>
   );
 }
@@ -414,6 +469,7 @@ function AssetTab({
   onSetPrimary,
   onDeletePicture,
   onDeleteAsset,
+  onExpand,
 }: {
   type: "character" | "location";
   label: string;
@@ -426,6 +482,7 @@ function AssetTab({
   onSetPrimary: (variant: BibleAssetVariant) => void;
   onDeletePicture: (variant: BibleAssetVariant) => void;
   onDeleteAsset: (asset: BibleAsset) => void;
+  onExpand: (url: string) => void;
 }) {
   const [newName, setNewName] = useState("");
   const [newPrompt, setNewPrompt] = useState("");
@@ -497,17 +554,22 @@ function AssetTab({
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="mb-2 flex flex-wrap gap-2">
+              <div className="mb-1 flex flex-wrap gap-2">
                 {pics.length === 0 && <span className="text-xs text-muted-foreground">No picture yet</span>}
                 {pics.map((v) => (
                   <Tile
                     key={v.id}
                     url={v.media_url}
                     active={v.is_primary}
+                    size="lg"
                     onClick={() => onSetPrimary(v)}
                     onDelete={() => onDeletePicture(v)}
+                    onExpand={() => v.media_url && onExpand(v.media_url)}
                   />
                 ))}
+              </div>
+              <div className="mb-2">
+                <PictureMeta variant={primaryPicture(pics)} />
               </div>
               <AddPicture
                 busy={isBusy}
@@ -531,6 +593,7 @@ function FramesTab({
   imageModel,
   onMade,
   onDeleteFrame,
+  onExpand,
   getVariantImage,
   createFrame,
   setError,
@@ -542,8 +605,9 @@ function FramesTab({
   imageModel: ImageModelId;
   onMade: () => void;
   onDeleteFrame: (asset: BibleAsset) => void;
+  onExpand: (url: string) => void;
   getVariantImage: (variantId: string) => Promise<string | null>;
-  createFrame: (name: string, dataUrl: string) => Promise<void>;
+  createFrame: (name: string, dataUrl: string, prompt: string) => Promise<void>;
   setError: (m: string | null) => void;
 }) {
   const [selectedChars, setSelectedChars] = useState<Set<string>>(new Set());
@@ -589,7 +653,7 @@ function FramesTab({
         images.length > 0
           ? await composeFrameAction(prompt, images, imageModel)
           : await generateImageAction(prompt, imageModel);
-      await createFrame(prompt.slice(0, 50) || "Frame", dataUrl);
+      await createFrame(prompt.slice(0, 50) || "Frame", dataUrl, prompt);
       setPrompt("");
       onMade();
     } catch (e) {
@@ -607,29 +671,37 @@ function FramesTab({
         <p className="mb-1 text-[11px] font-medium text-muted-foreground">Who?</p>
         <div className="mb-3 flex flex-wrap gap-2">
           {characters.length === 0 && <span className="text-xs text-muted-foreground">Make a character first</span>}
-          {characters.map((c) => (
-            <Tile
-              key={c.id}
-              url={primaryPicture(variants[c.id] ?? [])?.media_url ?? null}
-              label={c.name}
-              active={selectedChars.has(c.id)}
-              onClick={() => toggleChar(c.id)}
-            />
-          ))}
+          {characters.map((c) => {
+            const url = primaryPicture(variants[c.id] ?? [])?.media_url ?? null;
+            return (
+              <Tile
+                key={c.id}
+                url={url}
+                label={c.name}
+                active={selectedChars.has(c.id)}
+                onClick={() => toggleChar(c.id)}
+                onExpand={() => url && onExpand(url)}
+              />
+            );
+          })}
         </div>
 
         <p className="mb-1 text-[11px] font-medium text-muted-foreground">Where?</p>
         <div className="mb-2 flex flex-wrap gap-2">
           {locations.length === 0 && <span className="text-xs text-muted-foreground">Optional</span>}
-          {locations.map((l) => (
-            <Tile
-              key={l.id}
-              url={primaryPicture(variants[l.id] ?? [])?.media_url ?? null}
-              label={l.name}
-              active={locationId === l.id}
-              onClick={() => pickLocation(l.id)}
-            />
-          ))}
+          {locations.map((l) => {
+            const url = primaryPicture(variants[l.id] ?? [])?.media_url ?? null;
+            return (
+              <Tile
+                key={l.id}
+                url={url}
+                label={l.name}
+                active={locationId === l.id}
+                onClick={() => pickLocation(l.id)}
+                onExpand={() => url && onExpand(url)}
+              />
+            );
+          })}
         </div>
         {locationViews.length > 1 && (
           <div className="mb-3">
@@ -663,15 +735,22 @@ function FramesTab({
       {frames.length === 0 ? (
         <p className="text-sm text-muted-foreground">No frames yet. Compose one above, then use it as a shot's start/end frame.</p>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          {frames.map((f) => (
-            <Tile
-              key={f.id}
-              url={primaryPicture(variants[f.id] ?? [])?.media_url ?? null}
-              label={f.name}
-              onDelete={() => onDeleteFrame(f)}
-            />
-          ))}
+        <div className="flex flex-wrap gap-3">
+          {frames.map((f) => {
+            const pic = primaryPicture(variants[f.id] ?? []);
+            return (
+              <div key={f.id} className="w-72 space-y-1">
+                <Tile
+                  url={pic?.media_url ?? null}
+                  label={f.name}
+                  size="lg"
+                  onDelete={() => onDeleteFrame(f)}
+                  onExpand={() => pic?.media_url && onExpand(pic.media_url)}
+                />
+                <PictureMeta variant={pic} />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
