@@ -72,7 +72,6 @@ import type {
 } from "../lib/tauri-api";
 import {
   generateImageAction,
-  composeFrameAction,
   editImageAction,
   generateVideoPromptFromImage,
   enhanceVideoPrompt,
@@ -92,7 +91,7 @@ import {
 import type { VideoGenerationSettings } from "../lib/models/types";
 import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
 import type { VideoGenerationRequest } from "../lib/generation/types";
-import type { ShotFrameRole, FrameComposeSelection } from "../components/ShotInspector";
+import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
 import {
   invalidateGenerationRun,
   isCurrentGenerationRun,
@@ -212,6 +211,18 @@ export default function StoryboardPage() {
     () => videoModels.find((m) => m.id === videoModel),
     [videoModel, videoModels]
   );
+
+  // Frames composed in the Bible (scene assets) that a shot can pick as start/end.
+  const frameOptions: FrameOption[] = useMemo(() => {
+    return bibleAssets
+      .filter((a) => a.asset_type === "scene")
+      .map((a) => {
+        const pics = bibleVariants[a.id] ?? [];
+        const pic = pics.find((v) => v.is_primary && v.media_url) ?? pics.find((v) => v.media_url);
+        return pic ? { variantId: pic.id, label: a.name } : null;
+      })
+      .filter((f): f is FrameOption => !!f);
+  }, [bibleAssets, bibleVariants]);
 
   // Image Version State - per shot
   const [shotVersions, setShotVersions] = useState<Record<string, ImageVersionNode[]>>({});
@@ -557,30 +568,20 @@ export default function StoryboardPage() {
     }
   }
 
-  // Compose a shot's start/end frame from selected characters + a location + a prompt.
-  // With no references selected it falls back to plain text-to-image.
-  async function handleComposeFrame(
-    shotId: string,
-    role: ShotFrameRole,
-    selection: FrameComposeSelection
-  ) {
+  // Use a frame composed in the Bible as the shot's start/end frame.
+  async function handlePickFrame(shotId: string, role: ShotFrameRole, variantId: string) {
     if (!id) return;
-    const { characterVariantIds, locationVariantId, prompt } = selection;
-    if (!prompt.trim()) return;
     try {
-      const variantIds = [...characterVariantIds, ...(locationVariantId ? [locationVariantId] : [])];
-      const images = (
-        await Promise.all(variantIds.map((variantId) => getBibleVariantImageBase64(variantId)))
-      ).filter((image): image is string => !!image);
-      const dataUrl =
-        images.length > 0
-          ? await composeFrameAction(prompt, images, imageModel)
-          : await generateImageAction(prompt, imageModel);
+      const dataUrl = await getBibleVariantImageBase64(variantId);
+      if (!dataUrl) {
+        alert("That frame has no image yet.");
+        return;
+      }
       await setShotFrameFromDataUrl(shotId, role, dataUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error("Failed to compose frame:", message);
-      alert(`Failed to make frame: ${message}`);
+      console.error("Failed to set frame:", message);
+      alert(`Failed to set frame: ${message}`);
     }
   }
 
@@ -1018,7 +1019,8 @@ export default function StoryboardPage() {
                   error_message: s.error_message,
                 } : null;
               })() : null}
-              onComposeFrame={handleComposeFrame}
+              frameOptions={frameOptions}
+              onPickFrame={handlePickFrame}
               onUploadFrame={handleUploadFrame}
               onClearEndFrame={handleClearEndFrame}
               onGenerateVideo={handleGenerateVideo}
@@ -1027,8 +1029,6 @@ export default function StoryboardPage() {
               videoModel={currentVideoModel ?? null}
               videoSettings={videoSettings}
               onVideoSettingsChange={setVideoSettings}
-              bibleAssets={bibleAssets}
-              bibleVariants={bibleVariants}
               versions={selectedShotId ? (shotVersions[selectedShotId] || []) : []}
               currentVersion={selectedShotId ? (shotCurrentVersions[selectedShotId] || null) : null}
               versionCount={selectedShotId ? (shotVersionCounts[selectedShotId] || 0) : 0}
