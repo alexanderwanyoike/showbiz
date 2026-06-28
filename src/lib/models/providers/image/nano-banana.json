@@ -1,7 +1,7 @@
 {
   "id": "nano-banana",
   "name": "Nano Banana",
-  "description": "Fast image generation via Gemini 2.5 Flash",
+  "description": "Gemini 2.5 Flash: fast and reliable for generating and composing pictures",
   "transport": "google-image",
   "transportOptions": {
     "apiPattern": "generateContent"
