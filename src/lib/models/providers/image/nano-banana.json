@@ -6,7 +6,7 @@
   "transportOptions": {
     "apiPattern": "generateContent"
   },
-  "enabled": true,
+  "enabled": false,
   "apiKeyProvider": "gemini",
   "models": {
     "generate": "gemini-2.5-flash-image",

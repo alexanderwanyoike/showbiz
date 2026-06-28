@@ -3,7 +3,7 @@
   "name": "Nano Banana 2",
   "description": "Gemini 3.1 Flash Image: fast, high-volume generation and multi-reference composition (character + object slots)",
   "transport": "google-interactions-image",
-  "enabled": false,
+  "enabled": true,
   "apiKeyProvider": "gemini",
   "models": {
     "generate": "gemini-3.1-flash-image",
