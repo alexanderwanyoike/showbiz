@@ -93,6 +93,7 @@ import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../li
 import type { VideoGenerationRequest } from "../lib/generation/types";
 import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
 import { buildFrameOptions } from "../lib/bible-compose";
+import { versionsForShot, valueForShot } from "../lib/shot-versions";
 import {
   invalidateGenerationRun,
   isCurrentGenerationRun,
@@ -412,6 +413,10 @@ export default function StoryboardPage() {
       const newShotData = await createShot(id);
       const newShot = shotFromShotWithUrls(newShotData);
       setShots((prev) => [...prev, newShot]);
+      // Select the new shot and load ITS (empty) version data, so the inspector
+      // shows the new shot - not the previously selected shot's versions.
+      setSelectedShotId(newShot.id);
+      await refreshVersionData(newShot.id);
     } catch (error) {
       console.error("Failed to create shot:", error);
       alert("Failed to create shot");
@@ -1026,12 +1031,12 @@ export default function StoryboardPage() {
               videoModel={currentVideoModel ?? null}
               videoSettings={videoSettings}
               onVideoSettingsChange={setVideoSettings}
-              versions={selectedShotId ? (shotVersions[selectedShotId] || []) : []}
-              currentVersion={selectedShotId ? (shotCurrentVersions[selectedShotId] || null) : null}
-              versionCount={selectedShotId ? (shotVersionCounts[selectedShotId] || 0) : 0}
-              videoVersions={selectedShotId ? (shotVideoVersions[selectedShotId] || []) : []}
-              currentVideoVersion={selectedShotId ? (shotCurrentVideoVersions[selectedShotId] || null) : null}
-              videoVersionCount={selectedShotId ? (shotVideoVersionCounts[selectedShotId] || 0) : 0}
+              versions={versionsForShot(shotVersions, selectedShotId)}
+              currentVersion={valueForShot(shotCurrentVersions, selectedShotId, null)}
+              versionCount={valueForShot(shotVersionCounts, selectedShotId, 0)}
+              videoVersions={versionsForShot(shotVideoVersions, selectedShotId)}
+              currentVideoVersion={valueForShot(shotCurrentVideoVersions, selectedShotId, null)}
+              videoVersionCount={valueForShot(shotVideoVersionCounts, selectedShotId, 0)}
               onVersionSelect={handleVersionSelect}
               onBranchFrom={handleBranchFrom}
               onEditImage={handleOpenEditModal}
