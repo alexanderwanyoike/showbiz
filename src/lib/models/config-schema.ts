@@ -36,6 +36,8 @@ export interface VideoModelConfig {
     endImageInput?: string;
     imageFormat?: "array" | "string";
   };
+  // Send `duration` as a number (some fal models require an integer enum, e.g. LTX-2.3).
+  numericDuration?: boolean;
   fixedParams?: Record<string, unknown>;
   capabilities: VideoModelCapabilities;
   defaults: VideoGenerationSettings;

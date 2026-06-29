@@ -75,4 +75,57 @@ describe("falVideoTransport.generateVideoRequest", () => {
       "key"
     );
   });
+
+  it("sends duration as a number when numericDuration is set (LTX-2.3 / Kling 3)", async () => {
+    const ltxConfig: VideoModelConfig = {
+      ...seedanceConfig,
+      id: "ltx-2.3-fal",
+      numericDuration: true,
+      generationModes: {
+        imageToVideo: { endpoint: "fal-ai/ltx-2.3/image-to-video", inputs: { startImage: true } },
+      },
+      paramMapping: { duration: "duration", imageInput: "image_url" },
+    };
+
+    await falVideoTransport.generateVideoRequest!(ltxConfig, {
+      mode: "image-to-video",
+      prompt: "p",
+      settings: { duration: "8" },
+      startImage: "start",
+    }, "key");
+
+    expect(mockSubmitFalQueueRequest).toHaveBeenCalledWith(
+      "fal-ai/ltx-2.3/image-to-video",
+      expect.objectContaining({ duration: 8 }),
+      "key"
+    );
+  });
+
+  it("maps custom start/end image fields (Veo uses first_frame_url / last_frame_url)", async () => {
+    const veoConfig: VideoModelConfig = {
+      ...seedanceConfig,
+      id: "veo-3.1-fal",
+      generationModes: {
+        imageToVideo: { endpoint: "fal-ai/veo3.1/first-last-frame-to-video", inputs: { startImage: true, endImage: true } },
+      },
+      paramMapping: { duration: "duration", imageInput: "first_frame_url", endImageInput: "last_frame_url" },
+    };
+
+    await falVideoTransport.generateVideoRequest!(veoConfig, {
+      mode: "image-to-video",
+      prompt: "p",
+      settings: { duration: "8s" },
+      startImage: "start",
+      endImage: "end",
+    }, "key");
+
+    expect(mockSubmitFalQueueRequest).toHaveBeenCalledWith(
+      "fal-ai/veo3.1/first-last-frame-to-video",
+      expect.objectContaining({
+        first_frame_url: "data:image/png;base64,start",
+        last_frame_url: "data:image/png;base64,end",
+      }),
+      "key"
+    );
+  });
 });

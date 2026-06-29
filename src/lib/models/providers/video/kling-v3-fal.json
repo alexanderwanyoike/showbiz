@@ -26,6 +26,7 @@
     "duration": "duration",
     "imageInput": "start_image_url"
   },
+  "numericDuration": true,
   "fixedParams": {},
   "capabilities": {
     "durations": ["5", "10"]

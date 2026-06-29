@@ -34,6 +34,7 @@
     "audio": "generate_audio",
     "imageInput": "image_url"
   },
+  "numericDuration": true,
   "fixedParams": {},
   "capabilities": {
     "durations": ["6", "8", "10"],

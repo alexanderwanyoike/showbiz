@@ -11,7 +11,8 @@ function mapSettings(
   settings: VideoGenerationSettings
 ) {
   const mapping = config.paramMapping ?? {};
-  if (mapping.duration) input[mapping.duration] = settings.duration;
+  if (mapping.duration)
+    input[mapping.duration] = config.numericDuration ? Number(settings.duration) : settings.duration;
   if (mapping.aspectRatio && settings.aspectRatio)
     input[mapping.aspectRatio] = settings.aspectRatio;
   if (mapping.resolution && settings.resolution)
