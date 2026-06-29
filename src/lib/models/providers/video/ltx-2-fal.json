@@ -1,0 +1,46 @@
+{
+  "id": "ltx-2-fal",
+  "name": "LTX-2 Pro (fal)",
+  "description": "LTX-2 Pro via fal.ai: cheap 1080p image-to-video (~$0.06/s). Start frame only - no end frame.",
+  "transport": "fal-video",
+  "transportOptions": {
+    "textToVideoEndpoint": "fal-ai/ltx-2/text-to-video",
+    "imageToVideoEndpoint": "fal-ai/ltx-2/image-to-video"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "ltx-2",
+  "models": {
+    "textToVideo": "ltx-2-fal-t2v",
+    "imageToVideo": "ltx-2-fal-i2v"
+  },
+  "generationModes": {
+    "textToVideo": {
+      "endpoint": "fal-ai/ltx-2/text-to-video"
+    },
+    "imageToVideo": {
+      "endpoint": "fal-ai/ltx-2/image-to-video",
+      "inputs": {
+        "startImage": true
+      }
+    }
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "resolution": "resolution",
+    "audio": "generate_audio",
+    "imageInput": "image_url"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["6", "8", "10"],
+    "resolutions": ["1080p", "1440p", "2160p"],
+    "hasAudio": true
+  },
+  "defaults": {
+    "duration": "8",
+    "resolution": "1080p",
+    "audio": false
+  }
+}
