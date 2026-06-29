@@ -1,7 +1,7 @@
 {
   "id": "nano-banana-2",
   "name": "Nano Banana 2",
-  "description": "Gemini 3.1 Flash Image: fast, high-volume generation and multi-reference composition (character + object slots)",
+  "description": "Gemini 3.1 Flash Image (preview): fast generation; compose/edit not yet verified against a live key",
   "transport": "google-interactions-image",
   "enabled": true,
   "apiKeyProvider": "gemini",

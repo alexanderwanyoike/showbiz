@@ -24,6 +24,15 @@ import {
   type BibleAssetVariant,
 } from "../lib/tauri-api";
 import { composeFrameAction, editImageAction, generateImageAction } from "../actions/generation-actions";
+import {
+  assetBasePrompt,
+  assetReferences,
+  builtFromLabel,
+  parseRecipe,
+  primaryPicture,
+  recipeVariantIds,
+  type FrameRecipe,
+} from "../lib/bible-compose";
 import { getAvailableImageModels, type ImageModelId } from "../lib/models";
 
 const MAX_BIBLE_IMAGE_SIDE = 1600;
@@ -61,32 +70,6 @@ function prepareBibleImageDataUrl(dataUrl: string): Promise<string> {
     image.onerror = () => reject(new Error("Unsupported image format. Try PNG, JPEG, or WebP."));
     image.src = dataUrl;
   });
-}
-
-function primaryPicture(variants: BibleAssetVariant[]): BibleAssetVariant | null {
-  return variants.find((v) => v.is_primary && v.media_url) ?? variants.find((v) => v.media_url) ?? null;
-}
-
-// A frame's compose recipe, stored as JSON on the frame asset so it can be retaken.
-interface FrameRecipe {
-  characters: string[]; // character asset ids (compose uses each one's primary picture)
-  location: string | null; // location asset id (for display)
-  locationVariantId: string | null; // the chosen location view (compose uses this picture)
-  prompt: string;
-}
-
-function parseRecipe(rulesJson: string | null): FrameRecipe {
-  try {
-    const r = JSON.parse(rulesJson || "{}");
-    return {
-      characters: Array.isArray(r.characters) ? r.characters : [],
-      location: r.location ?? null,
-      locationVariantId: r.locationVariantId ?? null,
-      prompt: typeof r.prompt === "string" ? r.prompt : "",
-    };
-  } catch {
-    return { characters: [], location: null, locationVariantId: null, prompt: "" };
-  }
 }
 
 function pickImageFile(onFile: (file: File) => void) {
@@ -212,7 +195,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   const [assets, setAssets] = useState<BibleAsset[]>([]);
   const [variants, setVariants] = useState<Record<string, BibleAssetVariant[]>>({});
   const [tab, setTab] = useState<Tab>("characters");
-  const [imageModel, setImageModel] = useState<ImageModelId>("nano-banana-2");
+  const [imageModel, setImageModel] = useState<ImageModelId>("nano-banana");
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -331,30 +314,6 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setAssets((prev) => prev.filter((a) => a.id !== asset.id));
   }
 
-  // Reference pictures (variant ids) used to keep an asset on-model when
-  // retaking/varying it: a frame uses its recipe (character primaries + the
-  // chosen location view); a character or location feeds its own primary back in.
-  function recipeVariantIds(recipe: FrameRecipe): string[] {
-    const ids: string[] = [];
-    for (const cid of recipe.characters) {
-      const pic = primaryPicture(variants[cid] ?? []);
-      if (pic) ids.push(pic.id);
-    }
-    if (recipe.locationVariantId) ids.push(recipe.locationVariantId);
-    return ids;
-  }
-
-  function assetReferences(asset: BibleAsset): string[] {
-    if (asset.asset_type === "reference") return recipeVariantIds(parseRecipe(asset.rules_json));
-    const pic = primaryPicture(variants[asset.id] ?? []);
-    return pic ? [pic.id] : [];
-  }
-
-  function assetBasePrompt(asset: BibleAsset): string {
-    if (asset.asset_type === "reference") return parseRecipe(asset.rules_json).prompt;
-    return primaryPicture(variants[asset.id] ?? [])?.prompt ?? "";
-  }
-
   // Compose from reference pictures + a prompt (falls back to text-to-image when
   // there are no references). Returns a prepared data URL.
   async function composeFromVariantIds(variantIds: string[], prompt: string): Promise<string> {
@@ -388,7 +347,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setError(null);
     setBusyId("make-frame");
     try {
-      const dataUrl = await composeFromVariantIds(recipeVariantIds(recipe), recipe.prompt);
+      const dataUrl = await composeFromVariantIds(recipeVariantIds(recipe, variants), recipe.prompt);
       const asset = await createBibleAsset(bibleId, {
         asset_type: "reference",
         name: recipe.prompt.slice(0, 50) || "Frame",
@@ -423,12 +382,12 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setError(null);
     setBusyId(asset.id);
     try {
-      const prompt = (promptOverride ?? assetBasePrompt(asset)).trim();
+      const prompt = (promptOverride ?? assetBasePrompt(asset, variants)).trim();
       if (!prompt) {
         setError("Add a prompt first.");
         return;
       }
-      const dataUrl = await composeFromVariantIds(assetReferences(asset), prompt);
+      const dataUrl = await composeFromVariantIds(assetReferences(asset, variants), prompt);
       await addPrimaryTake(asset.id, dataUrl, prompt);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -814,16 +773,6 @@ function FramesTab({
   );
 }
 
-// "Built from: <characters> · <location>" for a composed frame, or null.
-function builtFromLabel(frame: BibleAsset, characters: BibleAsset[], locations: BibleAsset[]): string | null {
-  const recipe = parseRecipe(frame.rules_json);
-  const names = [
-    ...recipe.characters.map((id) => characters.find((c) => c.id === id)?.name).filter(Boolean),
-    recipe.location ? locations.find((l) => l.id === recipe.location)?.name : null,
-  ].filter(Boolean);
-  return names.length ? names.join(" · ") : null;
-}
-
 // One asset (character / location / frame): primary picture + meta, its other
 // takes, and retake / variation / edit (plus upload, for characters/locations).
 function AssetCard({
@@ -855,8 +804,19 @@ function AssetCard({
 }) {
   const primary = primaryPicture(takes);
   const [mode, setMode] = useState<"variation" | "edit" | null>(null);
+  const [pending, setPending] = useState<"retake" | "variation" | "edit" | null>(null);
   const [variation, setVariation] = useState(basePrompt);
   const [editInstruction, setEditInstruction] = useState("");
+
+  // Track which action is running so only that button shows the spinner.
+  async function run(action: "retake" | "variation" | "edit", fn: () => Promise<void>) {
+    setPending(action);
+    try {
+      await fn();
+    } finally {
+      setPending(null);
+    }
+  }
 
   return (
     <div className="rounded border border-border p-3">
@@ -895,8 +855,8 @@ function AssetCard({
           )}
 
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" className="text-xs" disabled={busy} onClick={() => onRetake(asset)}>
-              {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+            <Button size="sm" variant="outline" className="text-xs" disabled={busy} onClick={() => run("retake", () => onRetake(asset))}>
+              {pending === "retake" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
               Retake
             </Button>
             <Button
@@ -946,12 +906,12 @@ function AssetCard({
                 size="sm"
                 className="text-xs"
                 disabled={busy || !variation.trim()}
-                onClick={async () => {
+                onClick={() => run("variation", async () => {
                   await onRetake(asset, variation);
                   setMode(null);
-                }}
+                })}
               >
-                {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                {pending === "variation" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
                 Make
               </Button>
             </div>
@@ -970,13 +930,13 @@ function AssetCard({
                 size="sm"
                 className="text-xs"
                 disabled={busy || !editInstruction.trim()}
-                onClick={async () => {
+                onClick={() => run("edit", async () => {
                   await onEdit(asset, primary, editInstruction);
                   setEditInstruction("");
                   setMode(null);
-                }}
+                })}
               >
-                {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
+                {pending === "edit" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
                 Apply
               </Button>
             </div>
