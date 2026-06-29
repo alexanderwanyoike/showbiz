@@ -19,7 +19,7 @@ export async function generateImageAction(prompt: string, modelId: ImageModelId 
 export async function generateAndSaveVideoAction(
   shotId: string,
   prompt: string,
-  modelId: VideoModelId = "veo3",
+  modelId: VideoModelId = "seedance-2-fal",
   settings?: VideoGenerationSettings
 ): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
   const model = getVideoModel(modelId);

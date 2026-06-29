@@ -196,7 +196,7 @@ export default function StoryboardPage() {
 
   // Model Selection
   const [imageModel, setImageModel] = useState<ImageModelId>("imagen4");
-  const [videoModel, setVideoModel] = useState<VideoModelId>("veo3");
+  const [videoModel, setVideoModel] = useState<VideoModelId>("seedance-2-fal");
   const imageModels = getAvailableImageModels();
   const videoModels = getAvailableVideoModels();
   const videoGroups = getGroupedVideoModels();
@@ -204,7 +204,7 @@ export default function StoryboardPage() {
 
   // Video Settings
   const [videoSettings, setVideoSettings] = useState<VideoGenerationSettings>(() => {
-    const model = videoModels.find((m) => m.id === "veo3");
+    const model = videoModels.find((m) => m.id === "seedance-2-fal");
     return model?.defaults ?? { duration: "8" };
   });
 
@@ -277,7 +277,9 @@ export default function StoryboardPage() {
       setTimelineClipRows(clipsData);
       setEditedName(storyboardData.name);
       setImageModel((storyboardData.image_model as ImageModelId) || "imagen4");
-      const loadedVideoModel = (storyboardData.video_model as VideoModelId) || "veo3";
+      const loadedVideoModel: VideoModelId = videoModels.some((m) => m.id === storyboardData.video_model)
+        ? (storyboardData.video_model as VideoModelId)
+        : "seedance-2-fal";
       setVideoModel(loadedVideoModel);
       const loadedModel = videoModels.find((m) => m.id === loadedVideoModel);
       if (loadedModel) {

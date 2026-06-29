@@ -1,0 +1,36 @@
+{
+  "id": "kling-o1-fal",
+  "name": "Kling O1",
+  "description": "Kling O1 via fal.ai: first-frame to last-frame video (start + end). High quality.",
+  "transport": "fal-video",
+  "transportOptions": {
+    "imageToVideoEndpoint": "fal-ai/kling-video/o1/image-to-video"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "kling",
+  "models": {
+    "imageToVideo": "kling-o1-fal-i2v"
+  },
+  "generationModes": {
+    "imageToVideo": {
+      "endpoint": "fal-ai/kling-video/o1/image-to-video",
+      "inputs": {
+        "startImage": true,
+        "endImage": true
+      }
+    }
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "imageInput": "start_image_url"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["5", "6", "7", "8", "9", "10"]
+  },
+  "defaults": {
+    "duration": "5"
+  }
+}

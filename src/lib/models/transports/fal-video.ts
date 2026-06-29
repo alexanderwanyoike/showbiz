@@ -97,7 +97,8 @@ export const falVideoTransport: VideoTransport = {
         input[imageKey] = uploadImageToFal(request.startImage);
       }
       if (request.endImage) {
-        input.end_image_url = uploadImageToFal(request.endImage);
+        const endKey = config.paramMapping?.endImageInput ?? "end_image_url";
+        input[endKey] = uploadImageToFal(request.endImage);
       }
       return submitAndDownload(endpoint, input, apiKey);
     }

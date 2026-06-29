@@ -33,6 +33,7 @@ export interface VideoModelConfig {
     aspectRatio?: string;
     audio?: string;
     imageInput?: string;
+    endImageInput?: string;
     imageFormat?: "array" | "string";
   };
   fixedParams?: Record<string, unknown>;
