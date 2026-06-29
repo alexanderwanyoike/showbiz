@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, ImageIcon, Loader2, Maximize2, Plus, RefreshCw, Trash2, Upload, Sparkles, X } from "lucide-react";
+import { Check, ImageIcon, Loader2, Maximize2, RefreshCw, Trash2, Upload, Sparkles, Wand2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +23,7 @@ import {
   type BibleAsset,
   type BibleAssetVariant,
 } from "../lib/tauri-api";
-import { composeFrameAction, generateImageAction } from "../actions/generation-actions";
+import { composeFrameAction, editImageAction, generateImageAction } from "../actions/generation-actions";
 import { getAvailableImageModels, type ImageModelId } from "../lib/models";
 
 const MAX_BIBLE_IMAGE_SIDE = 1600;
@@ -196,43 +196,6 @@ function Tile({
 }
 
 // Generate (prompt) or upload one picture.
-function AddPicture({
-  busy,
-  onGenerate,
-  onUpload,
-}: {
-  busy: boolean;
-  onGenerate: (prompt: string) => Promise<void>;
-  onUpload: (file: File) => void;
-}) {
-  const [prompt, setPrompt] = useState("");
-  return (
-    <div className="flex items-end gap-2">
-      <Textarea
-        className="min-h-[40px] flex-1 text-xs resize-none"
-        placeholder="Describe it, then Add..."
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-      />
-      <Button
-        size="sm"
-        className="text-xs"
-        disabled={busy || !prompt.trim()}
-        onClick={async () => {
-          await onGenerate(prompt);
-          setPrompt("");
-        }}
-      >
-        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-        Add
-      </Button>
-      <Button size="sm" variant="outline" className="text-xs" disabled={busy} onClick={() => pickImageFile(onUpload)}>
-        <Upload className="h-3 w-3" />
-      </Button>
-    </div>
-  );
-}
-
 // Shows what made a picture: the model and the prompt (so you can see/reuse it).
 function PictureMeta({ variant }: { variant: BibleAssetVariant | null }) {
   if (!variant?.prompt) return null;
@@ -249,7 +212,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   const [assets, setAssets] = useState<BibleAsset[]>([]);
   const [variants, setVariants] = useState<Record<string, BibleAssetVariant[]>>({});
   const [tab, setTab] = useState<Tab>("characters");
-  const [imageModel, setImageModel] = useState<ImageModelId>("nano-banana");
+  const [imageModel, setImageModel] = useState<ImageModelId>("nano-banana-2");
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -340,18 +303,6 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     }
   }
 
-  async function handleAddPictureFromPrompt(asset: BibleAsset, prompt: string) {
-    setError(null);
-    setBusyId(asset.id);
-    try {
-      await addVariant(asset.id, await imageFromPrompt(prompt), { name: prompt.slice(0, 40), source: "generated", prompt });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   async function handleAddPictureFromFile(asset: BibleAsset, file: File) {
     setError(null);
     setBusyId(asset.id);
@@ -380,14 +331,33 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setAssets((prev) => prev.filter((a) => a.id !== asset.id));
   }
 
-  // Compose a frame image from a recipe (character primaries + a location view + prompt).
-  async function composeFrameImage(recipe: FrameRecipe, prompt: string): Promise<string> {
-    const variantIds: string[] = [];
+  // Reference pictures (variant ids) used to keep an asset on-model when
+  // retaking/varying it: a frame uses its recipe (character primaries + the
+  // chosen location view); a character or location feeds its own primary back in.
+  function recipeVariantIds(recipe: FrameRecipe): string[] {
+    const ids: string[] = [];
     for (const cid of recipe.characters) {
       const pic = primaryPicture(variants[cid] ?? []);
-      if (pic) variantIds.push(pic.id);
+      if (pic) ids.push(pic.id);
     }
-    if (recipe.locationVariantId) variantIds.push(recipe.locationVariantId);
+    if (recipe.locationVariantId) ids.push(recipe.locationVariantId);
+    return ids;
+  }
+
+  function assetReferences(asset: BibleAsset): string[] {
+    if (asset.asset_type === "reference") return recipeVariantIds(parseRecipe(asset.rules_json));
+    const pic = primaryPicture(variants[asset.id] ?? []);
+    return pic ? [pic.id] : [];
+  }
+
+  function assetBasePrompt(asset: BibleAsset): string {
+    if (asset.asset_type === "reference") return parseRecipe(asset.rules_json).prompt;
+    return primaryPicture(variants[asset.id] ?? [])?.prompt ?? "";
+  }
+
+  // Compose from reference pictures + a prompt (falls back to text-to-image when
+  // there are no references). Returns a prepared data URL.
+  async function composeFromVariantIds(variantIds: string[], prompt: string): Promise<string> {
     const images = (
       await Promise.all(variantIds.map((vid) => getBibleVariantImageBase64(vid)))
     ).filter((x): x is string => !!x);
@@ -398,12 +368,27 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     return prepareBibleImageDataUrl(raw);
   }
 
+  // Add a generated take to an asset and make it the new primary.
+  async function addPrimaryTake(assetId: string, preparedDataUrl: string, prompt: string | null) {
+    const take = await createBibleAssetVariant(assetId, {
+      name: (prompt ?? "take").slice(0, 40),
+      image_base64: preparedDataUrl,
+      source_kind: "generated",
+      status: "approved",
+      prompt,
+      model_id: imageModel,
+      is_primary: false,
+    });
+    await updateBibleAssetVariantStatus(take.id, "approved", true);
+    await refreshAsset(assetId);
+  }
+
   async function handleMakeFrame(recipe: FrameRecipe) {
     if (!bibleId || !recipe.prompt.trim()) return;
     setError(null);
     setBusyId("make-frame");
     try {
-      const dataUrl = await composeFrameImage(recipe, recipe.prompt);
+      const dataUrl = await composeFromVariantIds(recipeVariantIds(recipe), recipe.prompt);
       const asset = await createBibleAsset(bibleId, {
         asset_type: "reference",
         name: recipe.prompt.slice(0, 50) || "Frame",
@@ -432,27 +417,39 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     }
   }
 
-  // Retake a frame (re-roll its recipe), optionally with a tweaked prompt (a variation).
-  // The new take becomes the frame's primary.
-  async function handleRetakeFrame(frame: BibleAsset, promptOverride?: string) {
+  // Retake any asset (re-roll), or vary it with a tweaked prompt. Stays on-model
+  // by composing from the asset's references. The new take becomes the primary.
+  async function handleRetake(asset: BibleAsset, promptOverride?: string) {
     setError(null);
-    setBusyId(frame.id);
+    setBusyId(asset.id);
     try {
-      const recipe = parseRecipe(frame.rules_json);
-      const prompt = (promptOverride ?? recipe.prompt).trim();
-      if (!prompt) return;
-      const dataUrl = await composeFrameImage(recipe, prompt);
-      const take = await createBibleAssetVariant(frame.id, {
-        name: prompt.slice(0, 40),
-        image_base64: dataUrl,
-        source_kind: "generated",
-        status: "approved",
-        prompt,
-        model_id: imageModel,
-        is_primary: false,
-      });
-      await updateBibleAssetVariantStatus(take.id, "approved", true);
-      await refreshAsset(frame.id);
+      const prompt = (promptOverride ?? assetBasePrompt(asset)).trim();
+      if (!prompt) {
+        setError("Add a prompt first.");
+        return;
+      }
+      const dataUrl = await composeFromVariantIds(assetReferences(asset), prompt);
+      await addPrimaryTake(asset.id, dataUrl, prompt);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Edit a specific picture with an instruction; the result becomes the primary.
+  async function handleEdit(asset: BibleAsset, variant: BibleAssetVariant, instruction: string) {
+    if (!instruction.trim()) return;
+    setError(null);
+    setBusyId(asset.id);
+    try {
+      const source = await getBibleVariantImageBase64(variant.id);
+      if (!source) {
+        setError("Couldn't read that picture.");
+        return;
+      }
+      const raw = await editImageAction(source, instruction, imageModel);
+      await addPrimaryTake(asset.id, await prepareBibleImageDataUrl(raw), instruction);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -508,10 +505,11 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             variants={variants}
             busyId={busyId}
             onNew={handleNewAsset}
-            onAddPrompt={handleAddPictureFromPrompt}
-            onAddFile={handleAddPictureFromFile}
+            onRetake={handleRetake}
+            onEdit={handleEdit}
+            onUpload={handleAddPictureFromFile}
             onSetPrimary={handleSetPrimary}
-            onDeletePicture={handleDeletePicture}
+            onDeleteTake={handleDeletePicture}
             onDeleteAsset={handleDeleteAsset}
             onExpand={setLightbox}
           />
@@ -525,7 +523,8 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             variants={variants}
             busyId={busyId}
             onMakeFrame={handleMakeFrame}
-            onRetake={handleRetakeFrame}
+            onRetake={handleRetake}
+            onEdit={handleEdit}
             onSetPrimary={handleSetPrimary}
             onDeleteTake={handleDeletePicture}
             onDeleteFrame={handleDeleteAsset}
@@ -539,7 +538,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   );
 }
 
-// Characters / Locations: a list of name + pictures, with add/delete.
+// Characters / Locations: a "New" form, then a card per asset.
 function AssetTab({
   type,
   label,
@@ -547,10 +546,11 @@ function AssetTab({
   variants,
   busyId,
   onNew,
-  onAddPrompt,
-  onAddFile,
+  onRetake,
+  onEdit,
+  onUpload,
   onSetPrimary,
-  onDeletePicture,
+  onDeleteTake,
   onDeleteAsset,
   onExpand,
 }: {
@@ -560,10 +560,11 @@ function AssetTab({
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
   onNew: (type: "character" | "location", name: string, prompt: string, file: File | null) => Promise<void>;
-  onAddPrompt: (asset: BibleAsset, prompt: string) => Promise<void>;
-  onAddFile: (asset: BibleAsset, file: File) => void;
+  onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<void>;
+  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
+  onUpload: (asset: BibleAsset, file: File) => void;
   onSetPrimary: (variant: BibleAssetVariant) => void;
-  onDeletePicture: (variant: BibleAssetVariant) => void;
+  onDeleteTake: (variant: BibleAssetVariant) => void;
   onDeleteAsset: (asset: BibleAsset) => void;
   onExpand: (url: string) => void;
 }) {
@@ -626,42 +627,28 @@ function AssetTab({
       {assets.length === 0 ? (
         <p className="text-sm text-muted-foreground">No {label}s yet. Make one above.</p>
       ) : (
-        assets.map((asset) => {
-          const pics = (variants[asset.id] ?? []).filter((v) => v.media_url);
-          const isBusy = busyId === asset.id;
-          return (
-            <div key={asset.id} className="rounded border border-border p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-medium">{asset.name}</span>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDeleteAsset(asset)} title="Delete">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="mb-1 flex flex-wrap gap-2">
-                {pics.length === 0 && <span className="text-xs text-muted-foreground">No picture yet</span>}
-                {pics.map((v) => (
-                  <Tile
-                    key={v.id}
-                    url={v.media_url}
-                    active={v.is_primary}
-                    size="lg"
-                    onClick={() => onSetPrimary(v)}
-                    onDelete={() => onDeletePicture(v)}
-                    onExpand={() => v.media_url && onExpand(v.media_url)}
-                  />
-                ))}
-              </div>
-              <div className="mb-2">
-                <PictureMeta variant={primaryPicture(pics)} />
-              </div>
-              <AddPicture
-                busy={isBusy}
-                onGenerate={(prompt) => onAddPrompt(asset, prompt)}
-                onUpload={(file) => onAddFile(asset, file)}
+        <div className="space-y-3">
+          {assets.map((asset) => {
+            const takes = (variants[asset.id] ?? []).filter((v) => v.media_url);
+            return (
+              <AssetCard
+                key={asset.id}
+                asset={asset}
+                takes={takes}
+                busy={busyId === asset.id}
+                builtFrom={null}
+                basePrompt={primaryPicture(takes)?.prompt ?? ""}
+                onRetake={onRetake}
+                onEdit={onEdit}
+                onSetPrimary={onSetPrimary}
+                onDeleteTake={onDeleteTake}
+                onDeleteAsset={onDeleteAsset}
+                onUpload={onUpload}
+                onExpand={onExpand}
               />
-            </div>
-          );
-        })
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -676,6 +663,7 @@ function FramesTab({
   busyId,
   onMakeFrame,
   onRetake,
+  onEdit,
   onSetPrimary,
   onDeleteTake,
   onDeleteFrame,
@@ -688,6 +676,7 @@ function FramesTab({
   busyId: string | null;
   onMakeFrame: (recipe: FrameRecipe) => Promise<void>;
   onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<void>;
+  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
   onSetPrimary: (variant: BibleAssetVariant) => void;
   onDeleteTake: (variant: BibleAssetVariant) => void;
   onDeleteFrame: (asset: BibleAsset) => void;
@@ -804,17 +793,18 @@ function FramesTab({
       ) : (
         <div className="space-y-3">
           {frames.map((f) => (
-            <FrameCard
+            <AssetCard
               key={f.id}
-              frame={f}
+              asset={f}
               takes={(variants[f.id] ?? []).filter((v) => v.media_url)}
-              characters={characters}
-              locations={locations}
               busy={busyId === f.id}
+              builtFrom={builtFromLabel(f, characters, locations)}
+              basePrompt={parseRecipe(f.rules_json).prompt}
               onRetake={onRetake}
+              onEdit={onEdit}
               onSetPrimary={onSetPrimary}
               onDeleteTake={onDeleteTake}
-              onDeleteFrame={onDeleteFrame}
+              onDeleteAsset={onDeleteFrame}
               onExpand={onExpand}
             />
           ))}
@@ -824,38 +814,48 @@ function FramesTab({
   );
 }
 
-// A single frame: primary take + meta, its other takes, and retake/variation.
-function FrameCard({
-  frame,
-  takes,
-  characters,
-  locations,
-  busy,
-  onRetake,
-  onSetPrimary,
-  onDeleteTake,
-  onDeleteFrame,
-  onExpand,
-}: {
-  frame: BibleAsset;
-  takes: BibleAssetVariant[];
-  characters: BibleAsset[];
-  locations: BibleAsset[];
-  busy: boolean;
-  onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<void>;
-  onSetPrimary: (variant: BibleAssetVariant) => void;
-  onDeleteTake: (variant: BibleAssetVariant) => void;
-  onDeleteFrame: (asset: BibleAsset) => void;
-  onExpand: (url: string) => void;
-}) {
+// "Built from: <characters> · <location>" for a composed frame, or null.
+function builtFromLabel(frame: BibleAsset, characters: BibleAsset[], locations: BibleAsset[]): string | null {
   const recipe = parseRecipe(frame.rules_json);
-  const primary = primaryPicture(takes);
-  const [variation, setVariation] = useState(recipe.prompt);
-
-  const builtFrom = [
+  const names = [
     ...recipe.characters.map((id) => characters.find((c) => c.id === id)?.name).filter(Boolean),
     recipe.location ? locations.find((l) => l.id === recipe.location)?.name : null,
-  ].filter(Boolean).join(" · ");
+  ].filter(Boolean);
+  return names.length ? names.join(" · ") : null;
+}
+
+// One asset (character / location / frame): primary picture + meta, its other
+// takes, and retake / variation / edit (plus upload, for characters/locations).
+function AssetCard({
+  asset,
+  takes,
+  busy,
+  builtFrom,
+  basePrompt,
+  onRetake,
+  onEdit,
+  onSetPrimary,
+  onDeleteTake,
+  onDeleteAsset,
+  onUpload,
+  onExpand,
+}: {
+  asset: BibleAsset;
+  takes: BibleAssetVariant[];
+  busy: boolean;
+  builtFrom: string | null;
+  basePrompt: string;
+  onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<void>;
+  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
+  onSetPrimary: (variant: BibleAssetVariant) => void;
+  onDeleteTake: (variant: BibleAssetVariant) => void;
+  onDeleteAsset: (asset: BibleAsset) => void;
+  onUpload?: (asset: BibleAsset, file: File) => void;
+  onExpand: (url: string) => void;
+}) {
+  const primary = primaryPicture(takes);
+  const [variation, setVariation] = useState(basePrompt);
+  const [editInstruction, setEditInstruction] = useState("");
 
   return (
     <div className="rounded border border-border p-3">
@@ -867,8 +867,8 @@ function FrameCard({
         />
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-start justify-between gap-2">
-            <span className="truncate text-sm font-medium">{frame.name}</span>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDeleteFrame(frame)} title="Delete frame">
+            <span className="truncate text-sm font-medium">{asset.name}</span>
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDeleteAsset(asset)} title="Delete">
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -893,11 +893,23 @@ function FrameCard({
             </div>
           )}
 
-          <div>
-            <Button size="sm" variant="outline" className="text-xs" disabled={busy} onClick={() => onRetake(frame)}>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" className="text-xs" disabled={busy} onClick={() => onRetake(asset)}>
               {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
               Retake
             </Button>
+            {onUpload && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs"
+                disabled={busy}
+                onClick={() => pickImageFile((file) => onUpload(asset, file))}
+              >
+                <Upload className="h-3 w-3 mr-1" />
+                Upload
+              </Button>
+            )}
           </div>
 
           <div className="flex items-end gap-2">
@@ -907,9 +919,32 @@ function FrameCard({
               value={variation}
               onChange={(e) => setVariation(e.target.value)}
             />
-            <Button size="sm" className="text-xs" disabled={busy || !variation.trim()} onClick={() => onRetake(frame, variation)}>
+            <Button size="sm" className="text-xs" disabled={busy || !variation.trim()} onClick={() => onRetake(asset, variation)}>
               <Sparkles className="h-3 w-3 mr-1" />
               Variation
+            </Button>
+          </div>
+
+          <div className="flex items-end gap-2">
+            <Textarea
+              className="min-h-[40px] flex-1 text-xs resize-none"
+              placeholder="Edit the current picture (e.g. make it night, add rain)..."
+              value={editInstruction}
+              onChange={(e) => setEditInstruction(e.target.value)}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              className="text-xs"
+              disabled={busy || !editInstruction.trim() || !primary}
+              onClick={async () => {
+                if (!primary) return;
+                await onEdit(asset, primary, editInstruction);
+                setEditInstruction("");
+              }}
+            >
+              <Wand2 className="h-3 w-3 mr-1" />
+              Edit
             </Button>
           </div>
         </div>
