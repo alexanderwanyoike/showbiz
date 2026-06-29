@@ -6,6 +6,7 @@ import {
   recipeVariantIds,
   assetReferences,
   assetBasePrompt,
+  buildFrameOptions,
   builtFromLabel,
   type FrameRecipe,
 } from "./bible-compose";
@@ -144,6 +145,37 @@ describe("assetBasePrompt", () => {
   it("uses a character's primary picture prompt", () => {
     const variants = { char1: [variant({ id: "p", asset_id: "char1", is_primary: true, prompt: "a hero" })] };
     expect(assetBasePrompt(asset({ id: "char1", asset_type: "character" }), variants)).toBe("a hero");
+  });
+});
+
+describe("buildFrameOptions", () => {
+  it("lists every take of a frame, not just the primary, marking the current one", () => {
+    const frames = [asset({ id: "f1", asset_type: "reference", name: "Beach" })];
+    const variants = {
+      f1: [
+        variant({ id: "t1", asset_id: "f1", is_primary: false }),
+        variant({ id: "t2", asset_id: "f1", is_primary: true }),
+      ],
+    };
+    expect(buildFrameOptions(frames, variants)).toEqual([
+      { variantId: "t1", label: "Beach · take 1" },
+      { variantId: "t2", label: "Beach · take 2 (current)" },
+    ]);
+  });
+
+  it("uses just the frame name when there is a single take", () => {
+    const frames = [asset({ id: "f1", asset_type: "reference", name: "Beach" })];
+    const variants = { f1: [variant({ id: "t1", asset_id: "f1", is_primary: true })] };
+    expect(buildFrameOptions(frames, variants)).toEqual([{ variantId: "t1", label: "Beach" }]);
+  });
+
+  it("skips frames with no usable picture and non-frame assets", () => {
+    const frames = [
+      asset({ id: "f1", asset_type: "reference", name: "Empty" }),
+      asset({ id: "c1", asset_type: "character", name: "Alex" }),
+    ];
+    const variants = { f1: [variant({ id: "x", asset_id: "f1", media_url: null })], c1: [variant({ id: "y", asset_id: "c1" })] };
+    expect(buildFrameOptions(frames, variants)).toEqual([]);
   });
 });
 

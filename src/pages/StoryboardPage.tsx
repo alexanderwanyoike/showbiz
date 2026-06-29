@@ -92,6 +92,7 @@ import type { VideoGenerationSettings } from "../lib/models/types";
 import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
 import type { VideoGenerationRequest } from "../lib/generation/types";
 import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
+import { buildFrameOptions } from "../lib/bible-compose";
 import {
   invalidateGenerationRun,
   isCurrentGenerationRun,
@@ -213,16 +214,10 @@ export default function StoryboardPage() {
   );
 
   // Frames composed in the Bible (scene assets) that a shot can pick as start/end.
-  const frameOptions: FrameOption[] = useMemo(() => {
-    return bibleAssets
-      .filter((a) => a.asset_type === "reference")
-      .map((a) => {
-        const pics = bibleVariants[a.id] ?? [];
-        const pic = pics.find((v) => v.is_primary && v.media_url) ?? pics.find((v) => v.media_url);
-        return pic ? { variantId: pic.id, label: a.name } : null;
-      })
-      .filter((f): f is FrameOption => !!f);
-  }, [bibleAssets, bibleVariants]);
+  const frameOptions: FrameOption[] = useMemo(
+    () => buildFrameOptions(bibleAssets, bibleVariants),
+    [bibleAssets, bibleVariants]
+  );
 
   // Image Version State - per shot
   const [shotVersions, setShotVersions] = useState<Record<string, ImageVersionNode[]>>({});

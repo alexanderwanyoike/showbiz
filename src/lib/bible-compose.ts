@@ -56,6 +56,28 @@ export function assetBasePrompt(asset: BibleAsset, variants: VariantMap): string
   return primaryPicture(variants[asset.id] ?? [])?.prompt ?? "";
 }
 
+// Every usable take of every frame, as options for a shot's start/end frame.
+// A frame with multiple takes lists each ("Name · take N", primary marked) so
+// you can pick a specific variation, not just the primary.
+export function buildFrameOptions(
+  frames: BibleAsset[],
+  variants: VariantMap
+): Array<{ variantId: string; label: string }> {
+  const options: Array<{ variantId: string; label: string }> = [];
+  for (const frame of frames) {
+    if (frame.asset_type !== "reference") continue;
+    const pics = (variants[frame.id] ?? []).filter((v) => v.media_url);
+    pics.forEach((pic, i) => {
+      const label =
+        pics.length > 1
+          ? `${frame.name} · take ${i + 1}${pic.is_primary ? " (current)" : ""}`
+          : frame.name;
+      options.push({ variantId: pic.id, label });
+    });
+  }
+  return options;
+}
+
 // "Built from: <characters> · <location>" for a composed frame, or null.
 export function builtFromLabel(
   frame: BibleAsset,
