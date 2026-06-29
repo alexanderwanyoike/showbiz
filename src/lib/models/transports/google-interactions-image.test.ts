@@ -50,8 +50,33 @@ describe("googleInteractionsImageTransport", () => {
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body.model).toBe("gemini-3-pro-image");
     expect(body.input).toEqual([{ type: "text", text: "a knight" }]);
+    expect(body.response_format).toEqual({ type: "image" });
     const headers = (init as RequestInit).headers as Record<string, string>;
     expect(headers["x-goog-api-key"]).toBe("key");
+  });
+
+  it("skips thinking images and returns the final model_output image", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          status: "completed",
+          steps: [
+            { type: "thought", summary: [{ type: "image", data: "draft", mime_type: "image/png" }] },
+            {
+              type: "model_output",
+              content: [
+                { type: "image", data: "intermediate", mime_type: "image/png" },
+                { type: "image", data: "final", mime_type: "image/png" },
+              ],
+            },
+          ],
+        }),
+    } as never);
+
+    const result = await googleInteractionsImageTransport.generateImage(config, "a knight", "key");
+    expect(result).toBe("data:image/png;base64,final");
   });
 
   it("composeImage sends the prompt plus each reference as an image part", async () => {
