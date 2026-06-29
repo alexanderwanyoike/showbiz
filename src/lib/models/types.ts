@@ -7,7 +7,7 @@ export type ImageModelId =
 export type VideoModelId =
   | "veo3" | "veo3-fast" | "ltx-video"
   | "kling-3" | "kling-2.6" | "seedance-2" | "seedance-1.5" | "seedance-2-fal" | "seedance-2-fast-fal"
-  | "ltx-2-fal"
+  | "ltx-2.3-fal"
   | "hailuo-2.3" | "wan-2.6" | "sora-2-pro" | "grok-imagine"
   | "kling-3-fal" | "kling-2.6-fal" | "hailuo-2.3-fal" | "wan-2.2-fal"
   | "kling-2.6-replicate" | "wan-2.5-replicate" | "hailuo-02-replicate" | "luma-ray-3";
