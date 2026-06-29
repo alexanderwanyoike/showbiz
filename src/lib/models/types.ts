@@ -6,7 +6,7 @@ export type ImageModelId =
   | "flux-schnell-replicate" | "flux-dev-replicate" | "gpt-image-2";
 export type VideoModelId =
   | "veo-3.1-fal"
-  | "kling-o1-fal"
+  | "kling-v3-fal"
   | "wan-flf2v-fal"
   | "seedance-2-fal"
   | "seedance-2-fast-fal"
