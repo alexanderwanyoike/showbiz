@@ -62,8 +62,8 @@ export function assetBasePrompt(asset: BibleAsset, variants: VariantMap): string
 export function buildFrameOptions(
   frames: BibleAsset[],
   variants: VariantMap
-): Array<{ variantId: string; label: string }> {
-  const options: Array<{ variantId: string; label: string }> = [];
+): Array<{ variantId: string; label: string; url: string | null }> {
+  const options: Array<{ variantId: string; label: string; url: string | null }> = [];
   for (const frame of frames) {
     if (frame.asset_type !== "reference") continue;
     const pics = (variants[frame.id] ?? []).filter((v) => v.media_url);
@@ -72,7 +72,7 @@ export function buildFrameOptions(
         pics.length > 1
           ? `${frame.name} · take ${i + 1}${pic.is_primary ? " (current)" : ""}`
           : frame.name;
-      options.push({ variantId: pic.id, label });
+      options.push({ variantId: pic.id, label, url: pic.media_url });
     });
   }
   return options;

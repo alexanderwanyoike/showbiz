@@ -23,6 +23,7 @@ export type ShotFrameRole = "start" | "end";
 export interface FrameOption {
   variantId: string;
   label: string;
+  url: string | null;
 }
 
 export interface ShotInspectorProps {
@@ -137,25 +138,33 @@ function FramePicker({
   return (
     <>
       <FramePreview url={previewUrl} label={label} />
+      {frameOptions.length > 0 ? (
+        <div className="mt-2 grid max-h-56 grid-cols-2 gap-1.5 overflow-y-auto pr-1">
+          {frameOptions.map((f) => (
+            <button
+              key={f.variantId}
+              type="button"
+              onClick={() => onPick(f.variantId)}
+              title={f.label}
+              className="group relative aspect-video overflow-hidden rounded border border-border bg-muted hover:border-primary"
+            >
+              {f.url ? (
+                <img src={f.url} alt={f.label} className="h-full w-full object-cover" />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+                  <ImageIcon className="h-4 w-4" />
+                </span>
+              )}
+              <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-[9px] text-white">
+                {f.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-[11px] text-muted-foreground">Make frames in the Bible, then pick them here.</p>
+      )}
       <div className="mt-2 flex gap-2">
-        {frameOptions.length > 0 ? (
-          <Select value="" onValueChange={onPick}>
-            <SelectTrigger className="h-8 flex-1 text-xs">
-              <SelectValue placeholder="Pick a frame" />
-            </SelectTrigger>
-            <SelectContent className="max-h-72">
-              {frameOptions.map((f) => (
-                <SelectItem key={f.variantId} value={f.variantId} className="text-xs">
-                  {f.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <span className="flex-1 self-center text-[11px] text-muted-foreground">
-            Make frames in the Bible, then pick them here.
-          </span>
-        )}
         <Button size="sm" variant="outline" className="text-xs" onClick={() => uploadFramePicker(onUpload)}>
           <Upload className="h-3 w-3 mr-1" />
           Upload

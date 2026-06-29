@@ -158,15 +158,17 @@ describe("buildFrameOptions", () => {
       ],
     };
     expect(buildFrameOptions(frames, variants)).toEqual([
-      { variantId: "t1", label: "Beach · take 1" },
-      { variantId: "t2", label: "Beach · take 2 (current)" },
+      { variantId: "t1", label: "Beach · take 1", url: "asset://p.png" },
+      { variantId: "t2", label: "Beach · take 2 (current)", url: "asset://p.png" },
     ]);
   });
 
   it("uses just the frame name when there is a single take", () => {
     const frames = [asset({ id: "f1", asset_type: "reference", name: "Beach" })];
-    const variants = { f1: [variant({ id: "t1", asset_id: "f1", is_primary: true })] };
-    expect(buildFrameOptions(frames, variants)).toEqual([{ variantId: "t1", label: "Beach" }]);
+    const variants = { f1: [variant({ id: "t1", asset_id: "f1", is_primary: true, media_url: "asset://beach.png" })] };
+    expect(buildFrameOptions(frames, variants)).toEqual([
+      { variantId: "t1", label: "Beach", url: "asset://beach.png" },
+    ]);
   });
 
   it("skips frames with no usable picture and non-frame assets", () => {
