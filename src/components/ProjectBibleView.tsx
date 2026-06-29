@@ -854,6 +854,7 @@ function AssetCard({
   onExpand: (url: string) => void;
 }) {
   const primary = primaryPicture(takes);
+  const [mode, setMode] = useState<"variation" | "edit" | null>(null);
   const [variation, setVariation] = useState(basePrompt);
   const [editInstruction, setEditInstruction] = useState("");
 
@@ -898,6 +899,26 @@ function AssetCard({
               {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
               Retake
             </Button>
+            <Button
+              size="sm"
+              variant={mode === "variation" ? "default" : "outline"}
+              className="text-xs"
+              disabled={busy}
+              onClick={() => setMode((m) => (m === "variation" ? null : "variation"))}
+            >
+              <Sparkles className="h-3 w-3 mr-1" />
+              Variation
+            </Button>
+            <Button
+              size="sm"
+              variant={mode === "edit" ? "default" : "outline"}
+              className="text-xs"
+              disabled={busy || !primary}
+              onClick={() => setMode((m) => (m === "edit" ? null : "edit"))}
+            >
+              <Wand2 className="h-3 w-3 mr-1" />
+              Edit
+            </Button>
             {onUpload && (
               <Button
                 size="sm"
@@ -912,41 +933,54 @@ function AssetCard({
             )}
           </div>
 
-          <div className="flex items-end gap-2">
-            <Textarea
-              className="min-h-[40px] flex-1 text-xs resize-none"
-              placeholder="Tweak the prompt for a variation..."
-              value={variation}
-              onChange={(e) => setVariation(e.target.value)}
-            />
-            <Button size="sm" className="text-xs" disabled={busy || !variation.trim()} onClick={() => onRetake(asset, variation)}>
-              <Sparkles className="h-3 w-3 mr-1" />
-              Variation
-            </Button>
-          </div>
+          {mode === "variation" && (
+            <div className="flex items-end gap-2">
+              <Textarea
+                autoFocus
+                className="min-h-[40px] flex-1 text-xs resize-none"
+                placeholder="Tweak the prompt for a variation..."
+                value={variation}
+                onChange={(e) => setVariation(e.target.value)}
+              />
+              <Button
+                size="sm"
+                className="text-xs"
+                disabled={busy || !variation.trim()}
+                onClick={async () => {
+                  await onRetake(asset, variation);
+                  setMode(null);
+                }}
+              >
+                {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                Make
+              </Button>
+            </div>
+          )}
 
-          <div className="flex items-end gap-2">
-            <Textarea
-              className="min-h-[40px] flex-1 text-xs resize-none"
-              placeholder="Edit the current picture (e.g. make it night, add rain)..."
-              value={editInstruction}
-              onChange={(e) => setEditInstruction(e.target.value)}
-            />
-            <Button
-              size="sm"
-              variant="secondary"
-              className="text-xs"
-              disabled={busy || !editInstruction.trim() || !primary}
-              onClick={async () => {
-                if (!primary) return;
-                await onEdit(asset, primary, editInstruction);
-                setEditInstruction("");
-              }}
-            >
-              <Wand2 className="h-3 w-3 mr-1" />
-              Edit
-            </Button>
-          </div>
+          {mode === "edit" && primary && (
+            <div className="flex items-end gap-2">
+              <Textarea
+                autoFocus
+                className="min-h-[40px] flex-1 text-xs resize-none"
+                placeholder="Edit the current picture (e.g. make it night, add rain)..."
+                value={editInstruction}
+                onChange={(e) => setEditInstruction(e.target.value)}
+              />
+              <Button
+                size="sm"
+                className="text-xs"
+                disabled={busy || !editInstruction.trim()}
+                onClick={async () => {
+                  await onEdit(asset, primary, editInstruction);
+                  setEditInstruction("");
+                  setMode(null);
+                }}
+              >
+                {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
+                Apply
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
