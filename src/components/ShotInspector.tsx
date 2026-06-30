@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, Loader2, Sparkles, Upload, Video, ImageIcon, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -15,6 +16,7 @@ import ImageVersionTimeline from "./ImageVersionTimeline";
 import VideoVersionTimeline from "./VideoVersionTimeline";
 import type { ImageVersionNode, ImageVersionWithUrl, VideoVersionNode, VideoVersionWithUrl } from "../lib/tauri-api";
 import { hasUsableShotVideoSource } from "../lib/bible-assets";
+import { filterFrameOptions } from "../lib/bible-compose";
 import type { VideoGenerationSettings, VideoModelInfo } from "../lib/models/types";
 
 export type ShotFrameRole = "start" | "end";
@@ -135,32 +137,49 @@ function FramePicker({
   onUpload: (file: File) => void;
   onClear?: () => void;
 }) {
+  const [query, setQuery] = useState("");
+  const filtered = filterFrameOptions(frameOptions, query);
+  const showSearch = frameOptions.length > 4;
   return (
     <>
       <FramePreview url={previewUrl} label={label} />
       {frameOptions.length > 0 ? (
-        <div className="mt-2 grid max-h-56 grid-cols-2 gap-1.5 overflow-y-auto pr-1">
-          {frameOptions.map((f) => (
-            <button
-              key={f.variantId}
-              type="button"
-              onClick={() => onPick(f.variantId)}
-              title={f.label}
-              className="group relative aspect-video overflow-hidden rounded border border-border bg-muted hover:border-primary"
-            >
-              {f.url ? (
-                <img src={f.url} alt={f.label} className="h-full w-full object-cover" />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center text-muted-foreground/50">
-                  <ImageIcon className="h-4 w-4" />
-                </span>
-              )}
-              <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-[9px] text-white">
-                {f.label}
-              </span>
-            </button>
-          ))}
-        </div>
+        <>
+          {showSearch && (
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search frames..."
+              className="mt-2 h-7 text-xs"
+            />
+          )}
+          {filtered.length > 0 ? (
+            <div className="mt-2 grid max-h-56 grid-cols-2 gap-1.5 overflow-y-auto pr-1">
+              {filtered.map((f) => (
+                <button
+                  key={f.variantId}
+                  type="button"
+                  onClick={() => onPick(f.variantId)}
+                  title={f.label}
+                  className="group relative aspect-video overflow-hidden rounded border border-border bg-muted hover:border-primary"
+                >
+                  {f.url ? (
+                    <img src={f.url} alt={f.label} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+                      <ImageIcon className="h-4 w-4" />
+                    </span>
+                  )}
+                  <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-[9px] text-white">
+                    {f.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-[11px] text-muted-foreground">No frames match "{query}".</p>
+          )}
+        </>
       ) : (
         <p className="mt-2 text-[11px] text-muted-foreground">Make frames in the Bible, then pick them here.</p>
       )}

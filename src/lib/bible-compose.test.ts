@@ -7,6 +7,7 @@ import {
   assetReferences,
   assetBasePrompt,
   buildFrameOptions,
+  filterFrameOptions,
   builtFromLabel,
   type FrameRecipe,
 } from "./bible-compose";
@@ -148,26 +149,25 @@ describe("assetBasePrompt", () => {
   });
 });
 
-describe("buildFrameOptions", () => {
-  it("lists every take of a frame, not just the primary, marking the current one", () => {
+describe("buildFrameOptions (one option per frame)", () => {
+  it("returns one option per frame, using its primary/current take", () => {
     const frames = [asset({ id: "f1", asset_type: "reference", name: "Beach" })];
     const variants = {
       f1: [
-        variant({ id: "t1", asset_id: "f1", is_primary: false }),
-        variant({ id: "t2", asset_id: "f1", is_primary: true }),
+        variant({ id: "t1", asset_id: "f1", is_primary: false, media_url: "asset://t1.png" }),
+        variant({ id: "t2", asset_id: "f1", is_primary: true, media_url: "asset://t2.png" }),
       ],
     };
     expect(buildFrameOptions(frames, variants)).toEqual([
-      { variantId: "t1", label: "Beach · take 1", url: "asset://p.png" },
-      { variantId: "t2", label: "Beach · take 2 (current)", url: "asset://p.png" },
+      { variantId: "t2", label: "Beach", url: "asset://t2.png" },
     ]);
   });
 
-  it("uses just the frame name when there is a single take", () => {
+  it("falls back to the first picture when none is marked primary", () => {
     const frames = [asset({ id: "f1", asset_type: "reference", name: "Beach" })];
-    const variants = { f1: [variant({ id: "t1", asset_id: "f1", is_primary: true, media_url: "asset://beach.png" })] };
+    const variants = { f1: [variant({ id: "t1", asset_id: "f1", is_primary: false, media_url: "asset://t1.png" })] };
     expect(buildFrameOptions(frames, variants)).toEqual([
-      { variantId: "t1", label: "Beach", url: "asset://beach.png" },
+      { variantId: "t1", label: "Beach", url: "asset://t1.png" },
     ]);
   });
 
@@ -178,6 +178,24 @@ describe("buildFrameOptions", () => {
     ];
     const variants = { f1: [variant({ id: "x", asset_id: "f1", media_url: null })], c1: [variant({ id: "y", asset_id: "c1" })] };
     expect(buildFrameOptions(frames, variants)).toEqual([]);
+  });
+});
+
+describe("filterFrameOptions", () => {
+  const opts = [
+    { variantId: "a", label: "Beach sunset", url: null },
+    { variantId: "b", label: "Office at night", url: null },
+  ];
+  it("returns all options for an empty query", () => {
+    expect(filterFrameOptions(opts, "")).toEqual(opts);
+  });
+  it("filters by case-insensitive substring of the label", () => {
+    expect(filterFrameOptions(opts, "beach")).toEqual([opts[0]]);
+    expect(filterFrameOptions(opts, "NIGHT")).toEqual([opts[1]]);
+  });
+  it("trims the query and returns nothing when no label matches", () => {
+    expect(filterFrameOptions(opts, "  office  ")).toEqual([opts[1]]);
+    expect(filterFrameOptions(opts, "zzz")).toEqual([]);
   });
 });
 

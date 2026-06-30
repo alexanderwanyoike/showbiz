@@ -56,9 +56,9 @@ export function assetBasePrompt(asset: BibleAsset, variants: VariantMap): string
   return primaryPicture(variants[asset.id] ?? [])?.prompt ?? "";
 }
 
-// Every usable take of every frame, as options for a shot's start/end frame.
-// A frame with multiple takes lists each ("Name · take N", primary marked) so
-// you can pick a specific variation, not just the primary.
+// One option per frame, using its primary/current take, for a shot's start/end
+// frame picker. Keeps the picker manageable as frames accumulate; the primary
+// take is chosen in the bible.
 export function buildFrameOptions(
   frames: BibleAsset[],
   variants: VariantMap
@@ -66,16 +66,18 @@ export function buildFrameOptions(
   const options: Array<{ variantId: string; label: string; url: string | null }> = [];
   for (const frame of frames) {
     if (frame.asset_type !== "reference") continue;
-    const pics = (variants[frame.id] ?? []).filter((v) => v.media_url);
-    pics.forEach((pic, i) => {
-      const label =
-        pics.length > 1
-          ? `${frame.name} · take ${i + 1}${pic.is_primary ? " (current)" : ""}`
-          : frame.name;
-      options.push({ variantId: pic.id, label, url: pic.media_url });
-    });
+    const pic = primaryPicture(variants[frame.id] ?? []);
+    if (!pic) continue;
+    options.push({ variantId: pic.id, label: frame.name, url: pic.media_url });
   }
   return options;
+}
+
+// Filter frame options by a free-text query against the label (case-insensitive).
+export function filterFrameOptions<T extends { label: string }>(options: T[], query: string): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return options;
+  return options.filter((o) => o.label.toLowerCase().includes(q));
 }
 
 // "Built from: <characters> · <location>" for a composed frame, or null.
