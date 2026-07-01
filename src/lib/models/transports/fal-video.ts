@@ -11,7 +11,8 @@ function mapSettings(
   settings: VideoGenerationSettings
 ) {
   const mapping = config.paramMapping ?? {};
-  if (mapping.duration) input[mapping.duration] = settings.duration;
+  if (mapping.duration)
+    input[mapping.duration] = config.numericDuration ? Number(settings.duration) : settings.duration;
   if (mapping.aspectRatio && settings.aspectRatio)
     input[mapping.aspectRatio] = settings.aspectRatio;
   if (mapping.resolution && settings.resolution)
@@ -97,7 +98,8 @@ export const falVideoTransport: VideoTransport = {
         input[imageKey] = uploadImageToFal(request.startImage);
       }
       if (request.endImage) {
-        input.end_image_url = uploadImageToFal(request.endImage);
+        const endKey = config.paramMapping?.endImageInput ?? "end_image_url";
+        input[endKey] = uploadImageToFal(request.endImage);
       }
       return submitAndDownload(endpoint, input, apiKey);
     }

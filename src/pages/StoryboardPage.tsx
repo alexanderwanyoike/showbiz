@@ -72,7 +72,6 @@ import type {
 } from "../lib/tauri-api";
 import {
   generateImageAction,
-  composeFrameAction,
   editImageAction,
   generateVideoPromptFromImage,
   enhanceVideoPrompt,
@@ -92,7 +91,9 @@ import {
 import type { VideoGenerationSettings } from "../lib/models/types";
 import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
 import type { VideoGenerationRequest } from "../lib/generation/types";
-import type { ShotFrameRole, FrameComposeSelection } from "../components/ShotInspector";
+import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
+import { buildFrameOptions } from "../lib/bible-compose";
+import { versionsForShot, valueForShot } from "../lib/shot-versions";
 import {
   invalidateGenerationRun,
   isCurrentGenerationRun,
@@ -196,7 +197,7 @@ export default function StoryboardPage() {
 
   // Model Selection
   const [imageModel, setImageModel] = useState<ImageModelId>("imagen4");
-  const [videoModel, setVideoModel] = useState<VideoModelId>("veo3");
+  const [videoModel, setVideoModel] = useState<VideoModelId>("seedance-2-fal");
   const imageModels = getAvailableImageModels();
   const videoModels = getAvailableVideoModels();
   const videoGroups = getGroupedVideoModels();
@@ -204,13 +205,19 @@ export default function StoryboardPage() {
 
   // Video Settings
   const [videoSettings, setVideoSettings] = useState<VideoGenerationSettings>(() => {
-    const model = videoModels.find((m) => m.id === "veo3");
+    const model = videoModels.find((m) => m.id === "seedance-2-fal");
     return model?.defaults ?? { duration: "8" };
   });
 
   const currentVideoModel = useMemo(
     () => videoModels.find((m) => m.id === videoModel),
     [videoModel, videoModels]
+  );
+
+  // Frames composed in the Bible (scene assets) that a shot can pick as start/end.
+  const frameOptions: FrameOption[] = useMemo(
+    () => buildFrameOptions(bibleAssets, bibleVariants),
+    [bibleAssets, bibleVariants]
   );
 
   // Image Version State - per shot
@@ -271,7 +278,9 @@ export default function StoryboardPage() {
       setTimelineClipRows(clipsData);
       setEditedName(storyboardData.name);
       setImageModel((storyboardData.image_model as ImageModelId) || "imagen4");
-      const loadedVideoModel = (storyboardData.video_model as VideoModelId) || "veo3";
+      const loadedVideoModel: VideoModelId = videoModels.some((m) => m.id === storyboardData.video_model)
+        ? (storyboardData.video_model as VideoModelId)
+        : "seedance-2-fal";
       setVideoModel(loadedVideoModel);
       const loadedModel = videoModels.find((m) => m.id === loadedVideoModel);
       if (loadedModel) {
@@ -404,6 +413,10 @@ export default function StoryboardPage() {
       const newShotData = await createShot(id);
       const newShot = shotFromShotWithUrls(newShotData);
       setShots((prev) => [...prev, newShot]);
+      // Select the new shot and load ITS (empty) version data, so the inspector
+      // shows the new shot - not the previously selected shot's versions.
+      setSelectedShotId(newShot.id);
+      await refreshVersionData(newShot.id);
     } catch (error) {
       console.error("Failed to create shot:", error);
       alert("Failed to create shot");
@@ -557,30 +570,20 @@ export default function StoryboardPage() {
     }
   }
 
-  // Compose a shot's start/end frame from selected characters + a location + a prompt.
-  // With no references selected it falls back to plain text-to-image.
-  async function handleComposeFrame(
-    shotId: string,
-    role: ShotFrameRole,
-    selection: FrameComposeSelection
-  ) {
+  // Use a frame composed in the Bible as the shot's start/end frame.
+  async function handlePickFrame(shotId: string, role: ShotFrameRole, variantId: string) {
     if (!id) return;
-    const { characterVariantIds, locationVariantId, prompt } = selection;
-    if (!prompt.trim()) return;
     try {
-      const variantIds = [...characterVariantIds, ...(locationVariantId ? [locationVariantId] : [])];
-      const images = (
-        await Promise.all(variantIds.map((variantId) => getBibleVariantImageBase64(variantId)))
-      ).filter((image): image is string => !!image);
-      const dataUrl =
-        images.length > 0
-          ? await composeFrameAction(prompt, images, imageModel)
-          : await generateImageAction(prompt, imageModel);
+      const dataUrl = await getBibleVariantImageBase64(variantId);
+      if (!dataUrl) {
+        alert("That frame has no image yet.");
+        return;
+      }
       await setShotFrameFromDataUrl(shotId, role, dataUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error("Failed to compose frame:", message);
-      alert(`Failed to make frame: ${message}`);
+      console.error("Failed to set frame:", message);
+      alert(`Failed to set frame: ${message}`);
     }
   }
 
@@ -1018,7 +1021,8 @@ export default function StoryboardPage() {
                   error_message: s.error_message,
                 } : null;
               })() : null}
-              onComposeFrame={handleComposeFrame}
+              frameOptions={frameOptions}
+              onPickFrame={handlePickFrame}
               onUploadFrame={handleUploadFrame}
               onClearEndFrame={handleClearEndFrame}
               onGenerateVideo={handleGenerateVideo}
@@ -1027,14 +1031,12 @@ export default function StoryboardPage() {
               videoModel={currentVideoModel ?? null}
               videoSettings={videoSettings}
               onVideoSettingsChange={setVideoSettings}
-              bibleAssets={bibleAssets}
-              bibleVariants={bibleVariants}
-              versions={selectedShotId ? (shotVersions[selectedShotId] || []) : []}
-              currentVersion={selectedShotId ? (shotCurrentVersions[selectedShotId] || null) : null}
-              versionCount={selectedShotId ? (shotVersionCounts[selectedShotId] || 0) : 0}
-              videoVersions={selectedShotId ? (shotVideoVersions[selectedShotId] || []) : []}
-              currentVideoVersion={selectedShotId ? (shotCurrentVideoVersions[selectedShotId] || null) : null}
-              videoVersionCount={selectedShotId ? (shotVideoVersionCounts[selectedShotId] || 0) : 0}
+              versions={versionsForShot(shotVersions, selectedShotId)}
+              currentVersion={valueForShot(shotCurrentVersions, selectedShotId, null)}
+              versionCount={valueForShot(shotVersionCounts, selectedShotId, 0)}
+              videoVersions={versionsForShot(shotVideoVersions, selectedShotId)}
+              currentVideoVersion={valueForShot(shotCurrentVideoVersions, selectedShotId, null)}
+              videoVersionCount={valueForShot(shotVideoVersionCounts, selectedShotId, 0)}
               onVersionSelect={handleVersionSelect}
               onBranchFrom={handleBranchFrom}
               onEditImage={handleOpenEditModal}

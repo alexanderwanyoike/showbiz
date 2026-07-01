@@ -1,7 +1,7 @@
 {
   "id": "nano-banana-pro",
   "name": "Nano Banana Pro",
-  "description": "Gemini 3 Pro Image: highest-quality generation and multi-reference composition (character, object, and style slots)",
+  "description": "Gemini 3 Pro Image (preview): highest quality; compose/edit not yet verified against a live key",
   "transport": "google-interactions-image",
   "enabled": true,
   "apiKeyProvider": "gemini",
@@ -10,5 +10,6 @@
     "edit": "gemini-3-pro-image"
   },
   "supportsEditing": true,
-  "supportsInpainting": false
+  "supportsInpainting": false,
+  "supportsComposition": true
 }

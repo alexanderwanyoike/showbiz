@@ -1,0 +1,51 @@
+{
+  "id": "ltx-2.3-fal",
+  "name": "LTX-2.3 (fal)",
+  "description": "LTX-2.3 via fal.ai: cheap 1080p video with start + end frame (~$0.06/s)",
+  "transport": "fal-video",
+  "transportOptions": {
+    "textToVideoEndpoint": "fal-ai/ltx-2.3/text-to-video",
+    "imageToVideoEndpoint": "fal-ai/ltx-2.3/image-to-video"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "ltx-2",
+  "models": {
+    "textToVideo": "ltx-2.3-fal-t2v",
+    "imageToVideo": "ltx-2.3-fal-i2v"
+  },
+  "generationModes": {
+    "textToVideo": {
+      "endpoint": "fal-ai/ltx-2.3/text-to-video"
+    },
+    "imageToVideo": {
+      "endpoint": "fal-ai/ltx-2.3/image-to-video",
+      "inputs": {
+        "startImage": true,
+        "endImage": true
+      }
+    }
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "resolution": "resolution",
+    "aspectRatio": "aspect_ratio",
+    "audio": "generate_audio",
+    "imageInput": "image_url"
+  },
+  "numericDuration": true,
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["6", "8", "10"],
+    "resolutions": ["1080p", "1440p", "2160p"],
+    "aspectRatios": ["auto", "16:9", "9:16"],
+    "hasAudio": true
+  },
+  "defaults": {
+    "duration": "8",
+    "resolution": "1080p",
+    "aspectRatio": "auto",
+    "audio": false
+  }
+}

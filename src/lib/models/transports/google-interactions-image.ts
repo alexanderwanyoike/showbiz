@@ -13,18 +13,23 @@ function toImagePart(dataUrl: string): { type: "image"; data: string; mime_type:
   return { type: "image", data: matches[2], mime_type: matches[1] };
 }
 
+// Gemini 3 image models "think": they emit intermediate images in `thought`
+// steps before the final render in a `model_output` step. Skip thought steps and
+// return the LAST model_output image (per the docs, that is the final image).
 function extractImage(data: Record<string, unknown>, modelName: string): string {
   const steps = data.steps as
     | Array<{ type?: string; content?: Array<{ type?: string; data?: string; mime_type?: string }> }>
     | undefined;
+  let finalImage: string | null = null;
   for (const step of steps ?? []) {
     if (step.type !== "model_output") continue;
     for (const content of step.content ?? []) {
       if (content.type === "image" && content.data) {
-        return `data:${content.mime_type || "image/png"};base64,${content.data}`;
+        finalImage = `data:${content.mime_type || "image/png"};base64,${content.data}`;
       }
     }
   }
+  if (finalImage) return finalImage;
   throw new Error(`No image data found in ${modelName} response`);
 }
 
@@ -48,7 +53,14 @@ async function runInteraction(
       "Content-Type": "application/json",
       "x-goog-api-key": apiKey,
     },
-    body: JSON.stringify({ model: config.models.generate, input }),
+    // response_format tells the Interactions API to return an image (the docs
+    // include it for image generation; without it the model can fall back to a
+    // mode that does not condition on the reference images).
+    body: JSON.stringify({
+      model: config.models.generate,
+      input,
+      response_format: { type: "image" },
+    }),
   });
 
   if (!response.ok) {

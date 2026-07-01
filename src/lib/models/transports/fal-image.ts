@@ -26,6 +26,27 @@ async function downloadFirstImage(
   return blobToBase64(typedBlob);
 }
 
+// Submit an input to a fal image endpoint (direct or queued) and return the
+// first result image as a base64 data URL.
+async function runFalImageRequest(
+  config: ImageModelConfig,
+  endpointId: string,
+  input: Record<string, unknown>,
+  apiKey: string
+): Promise<string> {
+  const opts = (config.transportOptions ?? {}) as Record<string, unknown>;
+  const result = opts.directInference
+    ? await runFalInference<{ images: Array<{ url: string }> }>(endpointId, input, apiKey)
+    : await (async () => {
+        const queueRequest = await submitFalQueueRequest(endpointId, input, apiKey);
+        return pollFalResult<{ images: Array<{ url: string }> }>(endpointId, queueRequest.requestId, apiKey, {
+          statusUrl: queueRequest.statusUrl,
+          responseUrl: queueRequest.responseUrl,
+        });
+      })();
+  return downloadFirstImage(result, config.name);
+}
+
 export const falImageTransport: ImageTransport = {
   async generateImage(
     config: ImageModelConfig,
@@ -34,28 +55,8 @@ export const falImageTransport: ImageTransport = {
   ): Promise<string> {
     const opts = (config.transportOptions ?? {}) as Record<string, string>;
     const endpointId = opts.endpoint ?? config.models.generate;
-
-    const input: Record<string, unknown> = {
-      prompt,
-      ...(config.fixedParams ?? {}),
-    };
-
-    const result = opts.directInference
-      ? await runFalInference<{ images: Array<{ url: string }> }>(endpointId, input, apiKey)
-      : await (async () => {
-          const queueRequest = await submitFalQueueRequest(endpointId, input, apiKey);
-          return pollFalResult<{ images: Array<{ url: string }> }>(
-            endpointId,
-            queueRequest.requestId,
-            apiKey,
-            {
-              statusUrl: queueRequest.statusUrl,
-              responseUrl: queueRequest.responseUrl,
-            }
-          );
-        })();
-
-    return downloadFirstImage(result, config.name);
+    const input: Record<string, unknown> = { prompt, ...(config.fixedParams ?? {}) };
+    return runFalImageRequest(config, endpointId, input, apiKey);
   },
 
   async editImage(
@@ -66,27 +67,36 @@ export const falImageTransport: ImageTransport = {
   ): Promise<string> {
     const opts = (config.transportOptions ?? {}) as Record<string, string>;
     const endpointId = opts.editEndpoint ?? config.models.edit ?? opts.endpoint ?? config.models.generate;
-    const imageInput = config.generationModes?.imageToImage?.imageInput ?? "image_url";
+    const mode = config.generationModes?.imageToImage;
+    const imageInput = mode?.imageInput ?? "image_url";
+    const uploaded = uploadImageToFal(sourceImageBase64);
     const input: Record<string, unknown> = {
       prompt: editPrompt,
-      [imageInput]: uploadImageToFal(sourceImageBase64),
+      [imageInput]: mode?.imageFormat === "array" ? [uploaded] : uploaded,
       ...(config.fixedParams ?? {}),
     };
+    return runFalImageRequest(config, endpointId, input, apiKey);
+  },
 
-    const result = opts.directInference
-      ? await runFalInference<{ images: Array<{ url: string }> }>(endpointId, input, apiKey)
-      : await (async () => {
-          const queueRequest = await submitFalQueueRequest(endpointId, input, apiKey);
-          return pollFalResult<{ images: Array<{ url: string }> }>(
-            endpointId,
-            queueRequest.requestId,
-            apiKey,
-            {
-              statusUrl: queueRequest.statusUrl,
-              responseUrl: queueRequest.responseUrl,
-            }
-          );
-        })();
-    return downloadFirstImage(result, config.name);
+  // Compose from multiple reference images (e.g. GPT Image 2's /edit endpoint,
+  // which takes an `image_urls` array). Used for bible frame composition.
+  async composeImage(
+    config: ImageModelConfig,
+    prompt: string,
+    referenceImages: string[],
+    apiKey: string
+  ): Promise<string> {
+    if (referenceImages.length === 0) {
+      throw new Error("composeImage requires at least one reference image");
+    }
+    const opts = (config.transportOptions ?? {}) as Record<string, string>;
+    const endpointId = opts.editEndpoint ?? config.models.edit ?? opts.endpoint ?? config.models.generate;
+    const imageInput = config.generationModes?.imageToImage?.imageInput ?? "image_urls";
+    const input: Record<string, unknown> = {
+      prompt,
+      [imageInput]: referenceImages.map((img) => uploadImageToFal(img)),
+      ...(config.fixedParams ?? {}),
+    };
+    return runFalImageRequest(config, endpointId, input, apiKey);
   },
 };

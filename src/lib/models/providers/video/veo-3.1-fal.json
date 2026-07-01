@@ -1,0 +1,43 @@
+{
+  "id": "veo-3.1-fal",
+  "name": "Veo 3.1 (start+end)",
+  "description": "Google Veo 3.1 first-last-frame via fal.ai: premium start + end frame, with audio.",
+  "transport": "fal-video",
+  "transportOptions": {
+    "imageToVideoEndpoint": "fal-ai/veo3.1/first-last-frame-to-video"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "veo",
+  "models": {
+    "imageToVideo": "veo-3.1-fal-i2v"
+  },
+  "generationModes": {
+    "imageToVideo": {
+      "endpoint": "fal-ai/veo3.1/first-last-frame-to-video",
+      "inputs": {
+        "startImage": true,
+        "endImage": true
+      }
+    }
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "resolution": "resolution",
+    "audio": "generate_audio",
+    "imageInput": "first_frame_url",
+    "endImageInput": "last_frame_url"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["4s", "6s", "8s"],
+    "resolutions": ["720p", "1080p", "4k"],
+    "hasAudio": true
+  },
+  "defaults": {
+    "duration": "8s",
+    "resolution": "1080p",
+    "audio": true
+  }
+}

@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ChevronDown, Loader2, Sparkles, Upload, Video, ImageIcon, AlertCircle, X, Check } from "lucide-react";
+import { ChevronDown, Loader2, Sparkles, Upload, Video, ImageIcon, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -14,16 +15,17 @@ import {
 import ImageVersionTimeline from "./ImageVersionTimeline";
 import VideoVersionTimeline from "./VideoVersionTimeline";
 import type { ImageVersionNode, ImageVersionWithUrl, VideoVersionNode, VideoVersionWithUrl } from "../lib/tauri-api";
-import type { BibleAsset, BibleAssetVariant } from "../lib/tauri-api";
 import { hasUsableShotVideoSource } from "../lib/bible-assets";
+import { filterFrameOptions } from "../lib/bible-compose";
 import type { VideoGenerationSettings, VideoModelInfo } from "../lib/models/types";
 
 export type ShotFrameRole = "start" | "end";
 
-export interface FrameComposeSelection {
-  characterVariantIds: string[];
-  locationVariantId: string | null;
-  prompt: string;
+// A composed frame from the bible that a shot can use as a start/end frame.
+export interface FrameOption {
+  variantId: string;
+  label: string;
+  url: string | null;
 }
 
 export interface ShotInspectorProps {
@@ -38,7 +40,8 @@ export interface ShotInspectorProps {
     error_message?: string | null;
   } | null;
   // Frame actions
-  onComposeFrame: (shotId: string, role: ShotFrameRole, selection: FrameComposeSelection) => Promise<void>;
+  frameOptions: FrameOption[];
+  onPickFrame: (shotId: string, role: ShotFrameRole, variantId: string) => void;
   onUploadFrame: (shotId: string, role: ShotFrameRole, file: File) => void;
   onClearEndFrame: (shotId: string) => void;
   // Video actions
@@ -48,8 +51,6 @@ export interface ShotInspectorProps {
   videoModel: VideoModelInfo | null;
   videoSettings: VideoGenerationSettings;
   onVideoSettingsChange: (settings: VideoGenerationSettings) => void;
-  bibleAssets: BibleAsset[];
-  bibleVariants: Record<string, BibleAssetVariant[]>;
   // Version data
   versions: ImageVersionNode[];
   currentVersion: ImageVersionWithUrl | null;
@@ -67,14 +68,6 @@ export interface ShotInspectorProps {
   onEnhanceVideoPrompt: (shotId: string) => void;
   isGeneratingPrompt: boolean;
   isEnhancingPrompt: boolean;
-}
-
-function primaryPicture(variants: BibleAssetVariant[]): BibleAssetVariant | null {
-  return (
-    variants.find((v) => v.is_primary && v.media_url) ??
-    variants.find((v) => v.media_url) ??
-    null
-  );
 }
 
 function InspectorSection({
@@ -116,29 +109,6 @@ function FramePreview({ url, label }: { url: string | null; label: string }) {
   );
 }
 
-function Thumb({ url, active, label, onClick }: { url: string | null; active: boolean; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      className={`relative h-12 w-16 shrink-0 overflow-hidden rounded border text-[9px] transition-colors ${active ? "border-primary ring-1 ring-primary" : "border-border hover:border-foreground/40"}`}
-    >
-      {url ? (
-        <img src={url} alt={label} className="h-full w-full object-cover" />
-      ) : (
-        <span className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground/60">{label.slice(0, 8)}</span>
-      )}
-      <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 text-[9px] text-white">{label}</span>
-      {active && (
-        <span className="absolute right-0.5 top-0.5 rounded-full bg-primary p-0.5 text-primary-foreground">
-          <Check className="h-2.5 w-2.5" />
-        </span>
-      )}
-    </button>
-  );
-}
-
 function uploadFramePicker(onFile: (file: File) => void) {
   const input = document.createElement("input");
   input.type = "file";
@@ -150,131 +120,70 @@ function uploadFramePicker(onFile: (file: File) => void) {
   input.click();
 }
 
-// who (any number of characters) + where (a location, optional view) + what (prompt) -> a frame
-function FrameComposer({
+// Pick a frame made in the Bible, or upload one. No generation here - the
+// storyboard just assembles; all composition happens in the Bible.
+function FramePicker({
   label,
   previewUrl,
-  characters,
-  locations,
-  bibleVariants,
-  onCompose,
+  frameOptions,
+  onPick,
   onUpload,
   onClear,
 }: {
   label: string;
   previewUrl: string | null;
-  characters: BibleAsset[];
-  locations: BibleAsset[];
-  bibleVariants: Record<string, BibleAssetVariant[]>;
-  onCompose: (selection: FrameComposeSelection) => Promise<void>;
+  frameOptions: FrameOption[];
+  onPick: (variantId: string) => void;
   onUpload: (file: File) => void;
   onClear?: () => void;
 }) {
-  const [selectedChars, setSelectedChars] = useState<Set<string>>(new Set());
-  const [locationId, setLocationId] = useState<string | null>(null);
-  const [locationVariantId, setLocationVariantId] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  function toggleChar(assetId: string) {
-    setSelectedChars((prev) => {
-      const next = new Set(prev);
-      if (next.has(assetId)) next.delete(assetId);
-      else next.add(assetId);
-      return next;
-    });
-  }
-
-  function pickLocation(assetId: string) {
-    if (locationId === assetId) {
-      setLocationId(null);
-      setLocationVariantId(null);
-    } else {
-      setLocationId(assetId);
-      setLocationVariantId(primaryPicture(bibleVariants[assetId] ?? [])?.id ?? null);
-    }
-  }
-
-  const locationViews = locationId ? (bibleVariants[locationId] ?? []).filter((v) => v.media_url) : [];
-
-  async function handleMake() {
-    setBusy(true);
-    try {
-      const characterVariantIds = [...selectedChars]
-        .map((id) => primaryPicture(bibleVariants[id] ?? [])?.id)
-        .filter((id): id is string => !!id);
-      await onCompose({ characterVariantIds, locationVariantId, prompt });
-    } finally {
-      setBusy(false);
-    }
-  }
-
+  const [query, setQuery] = useState("");
+  const filtered = filterFrameOptions(frameOptions, query);
+  const showSearch = frameOptions.length > 4;
   return (
     <>
       <FramePreview url={previewUrl} label={label} />
-
-      {characters.length > 0 && (
-        <div className="mt-2">
-          <p className="mb-1 text-[11px] font-medium text-muted-foreground">Who?</p>
-          <div className="flex flex-wrap gap-1.5">
-            {characters.map((c) => (
-              <Thumb
-                key={c.id}
-                url={primaryPicture(bibleVariants[c.id] ?? [])?.media_url ?? null}
-                active={selectedChars.has(c.id)}
-                label={c.name}
-                onClick={() => toggleChar(c.id)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {locations.length > 0 && (
-        <div className="mt-2">
-          <p className="mb-1 text-[11px] font-medium text-muted-foreground">Where?</p>
-          <div className="flex flex-wrap gap-1.5">
-            {locations.map((l) => (
-              <Thumb
-                key={l.id}
-                url={primaryPicture(bibleVariants[l.id] ?? [])?.media_url ?? null}
-                active={locationId === l.id}
-                label={l.name}
-                onClick={() => pickLocation(l.id)}
-              />
-            ))}
-          </div>
-          {locationViews.length > 1 && (
-            <div className="mt-1.5">
-              <p className="mb-1 text-[10px] text-muted-foreground">View</p>
-              <div className="flex flex-wrap gap-1">
-                {locationViews.map((v, i) => (
-                  <Thumb
-                    key={v.id}
-                    url={v.media_url ?? null}
-                    active={locationVariantId === v.id}
-                    label={`View ${i + 1}`}
-                    onClick={() => setLocationVariantId(v.id)}
-                  />
-                ))}
-              </div>
-            </div>
+      {frameOptions.length > 0 ? (
+        <>
+          {showSearch && (
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search frames..."
+              className="mt-2 h-7 text-xs"
+            />
           )}
-        </div>
+          {filtered.length > 0 ? (
+            <div className="mt-2 grid max-h-56 grid-cols-2 gap-1.5 overflow-y-auto pr-1">
+              {filtered.map((f) => (
+                <button
+                  key={f.variantId}
+                  type="button"
+                  onClick={() => onPick(f.variantId)}
+                  title={f.label}
+                  className="group relative aspect-video overflow-hidden rounded border border-border bg-muted hover:border-primary"
+                >
+                  {f.url ? (
+                    <img src={f.url} alt={f.label} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+                      <ImageIcon className="h-4 w-4" />
+                    </span>
+                  )}
+                  <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-[9px] text-white">
+                    {f.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-[11px] text-muted-foreground">No frames match "{query}".</p>
+          )}
+        </>
+      ) : (
+        <p className="mt-2 text-[11px] text-muted-foreground">Make frames in the Bible, then pick them here.</p>
       )}
-
-      <Textarea
-        className="mt-2 min-h-[60px] text-sm resize-y"
-        placeholder="What's happening (and the look, e.g. 90s anime)..."
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-      />
-
       <div className="mt-2 flex gap-2">
-        <Button size="sm" className="flex-1 text-xs" onClick={handleMake} disabled={busy || !prompt.trim()}>
-          {busy ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
-          Make frame
-        </Button>
         <Button size="sm" variant="outline" className="text-xs" onClick={() => uploadFramePicker(onUpload)}>
           <Upload className="h-3 w-3 mr-1" />
           Upload
@@ -286,19 +195,14 @@ function FrameComposer({
           </Button>
         )}
       </div>
-
-      {characters.length === 0 && locations.length === 0 && (
-        <p className="mt-1.5 text-[10px] text-muted-foreground">
-          Add Characters and Locations in the Bible to compose from them, or just describe the frame above.
-        </p>
-      )}
     </>
   );
 }
 
 export default function ShotInspector({
   shot,
-  onComposeFrame,
+  frameOptions,
+  onPickFrame,
   onUploadFrame,
   onClearEndFrame,
   onGenerateVideo,
@@ -307,8 +211,6 @@ export default function ShotInspector({
   videoModel,
   videoSettings,
   onVideoSettingsChange,
-  bibleAssets,
-  bibleVariants,
   versions,
   currentVersion,
   versionCount,
@@ -331,9 +233,6 @@ export default function ShotInspector({
       </div>
     );
   }
-
-  const characters = bibleAssets.filter((a) => a.asset_type === "character");
-  const locations = bibleAssets.filter((a) => a.asset_type === "location");
 
   const canGenerateVideo = hasUsableShotVideoSource({
     imageUrl: shot.image_url,
@@ -361,14 +260,11 @@ export default function ShotInspector({
 
       {/* Start Frame Section */}
       <InspectorSection title="Start Frame">
-        <FrameComposer
-          key={`${shot.id}-start`}
+        <FramePicker
           label="Start frame"
           previewUrl={shot.image_url}
-          characters={characters}
-          locations={locations}
-          bibleVariants={bibleVariants}
-          onCompose={(selection) => onComposeFrame(shot.id, "start", selection)}
+          frameOptions={frameOptions}
+          onPick={(variantId) => onPickFrame(shot.id, "start", variantId)}
           onUpload={(file) => onUploadFrame(shot.id, "start", file)}
         />
       </InspectorSection>
@@ -394,14 +290,11 @@ export default function ShotInspector({
             {videoModel?.name ?? "This model"} doesn't support an end frame. The start frame and prompt drive the shot.
           </p>
         ) : (
-          <FrameComposer
-            key={`${shot.id}-end`}
+          <FramePicker
             label="End frame"
             previewUrl={shot.end_frame_url}
-            characters={characters}
-            locations={locations}
-            bibleVariants={bibleVariants}
-            onCompose={(selection) => onComposeFrame(shot.id, "end", selection)}
+            frameOptions={frameOptions}
+            onPick={(variantId) => onPickFrame(shot.id, "end", variantId)}
             onUpload={(file) => onUploadFrame(shot.id, "end", file)}
             onClear={() => onClearEndFrame(shot.id)}
           />
