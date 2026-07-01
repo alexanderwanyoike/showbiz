@@ -10,5 +10,6 @@
     "edit": "gemini-3-pro-image"
   },
   "supportsEditing": true,
-  "supportsInpainting": false
+  "supportsInpainting": false,
+  "supportsComposition": true
 }

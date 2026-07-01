@@ -1,7 +1,7 @@
 import type { VideoGenerationRequest } from "../generation/types";
 
 export type ImageModelId =
-  | "imagen4" | "nano-banana" | "nano-banana-2" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5"
+  | "imagen4" | "nano-banana" | "nano-banana-2" | "nano-banana-2-lite" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5"
   | "flux-schnell-fal" | "flux-dev-fal" | "flux-kontext-fal"
   | "flux-schnell-replicate" | "flux-dev-replicate" | "gpt-image-2";
 export type VideoModelId =

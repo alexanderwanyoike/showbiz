@@ -60,6 +60,30 @@ const config: ImageModelConfig = {
   supportsInpainting: false,
 };
 
+// GPT Image 2 on fal: the /edit endpoint takes an ARRAY of reference images
+// under `image_urls`, driving both single edits and multi-reference compose.
+const gptConfig: ImageModelConfig = {
+  id: "gpt-image-2",
+  name: "GPT Image 2",
+  description: "test",
+  transport: "fal-image",
+  transportOptions: {
+    endpoint: "openai/gpt-image-2",
+    editEndpoint: "openai/gpt-image-2/edit",
+    directInference: true,
+  },
+  enabled: true,
+  apiKeyProvider: "fal",
+  models: { generate: "openai/gpt-image-2", edit: "openai/gpt-image-2/edit" },
+  generationModes: {
+    textToImage: { enabled: true, endpoint: "openai/gpt-image-2" },
+    imageToImage: { enabled: true, endpoint: "openai/gpt-image-2/edit", imageInput: "image_urls", imageFormat: "array" },
+  },
+  supportsEditing: true,
+  supportsInpainting: false,
+  supportsComposition: true,
+};
+
 describe("falImageTransport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -92,5 +116,29 @@ describe("falImageTransport", () => {
 
     const blob = mockBlobToBase64.mock.calls[0]?.[0];
     expect(blob?.type).toBe("image/jpeg");
+  });
+
+  it("composeImage sends every reference image as an array under the configured field", async () => {
+    await falImageTransport.composeImage!(gptConfig, "Alex in the office", ["ref1", "ref2"], "key");
+
+    expect(mockRunFalInference).toHaveBeenCalledWith(
+      "openai/gpt-image-2/edit",
+      { prompt: "Alex in the office", image_urls: ["data:image/png;base64,ref1", "data:image/png;base64,ref2"] },
+      "key"
+    );
+  });
+
+  it("editImage wraps a single image in an array when imageFormat is 'array'", async () => {
+    await falImageTransport.editImage!(gptConfig, "make it night", "abc", "key");
+
+    expect(mockRunFalInference).toHaveBeenCalledWith(
+      "openai/gpt-image-2/edit",
+      { prompt: "make it night", image_urls: ["data:image/png;base64,abc"] },
+      "key"
+    );
+  });
+
+  it("composeImage rejects an empty reference list", async () => {
+    await expect(falImageTransport.composeImage!(gptConfig, "x", [], "key")).rejects.toThrow("at least one reference image");
   });
 });

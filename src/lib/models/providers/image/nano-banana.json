@@ -13,5 +13,6 @@
     "edit": "gemini-2.5-flash-image"
   },
   "supportsEditing": true,
-  "supportsInpainting": false
+  "supportsInpainting": false,
+  "supportsComposition": true
 }

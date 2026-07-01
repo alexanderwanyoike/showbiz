@@ -66,10 +66,14 @@ export interface ImageModelConfig {
       enabled: boolean;
       endpoint?: string;
       imageInput?: string;
+      imageFormat?: "array" | "string";
     };
   };
   supportsEditing: boolean;
   supportsInpainting: boolean;
+  // Multi-reference composition (compose a frame from several images). Distinct
+  // from editing a single image; gates whether composeImage is exposed.
+  supportsComposition?: boolean;
   paramMapping?: Record<string, string>;
   fixedParams?: Record<string, unknown>;
 }
