@@ -115,16 +115,6 @@ export interface VideoVersionNode {
   children: VideoVersionNode[];
 }
 
-export interface TimelineEdit {
-  id: string;
-  storyboard_id: string;
-  shot_id: string;
-  trim_in: number;
-  trim_out: number;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface TimelineTrack {
   id: string;
   storyboard_id: string;
@@ -141,6 +131,11 @@ export interface TimelineClipRow {
   shot_id: string;
   track_id: string;
   start_time: number;
+  /** Trim window in source-file seconds; null = untrimmed (full clip) */
+  trim_in: number | null;
+  trim_out: number | null;
+  /** Pinned video version; null = follow the shot's current version */
+  video_version_id: string | null;
   created_at: string;
 }
 
@@ -538,23 +533,6 @@ export async function createVideoGenerationVersion(
   return { ...ver, video_url: mediaUrl(ver.video_url) || ver.video_url };
 }
 
-// --- Timeline ---
-export async function getTimelineEdits(storyboardId: string): Promise<TimelineEdit[]> {
-  return invoke("get_timeline_edits", { storyboardId });
-}
-
-export async function updateTimelineEdit(storyboardId: string, shotId: string, trimIn: number, trimOut: number): Promise<TimelineEdit> {
-  return invoke("update_timeline_edit", { storyboardId, shotId, trimIn, trimOut });
-}
-
-export async function resetTimelineEdit(shotId: string): Promise<boolean> {
-  return invoke("reset_timeline_edit", { shotId });
-}
-
-export async function resetAllTimelineEdits(storyboardId: string): Promise<boolean> {
-  return invoke("reset_all_timeline_edits", { storyboardId });
-}
-
 // --- Timeline Tracks ---
 export async function getTimelineTracks(storyboardId: string): Promise<TimelineTrack[]> {
   return invoke("get_timeline_tracks", { storyboardId });
@@ -577,8 +555,26 @@ export async function getTimelineClips(storyboardId: string): Promise<TimelineCl
   return invoke("get_timeline_clips", { storyboardId });
 }
 
-export async function addTimelineClip(storyboardId: string, shotId: string, trackId: string, startTime: number): Promise<TimelineClipRow> {
-  return invoke("add_timeline_clip", { storyboardId, shotId, trackId, startTime });
+export async function addTimelineClip(
+  storyboardId: string,
+  shotId: string,
+  trackId: string,
+  startTime: number,
+  videoVersionId: string | null = null
+): Promise<TimelineClipRow> {
+  return invoke("add_timeline_clip", { storyboardId, shotId, trackId, startTime, videoVersionId });
+}
+
+export async function updateTimelineClipTrims(clipId: string, trimIn: number, trimOut: number): Promise<TimelineClipRow> {
+  return invoke("update_timeline_clip_trims", { clipId, trimIn, trimOut });
+}
+
+export async function splitTimelineClip(
+  clipId: string,
+  splitLocalTime: number,
+  secondStartTime: number
+): Promise<[TimelineClipRow, TimelineClipRow]> {
+  return invoke("split_timeline_clip", { clipId, splitLocalTime, secondStartTime });
 }
 
 export async function removeTimelineClip(id: string): Promise<boolean> {

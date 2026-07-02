@@ -1,5 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { versionsForShot, valueForShot } from "./shot-versions";
+import { versionsForShot, valueForShot, flattenVersionTree } from "./shot-versions";
+
+describe("flattenVersionTree", () => {
+  it("flattens nested version nodes depth-first", () => {
+    const tree = [
+      {
+        version: "v1",
+        children: [
+          { version: "v2", children: [{ version: "v3", children: [] }] },
+        ],
+      },
+      { version: "v4", children: [] },
+    ];
+    expect(flattenVersionTree(tree)).toEqual(["v1", "v2", "v3", "v4"]);
+  });
+
+  it("returns empty for no nodes", () => {
+    expect(flattenVersionTree([])).toEqual([]);
+  });
+});
 
 describe("versionsForShot (per-shot version isolation)", () => {
   it("returns a shot's own versions", () => {

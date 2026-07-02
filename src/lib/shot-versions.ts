@@ -10,3 +10,13 @@ export function versionsForShot<T>(byShot: Record<string, T[]>, shotId: string |
 export function valueForShot<T>(byShot: Record<string, T>, shotId: string | null, fallback: T): T {
   return shotId && shotId in byShot ? byShot[shotId] : fallback;
 }
+
+export interface VersionTreeNode<T> {
+  version: T;
+  children: VersionTreeNode<T>[];
+}
+
+/** Flatten a version tree (as returned by the version commands) into a list. */
+export function flattenVersionTree<T>(nodes: VersionTreeNode<T>[]): T[] {
+  return nodes.flatMap((node) => [node.version, ...flattenVersionTree(node.children)]);
+}

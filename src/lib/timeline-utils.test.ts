@@ -2,21 +2,19 @@ import { describe, it, expect } from "vitest";
 import {
   buildTimelineClipsFromExplicit,
   getTotalDuration,
-  timelineToClipTime,
-  clipToTimelineTime,
   getActiveClipAtTime,
   getNextClipAfterTime,
   resolvePlaybackStart,
   resolvePlayheadState,
   snapStartTime,
   orderClipsForExport,
+  computeClipSplit,
   trackPriority,
   formatTime,
   type Shot,
   type TimelineClip,
   type TimelineClipEntry,
 } from "./timeline-utils";
-import type { TimelineEdit } from "./tauri-api";
 
 function makeShot(overrides: Partial<Shot> = {}): Shot {
   return {
@@ -33,220 +31,122 @@ function makeShot(overrides: Partial<Shot> = {}): Shot {
   };
 }
 
-function makeEdit(overrides: Partial<TimelineEdit> = {}): TimelineEdit {
+let entrySeq = 0;
+function makeEntry(overrides: Partial<TimelineClipEntry> = {}): TimelineClipEntry {
+  entrySeq += 1;
   return {
-    id: "edit-1",
-    storyboard_id: "sb-1",
-    shot_id: "shot-1",
-    trim_in: 0,
-    trim_out: 8,
-    created_at: "2024-01-01",
-    updated_at: "2024-01-01",
+    clipId: `clip-${entrySeq}`,
+    shotId: "shot-1",
+    track: "V1",
+    startTime: 0,
+    trimIn: null,
+    trimOut: null,
+    videoVersionId: null,
     ...overrides,
   };
 }
 
 function makeClip(overrides: Partial<TimelineClip> = {}): TimelineClip {
   const shot = overrides.shot ?? makeShot();
-  const edit = overrides.edit ?? null;
   const sourceDuration = overrides.sourceDuration ?? shot.duration;
-  const trimIn = overrides.trimIn ?? edit?.trim_in ?? 0;
-  const trimOut = overrides.trimOut ?? edit?.trim_out ?? sourceDuration;
+  const trimIn = overrides.trimIn ?? 0;
+  const trimOut = overrides.trimOut ?? sourceDuration;
+  entrySeq += 1;
   return {
+    clipId: overrides.clipId ?? `clip-${entrySeq}`,
     shot,
-    edit,
+    videoUrl: shot.video_url,
+    videoVersionId: null,
     sourceDuration,
     trimIn,
     trimOut,
     effectiveDuration: overrides.effectiveDuration ?? trimOut - trimIn,
     startOffset: overrides.startOffset ?? 0,
     track: overrides.track ?? "V1",
+    ...overrides,
   };
 }
 
-describe("getTotalDuration (single track)", () => {
-  it("sums clip durations on one track", () => {
-    const clips = [
-      makeClip({ effectiveDuration: 3, trimOut: 3, startOffset: 0 }),
-      makeClip({ effectiveDuration: 5, trimOut: 5, startOffset: 3 }),
-    ];
-    expect(getTotalDuration(clips)).toBe(8);
-  });
-
-  it("returns 0 for empty array", () => {
-    expect(getTotalDuration([])).toBe(0);
-  });
-});
-
-describe("timelineToClipTime", () => {
-  const clips = [
-    makeClip({
-      shot: makeShot({ id: "s1" }),
-      edit: makeEdit({ trim_in: 1, trim_out: 4 }),
-      startOffset: 0,
-    }),
-    makeClip({
-      shot: makeShot({ id: "s2" }),
-      edit: makeEdit({ shot_id: "s2", trim_in: 0, trim_out: 5 }),
-      startOffset: 3,
-    }),
-  ];
-
-  it("maps time to correct clip and local time", () => {
-    const result = timelineToClipTime(1.5, clips);
-    expect(result).toEqual({ clipIndex: 0, localTime: 2.5 }); // 1 (trimIn) + 1.5
-  });
-
-  it("maps time in second clip", () => {
-    const result = timelineToClipTime(4, clips);
-    expect(result).toEqual({ clipIndex: 1, localTime: 1 }); // 0 (trimIn) + (4 - 3)
-  });
-
-  it("returns null past end", () => {
-    expect(timelineToClipTime(10, clips)).toBeNull();
-  });
-});
-
-describe("clipToTimelineTime", () => {
-  const clips = [
-    makeClip({
-      shot: makeShot({ id: "s1" }),
-      edit: makeEdit({ trim_in: 2, trim_out: 6 }),
-      startOffset: 0,
-    }),
-    makeClip({ shot: makeShot({ id: "s2" }), startOffset: 4 }),
-  ];
-
-  it("reverse maps correctly", () => {
-    // localTime=3 in clip 0 → offset in clip = 3 - 2(trimIn) = 1 → timeline = 0 + 1 = 1
-    expect(clipToTimelineTime(0, 3, clips)).toBe(1);
-  });
-});
-
 describe("buildTimelineClipsFromExplicit", () => {
   it("returns empty array when no entries", () => {
-    const shots = [makeShot({ id: "s1" })];
-    const clips = buildTimelineClipsFromExplicit([], shots, []);
+    const clips = buildTimelineClipsFromExplicit([], [makeShot({ id: "s1" })]);
     expect(clips).toHaveLength(0);
   });
 
-  it("builds clips only for explicitly added entries", () => {
-    const shots = [
-      makeShot({ id: "s1" }),
-      makeShot({ id: "s2" }),
-      makeShot({ id: "s3" }),
-    ];
-    const entries: TimelineClipEntry[] = [
-      { shotId: "s2", track: "V1", startTime: 0 },
-    ];
-    const clips = buildTimelineClipsFromExplicit(entries, shots, []);
+  it("builds clips keyed by their row id", () => {
+    const shots = [makeShot({ id: "s1" })];
+    const entries = [makeEntry({ clipId: "row-9", shotId: "s1", startTime: 4 })];
+    const clips = buildTimelineClipsFromExplicit(entries, shots);
     expect(clips).toHaveLength(1);
-    expect(clips[0].shot.id).toBe("s2");
-    expect(clips[0].track).toBe("V1");
+    expect(clips[0].clipId).toBe("row-9");
+    expect(clips[0].startOffset).toBe(4);
   });
 
-  it("skips entries for non-existent shots", () => {
+  it("skips entries for missing or incomplete shots", () => {
+    const shots = [
+      makeShot({ id: "pending", status: "pending" }),
+      makeShot({ id: "no-video", video_url: null }),
+    ];
+    const entries = [
+      makeEntry({ shotId: "missing" }),
+      makeEntry({ shotId: "pending" }),
+      makeEntry({ shotId: "no-video" }),
+    ];
+    expect(buildTimelineClipsFromExplicit(entries, shots)).toHaveLength(0);
+  });
+
+  it("applies per-clip trims so the same shot can differ per instance", () => {
     const shots = [makeShot({ id: "s1" })];
-    const entries: TimelineClipEntry[] = [
-      { shotId: "missing", track: "V1", startTime: 0 },
+    const entries = [
+      makeEntry({ clipId: "a", shotId: "s1", trimIn: 0, trimOut: 3 }),
+      makeEntry({ clipId: "b", shotId: "s1", startTime: 10, trimIn: 4, trimOut: 8 }),
     ];
-    const clips = buildTimelineClipsFromExplicit(entries, shots, []);
-    expect(clips).toHaveLength(0);
+    const clips = buildTimelineClipsFromExplicit(entries, shots);
+    expect(clips[0].effectiveDuration).toBe(3);
+    expect(clips[1].trimIn).toBe(4);
+    expect(clips[1].effectiveDuration).toBe(4);
   });
 
-  it("skips non-complete shots", () => {
-    const shots = [makeShot({ id: "s1", status: "pending" })];
-    const entries: TimelineClipEntry[] = [
-      { shotId: "s1", track: "V1", startTime: 0 },
+  it("resolves a pinned version's URL and skips playback URL when unknown", () => {
+    const shots = [makeShot({ id: "s1", video_url: "asset://current.mp4" })];
+    const entries = [
+      makeEntry({ clipId: "pinned", shotId: "s1", videoVersionId: "v2" }),
+      makeEntry({ clipId: "loading", shotId: "s1", videoVersionId: "v9" }),
+      makeEntry({ clipId: "current", shotId: "s1" }),
     ];
-    const clips = buildTimelineClipsFromExplicit(entries, shots, []);
-    expect(clips).toHaveLength(0);
+    const clips = buildTimelineClipsFromExplicit(entries, shots, {}, { v2: "asset://v2.mp4" });
+    expect(clips.find((c) => c.clipId === "pinned")!.videoUrl).toBe("asset://v2.mp4");
+    expect(clips.find((c) => c.clipId === "loading")!.videoUrl).toBeNull();
+    expect(clips.find((c) => c.clipId === "current")!.videoUrl).toBe("asset://current.mp4");
   });
 
-  it("uses startTime directly as startOffset", () => {
-    const shots = [makeShot({ id: "s1" }), makeShot({ id: "s2" })];
-    const entries: TimelineClipEntry[] = [
-      { shotId: "s1", track: "V1", startTime: 0 },
-      { shotId: "s2", track: "V1", startTime: 10.5 },
-    ];
-    const clips = buildTimelineClipsFromExplicit(entries, shots, []);
-    expect(clips[0].startOffset).toBe(0);
-    expect(clips[1].startOffset).toBe(10.5);
-  });
-
-  it("handles multiple tracks independently", () => {
-    const shots = [makeShot({ id: "s1" }), makeShot({ id: "s2" })];
-    const entries: TimelineClipEntry[] = [
-      { shotId: "s1", track: "V1", startTime: 0 },
-      { shotId: "s2", track: "V2", startTime: 5 },
-    ];
-    const clips = buildTimelineClipsFromExplicit(entries, shots, []);
-    expect(clips).toHaveLength(2);
-    const v1 = clips.find((c) => c.track === "V1");
-    const v2 = clips.find((c) => c.track === "V2");
-    expect(v1?.shot.id).toBe("s1");
-    expect(v2?.shot.id).toBe("s2");
-    expect(v1?.startOffset).toBe(0);
-    expect(v2?.startOffset).toBe(5);
-  });
-
-  it("applies edits to explicit clips", () => {
-    const shots = [makeShot({ id: "s1" })];
-    const edits = [makeEdit({ shot_id: "s1", trim_in: 1, trim_out: 5 })];
-    const entries: TimelineClipEntry[] = [
-      { shotId: "s1", track: "V1", startTime: 0 },
-    ];
-    const clips = buildTimelineClipsFromExplicit(entries, shots, edits);
-    expect(clips[0].effectiveDuration).toBe(4);
-    expect(clips[0].trimIn).toBe(1);
-    expect(clips[0].trimOut).toBe(5);
-  });
-
-  it("exposes resolved trims and source duration when no edit exists", () => {
-    const shots = [makeShot({ id: "s1", duration: 8 })];
-    const entries: TimelineClipEntry[] = [
-      { shotId: "s1", track: "V1", startTime: 0 },
-    ];
-    const clips = buildTimelineClipsFromExplicit(entries, shots, []);
-    expect(clips[0].trimIn).toBe(0);
-    expect(clips[0].trimOut).toBe(8);
-    expect(clips[0].sourceDuration).toBe(8);
-  });
-});
-
-describe("buildTimelineClipsFromExplicit with probed durations", () => {
-  const entries: TimelineClipEntry[] = [
-    { shotId: "s1", track: "V1", startTime: 0 },
-  ];
-
-  it("uses probed duration instead of stale shot.duration for default trim-out", () => {
-    const shots = [makeShot({ id: "s1", duration: 8 })];
-    const clips = buildTimelineClipsFromExplicit(entries, shots, [], { s1: 5.2 });
+  it("uses the probed duration of the resolved URL, not the shot's", () => {
+    const shots = [makeShot({ id: "s1", duration: 8, video_url: "asset://current.mp4" })];
+    const entries = [makeEntry({ clipId: "p", shotId: "s1", videoVersionId: "v2" })];
+    const clips = buildTimelineClipsFromExplicit(
+      entries,
+      shots,
+      { "asset://v2.mp4": 5.2, "asset://current.mp4": 7.5 },
+      { v2: "asset://v2.mp4" }
+    );
     expect(clips[0].sourceDuration).toBe(5.2);
     expect(clips[0].trimOut).toBe(5.2);
-    expect(clips[0].effectiveDuration).toBe(5.2);
   });
 
-  it("clamps a persisted trim_out beyond the real duration", () => {
+  it("clamps persisted trims to the real duration", () => {
     const shots = [makeShot({ id: "s1", duration: 8 })];
-    const edits = [makeEdit({ shot_id: "s1", trim_in: 1, trim_out: 8 })];
-    const clips = buildTimelineClipsFromExplicit(entries, shots, edits, { s1: 5 });
-    expect(clips[0].trimOut).toBe(5);
-    expect(clips[0].effectiveDuration).toBe(4);
-  });
-
-  it("clamps trim_in so the clip never has negative duration", () => {
-    const shots = [makeShot({ id: "s1", duration: 8 })];
-    const edits = [makeEdit({ shot_id: "s1", trim_in: 6, trim_out: 8 })];
-    const clips = buildTimelineClipsFromExplicit(entries, shots, edits, { s1: 5 });
+    const entries = [makeEntry({ shotId: "s1", trimIn: 6, trimOut: 8 })];
+    const clips = buildTimelineClipsFromExplicit(entries, shots, {
+      "asset://video.mp4": 5,
+    });
     expect(clips[0].trimIn).toBe(5);
     expect(clips[0].trimOut).toBe(5);
     expect(clips[0].effectiveDuration).toBe(0);
   });
 
-  it("falls back to shot.duration when no probed duration exists", () => {
+  it("falls back to shot.duration when nothing is probed", () => {
     const shots = [makeShot({ id: "s1", duration: 8 })];
-    const clips = buildTimelineClipsFromExplicit(entries, shots, [], {});
+    const clips = buildTimelineClipsFromExplicit([makeEntry({ shotId: "s1" })], shots);
     expect(clips[0].sourceDuration).toBe(8);
     expect(clips[0].trimOut).toBe(8);
   });
@@ -270,156 +170,109 @@ describe("trackPriority", () => {
   });
 });
 
-describe("getTotalDuration (multi-track)", () => {
-  it("returns max of per-track durations, not sum", () => {
-    // V1: 8s + 8s = 16s, V2: 8s = 8s → total should be 16s
-    const clips = [
-      makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0, track: "V1" }),
-      makeClip({ shot: makeShot({ id: "s2" }), startOffset: 8, track: "V1" }),
-      makeClip({ shot: makeShot({ id: "s3" }), startOffset: 0, track: "V2" }),
-    ];
-    expect(getTotalDuration(clips)).toBe(16);
+describe("getTotalDuration", () => {
+  it("returns 0 for empty array", () => {
+    expect(getTotalDuration([])).toBe(0);
   });
 
-  it("works with single track", () => {
+  it("sums clip durations on one track", () => {
     const clips = [
-      makeClip({ shot: makeShot({ id: "s1" }), effectiveDuration: 5, trimOut: 5, startOffset: 0 }),
-      makeClip({ shot: makeShot({ id: "s2" }), effectiveDuration: 3, trimOut: 3, startOffset: 5 }),
+      makeClip({ trimOut: 3, startOffset: 0 }),
+      makeClip({ trimOut: 5, startOffset: 3 }),
     ];
     expect(getTotalDuration(clips)).toBe(8);
+  });
+
+  it("returns max of per-track durations, not sum", () => {
+    const clips = [
+      makeClip({ startOffset: 0, track: "V1" }),
+      makeClip({ startOffset: 8, track: "V1" }),
+      makeClip({ startOffset: 0, track: "V2" }),
+    ];
+    expect(getTotalDuration(clips)).toBe(16);
   });
 });
 
 describe("getActiveClipAtTime", () => {
   it("returns V2 clip when V1 and V2 both cover time", () => {
     const clips = [
-      makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0, track: "V1" }),
-      makeClip({ shot: makeShot({ id: "s2" }), startOffset: 0, track: "V2" }),
+      makeClip({ clipId: "c1", startOffset: 0, track: "V1" }),
+      makeClip({ clipId: "c2", startOffset: 0, track: "V2" }),
     ];
     const result = getActiveClipAtTime(2, clips);
-    expect(result).not.toBeNull();
-    expect(result!.clip.shot.id).toBe("s2");
-    expect(result!.clip.track).toBe("V2");
+    expect(result!.clip.clipId).toBe("c2");
   });
 
   it("returns V1 clip when V2 has ended", () => {
     const clips = [
-      makeClip({ shot: makeShot({ id: "s1", duration: 16 }), startOffset: 0, track: "V1" }),
-      makeClip({ shot: makeShot({ id: "s2" }), startOffset: 0, track: "V2" }),
+      makeClip({ clipId: "long", sourceDuration: 16, startOffset: 0, track: "V1" }),
+      makeClip({ clipId: "short", startOffset: 0, track: "V2" }),
     ];
     const result = getActiveClipAtTime(10, clips);
-    expect(result).not.toBeNull();
-    expect(result!.clip.shot.id).toBe("s1");
-    expect(result!.clip.track).toBe("V1");
+    expect(result!.clip.clipId).toBe("long");
   });
 
   it("returns null past all content", () => {
-    const clips = [makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0 })];
-    expect(getActiveClipAtTime(20, clips)).toBeNull();
+    expect(getActiveClipAtTime(20, [makeClip({ startOffset: 0 })])).toBeNull();
   });
 
   it("returns correct localTime with trimIn", () => {
-    const clips = [
-      makeClip({
-        shot: makeShot({ id: "s1" }),
-        edit: makeEdit({ trim_in: 2, trim_out: 6 }),
-        startOffset: 0,
-      }),
-    ];
+    const clips = [makeClip({ trimIn: 2, trimOut: 6, startOffset: 0 })];
     const result = getActiveClipAtTime(1, clips);
-    expect(result).not.toBeNull();
     expect(result!.localTime).toBe(3); // trimIn(2) + timeInClip(1)
-  });
-
-  it("handles second clip on same track", () => {
-    const clips = [
-      makeClip({ shot: makeShot({ id: "s1" }), effectiveDuration: 4, trimOut: 4, startOffset: 0 }),
-      makeClip({ shot: makeShot({ id: "s2" }), effectiveDuration: 4, trimOut: 4, startOffset: 4 }),
-    ];
-    const result = getActiveClipAtTime(5, clips);
-    expect(result).not.toBeNull();
-    expect(result!.clip.shot.id).toBe("s2");
-    expect(result!.localTime).toBe(1); // 5 - 4(startOffset) + 0(trimIn)
   });
 });
 
 describe("getNextClipAfterTime", () => {
   it("returns the next clip when query time lands in a gap", () => {
     const clips = [
-      makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0 }),
-      makeClip({ shot: makeShot({ id: "s2" }), startOffset: 12 }),
+      makeClip({ clipId: "c1", startOffset: 0 }),
+      makeClip({ clipId: "c2", startOffset: 12 }),
     ];
     const result = getNextClipAfterTime(9, clips);
-    expect(result).not.toBeNull();
-    expect(result!.clip.shot.id).toBe("s2");
-    expect(result!.localTime).toBe(0); // trimIn defaults to 0
+    expect(result!.clip.clipId).toBe("c2");
+    expect(result!.localTime).toBe(0);
   });
 
   it("returns null when no clips start after the given time", () => {
-    const clips = [makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0 })];
-    expect(getNextClipAfterTime(9, clips)).toBeNull();
+    expect(getNextClipAfterTime(9, [makeClip({ startOffset: 0 })])).toBeNull();
   });
 
-  it("picks highest priority track when multiple clips start at the same time", () => {
+  it("picks highest priority track when clips start together", () => {
     const clips = [
-      makeClip({ shot: makeShot({ id: "s1" }), startOffset: 10, track: "V1" }),
-      makeClip({ shot: makeShot({ id: "s2" }), startOffset: 10, track: "V2" }),
+      makeClip({ clipId: "v1", startOffset: 10, track: "V1" }),
+      makeClip({ clipId: "v2", startOffset: 10, track: "V2" }),
     ];
-    const result = getNextClipAfterTime(5, clips);
-    expect(result).not.toBeNull();
-    expect(result!.clip.shot.id).toBe("s2");
-    expect(result!.clip.track).toBe("V2");
+    expect(getNextClipAfterTime(5, clips)!.clip.clipId).toBe("v2");
   });
 
   it("returns localTime respecting trimIn", () => {
-    const clips = [
-      makeClip({
-        shot: makeShot({ id: "s1" }),
-        edit: makeEdit({ trim_in: 2, trim_out: 6 }),
-        startOffset: 10,
-      }),
-    ];
-    const result = getNextClipAfterTime(5, clips);
-    expect(result).not.toBeNull();
-    expect(result!.localTime).toBe(2); // starts at trimIn
+    const clips = [makeClip({ trimIn: 2, trimOut: 6, startOffset: 10 })];
+    expect(getNextClipAfterTime(5, clips)!.localTime).toBe(2);
   });
 });
 
 describe("resolvePlayheadState", () => {
   const clips = [
-    makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0 }), // 0-8
-    makeClip({ shot: makeShot({ id: "s2" }), startOffset: 12 }), // 12-20
+    makeClip({ clipId: "c1", startOffset: 0 }), // 0-8
+    makeClip({ clipId: "c2", startOffset: 12 }), // 12-20
   ];
 
   it("returns the clip and local time when inside a clip", () => {
     const state = resolvePlayheadState(2, clips);
     expect(state.kind).toBe("clip");
     if (state.kind === "clip") {
-      expect(state.clip.shot.id).toBe("s1");
+      expect(state.clip.clipId).toBe("c1");
       expect(state.localTime).toBe(2);
     }
   });
 
-  it("respects trimIn for the local time", () => {
-    const trimmed = [
-      makeClip({
-        shot: makeShot({ id: "s1" }),
-        edit: makeEdit({ trim_in: 2, trim_out: 6 }),
-        startOffset: 0,
-      }),
-    ];
-    const state = resolvePlayheadState(1, trimmed);
-    expect(state.kind).toBe("clip");
-    if (state.kind === "clip") expect(state.localTime).toBe(3);
-  });
-
   it("returns a gap with the next clip's start when between clips", () => {
-    const state = resolvePlayheadState(9, clips);
-    expect(state).toEqual({ kind: "gap", nextStart: 12 });
+    expect(resolvePlayheadState(9, clips)).toEqual({ kind: "gap", nextStart: 12 });
   });
 
   it("returns a gap before the first clip when the timeline starts late", () => {
-    const late = [makeClip({ shot: makeShot({ id: "s1" }), startOffset: 3 })];
+    const late = [makeClip({ startOffset: 3 })];
     expect(resolvePlayheadState(0, late)).toEqual({ kind: "gap", nextStart: 3 });
   });
 
@@ -435,31 +288,27 @@ describe("resolvePlayheadState", () => {
 
 describe("resolvePlaybackStart", () => {
   it("starts inside the active clip when the playhead is on one", () => {
-    const clips = [makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0 })];
-    const result = resolvePlaybackStart(2, clips);
-    expect(result).not.toBeNull();
+    const result = resolvePlaybackStart(2, [makeClip({ startOffset: 0 })]);
     expect(result!.timelineTime).toBe(2);
     expect(result!.state.kind).toBe("clip");
   });
 
   it("stays in the gap instead of jumping when the playhead is between clips", () => {
     const clips = [
-      makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0 }),
-      makeClip({ shot: makeShot({ id: "s2" }), startOffset: 12 }),
+      makeClip({ startOffset: 0 }),
+      makeClip({ startOffset: 12 }),
     ];
     const result = resolvePlaybackStart(9, clips);
-    expect(result).not.toBeNull();
     expect(result!.timelineTime).toBe(9);
     expect(result!.state).toEqual({ kind: "gap", nextStart: 12 });
   });
 
   it("restarts from timeline zero when the playhead is past the end", () => {
     const clips = [
-      makeClip({ shot: makeShot({ id: "s1" }), startOffset: 2 }),
-      makeClip({ shot: makeShot({ id: "s2" }), startOffset: 10 }),
+      makeClip({ startOffset: 2 }),
+      makeClip({ startOffset: 10 }),
     ];
     const result = resolvePlaybackStart(18, clips);
-    expect(result).not.toBeNull();
     expect(result!.timelineTime).toBe(0);
     expect(result!.state).toEqual({ kind: "gap", nextStart: 2 });
   });
@@ -469,10 +318,37 @@ describe("resolvePlaybackStart", () => {
   });
 });
 
+describe("computeClipSplit", () => {
+  const clip = makeClip({ clipId: "c1", trimIn: 1, trimOut: 7, startOffset: 2 }); // 2-8 on timeline
+
+  it("splits at the playhead into source-file seconds", () => {
+    expect(computeClipSplit(clip, 5)).toEqual({
+      clipId: "c1",
+      splitLocalTime: 4, // trimIn(1) + offset(3)
+      secondStartTime: 5,
+    });
+  });
+
+  it("returns null when the playhead is outside the clip", () => {
+    expect(computeClipSplit(clip, 1)).toBeNull();
+    expect(computeClipSplit(clip, 9)).toBeNull();
+  });
+
+  it("returns null when a piece would be under the minimum duration", () => {
+    expect(computeClipSplit(clip, 2.2)).toBeNull(); // first piece 0.2s
+    expect(computeClipSplit(clip, 7.8)).toBeNull(); // second piece 0.2s
+  });
+
+  it("allows pieces exactly at the minimum duration", () => {
+    expect(computeClipSplit(clip, 2.5)).not.toBeNull();
+    expect(computeClipSplit(clip, 7.5)).not.toBeNull();
+  });
+});
+
 describe("snapStartTime", () => {
   const others = [
-    makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0 }), // occupies 0-8
-    makeClip({ shot: makeShot({ id: "s2" }), startOffset: 20 }), // occupies 20-28
+    makeClip({ startOffset: 0 }), // occupies 0-8
+    makeClip({ startOffset: 20 }), // occupies 20-28
   ];
 
   it("snaps the start edge to an adjacent clip's end", () => {
@@ -484,7 +360,6 @@ describe("snapStartTime", () => {
   });
 
   it("snaps the end edge to the next clip's start", () => {
-    // moving clip is 5s long; start 15.2 puts its end at 20.2, near s2's start
     expect(snapStartTime(15.2, 5, others, 0.5)).toBe(15);
   });
 
@@ -497,7 +372,6 @@ describe("snapStartTime", () => {
   });
 
   it("picks the nearest snap point when several are in range", () => {
-    // 8 (end of s1) is 0.1 away; 8.5 would not be a candidate
     expect(snapStartTime(8.1, 5, others, 2)).toBe(8);
   });
 
@@ -509,29 +383,27 @@ describe("snapStartTime", () => {
 describe("orderClipsForExport", () => {
   it("orders by timeline position, not track id", () => {
     const clips = [
-      makeClip({ shot: makeShot({ id: "later" }), startOffset: 5, track: "V1" }),
-      makeClip({ shot: makeShot({ id: "earlier" }), startOffset: 0, track: "V2" }),
+      makeClip({ clipId: "later", startOffset: 5, track: "V1" }),
+      makeClip({ clipId: "earlier", startOffset: 0, track: "V2" }),
     ];
-    const ordered = orderClipsForExport(clips);
-    expect(ordered.map((c) => c.shot.id)).toEqual(["earlier", "later"]);
+    expect(orderClipsForExport(clips).map((c) => c.clipId)).toEqual(["earlier", "later"]);
   });
 
   it("puts the higher video track first when clips start together", () => {
     const clips = [
-      makeClip({ shot: makeShot({ id: "v1" }), startOffset: 0, track: "V1" }),
-      makeClip({ shot: makeShot({ id: "v2" }), startOffset: 0, track: "V2" }),
+      makeClip({ clipId: "v1", startOffset: 0, track: "V1" }),
+      makeClip({ clipId: "v2", startOffset: 0, track: "V2" }),
     ];
-    const ordered = orderClipsForExport(clips);
-    expect(ordered.map((c) => c.shot.id)).toEqual(["v2", "v1"]);
+    expect(orderClipsForExport(clips).map((c) => c.clipId)).toEqual(["v2", "v1"]);
   });
 
   it("does not mutate the input array", () => {
     const clips = [
-      makeClip({ shot: makeShot({ id: "b" }), startOffset: 5 }),
-      makeClip({ shot: makeShot({ id: "a" }), startOffset: 0 }),
+      makeClip({ clipId: "b", startOffset: 5 }),
+      makeClip({ clipId: "a", startOffset: 0 }),
     ];
     orderClipsForExport(clips);
-    expect(clips[0].shot.id).toBe("b");
+    expect(clips[0].clipId).toBe("b");
   });
 });
 

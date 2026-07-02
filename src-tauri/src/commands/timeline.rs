@@ -23,146 +23,54 @@ pub struct TimelineClipRow {
     pub shot_id: String,
     pub track_id: String,
     pub start_time: f64,
+    /// Trim window in source-file seconds; NULL = untrimmed (full clip)
+    pub trim_in: Option<f64>,
+    pub trim_out: Option<f64>,
+    /// Pinned video version; NULL = follow the shot's current version
+    pub video_version_id: Option<String>,
     pub created_at: String,
 }
 
-#[derive(Debug, Serialize, Clone)]
-pub struct TimelineEdit {
-    pub id: String,
-    pub storyboard_id: String,
-    pub shot_id: String,
-    pub trim_in: f64,
-    pub trim_out: f64,
-    pub created_at: String,
-    pub updated_at: String,
+const CLIP_COLUMNS: &str =
+    "id, storyboard_id, shot_id, track_id, start_time, trim_in, trim_out, video_version_id, created_at";
+
+fn clip_from_row(row: &rusqlite::Row) -> rusqlite::Result<TimelineClipRow> {
+    Ok(TimelineClipRow {
+        id: row.get(0)?,
+        storyboard_id: row.get(1)?,
+        shot_id: row.get(2)?,
+        track_id: row.get(3)?,
+        start_time: row.get(4)?,
+        trim_in: row.get(5)?,
+        trim_out: row.get(6)?,
+        video_version_id: row.get(7)?,
+        created_at: row.get(8)?,
+    })
 }
 
-#[tauri::command]
-pub fn get_timeline_edits(
-    storyboard_id: String,
-    state: State<'_, DbState>,
-) -> Result<Vec<TimelineEdit>, String> {
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
-
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, storyboard_id, shot_id, trim_in, trim_out, created_at, updated_at
-             FROM timeline_edits WHERE storyboard_id = ?1",
-        )
-        .map_err(|e| e.to_string())?;
-
-    let edits = stmt
-        .query_map(params![storyboard_id], |row| {
-            Ok(TimelineEdit {
-                id: row.get(0)?,
-                storyboard_id: row.get(1)?,
-                shot_id: row.get(2)?,
-                trim_in: row.get(3)?,
-                trim_out: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    Ok(edits)
+fn get_clip_by_id(conn: &rusqlite::Connection, id: &str) -> Result<TimelineClipRow, String> {
+    conn.query_row(
+        &format!("SELECT {CLIP_COLUMNS} FROM timeline_clips WHERE id = ?1"),
+        params![id],
+        clip_from_row,
+    )
+    .map_err(|e| match e {
+        rusqlite::Error::QueryReturnedNoRows => "Clip not found".to_string(),
+        other => other.to_string(),
+    })
 }
 
-/// Validate trim values for a timeline edit.
-/// Returns Ok(()) if valid, Err with message if invalid.
-pub fn validate_trim_values(trim_in: f64, trim_out: f64) -> Result<(), String> {
-    if trim_in < 0.0 || trim_out > 8.0 || trim_in >= trim_out {
+/// Validate a clip trim window. Trims are in source-file seconds; the upper
+/// bound is the real video duration, which only the frontend knows, so it is
+/// clamped there.
+pub fn validate_clip_trims(trim_in: f64, trim_out: f64) -> Result<(), String> {
+    if trim_in < 0.0 || trim_in >= trim_out {
         return Err("Invalid trim values".to_string());
     }
     if trim_out - trim_in < 0.5 {
         return Err("Minimum clip duration is 0.5 seconds".to_string());
     }
     Ok(())
-}
-
-#[tauri::command]
-pub fn update_timeline_edit(
-    storyboard_id: String,
-    shot_id: String,
-    trim_in: f64,
-    trim_out: f64,
-    state: State<'_, DbState>,
-) -> Result<TimelineEdit, String> {
-    validate_trim_values(trim_in, trim_out)?;
-
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let id = generate_id("edit");
-
-    conn.execute(
-        "INSERT INTO timeline_edits (id, storyboard_id, shot_id, trim_in, trim_out)
-         VALUES (?1, ?2, ?3, ?4, ?5)
-         ON CONFLICT(storyboard_id, shot_id) DO UPDATE SET
-           trim_in = excluded.trim_in,
-           trim_out = excluded.trim_out,
-           updated_at = CURRENT_TIMESTAMP",
-        params![id, storyboard_id, shot_id, trim_in, trim_out],
-    )
-    .map_err(|e| e.to_string())?;
-
-    // Fetch the upserted row
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, storyboard_id, shot_id, trim_in, trim_out, created_at, updated_at
-             FROM timeline_edits WHERE storyboard_id = ?1 AND shot_id = ?2",
-        )
-        .map_err(|e| e.to_string())?;
-
-    let edit = stmt
-        .query_row(params![storyboard_id, shot_id], |row| {
-            Ok(TimelineEdit {
-                id: row.get(0)?,
-                storyboard_id: row.get(1)?,
-                shot_id: row.get(2)?,
-                trim_in: row.get(3)?,
-                trim_out: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
-            })
-        })
-        .map_err(|e| e.to_string())?;
-
-    Ok(edit)
-}
-
-#[tauri::command]
-pub fn reset_timeline_edit(
-    shot_id: String,
-    state: State<'_, DbState>,
-) -> Result<bool, String> {
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
-
-    let changes = conn
-        .execute(
-            "DELETE FROM timeline_edits WHERE shot_id = ?1",
-            params![shot_id],
-        )
-        .map_err(|e| e.to_string())?;
-
-    Ok(changes > 0)
-}
-
-#[tauri::command]
-pub fn reset_all_timeline_edits(
-    storyboard_id: String,
-    state: State<'_, DbState>,
-) -> Result<bool, String> {
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
-
-    let changes = conn
-        .execute(
-            "DELETE FROM timeline_edits WHERE storyboard_id = ?1",
-            params![storyboard_id],
-        )
-        .map_err(|e| e.to_string())?;
-
-    Ok(changes > 0)
 }
 
 // --- Track Commands ---
@@ -379,23 +287,14 @@ fn get_timeline_clips_db(
     storyboard_id: &str,
 ) -> Result<Vec<TimelineClipRow>, String> {
     let mut stmt = conn
-        .prepare(
-            "SELECT id, storyboard_id, shot_id, track_id, start_time, created_at
-             FROM timeline_clips WHERE storyboard_id = ?1 ORDER BY track_id, start_time",
-        )
+        .prepare(&format!(
+            "SELECT {CLIP_COLUMNS} FROM timeline_clips
+             WHERE storyboard_id = ?1 ORDER BY track_id, start_time"
+        ))
         .map_err(|e| e.to_string())?;
 
     let clips = stmt
-        .query_map(params![storyboard_id], |row| {
-            Ok(TimelineClipRow {
-                id: row.get(0)?,
-                storyboard_id: row.get(1)?,
-                shot_id: row.get(2)?,
-                track_id: row.get(3)?,
-                start_time: row.get(4)?,
-                created_at: row.get(5)?,
-            })
-        })
+        .query_map(params![storyboard_id], clip_from_row)
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
@@ -418,32 +317,18 @@ fn add_timeline_clip_db(
     shot_id: &str,
     track_id: &str,
     start_time: f64,
+    video_version_id: Option<&str>,
 ) -> Result<TimelineClipRow, String> {
     let id = generate_id("clip");
 
     conn.execute(
-        "INSERT INTO timeline_clips (id, storyboard_id, shot_id, track_id, start_time)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![id, storyboard_id, shot_id, track_id, start_time],
+        "INSERT INTO timeline_clips (id, storyboard_id, shot_id, track_id, start_time, video_version_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![id, storyboard_id, shot_id, track_id, start_time, video_version_id],
     )
     .map_err(|e| e.to_string())?;
 
-    conn.query_row(
-        "SELECT id, storyboard_id, shot_id, track_id, start_time, created_at
-         FROM timeline_clips WHERE id = ?1",
-        params![id],
-        |row| {
-            Ok(TimelineClipRow {
-                id: row.get(0)?,
-                storyboard_id: row.get(1)?,
-                shot_id: row.get(2)?,
-                track_id: row.get(3)?,
-                start_time: row.get(4)?,
-                created_at: row.get(5)?,
-            })
-        },
-    )
-    .map_err(|e| e.to_string())
+    get_clip_by_id(conn, &id)
 }
 
 #[tauri::command]
@@ -452,10 +337,110 @@ pub fn add_timeline_clip(
     shot_id: String,
     track_id: String,
     start_time: f64,
+    video_version_id: Option<String>,
     state: State<'_, DbState>,
 ) -> Result<TimelineClipRow, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    add_timeline_clip_db(&conn, &storyboard_id, &shot_id, &track_id, start_time)
+    add_timeline_clip_db(
+        &conn,
+        &storyboard_id,
+        &shot_id,
+        &track_id,
+        start_time,
+        video_version_id.as_deref(),
+    )
+}
+
+fn update_timeline_clip_trims_db(
+    conn: &rusqlite::Connection,
+    clip_id: &str,
+    trim_in: f64,
+    trim_out: f64,
+) -> Result<TimelineClipRow, String> {
+    validate_clip_trims(trim_in, trim_out)?;
+
+    let changes = conn
+        .execute(
+            "UPDATE timeline_clips SET trim_in = ?1, trim_out = ?2 WHERE id = ?3",
+            params![trim_in, trim_out, clip_id],
+        )
+        .map_err(|e| e.to_string())?;
+
+    if changes == 0 {
+        return Err("Clip not found".to_string());
+    }
+    get_clip_by_id(conn, clip_id)
+}
+
+#[tauri::command]
+pub fn update_timeline_clip_trims(
+    clip_id: String,
+    trim_in: f64,
+    trim_out: f64,
+    state: State<'_, DbState>,
+) -> Result<TimelineClipRow, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    update_timeline_clip_trims_db(&conn, &clip_id, trim_in, trim_out)
+}
+
+/// Split a clip in two at a point inside its trimmed content. The original
+/// keeps [trim_in, split_local_time); a new clip on the same track holds
+/// [split_local_time, original trim_out) and starts where the cut lands on
+/// the timeline. All values are in source-file seconds except
+/// second_start_time. The version pin is copied to the new clip.
+fn split_timeline_clip_db(
+    conn: &rusqlite::Connection,
+    clip_id: &str,
+    split_local_time: f64,
+    second_start_time: f64,
+) -> Result<(TimelineClipRow, TimelineClipRow), String> {
+    let original = get_clip_by_id(conn, clip_id)?;
+
+    let first_in = original.trim_in.unwrap_or(0.0);
+    validate_clip_trims(first_in, split_local_time)?;
+    if let Some(out) = original.trim_out {
+        validate_clip_trims(split_local_time, out)?;
+    }
+
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+
+    tx.execute(
+        "UPDATE timeline_clips SET trim_in = ?1, trim_out = ?2 WHERE id = ?3",
+        params![first_in, split_local_time, clip_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    let second_id = generate_id("clip");
+    tx.execute(
+        "INSERT INTO timeline_clips (id, storyboard_id, shot_id, track_id, start_time, trim_in, trim_out, video_version_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            second_id,
+            original.storyboard_id,
+            original.shot_id,
+            original.track_id,
+            second_start_time,
+            split_local_time,
+            original.trim_out,
+            original.video_version_id,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok((get_clip_by_id(conn, clip_id)?, get_clip_by_id(conn, &second_id)?))
+}
+
+#[tauri::command]
+pub fn split_timeline_clip(
+    clip_id: String,
+    split_local_time: f64,
+    second_start_time: f64,
+    state: State<'_, DbState>,
+) -> Result<(TimelineClipRow, TimelineClipRow), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    split_timeline_clip_db(&conn, &clip_id, split_local_time, second_start_time)
 }
 
 #[tauri::command]
@@ -519,102 +504,40 @@ pub fn remove_all_timeline_clips(
 mod tests {
     use super::*;
 
-    // -- validate_trim_values tests --
+    // -- validate_clip_trims tests --
 
     #[test]
-    fn valid_full_range() {
-        assert!(validate_trim_values(0.0, 8.0).is_ok());
+    fn valid_trim_range() {
+        assert!(validate_clip_trims(1.0, 5.0).is_ok());
     }
 
     #[test]
-    fn valid_middle_range() {
-        assert!(validate_trim_values(1.0, 5.0).is_ok());
+    fn valid_trims_have_no_upper_cap() {
+        // Real durations vary per model; the frontend clamps to the file length
+        assert!(validate_clip_trims(0.0, 12.0).is_ok());
     }
 
     #[test]
     fn valid_minimum_duration() {
-        assert!(validate_trim_values(0.0, 0.5).is_ok());
+        assert!(validate_clip_trims(0.0, 0.5).is_ok());
     }
 
     #[test]
     fn invalid_negative_trim_in() {
-        assert!(validate_trim_values(-1.0, 5.0).is_err());
+        assert!(validate_clip_trims(-1.0, 5.0).is_err());
     }
 
     #[test]
-    fn invalid_trim_out_exceeds_max() {
-        assert!(validate_trim_values(0.0, 9.0).is_err());
-    }
-
-    #[test]
-    fn invalid_trim_in_equals_trim_out() {
-        assert!(validate_trim_values(5.0, 5.0).is_err());
-    }
-
-    #[test]
-    fn invalid_trim_in_greater_than_trim_out() {
-        assert!(validate_trim_values(6.0, 3.0).is_err());
+    fn invalid_reversed_or_equal_trims() {
+        assert!(validate_clip_trims(5.0, 5.0).is_err());
+        assert!(validate_clip_trims(6.0, 3.0).is_err());
     }
 
     #[test]
     fn invalid_below_min_duration() {
-        let result = validate_trim_values(3.0, 3.4);
+        let result = validate_clip_trims(3.0, 3.4);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Minimum clip duration"));
-    }
-
-    #[test]
-    fn edge_exactly_minimum_duration() {
-        assert!(validate_trim_values(0.0, 0.5).is_ok());
-    }
-
-    // -- DB integration tests --
-
-    #[test]
-    fn upsert_creates_and_updates() {
-        let conn = crate::db::tests::open_test_db();
-
-        let proj_id = crate::db::generate_id("proj");
-        conn.execute("INSERT INTO projects (id, name) VALUES (?1, ?2)", params![proj_id, "Test"]).unwrap();
-        let sb_id = crate::db::generate_id("sb");
-        conn.execute("INSERT INTO storyboards (id, project_id, name) VALUES (?1, ?2, ?3)", params![sb_id, proj_id, "SB"]).unwrap();
-        let shot_id = crate::db::generate_id("shot");
-        conn.execute(
-            r#"INSERT INTO shots (id, storyboard_id, "order", status) VALUES (?1, ?2, 1, 'complete')"#,
-            params![shot_id, sb_id],
-        ).unwrap();
-
-        // Insert timeline edit
-        let edit_id = crate::db::generate_id("edit");
-        conn.execute(
-            "INSERT INTO timeline_edits (id, storyboard_id, shot_id, trim_in, trim_out) VALUES (?1, ?2, ?3, ?4, ?5)
-             ON CONFLICT(storyboard_id, shot_id) DO UPDATE SET trim_in = excluded.trim_in, trim_out = excluded.trim_out",
-            params![edit_id, sb_id, shot_id, 1.0, 6.0],
-        ).unwrap();
-
-        let (trim_in, trim_out): (f64, f64) = conn.query_row(
-            "SELECT trim_in, trim_out FROM timeline_edits WHERE shot_id = ?1",
-            params![shot_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        ).unwrap();
-        assert_eq!(trim_in, 1.0);
-        assert_eq!(trim_out, 6.0);
-
-        // Update via upsert
-        let edit_id2 = crate::db::generate_id("edit");
-        conn.execute(
-            "INSERT INTO timeline_edits (id, storyboard_id, shot_id, trim_in, trim_out) VALUES (?1, ?2, ?3, ?4, ?5)
-             ON CONFLICT(storyboard_id, shot_id) DO UPDATE SET trim_in = excluded.trim_in, trim_out = excluded.trim_out",
-            params![edit_id2, sb_id, shot_id, 2.0, 7.0],
-        ).unwrap();
-
-        let (trim_in2, trim_out2): (f64, f64) = conn.query_row(
-            "SELECT trim_in, trim_out FROM timeline_edits WHERE shot_id = ?1",
-            params![shot_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        ).unwrap();
-        assert_eq!(trim_in2, 2.0);
-        assert_eq!(trim_out2, 7.0);
     }
 
     // --- Timeline Tracks & Clips Tests ---
@@ -708,7 +631,7 @@ mod tests {
 
         let _v1 = create_timeline_track_db(&conn, &sb_id, "video").unwrap();
         let v2 = create_timeline_track_db(&conn, &sb_id, "video").unwrap();
-        add_timeline_clip_db(&conn, &sb_id, &shot_id, &v2.track_id, 0.0).unwrap();
+        add_timeline_clip_db(&conn, &sb_id, &shot_id, &v2.track_id, 0.0, None).unwrap();
 
         // Verify clip exists
         let clips = get_timeline_clips_db(&conn, &sb_id).unwrap();
@@ -728,14 +651,14 @@ mod tests {
         let (_, sb_id) = setup_storyboard(&conn);
         let shot_id = insert_shot(&conn, &sb_id);
 
-        let clip = add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0).unwrap();
+        let clip = add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0, None).unwrap();
         assert_eq!(clip.shot_id, shot_id);
         assert_eq!(clip.track_id, "V1");
         assert_eq!(clip.start_time, 0.0);
 
         // Add another clip
         let shot_id2 = insert_shot(&conn, &sb_id);
-        let clip2 = add_timeline_clip_db(&conn, &sb_id, &shot_id2, "V1", 8.0).unwrap();
+        let clip2 = add_timeline_clip_db(&conn, &sb_id, &shot_id2, "V1", 8.0, None).unwrap();
         assert_eq!(clip2.start_time, 8.0);
 
         // Remove first clip
@@ -754,7 +677,7 @@ mod tests {
         let shot_id = insert_shot(&conn, &sb_id);
 
         create_timeline_track_db(&conn, &sb_id, "video").unwrap();
-        add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0).unwrap();
+        add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0, None).unwrap();
 
         // Delete storyboard
         conn.execute("DELETE FROM storyboards WHERE id = ?1", params![sb_id]).unwrap();
@@ -771,7 +694,7 @@ mod tests {
         let (_, sb_id) = setup_storyboard(&conn);
         let s1 = insert_shot(&conn, &sb_id);
 
-        let c1 = add_timeline_clip_db(&conn, &sb_id, &s1, "V1", 0.0).unwrap();
+        let c1 = add_timeline_clip_db(&conn, &sb_id, &s1, "V1", 0.0, None).unwrap();
         assert_eq!(c1.start_time, 0.0);
 
         // Move clip to time 5.5
@@ -787,7 +710,7 @@ mod tests {
         let (_, sb_id) = setup_storyboard(&conn);
         let s1 = insert_shot(&conn, &sb_id);
 
-        let c1 = add_timeline_clip_db(&conn, &sb_id, &s1, "V1", 0.0).unwrap();
+        let c1 = add_timeline_clip_db(&conn, &sb_id, &s1, "V1", 0.0, None).unwrap();
 
         // Move from V1 to V2 at time 3.0
         move_timeline_clip_db(&conn, &c1.id, "V2", 3.0).unwrap();
@@ -812,8 +735,8 @@ mod tests {
         let s1 = insert_shot(&conn, &sb_id);
         let s2 = insert_shot(&conn, &sb_id);
 
-        let c1 = add_timeline_clip_db(&conn, &sb_id, &s1, "V1", 0.0).unwrap();
-        let c2 = add_timeline_clip_db(&conn, &sb_id, &s2, "V1", 10.0).unwrap();
+        let c1 = add_timeline_clip_db(&conn, &sb_id, &s1, "V1", 0.0, None).unwrap();
+        let c2 = add_timeline_clip_db(&conn, &sb_id, &s2, "V1", 10.0, None).unwrap();
 
         assert_eq!(c1.start_time, 0.0);
         assert_eq!(c2.start_time, 10.0);
@@ -838,20 +761,165 @@ mod tests {
             params![shot_id, sb_id],
         ).unwrap();
 
-        let edit_id = crate::db::generate_id("edit");
-        conn.execute(
-            "INSERT INTO timeline_edits (id, storyboard_id, shot_id, trim_in, trim_out) VALUES (?1, ?2, ?3, 0.0, 8.0)",
-            params![edit_id, sb_id, shot_id],
-        ).unwrap();
+        add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0, None).unwrap();
 
-        // Delete shot — timeline edit should cascade delete
+        // Delete shot — its timeline clips should cascade delete
         conn.execute("DELETE FROM shots WHERE id = ?1", params![shot_id]).unwrap();
 
         let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM timeline_edits WHERE shot_id = ?1",
+            "SELECT COUNT(*) FROM timeline_clips WHERE shot_id = ?1",
             params![shot_id],
             |row| row.get(0),
         ).unwrap();
         assert_eq!(count, 0);
+    }
+
+    // --- Per-clip trims, version pins, split ---
+
+    fn insert_video_version(conn: &rusqlite::Connection, shot_id: &str, n: i64) -> String {
+        let version_id = crate::db::generate_id("vver");
+        conn.execute(
+            "INSERT INTO video_versions (id, shot_id, version_number, edit_type, video_path, is_current)
+             VALUES (?1, ?2, ?3, 'generation', ?4, 0)",
+            params![version_id, shot_id, n, format!("videos/{shot_id}-v{n}.mp4")],
+        ).unwrap();
+        version_id
+    }
+
+    #[test]
+    fn new_clips_default_to_untrimmed_and_unpinned() {
+        let conn = crate::db::tests::open_test_db();
+        let (_, sb_id) = setup_storyboard(&conn);
+        let shot_id = insert_shot(&conn, &sb_id);
+
+        let clip = add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0, None).unwrap();
+        assert_eq!(clip.trim_in, None);
+        assert_eq!(clip.trim_out, None);
+        assert_eq!(clip.video_version_id, None);
+    }
+
+    #[test]
+    fn add_clip_with_pinned_version() {
+        let conn = crate::db::tests::open_test_db();
+        let (_, sb_id) = setup_storyboard(&conn);
+        let shot_id = insert_shot(&conn, &sb_id);
+        let version_id = insert_video_version(&conn, &shot_id, 2);
+
+        let clip =
+            add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0, Some(&version_id)).unwrap();
+        assert_eq!(clip.video_version_id, Some(version_id));
+    }
+
+    #[test]
+    fn update_clip_trims_persists() {
+        let conn = crate::db::tests::open_test_db();
+        let (_, sb_id) = setup_storyboard(&conn);
+        let shot_id = insert_shot(&conn, &sb_id);
+
+        let clip = add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0, None).unwrap();
+        let updated = update_timeline_clip_trims_db(&conn, &clip.id, 1.5, 6.0).unwrap();
+        assert_eq!(updated.trim_in, Some(1.5));
+        assert_eq!(updated.trim_out, Some(6.0));
+
+        let fetched = get_timeline_clips_db(&conn, &sb_id).unwrap();
+        assert_eq!(fetched[0].trim_in, Some(1.5));
+        assert_eq!(fetched[0].trim_out, Some(6.0));
+    }
+
+    #[test]
+    fn update_clip_trims_rejects_invalid() {
+        let conn = crate::db::tests::open_test_db();
+        let (_, sb_id) = setup_storyboard(&conn);
+        let shot_id = insert_shot(&conn, &sb_id);
+
+        let clip = add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0, None).unwrap();
+        assert!(update_timeline_clip_trims_db(&conn, &clip.id, 5.0, 3.0).is_err());
+        assert!(update_timeline_clip_trims_db(&conn, "missing", 0.0, 5.0).is_err());
+    }
+
+    #[test]
+    fn same_shot_twice_with_independent_trims() {
+        let conn = crate::db::tests::open_test_db();
+        let (_, sb_id) = setup_storyboard(&conn);
+        let shot_id = insert_shot(&conn, &sb_id);
+
+        let c1 = add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0, None).unwrap();
+        let c2 = add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 10.0, None).unwrap();
+
+        update_timeline_clip_trims_db(&conn, &c1.id, 0.0, 3.0).unwrap();
+        update_timeline_clip_trims_db(&conn, &c2.id, 4.0, 8.0).unwrap();
+
+        let clips = get_timeline_clips_db(&conn, &sb_id).unwrap();
+        assert_eq!(clips[0].trim_out, Some(3.0));
+        assert_eq!(clips[1].trim_in, Some(4.0));
+    }
+
+    #[test]
+    fn split_clip_produces_two_adjacent_pieces() {
+        let conn = crate::db::tests::open_test_db();
+        let (_, sb_id) = setup_storyboard(&conn);
+        let shot_id = insert_shot(&conn, &sb_id);
+        let version_id = insert_video_version(&conn, &shot_id, 1);
+
+        let clip =
+            add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 2.0, Some(&version_id)).unwrap();
+        update_timeline_clip_trims_db(&conn, &clip.id, 1.0, 7.0).unwrap();
+
+        // Split 3s into the trimmed content: local time 4.0, timeline time 5.0
+        let (first, second) = split_timeline_clip_db(&conn, &clip.id, 4.0, 5.0).unwrap();
+
+        assert_eq!(first.id, clip.id);
+        assert_eq!(first.trim_in, Some(1.0));
+        assert_eq!(first.trim_out, Some(4.0));
+        assert_eq!(first.start_time, 2.0);
+
+        assert_eq!(second.trim_in, Some(4.0));
+        assert_eq!(second.trim_out, Some(7.0));
+        assert_eq!(second.start_time, 5.0);
+        assert_eq!(second.track_id, "V1");
+        assert_eq!(second.shot_id, shot_id);
+        assert_eq!(second.video_version_id, Some(version_id), "pin copied to second piece");
+    }
+
+    #[test]
+    fn split_untrimmed_clip_leaves_open_ended_second_piece() {
+        let conn = crate::db::tests::open_test_db();
+        let (_, sb_id) = setup_storyboard(&conn);
+        let shot_id = insert_shot(&conn, &sb_id);
+
+        let clip = add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0, None).unwrap();
+        let (first, second) = split_timeline_clip_db(&conn, &clip.id, 3.0, 3.0).unwrap();
+
+        assert_eq!(first.trim_in, Some(0.0));
+        assert_eq!(first.trim_out, Some(3.0));
+        assert_eq!(second.trim_in, Some(3.0));
+        assert_eq!(second.trim_out, None, "second piece runs to the end of the source");
+    }
+
+    #[test]
+    fn split_rejects_points_too_close_to_edges() {
+        let conn = crate::db::tests::open_test_db();
+        let (_, sb_id) = setup_storyboard(&conn);
+        let shot_id = insert_shot(&conn, &sb_id);
+
+        let clip = add_timeline_clip_db(&conn, &sb_id, &shot_id, "V1", 0.0, None).unwrap();
+        update_timeline_clip_trims_db(&conn, &clip.id, 1.0, 7.0).unwrap();
+
+        // First piece would be 0.2s
+        assert!(split_timeline_clip_db(&conn, &clip.id, 1.2, 0.2).is_err());
+        // Second piece would be 0.3s
+        assert!(split_timeline_clip_db(&conn, &clip.id, 6.7, 5.7).is_err());
+        // Original untouched
+        let clips = get_timeline_clips_db(&conn, &sb_id).unwrap();
+        assert_eq!(clips.len(), 1);
+        assert_eq!(clips[0].trim_out, Some(7.0));
+    }
+
+    #[test]
+    fn split_missing_clip_errors() {
+        let conn = crate::db::tests::open_test_db();
+        let result = split_timeline_clip_db(&conn, "missing", 3.0, 3.0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Clip not found"));
     }
 }

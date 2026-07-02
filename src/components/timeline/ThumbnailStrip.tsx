@@ -3,7 +3,8 @@ import { thumbnailGenerator } from "../../lib/thumbnail-generator";
 
 interface ThumbnailStripProps {
   videoUrl: string;
-  shotId: string;
+  /** Real duration of the source video in seconds */
+  sourceDuration: number;
   trimIn: number;
   trimOut: number;
   width: number;
@@ -11,7 +12,7 @@ interface ThumbnailStripProps {
 
 export default function ThumbnailStrip({
   videoUrl,
-  shotId,
+  sourceDuration,
   trimIn,
   trimOut,
   width,
@@ -25,8 +26,8 @@ export default function ThumbnailStrip({
     async function loadThumbnails() {
       setIsLoading(true);
 
-      // Check cache first
-      const cached = thumbnailGenerator.getCachedThumbnails(shotId);
+      // Cache by URL so clips pinned to different versions get their own frames
+      const cached = thumbnailGenerator.getCachedThumbnails(videoUrl);
       if (cached) {
         if (!cancelled) {
           setThumbnails(cached);
@@ -36,10 +37,7 @@ export default function ThumbnailStrip({
       }
 
       try {
-        const frames = await thumbnailGenerator.generateThumbnails(
-          videoUrl,
-          shotId
-        );
+        const frames = await thumbnailGenerator.generateThumbnails(videoUrl);
         if (!cancelled) {
           setThumbnails(frames);
         }
@@ -57,12 +55,11 @@ export default function ThumbnailStrip({
     return () => {
       cancelled = true;
     };
-  }, [videoUrl, shotId]);
+  }, [videoUrl]);
 
-  // Calculate which thumbnails to show based on trim
-  // Each thumbnail represents 1 second of video (8 thumbnails for 8 seconds)
-  const videoDuration = 8;
-  const thumbnailDuration = videoDuration / thumbnails.length;
+  // Calculate which thumbnails to show based on trim; frames are spread
+  // evenly across the real source duration
+  const thumbnailDuration = sourceDuration / thumbnails.length;
 
   // Calculate the visible portion
   const visibleThumbnails = thumbnails.filter((_, index) => {

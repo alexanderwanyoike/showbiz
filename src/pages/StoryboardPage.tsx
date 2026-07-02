@@ -35,7 +35,6 @@ import {
   reorderShots,
   getShotImageBase64,
   copyImageFromShot,
-  getTimelineEdits,
   ensureDefaultTracks,
   getTimelineClips,
   getImageVersions,
@@ -60,7 +59,6 @@ import {
 import type {
   Storyboard,
   ShotWithUrls,
-  TimelineEdit,
   TimelineTrack,
   TimelineClipRow,
   ImageVersionNode,
@@ -93,7 +91,7 @@ import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../li
 import type { VideoGenerationRequest } from "../lib/generation/types";
 import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
 import { buildFrameOptions } from "../lib/bible-compose";
-import { versionsForShot, valueForShot } from "../lib/shot-versions";
+import { versionsForShot, valueForShot, flattenVersionTree } from "../lib/shot-versions";
 import {
   invalidateGenerationRun,
   isCurrentGenerationRun,
@@ -180,7 +178,6 @@ export default function StoryboardPage() {
   const [activeTab, setActiveTab] = useState<"storyboard" | "editor">("storyboard");
 
   // Timeline Edit State
-  const [timelineEdits, setTimelineEdits] = useState<TimelineEdit[]>([]);
   const [timelineTracks, setTimelineTracks] = useState<TimelineTrack[]>([]);
   const [timelineClipRows, setTimelineClipRows] = useState<TimelineClipRow[]>([]);
   const [bibleAssets, setBibleAssets] = useState<BibleAsset[]>([]);
@@ -220,6 +217,7 @@ export default function StoryboardPage() {
     [bibleAssets, bibleVariants]
   );
 
+
   // Image Version State - per shot
   const [shotVersions, setShotVersions] = useState<Record<string, ImageVersionNode[]>>({});
   const [shotCurrentVersions, setShotCurrentVersions] = useState<Record<string, ImageVersionWithUrl | null>>({});
@@ -229,6 +227,46 @@ export default function StoryboardPage() {
   const [shotVideoVersions, setShotVideoVersions] = useState<Record<string, VideoVersionNode[]>>({});
   const [shotCurrentVideoVersions, setShotCurrentVideoVersions] = useState<Record<string, VideoVersionWithUrl | null>>({});
   const [shotVideoVersionCounts, setShotVideoVersionCounts] = useState<Record<string, number>>({});
+
+  // Flat video version lists for the editor: media pool chips + clip pins
+  const videoVersionsFlat = useMemo(() => {
+    const map: Record<string, VideoVersionWithUrl[]> = {};
+    for (const [shotId, nodes] of Object.entries(shotVideoVersions)) {
+      map[shotId] = flattenVersionTree(nodes).sort(
+        (a, b) => a.version_number - b.version_number
+      );
+    }
+    return map;
+  }, [shotVideoVersions]);
+
+  const versionUrls = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const versions of Object.values(videoVersionsFlat)) {
+      for (const version of versions) map[version.id] = version.video_url;
+    }
+    return map;
+  }, [videoVersionsFlat]);
+
+  const versionNumbers = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const versions of Object.values(videoVersionsFlat)) {
+      for (const version of versions) map[version.id] = version.version_number;
+    }
+    return map;
+  }, [videoVersionsFlat]);
+
+  const mediaPoolVersions = useMemo(() => {
+    const map: Record<string, { id: string; version_number: number; video_url: string; is_current: boolean }[]> = {};
+    for (const [shotId, versions] of Object.entries(videoVersionsFlat)) {
+      map[shotId] = versions.map((v) => ({
+        id: v.id,
+        version_number: v.version_number,
+        video_url: v.video_url,
+        is_current: !!v.is_current,
+      }));
+    }
+    return map;
+  }, [videoVersionsFlat]);
 
   // Edit Modal State
   const [editModalState, setEditModalState] = useState<{
@@ -254,10 +292,9 @@ export default function StoryboardPage() {
     if (!id) return;
     setIsLoading(true);
     try {
-      const [storyboardData, shotsData, editsData, tracksData, clipsData] = await Promise.all([
+      const [storyboardData, shotsData, tracksData, clipsData] = await Promise.all([
         getStoryboard(id),
         getShots(id),
-        getTimelineEdits(id),
         ensureDefaultTracks(id),
         getTimelineClips(id),
       ]);
@@ -273,7 +310,6 @@ export default function StoryboardPage() {
       if (mappedShots.length > 0) {
         setSelectedShotId(mappedShots[0].id);
       }
-      setTimelineEdits(editsData);
       setTimelineTracks(tracksData);
       setTimelineClipRows(clipsData);
       setEditedName(storyboardData.name);
@@ -1063,16 +1099,17 @@ export default function StoryboardPage() {
                 status: s.status,
                 duration: s.duration,
               }))}
+              versionsByShot={mediaPoolVersions}
             />
           </div>
           {/* Timeline Editor — fills remaining space (has its own preview + transport) */}
           <TimelineEditor
             storyboardId={id!}
             shots={shots}
-            edits={timelineEdits}
-            onEditsChange={setTimelineEdits}
             tracks={timelineTracks}
             clipRows={timelineClipRows}
+            versionUrls={versionUrls}
+            versionNumbers={versionNumbers}
             onTracksChange={setTimelineTracks}
             onClipsChange={setTimelineClipRows}
           />

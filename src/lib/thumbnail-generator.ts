@@ -5,7 +5,7 @@ interface ThumbnailCacheEntry {
 }
 
 interface ThumbnailCache {
-  [shotId: string]: ThumbnailCacheEntry;
+  [videoUrl: string]: ThumbnailCacheEntry;
 }
 
 class ThumbnailGenerator {
@@ -14,13 +14,10 @@ class ThumbnailGenerator {
   private thumbnailWidth = 80;
   private thumbnailHeight = 45; // 16:9 aspect ratio
 
-  async generateThumbnails(
-    videoUrl: string,
-    shotId: string
-  ): Promise<string[]> {
-    // Check cache first
-    if (this.cache[shotId]) {
-      return this.cache[shotId].frames;
+  async generateThumbnails(videoUrl: string): Promise<string[]> {
+    // Cache keyed by URL so different versions of a shot get their own frames
+    if (this.cache[videoUrl]) {
+      return this.cache[videoUrl].frames;
     }
 
     // Fetch video as blob to work around GStreamer not understanding asset:// URLs
@@ -78,7 +75,7 @@ class ThumbnailGenerator {
     URL.revokeObjectURL(blobUrl);
 
     // Cache results
-    this.cache[shotId] = {
+    this.cache[videoUrl] = {
       frames,
       timestamps,
       generatedAt: Date.now(),
@@ -118,13 +115,13 @@ class ThumbnailGenerator {
     return dataUrl;
   }
 
-  getCachedThumbnails(shotId: string): string[] | null {
-    return this.cache[shotId]?.frames || null;
+  getCachedThumbnails(videoUrl: string): string[] | null {
+    return this.cache[videoUrl]?.frames || null;
   }
 
-  clearCache(shotId?: string): void {
-    if (shotId) {
-      delete this.cache[shotId];
+  clearCache(videoUrl?: string): void {
+    if (videoUrl) {
+      delete this.cache[videoUrl];
     } else {
       this.cache = {};
     }

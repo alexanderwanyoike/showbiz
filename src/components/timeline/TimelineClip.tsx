@@ -6,6 +6,8 @@ interface TimelineClipProps {
   clip: TimelineClipType;
   pixelsPerSecond: number;
   isSelected: boolean;
+  /** Version number when this clip pins a specific video version */
+  versionNumber?: number;
   onClick: () => void;
   onTrimStart: (
     e: React.MouseEvent,
@@ -14,7 +16,6 @@ interface TimelineClipProps {
     trimOut: number,
     maxDuration: number
   ) => void;
-  trackId: string;
 }
 
 // Format duration based on zoom level
@@ -32,9 +33,9 @@ export default function TimelineClip({
   clip,
   pixelsPerSecond,
   isSelected,
+  versionNumber,
   onClick,
   onTrimStart,
-  trackId,
 }: TimelineClipProps) {
   const { trimIn, trimOut, sourceDuration } = clip;
   const width = clip.effectiveDuration * pixelsPerSecond;
@@ -59,7 +60,7 @@ export default function TimelineClip({
     }
     e.dataTransfer.setData(
       "application/x-showbiz-clip-move",
-      `${clip.shot.id}:${trackId}:${offsetSeconds}`
+      JSON.stringify({ clipId: clip.clipId, grabOffset: offsetSeconds })
     );
     e.dataTransfer.effectAllowed = "move";
   };
@@ -84,10 +85,10 @@ export default function TimelineClip({
       onClick={onClick}
     >
       {/* Thumbnail Strip */}
-      {clip.shot.video_url && (
+      {clip.videoUrl && (
         <ThumbnailStrip
-          videoUrl={clip.shot.video_url}
-          shotId={clip.shot.id}
+          videoUrl={clip.videoUrl}
+          sourceDuration={clip.sourceDuration}
           trimIn={trimIn}
           trimOut={trimOut}
           width={width}
@@ -102,6 +103,13 @@ export default function TimelineClip({
         Shot {clip.shot.order}
         {clip.shot.image_prompt ? ` - ${clip.shot.image_prompt}` : ""}
       </div>
+
+      {/* Pinned version badge */}
+      {versionNumber !== undefined && (
+        <div className="absolute bottom-1 left-4 bg-primary/80 text-primary-foreground text-[9px] font-bold px-1 py-0.5 rounded pointer-events-none">
+          v{versionNumber}
+        </div>
+      )}
 
       {/* Duration Badge */}
       <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
