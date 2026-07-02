@@ -18,8 +18,17 @@ export interface VideoPool {
   ];
   /** Which element is visible; null shows the black container (gap/empty) */
   activeIndex: number | null;
-  /** Make a clip visible at a source-file position, playing or paused */
-  showClip: (clip: TimelineClip, localTime: number, play: boolean) => Promise<void>;
+  /**
+   * Make a clip visible at a source-file position, playing or paused.
+   * `fastScrub` trades seek precision for speed (keyframe-snapped preview)
+   * while dragging; the release seek should be precise.
+   */
+  showClip: (
+    clip: TimelineClip,
+    localTime: number,
+    play: boolean,
+    opts?: { fastScrub?: boolean }
+  ) => Promise<void>;
   /** Load a clip into the hidden element, seeked and paused, ready to swap */
   preload: (clip: TimelineClip, localTime: number) => Promise<void>;
   play: () => Promise<void>;
@@ -87,17 +96,24 @@ export function useVideoPool(): VideoPool {
   // One coalescer per element: scrub storms replace each other's targets
   // instead of stacking seeks on a decoder that is still mid-seek (stacked
   // seeks are what smear frames on WebKitGTK's software pipeline)
-  const seekCoalescersRef = useRef<[SeekCoalescer | null, SeekCoalescer | null]>([null, null]);
+  type SeekTarget = { time: number; fast: boolean };
+  const seekCoalescersRef = useRef<[SeekCoalescer<SeekTarget> | null, SeekCoalescer<SeekTarget> | null]>([null, null]);
   const coalescedSeek = useCallback(
-    (index: number, target: number): Promise<void> => {
+    (index: number, target: SeekTarget): Promise<void> => {
       let coalescer = seekCoalescersRef.current[index];
       if (!coalescer) {
-        coalescer = createSeekCoalescer(async (localTime) => {
-          const el = element(index);
+        coalescer = createSeekCoalescer<SeekTarget>(async ({ time, fast }) => {
+          const el = element(index) as
+            | (HTMLVideoElement & { fastSeek?: (t: number) => void })
+            | null;
           if (!el) return;
-          if (Math.abs(el.currentTime - localTime) < 0.05) return;
+          if (Math.abs(el.currentTime - time) < 0.05) return;
           const seeked = waitForEvent(el, "seeked");
-          el.currentTime = localTime;
+          if (fast && typeof el.fastSeek === "function") {
+            el.fastSeek(time);
+          } else {
+            el.currentTime = time;
+          }
           await seeked;
         });
         seekCoalescersRef.current[index] = coalescer;
@@ -109,7 +125,7 @@ export function useVideoPool(): VideoPool {
 
   // Ensure the element at `index` holds the clip's video, seeked to localTime
   const loadInto = useCallback(
-    async (index: number, clip: TimelineClip, localTime: number) => {
+    async (index: number, clip: TimelineClip, localTime: number, fast = false) => {
       const el = element(index);
       const videoUrl = clip.videoUrl;
       if (!el || !videoUrl) return;
@@ -124,7 +140,7 @@ export function useVideoPool(): VideoPool {
           await ready;
         }
       }
-      await coalescedSeek(index, localTime);
+      await coalescedSeek(index, { time: localTime, fast });
     },
     [cache, element, coalescedSeek]
   );
@@ -135,14 +151,19 @@ export function useVideoPool(): VideoPool {
   }, []);
 
   const showClip = useCallback(
-    async (clip: TimelineClip, localTime: number, play: boolean) => {
+    async (
+      clip: TimelineClip,
+      localTime: number,
+      play: boolean,
+      opts?: { fastScrub?: boolean }
+    ) => {
       const token = ++opTokenRef.current;
 
       // Reuse whichever element already holds this clip, else the hidden one
       const existing = assignmentsRef.current.findIndex((a) => a?.clipId === clip.clipId);
       const index = existing >= 0 ? existing : activeIndexRef.current === 0 ? 1 : 0;
 
-      await loadInto(index, clip, localTime);
+      await loadInto(index, clip, localTime, opts?.fastScrub ?? false);
       if (token !== opTokenRef.current) return; // superseded by a newer op
 
       const other = element(1 - index);

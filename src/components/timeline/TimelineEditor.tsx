@@ -519,7 +519,9 @@ export default function TimelineEditor({
                 totalDuration={playback.totalDuration}
                 pixelsPerSecond={pixelsPerSecond}
                 currentTime={playback.currentTime}
-                onSeek={playback.seek}
+                onScrubStart={playback.beginScrub}
+                onScrub={playback.scrub}
+                onScrubEnd={playback.endScrub}
               />
 
               {/* Timeline Tracks */}

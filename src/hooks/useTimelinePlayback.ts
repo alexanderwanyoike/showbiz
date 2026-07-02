@@ -33,6 +33,12 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
   const gapAnchorRef = useRef<GapAnchor | null>(null);
   const lastPlayheadUpdateRef = useRef(0);
   const lastHealAttemptRef = useRef(0);
+  // Playback is suspended while the user drags the playhead; seeking a
+  // decoder that is simultaneously playing is what smears frames
+  const scrubRef = useRef<{ active: boolean; wasPlaying: boolean }>({
+    active: false,
+    wasPlaying: false,
+  });
 
   const totalDuration = getTotalDuration(clips);
 
@@ -109,6 +115,63 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
     [clips, totalDuration, pool, isPlaying, startClip]
   );
 
+  // Scrub drag: suspend playback on grab, fast-seek paused previews while
+  // dragging, land precisely and resume on release
+  const beginScrub = useCallback(() => {
+    if (scrubRef.current.active) return;
+    scrubRef.current = { active: true, wasPlaying: isPlaying };
+    if (isPlaying) pool.pause();
+  }, [isPlaying, pool]);
+
+  const scrub = useCallback(
+    async (time: number) => {
+      const clamped = Math.max(0, Math.min(time, totalDuration));
+      setCurrentTime(clamped);
+
+      const state = resolvePlayheadState(clamped, clips);
+      if (state.kind === "clip" && state.clip.videoUrl) {
+        activeClipIdRef.current = state.clip.clipId;
+        gapAnchorRef.current = null;
+        await pool.showClip(state.clip, state.localTime, false, { fastScrub: true });
+      } else {
+        activeClipIdRef.current = null;
+        pool.hideAll();
+      }
+    },
+    [clips, totalDuration, pool]
+  );
+
+  const endScrub = useCallback(
+    async (time: number) => {
+      if (!scrubRef.current.active) {
+        await seek(time);
+        return;
+      }
+      const resume = scrubRef.current.wasPlaying && isPlaying;
+      scrubRef.current = { active: false, wasPlaying: false };
+
+      const clamped = Math.max(0, Math.min(time, totalDuration));
+      setCurrentTime(clamped);
+
+      const state = resolvePlayheadState(clamped, clips);
+      if (state.kind === "clip" && state.clip.videoUrl) {
+        await startClip(state.clip, state.localTime, resume);
+      } else if (state.kind === "gap") {
+        activeClipIdRef.current = null;
+        pool.hideAll();
+        gapAnchorRef.current = resume
+          ? { wallClock: performance.now(), timelineTime: clamped }
+          : null;
+      } else {
+        activeClipIdRef.current = null;
+        gapAnchorRef.current = null;
+        pool.hideAll();
+        setIsPlaying(false);
+      }
+    },
+    [clips, totalDuration, pool, isPlaying, startClip, seek]
+  );
+
   const skipToStart = useCallback(() => seek(0), [seek]);
   const skipToEnd = useCallback(() => seek(totalDuration), [seek, totalDuration]);
   const skipBackward = useCallback(() => seek(Math.max(0, currentTime - 5)), [seek, currentTime]);
@@ -155,6 +218,8 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
     const tick = () => {
       rafId = requestAnimationFrame(tick);
       if (pendingRef.current) return;
+      // The drive loop stands down entirely while the user is scrubbing
+      if (scrubRef.current.active) return;
 
       const activeClipId = activeClipIdRef.current;
       if (activeClipId) {
@@ -212,6 +277,9 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
     play,
     pause,
     seek,
+    beginScrub,
+    scrub,
+    endScrub,
     skipToStart,
     skipToEnd,
     skipBackward,

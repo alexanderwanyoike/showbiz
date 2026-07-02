@@ -47,11 +47,11 @@ export function createTaskQueue(concurrency: number) {
 
 export type TaskQueue = ReturnType<typeof createTaskQueue>;
 
-export function createSeekCoalescer(applySeek: (target: number) => Promise<void>) {
+export function createSeekCoalescer<T = number>(applySeek: (target: T) => Promise<void>) {
   let inFlight = false;
-  let queuedTarget: number | null = null;
+  let queuedTarget: T | null = null;
 
-  const request = async (target: number): Promise<void> => {
+  const request = async (target: T): Promise<void> => {
     if (inFlight) {
       queuedTarget = target;
       return;
@@ -72,7 +72,7 @@ export function createSeekCoalescer(applySeek: (target: number) => Promise<void>
   return { request };
 }
 
-export type SeekCoalescer = ReturnType<typeof createSeekCoalescer>;
+export type SeekCoalescer<T = number> = ReturnType<typeof createSeekCoalescer<T>>;
 
 /**
  * Fully release a transient <video> element's decode pipeline instead of
