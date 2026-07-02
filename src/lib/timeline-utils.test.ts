@@ -6,6 +6,7 @@ import {
   getNextClipAfterTime,
   resolvePlaybackStart,
   resolvePlayheadState,
+  getFollowingClip,
   snapStartTime,
   orderClipsForExport,
   computeClipSplit,
@@ -315,6 +316,42 @@ describe("resolvePlaybackStart", () => {
 
   it("returns null for an empty timeline", () => {
     expect(resolvePlaybackStart(0, [])).toBeNull();
+  });
+});
+
+describe("getFollowingClip", () => {
+  it("returns the contiguous next clip with its starting local time", () => {
+    const clips = [
+      makeClip({ clipId: "c1", startOffset: 0 }), // 0-8
+      makeClip({ clipId: "c2", trimIn: 2, trimOut: 6, startOffset: 8 }), // 8-12
+    ];
+    const result = getFollowingClip(clips[0], clips);
+    expect(result!.clip.clipId).toBe("c2");
+    expect(result!.localTime).toBeCloseTo(2, 2);
+  });
+
+  it("returns the clip after a gap", () => {
+    const clips = [
+      makeClip({ clipId: "c1", startOffset: 0 }),
+      makeClip({ clipId: "c2", startOffset: 15 }),
+    ];
+    expect(getFollowingClip(clips[0], clips)!.clip.clipId).toBe("c2");
+  });
+
+  it("returns null for the last clip", () => {
+    const clips = [makeClip({ clipId: "c1", startOffset: 0 })];
+    expect(getFollowingClip(clips[0], clips)).toBeNull();
+  });
+
+  it("returns the underlying track's clip when a higher-track clip ends over it", () => {
+    const clips = [
+      makeClip({ clipId: "under", sourceDuration: 16, startOffset: 0, track: "V1" }),
+      makeClip({ clipId: "over", startOffset: 0, track: "V2" }), // ends at 8
+    ];
+    const result = getFollowingClip(clips[1], clips);
+    expect(result!.clip.clipId).toBe("under");
+    // Resumes mid-clip: local time 8s into the V1 clip
+    expect(result!.localTime).toBeCloseTo(8, 1);
   });
 });
 

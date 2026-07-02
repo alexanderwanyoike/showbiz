@@ -217,6 +217,21 @@ export function resolvePlaybackStart(
   return { timelineTime: startTime, state: resolvePlayheadState(startTime, clips) };
 }
 
+/**
+ * The clip that plays after `current` ends: the clip covering the moment
+ * after its end (contiguous, or an underlying track resuming), else the next
+ * clip further down the timeline. Used to preload the second video element.
+ */
+export function getFollowingClip(
+  current: TimelineClip,
+  clips: TimelineClip[]
+): { clip: TimelineClip; localTime: number } | null {
+  const end = current.startOffset + current.effectiveDuration + 0.001;
+  const atEnd = getActiveClipAtTime(end, clips);
+  if (atEnd && atEnd.clip.clipId !== current.clipId) return atEnd;
+  return getNextClipAfterTime(end, clips);
+}
+
 export interface ClipSplit {
   clipId: string;
   /** Cut point in source-file seconds */

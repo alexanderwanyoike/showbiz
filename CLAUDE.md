@@ -59,7 +59,7 @@ Showbiz lets users create video storyboards by:
 
 **Hybrid backend**: Rust handles DB + file I/O. TypeScript handles API calls to model providers (image, video, text). API keys are fetched securely from Rust, passed to TS for the API call, then discarded. Cross-origin API calls are proxied through a Rust `http_request` command (the WebView cannot make them directly), which sends a single JSON string body, so providers must use JSON endpoints (not multipart).
 
-**Video playback**: mpv, NOT HTML5 `<video>` (broken in WebKit/Tauri WebView). Embedded via X11 child windows (Linux), in-process libmpv (macOS), native views (Windows).
+**Video playback**: migrating from mpv to HTML5 `<video>` (see `docs/html5-video-migration.md`). The NLE timeline plays through a two-element `<video>` pool fed by **blob URLs** (never `asset://` as a `<video>` src - GStreamer can't read the scheme on Linux; `WEBKIT_DISABLE_DMABUF_RENDERER=1` in main.rs is load-bearing). The storyboard shot preview still uses mpv (X11 child window on Linux, libmpv on macOS, native views on Windows) until Phase 2 lands; videos are keyframe-normalized on save so HTML5 scrubbing is frame-accurate.
 
 **Video export**: FFmpeg.wasm assembles videos in-memory, then bytes are saved to disk via Rust command + native save dialog (`tauri-plugin-dialog`). No blob URL downloads (broken in Tauri WebView).
 
@@ -111,7 +111,7 @@ src/                              # React app (Vite)
   actions/
     generation-actions.ts         # Image/video gen + composeFrameAction
   hooks/
-    useMpvPlayer.ts useTimelinePlayback.ts useTrimDrag.ts useVideoDurations.ts
+    useVideoPool.ts useTimelinePlayback.ts useTrimDrag.ts useVideoDurations.ts
 
 src-tauri/                        # Rust backend
   src/
@@ -144,12 +144,12 @@ index.html vite.config.ts package.json tsconfig.json
 ### TypeScript (Vitest)
 
 ```bash
-yarn test          # Run all 295 tests (watch mode)
+yarn test          # Run all 301 tests (watch mode)
 yarn test --run    # Run once, exit
 ```
 
 Tests are co-located with source under `src/lib/`:
-- `timeline-utils`, `seek-utils`, `video-preview`, `video-duration` - timeline + playback utilities
+- `timeline-utils`, `video-preview`, `video-duration`, `object-url-cache` - timeline + playback utilities
 - `tauri-api` - asset URL conversion
 - `bible-assets` - variant selection, export, shot video source
 - `generation/video-modes` - generation mode selection + request validation

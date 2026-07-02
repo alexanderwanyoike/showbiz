@@ -23,13 +23,13 @@ import {
   TimelineClipEntry,
 } from "../../lib/timeline-utils";
 import { useTimelinePlayback } from "../../hooks/useTimelinePlayback";
-import { useMpvPlayer } from "../../hooks/useMpvPlayer";
+import { useVideoPool } from "../../hooks/useVideoPool";
 import { useTrimDrag } from "../../hooks/useTrimDrag";
 import { useVideoDurations } from "../../hooks/useVideoDurations";
 import { videoAssembler } from "../../lib/video-assembler";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
-import PreviewPlayer from "./PreviewPlayer";
+import TimelinePreview from "./TimelinePreview";
 import TransportControls from "./TransportControls";
 import TimelineRuler from "./TimelineRuler";
 import TimelineTrack from "./TimelineTrack";
@@ -137,7 +137,7 @@ export default function TimelineEditor({
     return byTrack;
   }, [clips]);
 
-  const mpv = useMpvPlayer();
+  const pool = useVideoPool();
 
   const refreshClips = useCallback(async () => {
     const updatedClips = await getTimelineClips(storyboardId);
@@ -279,7 +279,7 @@ export default function TimelineEditor({
     }
   }, [clips]);
 
-  const playback = useTimelinePlayback({ clips, mpv });
+  const playback = useTimelinePlayback({ clips, pool });
 
   // Split the clip under the playhead (the selected one if it's there, else
   // the topmost) into two independent clips
@@ -409,10 +409,7 @@ export default function TimelineEditor({
       {/* Preview Player - Theater Mode (large but leaves room for timeline) */}
       <div className="min-h-0 px-4 py-2 flex justify-center bg-black">
         <div className="w-full max-h-[55vh]" style={{ aspectRatio: '16/9', maxWidth: 'calc(55vh * 16 / 9)' }}>
-          <PreviewPlayer
-            clips={clips}
-            mpv={mpv}
-          />
+          <TimelinePreview pool={pool} hasClips={clips.length > 0} />
         </div>
       </div>
 
