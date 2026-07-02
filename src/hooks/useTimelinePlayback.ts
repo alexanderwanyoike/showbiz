@@ -32,6 +32,7 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
   const activeClipIdRef = useRef<string | null>(null);
   const gapAnchorRef = useRef<GapAnchor | null>(null);
   const lastPlayheadUpdateRef = useRef(0);
+  const lastHealAttemptRef = useRef(0);
 
   const totalDuration = getTotalDuration(clips);
 
@@ -169,6 +170,15 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
           });
         } else {
           updatePlayhead(clip.startOffset + (pos - clip.trimIn));
+          // Self-heal: a lost play() (interrupted by a seek or a stale op)
+          // leaves the element paused while the transport says playing
+          if (pool.isPaused()) {
+            const now = performance.now();
+            if (now - lastHealAttemptRef.current > 500) {
+              lastHealAttemptRef.current = now;
+              pool.play().catch(() => {});
+            }
+          }
         }
       } else {
         const anchor = gapAnchorRef.current;

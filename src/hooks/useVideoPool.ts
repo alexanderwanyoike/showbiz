@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useMemo, useEffect } from "react";
 import { TimelineClip } from "../lib/timeline-utils";
 import { createObjectUrlCache, fetchVideoBlob } from "../lib/object-url-cache";
+import { createSeekCoalescer, type SeekCoalescer } from "../lib/media-pipeline";
 
 /**
  * Two-element HTML5 video pool for timeline playback.
@@ -29,6 +30,8 @@ export interface VideoPool {
   getPosition: () => number | null;
   /** Whether the visible element has reached the end of its file */
   isEnded: () => boolean;
+  /** Whether the visible element is paused (e.g. a play() attempt was lost) */
+  isPaused: () => boolean;
 }
 
 interface Assignment {
@@ -55,12 +58,6 @@ function waitForEvent(el: HTMLVideoElement, event: string): Promise<void> {
   });
 }
 
-async function seekTo(el: HTMLVideoElement, localTime: number) {
-  if (Math.abs(el.currentTime - localTime) < 0.05) return;
-  const seeked = waitForEvent(el, "seeked");
-  el.currentTime = localTime;
-  await seeked;
-}
 
 export function useVideoPool(): VideoPool {
   const refA = useRef<HTMLVideoElement | null>(null);
@@ -87,6 +84,29 @@ export function useVideoPool(): VideoPool {
     [videoRefs]
   );
 
+  // One coalescer per element: scrub storms replace each other's targets
+  // instead of stacking seeks on a decoder that is still mid-seek (stacked
+  // seeks are what smear frames on WebKitGTK's software pipeline)
+  const seekCoalescersRef = useRef<[SeekCoalescer | null, SeekCoalescer | null]>([null, null]);
+  const coalescedSeek = useCallback(
+    (index: number, target: number): Promise<void> => {
+      let coalescer = seekCoalescersRef.current[index];
+      if (!coalescer) {
+        coalescer = createSeekCoalescer(async (localTime) => {
+          const el = element(index);
+          if (!el) return;
+          if (Math.abs(el.currentTime - localTime) < 0.05) return;
+          const seeked = waitForEvent(el, "seeked");
+          el.currentTime = localTime;
+          await seeked;
+        });
+        seekCoalescersRef.current[index] = coalescer;
+      }
+      return coalescer.request(target);
+    },
+    [element]
+  );
+
   // Ensure the element at `index` holds the clip's video, seeked to localTime
   const loadInto = useCallback(
     async (index: number, clip: TimelineClip, localTime: number) => {
@@ -104,9 +124,9 @@ export function useVideoPool(): VideoPool {
           await ready;
         }
       }
-      await seekTo(el, localTime);
+      await coalescedSeek(index, localTime);
     },
-    [cache, element]
+    [cache, element, coalescedSeek]
   );
 
   const setActive = useCallback((index: number | null) => {
@@ -181,6 +201,12 @@ export function useVideoPool(): VideoPool {
     return element(index)?.ended ?? false;
   }, [element]);
 
+  const isPaused = useCallback((): boolean => {
+    const index = activeIndexRef.current;
+    if (index === null) return false;
+    return element(index)?.paused ?? false;
+  }, [element]);
+
   return useMemo(
     () => ({
       videoRefs,
@@ -192,7 +218,8 @@ export function useVideoPool(): VideoPool {
       hideAll,
       getPosition,
       isEnded,
+      isPaused,
     }),
-    [videoRefs, activeIndex, showClip, preload, play, pause, hideAll, getPosition, isEnded]
+    [videoRefs, activeIndex, showClip, preload, play, pause, hideAll, getPosition, isEnded, isPaused]
   );
 }
