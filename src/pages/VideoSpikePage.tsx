@@ -161,6 +161,7 @@ function SpikeVideo({
         className="block w-full"
       />
       <div className="grid grid-cols-2 gap-x-4 font-mono text-[11px] text-muted-foreground">
+        <span className="col-span-2 truncate" title={src ?? ""}>src: {src ?? "(resolving...)"}</span>
         <span>time: {diag.currentTime.toFixed(2)} / {diag.duration.toFixed(2)}</span>
         <span>size: {diag.width}x{diag.height}</span>
         <span>readyState: {diag.readyState} · network: {diag.networkState}</span>
