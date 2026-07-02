@@ -4,7 +4,6 @@
 mod commands;
 mod db;
 mod media;
-mod video_normalize;
 
 use tauri::Manager;
 
@@ -44,12 +43,6 @@ fn main() {
         .setup(|app| {
             db::init(app.handle())?;
             media::init(app.handle())?;
-            // Backfill scrub-friendly keyframes into existing videos without
-            // blocking startup; new videos are normalized as they are saved.
-            let normalize_handle = app.handle().clone();
-            std::thread::spawn(move || {
-                video_normalize::normalize_library(&normalize_handle);
-            });
             // Kill mpv cleanly when the window closes
             let app_handle = app.handle().clone();
             let window = app.get_webview_window("main").expect("main window");
