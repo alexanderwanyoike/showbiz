@@ -58,26 +58,38 @@ export function assetBasePrompt(asset: BibleAsset, variants: VariantMap): string
 
 // One option per frame, using its primary/current take, for a shot's start/end
 // frame picker. Keeps the picker manageable as frames accumulate; the primary
-// take is chosen in the bible.
+// take is chosen in the bible. The prompt (the take's, or the frame recipe's
+// when the take has none) rides along so the picker can search it.
 export function buildFrameOptions(
   frames: BibleAsset[],
   variants: VariantMap
-): Array<{ variantId: string; label: string; url: string | null }> {
-  const options: Array<{ variantId: string; label: string; url: string | null }> = [];
+): Array<{ variantId: string; label: string; url: string | null; prompt: string }> {
+  const options: Array<{ variantId: string; label: string; url: string | null; prompt: string }> = [];
   for (const frame of frames) {
     if (frame.asset_type !== "reference") continue;
     const pic = primaryPicture(variants[frame.id] ?? []);
     if (!pic) continue;
-    options.push({ variantId: pic.id, label: frame.name, url: pic.media_url });
+    options.push({
+      variantId: pic.id,
+      label: frame.name,
+      url: pic.media_url,
+      prompt: pic.prompt || parseRecipe(frame.rules_json).prompt,
+    });
   }
   return options;
 }
 
-// Filter frame options by a free-text query against the label (case-insensitive).
-export function filterFrameOptions<T extends { label: string }>(options: T[], query: string): T[] {
+// Filter frame options by a free-text query against the frame's name or its
+// prompt (case-insensitive).
+export function filterFrameOptions<T extends { label: string; prompt: string }>(
+  options: T[],
+  query: string
+): T[] {
   const q = query.trim().toLowerCase();
   if (!q) return options;
-  return options.filter((o) => o.label.toLowerCase().includes(q));
+  return options.filter(
+    (o) => o.label.toLowerCase().includes(q) || o.prompt.toLowerCase().includes(q)
+  );
 }
 
 // "Built from: <characters> · <location>" for a composed frame, or null.
