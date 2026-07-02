@@ -144,7 +144,7 @@ index.html vite.config.ts package.json tsconfig.json
 ### TypeScript (Vitest)
 
 ```bash
-yarn test          # Run all 293 tests (watch mode)
+yarn test          # Run all 295 tests (watch mode)
 yarn test --run    # Run once, exit
 ```
 

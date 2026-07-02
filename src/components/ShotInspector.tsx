@@ -1,7 +1,13 @@
 import { useState } from "react";
-import { ChevronDown, Loader2, Sparkles, Upload, Video, ImageIcon, AlertCircle, X } from "lucide-react";
+import { ChevronDown, Loader2, Sparkles, Upload, Video, ImageIcon, AlertCircle, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -26,6 +32,8 @@ export interface FrameOption {
   variantId: string;
   label: string;
   url: string | null;
+  /** The prompt behind the frame's current take; searched alongside the name */
+  prompt: string;
 }
 
 export interface ShotInspectorProps {
@@ -120,6 +128,88 @@ function uploadFramePicker(onFile: (file: File) => void) {
   input.click();
 }
 
+// Full-size searchable browser for the bible's frames. Search matches the
+// frame's name or the prompt behind its current take.
+function FramePickerDialog({
+  label,
+  frameOptions,
+  open,
+  onOpenChange,
+  onPick,
+}: {
+  label: string;
+  frameOptions: FrameOption[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPick: (variantId: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const filtered = filterFrameOptions(frameOptions, query);
+
+  const close = (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+    if (!nextOpen) setQuery("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={close}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Choose {label.toLowerCase()}</DialogTitle>
+        </DialogHeader>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name or prompt..."
+            className="pl-8"
+          />
+        </div>
+        {filtered.length > 0 ? (
+          <div className="grid max-h-[60vh] grid-cols-3 gap-3 overflow-y-auto pr-1">
+            {filtered.map((f) => (
+              <button
+                key={f.variantId}
+                type="button"
+                onClick={() => {
+                  onPick(f.variantId);
+                  close(false);
+                }}
+                title={f.prompt || f.label}
+                className="group rounded border border-border bg-muted/40 p-1.5 text-left hover:border-primary"
+              >
+                <div className="aspect-video w-full overflow-hidden rounded bg-muted">
+                  {f.url ? (
+                    <img src={f.url} alt={f.label} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+                      <ImageIcon className="h-5 w-5" />
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 truncate text-xs font-medium">{f.label}</p>
+                {f.prompt && (
+                  <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+                    {f.prompt}
+                  </p>
+                )}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            {frameOptions.length === 0
+              ? "No frames yet. Compose frames in the Bible, then pick them here."
+              : `No frames match "${query}".`}
+          </p>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Pick a frame made in the Bible, or upload one. No generation here - the
 // storyboard just assembles; all composition happens in the Bible.
 function FramePicker({
@@ -137,53 +227,21 @@ function FramePicker({
   onUpload: (file: File) => void;
   onClear?: () => void;
 }) {
-  const [query, setQuery] = useState("");
-  const filtered = filterFrameOptions(frameOptions, query);
-  const showSearch = frameOptions.length > 4;
+  const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <>
       <FramePreview url={previewUrl} label={label} />
-      {frameOptions.length > 0 ? (
-        <>
-          {showSearch && (
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search frames..."
-              className="mt-2 h-7 text-xs"
-            />
-          )}
-          {filtered.length > 0 ? (
-            <div className="mt-2 grid max-h-56 grid-cols-2 gap-1.5 overflow-y-auto pr-1">
-              {filtered.map((f) => (
-                <button
-                  key={f.variantId}
-                  type="button"
-                  onClick={() => onPick(f.variantId)}
-                  title={f.label}
-                  className="group relative aspect-video overflow-hidden rounded border border-border bg-muted hover:border-primary"
-                >
-                  {f.url ? (
-                    <img src={f.url} alt={f.label} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center text-muted-foreground/50">
-                      <ImageIcon className="h-4 w-4" />
-                    </span>
-                  )}
-                  <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-[9px] text-white">
-                    {f.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-2 text-[11px] text-muted-foreground">No frames match "{query}".</p>
-          )}
-        </>
-      ) : (
-        <p className="mt-2 text-[11px] text-muted-foreground">Make frames in the Bible, then pick them here.</p>
-      )}
       <div className="mt-2 flex gap-2">
+        <Button
+          size="sm"
+          className="flex-1 text-xs"
+          onClick={() => setPickerOpen(true)}
+          disabled={frameOptions.length === 0}
+          title={frameOptions.length === 0 ? "Compose frames in the Bible first" : undefined}
+        >
+          <ImageIcon className="h-3 w-3 mr-1" />
+          Choose Frame
+        </Button>
         <Button size="sm" variant="outline" className="text-xs" onClick={() => uploadFramePicker(onUpload)}>
           <Upload className="h-3 w-3 mr-1" />
           Upload
@@ -195,6 +253,16 @@ function FramePicker({
           </Button>
         )}
       </div>
+      {frameOptions.length === 0 && (
+        <p className="mt-2 text-[11px] text-muted-foreground">Make frames in the Bible, then pick them here.</p>
+      )}
+      <FramePickerDialog
+        label={label}
+        frameOptions={frameOptions}
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onPick={onPick}
+      />
     </>
   );
 }
