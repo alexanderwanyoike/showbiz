@@ -157,18 +157,41 @@ export function getNextClipAfterTime(
   return { clip, localTime: clip.trimIn };
 }
 
+export type PlayheadState =
+  | { kind: "clip"; clip: TimelineClip; localTime: number }
+  | { kind: "gap"; nextStart: number | null }
+  | { kind: "end" };
+
+/**
+ * Classify a timeline position: on a clip (play its video), in a gap
+ * (show black and let time pass), or at/past the end of all content.
+ */
+export function resolvePlayheadState(
+  time: number,
+  clips: TimelineClip[]
+): PlayheadState {
+  const active = getActiveClipAtTime(time, clips);
+  if (active) return { kind: "clip", ...active };
+
+  const total = getTotalDuration(clips);
+  if (time < total) {
+    const next = getNextClipAfterTime(time, clips);
+    return { kind: "gap", nextStart: next ? next.clip.startOffset : null };
+  }
+
+  return { kind: "end" };
+}
+
 export interface PlaybackStart {
-  clip: TimelineClip;
-  /** Position inside the source file to seek to, in seconds */
-  localTime: number;
   /** Timeline time playback actually starts at (may differ from the playhead) */
   timelineTime: number;
+  state: PlayheadState;
 }
 
 /**
  * Resolve where playback should start for a given playhead position.
- * Inside a clip: play there. In a gap: jump forward to the next clip.
- * Past the end: restart from the earliest clip on the timeline.
+ * Gaps are honored: playback starts where the playhead is, showing black
+ * until the next clip. Past the end, restart from timeline zero.
  */
 export function resolvePlaybackStart(
   time: number,
@@ -176,12 +199,8 @@ export function resolvePlaybackStart(
 ): PlaybackStart | null {
   if (clips.length === 0) return null;
 
-  const active = getActiveClipAtTime(time, clips);
-  if (active) return { ...active, timelineTime: time };
-
-  const next = getNextClipAfterTime(time, clips) ?? getNextClipAfterTime(0, clips);
-  if (!next) return null;
-  return { ...next, timelineTime: next.clip.startOffset };
+  const startTime = time < getTotalDuration(clips) ? time : 0;
+  return { timelineTime: startTime, state: resolvePlayheadState(startTime, clips) };
 }
 
 /**

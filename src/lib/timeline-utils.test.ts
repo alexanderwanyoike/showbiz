@@ -7,6 +7,7 @@ import {
   getActiveClipAtTime,
   getNextClipAfterTime,
   resolvePlaybackStart,
+  resolvePlayheadState,
   snapStartTime,
   orderClipsForExport,
   trackPriority,
@@ -384,58 +385,83 @@ describe("getNextClipAfterTime", () => {
   });
 });
 
+describe("resolvePlayheadState", () => {
+  const clips = [
+    makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0 }), // 0-8
+    makeClip({ shot: makeShot({ id: "s2" }), startOffset: 12 }), // 12-20
+  ];
+
+  it("returns the clip and local time when inside a clip", () => {
+    const state = resolvePlayheadState(2, clips);
+    expect(state.kind).toBe("clip");
+    if (state.kind === "clip") {
+      expect(state.clip.shot.id).toBe("s1");
+      expect(state.localTime).toBe(2);
+    }
+  });
+
+  it("respects trimIn for the local time", () => {
+    const trimmed = [
+      makeClip({
+        shot: makeShot({ id: "s1" }),
+        edit: makeEdit({ trim_in: 2, trim_out: 6 }),
+        startOffset: 0,
+      }),
+    ];
+    const state = resolvePlayheadState(1, trimmed);
+    expect(state.kind).toBe("clip");
+    if (state.kind === "clip") expect(state.localTime).toBe(3);
+  });
+
+  it("returns a gap with the next clip's start when between clips", () => {
+    const state = resolvePlayheadState(9, clips);
+    expect(state).toEqual({ kind: "gap", nextStart: 12 });
+  });
+
+  it("returns a gap before the first clip when the timeline starts late", () => {
+    const late = [makeClip({ shot: makeShot({ id: "s1" }), startOffset: 3 })];
+    expect(resolvePlayheadState(0, late)).toEqual({ kind: "gap", nextStart: 3 });
+  });
+
+  it("returns end at or past the total duration", () => {
+    expect(resolvePlayheadState(20, clips).kind).toBe("end");
+    expect(resolvePlayheadState(25, clips).kind).toBe("end");
+  });
+
+  it("returns end for an empty timeline", () => {
+    expect(resolvePlayheadState(0, []).kind).toBe("end");
+  });
+});
+
 describe("resolvePlaybackStart", () => {
-  it("returns the active clip when the playhead is inside one", () => {
+  it("starts inside the active clip when the playhead is on one", () => {
     const clips = [makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0 })];
     const result = resolvePlaybackStart(2, clips);
     expect(result).not.toBeNull();
-    expect(result!.clip.shot.id).toBe("s1");
-    expect(result!.localTime).toBe(2);
     expect(result!.timelineTime).toBe(2);
+    expect(result!.state.kind).toBe("clip");
   });
 
-  it("jumps forward to the next clip when the playhead is in a gap", () => {
+  it("stays in the gap instead of jumping when the playhead is between clips", () => {
     const clips = [
       makeClip({ shot: makeShot({ id: "s1" }), startOffset: 0 }),
       makeClip({ shot: makeShot({ id: "s2" }), startOffset: 12 }),
     ];
     const result = resolvePlaybackStart(9, clips);
     expect(result).not.toBeNull();
-    expect(result!.clip.shot.id).toBe("s2");
-    expect(result!.timelineTime).toBe(12);
-    expect(result!.localTime).toBe(0);
+    expect(result!.timelineTime).toBe(9);
+    expect(result!.state).toEqual({ kind: "gap", nextStart: 12 });
   });
 
-  it("jumps to the first clip when the timeline does not start at zero", () => {
-    const clips = [makeClip({ shot: makeShot({ id: "s1" }), startOffset: 3 })];
-    const result = resolvePlaybackStart(0, clips);
-    expect(result).not.toBeNull();
-    expect(result!.clip.shot.id).toBe("s1");
-    expect(result!.timelineTime).toBe(3);
-  });
-
-  it("restarts from the earliest clip when the playhead is past the end", () => {
+  it("restarts from timeline zero when the playhead is past the end", () => {
     const clips = [
       makeClip({ shot: makeShot({ id: "s1" }), startOffset: 2 }),
       makeClip({ shot: makeShot({ id: "s2" }), startOffset: 10 }),
     ];
     const result = resolvePlaybackStart(18, clips);
     expect(result).not.toBeNull();
-    expect(result!.clip.shot.id).toBe("s1");
-    expect(result!.timelineTime).toBe(2);
-  });
-
-  it("starts at the clip's trimIn when jumping to it", () => {
-    const clips = [
-      makeClip({
-        shot: makeShot({ id: "s1" }),
-        edit: makeEdit({ trim_in: 2, trim_out: 6 }),
-        startOffset: 5,
-      }),
-    ];
-    const result = resolvePlaybackStart(0, clips);
-    expect(result!.localTime).toBe(2);
-    expect(result!.timelineTime).toBe(5);
+    expect(result!.timelineTime).toBe(0);
+    expect(result!.state).toEqual({ kind: "gap", nextStart: 2 });
   });
 
   it("returns null for an empty timeline", () => {
