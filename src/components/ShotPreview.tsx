@@ -1,11 +1,18 @@
 import { useRef, useState, useEffect, useCallback } from "react";
-import { ImageIcon, Play, Film, Loader2, X } from "lucide-react";
+import { ImageIcon, Play, Pause, Film, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { assetUrlToPath } from "../lib/tauri-api";
 import { thumbnailGenerator } from "../lib/thumbnail-generator";
-import { clampPlaybackTime, formatPlaybackTime, resolvePreviewStill } from "../lib/video-preview";
+import {
+  clampPlaybackTime,
+  formatPlaybackTime,
+  resolvePreviewStill,
+  resolveToggleAction,
+  hasReachedEnd,
+  type TransportStatus,
+} from "../lib/video-preview";
 
 interface ShotPreviewProps {
   shot: {
@@ -18,7 +25,7 @@ interface ShotPreviewProps {
 }
 
 export default function ShotPreview({ shot }: ShotPreviewProps) {
-  const [showMpv, setShowMpv] = useState(false);
+  const [status, setStatus] = useState<TransportStatus>("stopped");
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
@@ -27,13 +34,15 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
   const mpvActiveRef = useRef(false);
   const pendingSeekRef = useRef(0);
 
+  const showMpv = status !== "stopped";
+
   // Stop mpv helper
   const stopMpv = useCallback(() => {
     if (mpvActiveRef.current) {
       mpvActiveRef.current = false;
       invoke("mpv_stop").catch(() => {});
     }
-    setShowMpv(false);
+    setStatus("stopped");
     setPosition(0);
     pendingSeekRef.current = 0;
   }, []);
@@ -160,7 +169,13 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
       if (isSeeking) return;
       try {
         const current = await invoke<number>("mpv_get_position");
-        setPosition(clampPlaybackTime(current, duration));
+        const clamped = clampPlaybackTime(current, duration);
+        setPosition(clamped);
+        // mpv runs with --keep-open=yes, so it pauses itself on the last
+        // frame; reflect that in the transport state.
+        if (hasReachedEnd(clamped, duration)) {
+          setStatus((prev) => (prev === "playing" ? "paused" : prev));
+        }
       } catch {
         // mpv may briefly have no time-pos during load or after stop.
       }
@@ -174,7 +189,7 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
     setPosition(clamped);
     if (!showMpv) {
       pendingSeekRef.current = clamped;
-      setShowMpv(true);
+      setStatus("playing");
       return;
     }
     try {
@@ -183,6 +198,67 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
       console.error("Failed to seek preview:", error);
     }
   }
+
+  const togglePlayback = useCallback(async () => {
+    if (!shot?.video_url) return;
+    try {
+      switch (resolveToggleAction(status, { position, duration })) {
+        case "start":
+          setStatus("playing");
+          break;
+        case "pause":
+          await invoke("mpv_pause");
+          setStatus("paused");
+          break;
+        case "resume":
+          await invoke("mpv_resume");
+          setStatus("playing");
+          break;
+        case "restart":
+          await invoke("mpv_seek", { seconds: 0 });
+          await invoke("mpv_resume");
+          setPosition(0);
+          setStatus("playing");
+          break;
+      }
+    } catch (error) {
+      console.error("Failed to toggle playback:", error);
+    }
+  }, [shot?.video_url, status, position, duration]);
+
+  // Keyboard transport: Space = play/pause, arrows = step 0.1s (Shift: 1s)
+  useEffect(() => {
+    if (!shot?.video_url) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      switch (e.code) {
+        case "Space":
+          e.preventDefault();
+          togglePlayback();
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          seekTo(position - (e.shiftKey ? 1 : 0.1));
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          seekTo(position + (e.shiftKey ? 1 : 0.1));
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
   if (!shot) {
     return (
@@ -247,7 +323,7 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
               {/* Play video button */}
               {hasVideo && !isGenerating && (
                 <button
-                  onClick={() => setShowMpv(true)}
+                  onClick={() => setStatus("playing")}
                   className="absolute inset-0 flex items-center justify-center group/play"
                 >
                   <div className="bg-black/50 group-hover/play:bg-black/70 rounded-full p-4 transition-colors">
@@ -266,6 +342,35 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
           <span className="font-mono">
             Shot #{shot.order}
           </span>
+          {hasVideo && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => seekTo(position - 0.1)}
+                className="p-1 rounded hover:bg-muted hover:text-foreground transition-colors"
+                title="Step back 0.1s (Left, Shift for 1s)"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={togglePlayback}
+                className="p-1 rounded hover:bg-muted hover:text-foreground transition-colors"
+                title={status === "playing" ? "Pause (Space)" : "Play (Space)"}
+              >
+                {status === "playing" ? (
+                  <Pause className="h-3.5 w-3.5" />
+                ) : (
+                  <Play className="h-3.5 w-3.5" />
+                )}
+              </button>
+              <button
+                onClick={() => seekTo(position + 0.1)}
+                className="p-1 rounded hover:bg-muted hover:text-foreground transition-colors"
+                title="Step forward 0.1s (Right, Shift for 1s)"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <span className="font-mono">
             {formatPlaybackTime(position)} / {formatPlaybackTime(duration)}
           </span>

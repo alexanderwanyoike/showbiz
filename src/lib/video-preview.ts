@@ -12,6 +12,29 @@ export function clampPlaybackTime(seconds: number, duration: number): number {
   return Math.max(0, Math.min(duration, seconds));
 }
 
+export type TransportStatus = "stopped" | "playing" | "paused";
+
+/** End detection tolerant of the 250ms position polling granularity */
+export function hasReachedEnd(position: number, duration: number): boolean {
+  if (!Number.isFinite(duration) || duration <= 0) return false;
+  return position >= duration - 0.05;
+}
+
+/**
+ * Map a play/pause toggle to the mpv action it requires:
+ * stopped → start mpv; playing → pause; paused → resume,
+ * or restart from the beginning when paused on the final frame.
+ */
+export function resolveToggleAction(
+  status: TransportStatus,
+  playback?: { position: number; duration: number }
+): "start" | "pause" | "resume" | "restart" {
+  if (status === "stopped") return "start";
+  if (status === "playing") return "pause";
+  if (playback && hasReachedEnd(playback.position, playback.duration)) return "restart";
+  return "resume";
+}
+
 export function resolvePreviewStill(
   imageUrl: string | null | undefined,
   posterUrl: string | null | undefined
