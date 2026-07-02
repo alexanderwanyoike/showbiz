@@ -46,6 +46,10 @@ export function Header({ title, backHref, backLabel, children }: HeaderProps) {
           {children}
         </div>
         <div className="flex items-center gap-2">
+          {/* THROWAWAY: spike entry point, removed with the spike branch */}
+          <Link to="/spike/video" className="text-[10px] text-muted-foreground hover:text-foreground">
+            video spike
+          </Link>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
