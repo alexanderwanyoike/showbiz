@@ -141,7 +141,6 @@ pub fn save_video(app: &AppHandle, shot_id: &str, base64_data_url: &str) -> Resu
     let filepath = base.join("videos").join(&filename);
 
     std::fs::write(&filepath, &bytes).map_err(|e| format!("Failed to write video: {}", e))?;
-    crate::video_normalize::normalize_saved_video(&filepath);
 
     Ok(format!("videos/{}", filename))
 }
@@ -159,7 +158,6 @@ pub fn save_video_blob(
     let filepath = base.join("videos").join(&filename);
 
     std::fs::write(&filepath, data).map_err(|e| format!("Failed to write video blob: {}", e))?;
-    crate::video_normalize::normalize_saved_video(&filepath);
 
     Ok(format!("videos/{}", filename))
 }
@@ -296,7 +294,6 @@ pub fn save_version_video(
 
     std::fs::write(&filepath, data)
         .map_err(|e| format!("Failed to write version video: {}", e))?;
-    crate::video_normalize::normalize_saved_video(&filepath);
 
     Ok(format!("videos/versions/{}/{}", shot_id, filename))
 }
