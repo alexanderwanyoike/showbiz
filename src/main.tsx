@@ -3,6 +3,9 @@ import { BrowserRouter } from "react-router";
 import { ThemeProvider } from "./components/theme-provider";
 import App from "./App";
 import "./globals.css";
+import { installDebugLogTap } from "./lib/debug-log";
+
+installDebugLogTap();
 
 createRoot(document.getElementById("root")!).render(
   <BrowserRouter>

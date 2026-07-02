@@ -36,6 +36,14 @@ export default function TimelinePreview({ pool, hasClips }: TimelinePreviewProps
           }`}
         />
       ))}
+      {/* Last good frame, shown while a seek decodes so WebKitGTK's
+          half-decoded intermediate paints are never visible */}
+      <canvas
+        ref={pool.freezeCanvasRef}
+        className={`absolute inset-0 h-full w-full object-contain ${
+          pool.isSeekHolding && pool.activeIndex !== null ? "" : "invisible"
+        }`}
+      />
     </div>
   );
 }

@@ -1,10 +1,32 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import fs from "fs";
+
+// Dev-only console tap: the WebKitGTK webview has no accessible devtools in
+// this environment, so the app POSTs console lines here and they land in a
+// file that tooling (and agents) can tail. No-op in production builds.
+function debugLogSink(): Plugin {
+  const logFile = "/tmp/showbiz-console.log";
+  return {
+    name: "showbiz-debug-log-sink",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use("/__debuglog", (req, res) => {
+        let body = "";
+        req.on("data", (chunk) => (body += chunk));
+        req.on("end", () => {
+          fs.appendFileSync(logFile, body + "\n");
+          res.end("ok");
+        });
+      });
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), debugLogSink()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),

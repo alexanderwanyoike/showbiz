@@ -1,3 +1,5 @@
+import { fetchCompleteBlob } from "./media-pipeline";
+
 /**
  * Cache of source video URLs to blob object URLs.
  *
@@ -36,11 +38,7 @@ export function createObjectUrlCache(
 
 export type ObjectUrlCache = ReturnType<typeof createObjectUrlCache>;
 
-/** Default fetcher: read a video through the asset protocol as a Blob. */
+/** Default fetcher: read a video through the asset protocol, verified complete. */
 export async function fetchVideoBlob(url: string): Promise<Blob> {
-  const response = await window.fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch video (${response.status}): ${url}`);
-  }
-  return response.blob();
+  return fetchCompleteBlob(url);
 }

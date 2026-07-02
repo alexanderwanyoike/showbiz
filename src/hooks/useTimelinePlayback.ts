@@ -7,6 +7,11 @@ import {
   getTotalDuration,
 } from "../lib/timeline-utils";
 import { VideoPool } from "./useVideoPool";
+import { snapToKeyframeGrid } from "../lib/media-pipeline";
+
+// Transport tracing through the dev console tap; playback state bugs are
+// invisible in screenshots, so every state decision announces itself
+const trace = (msg: string) => console.warn(`[transport] ${msg}`);
 
 interface UseTimelinePlaybackOptions {
   clips: TimelineClip[];
@@ -69,21 +74,26 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
   const play = useCallback(async () => {
     if (clips.length === 0 || pendingRef.current) return;
     pendingRef.current = true;
-
-    const start = resolvePlaybackStart(currentTime, clips);
-    if (start && start.state.kind !== "end") {
-      setCurrentTime(start.timelineTime);
-      if (start.state.kind === "clip" && start.state.clip.videoUrl) {
-        await startClip(start.state.clip, start.state.localTime, true);
-      } else {
-        startGap(start.timelineTime);
+    try {
+      const start = resolvePlaybackStart(currentTime, clips);
+      trace(`play() from ${currentTime.toFixed(2)} -> ${start ? `${start.state.kind}@${start.timelineTime.toFixed(2)}` : "null"}`);
+      if (start && start.state.kind !== "end") {
+        setCurrentTime(start.timelineTime);
+        if (start.state.kind === "clip" && start.state.clip.videoUrl) {
+          await startClip(start.state.clip, start.state.localTime, true);
+        } else {
+          startGap(start.timelineTime);
+        }
+        setIsPlaying(true);
       }
-      setIsPlaying(true);
+    } finally {
+      // Never leave the transport wedged if a start fails mid-flight
+      pendingRef.current = false;
     }
-    pendingRef.current = false;
   }, [clips, currentTime, startClip, startGap]);
 
   const pause = useCallback(() => {
+    trace("pause()");
     setIsPlaying(false);
     gapAnchorRef.current = null;
     pendingRef.current = false;
@@ -132,7 +142,10 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
       if (state.kind === "clip" && state.clip.videoUrl) {
         activeClipIdRef.current = state.clip.clipId;
         gapAnchorRef.current = null;
-        await pool.showClip(state.clip, state.localTime, false, { fastScrub: true });
+        // Preview on the keyframe grid: keyframe decodes need no reference
+        // buffers, so they can't smear against recycled decoder state
+        const snapped = snapToKeyframeGrid(state.localTime, state.clip.trimIn, state.clip.trimOut);
+        await pool.showClip(state.clip, snapped, false, { fastScrub: true });
       } else {
         activeClipIdRef.current = null;
         pool.hideAll();
@@ -153,9 +166,12 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
       const clamped = Math.max(0, Math.min(time, totalDuration));
       setCurrentTime(clamped);
 
+      trace(`endScrub at ${clamped.toFixed(2)} resume=${resume}`);
       const state = resolvePlayheadState(clamped, clips);
       if (state.kind === "clip" && state.clip.videoUrl) {
-        await startClip(state.clip, state.localTime, resume);
+        // Land on a keyframe so resume starts from a clean decode
+        const snapped = snapToKeyframeGrid(state.localTime, state.clip.trimIn, state.clip.trimOut);
+        await startClip(state.clip, snapped, resume);
       } else if (state.kind === "gap") {
         activeClipIdRef.current = null;
         pool.hideAll();
@@ -188,6 +204,7 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
     let rafId = 0;
 
     const stopAtEnd = () => {
+      trace(`stopAtEnd (total=${totalDuration.toFixed(2)})`);
       setIsPlaying(false);
       gapAnchorRef.current = null;
       pool.pause();
@@ -204,6 +221,7 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
     const transitionFrom = async (clip: TimelineClip) => {
       const endTime = clip.startOffset + clip.effectiveDuration;
       const state = resolvePlayheadState(endTime + 0.001, clips);
+      trace(`clip ${clip.clipId} ended @${endTime.toFixed(2)} -> ${state.kind}`);
       if (state.kind === "clip" && state.clip.videoUrl) {
         setCurrentTime(endTime);
         await startClip(state.clip, state.localTime, true);
@@ -253,6 +271,7 @@ export function useTimelinePlayback({ clips, pool }: UseTimelinePlaybackOptions)
         const state = resolvePlayheadState(newTime, clips);
 
         if (state.kind === "clip" && state.clip.videoUrl) {
+          trace(`gap -> clip ${state.clip.clipId} @${newTime.toFixed(2)}`);
           pendingRef.current = true;
           setCurrentTime(newTime);
           startClip(state.clip, state.localTime, true).finally(() => {

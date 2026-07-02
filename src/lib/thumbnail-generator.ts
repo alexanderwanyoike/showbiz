@@ -1,9 +1,15 @@
-import { createTaskQueue, releaseVideoElement } from "./media-pipeline";
+import {
+  releaseVideoElement,
+  waitForMediaEvent,
+  fetchCompleteBlob,
+  mediaOpenQueue,
+  snapToKeyframeGrid,
+} from "./media-pipeline";
 
 // All transient probe pipelines (thumbnails, durations, frame extraction)
-// run strictly one at a time, leaving decode headroom for the actual
+// share the app-wide open gate, leaving decode headroom for the actual
 // playback elements (see media-pipeline.ts).
-const probeQueue = createTaskQueue(1);
+const probeQueue = mediaOpenQueue;
 
 interface ThumbnailCacheEntry {
   frames: string[];
@@ -50,13 +56,14 @@ class ThumbnailGenerator {
         const duration = video.duration;
 
         for (let i = 0; i < this.frameCount; i++) {
-          const time = (i / this.frameCount) * duration;
+          // Snap to the keyframe grid: keyframe decodes need no reference
+          // buffers, so captured frames can't smear against recycled
+          // decoder state. Bounded: a swallowed `seeked` must not wedge
+          // the probe queue; on timeout we draw whatever frame is displayed
+          const time = snapToKeyframeGrid((i / this.frameCount) * duration, 0, duration);
+          const settled = waitForMediaEvent(video, "seeked", 1000);
           video.currentTime = time;
-
-          // Wait for seek to complete
-          await new Promise<void>((resolve) => {
-            video.onseeked = () => resolve();
-          });
+          await settled;
 
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           try {
@@ -99,11 +106,9 @@ class ThumbnailGenerator {
       try {
         const duration = Number.isFinite(video.duration) ? video.duration : 0;
         const frameTime = time ?? Math.max(0, duration - 0.05);
+        const settled = waitForMediaEvent(video, "seeked", 1000);
         video.currentTime = Math.max(0, Math.min(duration, frameTime));
-
-        await new Promise<void>((resolve) => {
-          video.onseeked = () => resolve();
-        });
+        await settled;
 
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
@@ -137,21 +142,27 @@ class ThumbnailGenerator {
 export const thumbnailGenerator = new ThumbnailGenerator();
 
 async function loadVideoElement(videoUrl: string): Promise<{ video: HTMLVideoElement; blobUrl: string }> {
-  const response = await window.fetch(videoUrl);
-  const blob = await response.blob();
+  const blob = await fetchCompleteBlob(videoUrl);
   const blobUrl = URL.createObjectURL(blob);
 
-  const video = document.createElement("video");
-  video.src = blobUrl;
-  video.muted = true;
+  // WebKitGTK media opens fail intermittently under pipeline pressure even
+  // for valid files; a fresh element on a short delay usually succeeds.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const video = document.createElement("video");
+    video.muted = true;
 
-  await new Promise<void>((resolve, reject) => {
-    video.onloadedmetadata = () => resolve();
-    video.onerror = () => {
-      URL.revokeObjectURL(blobUrl);
-      reject(new Error("Failed to load video"));
-    };
-  });
+    const ready = waitForMediaEvent(video, "loadedmetadata", 5000);
+    video.src = blobUrl;
+    const outcome = await ready;
+    if (outcome === "event") {
+      return { video, blobUrl };
+    }
 
-  return { video, blobUrl };
+    releaseVideoElement(video);
+    console.warn(`[probe] metadata ${outcome} for ${videoUrl} (attempt ${attempt + 1})`);
+    await new Promise((r) => setTimeout(r, 250));
+  }
+
+  URL.revokeObjectURL(blobUrl);
+  throw new Error("Failed to load video after retries");
 }

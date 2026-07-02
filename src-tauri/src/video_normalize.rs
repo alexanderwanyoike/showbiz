@@ -49,6 +49,11 @@ pub fn parse_duration_secs(ffprobe_output: &str) -> Option<f64> {
     ffprobe_output.trim().parse().ok()
 }
 
+/// Container tag stamped into normalized files. Files carrying it are never
+/// re-encoded again, so a concurrent instance mid-replace can't trick the
+/// sparse-keyframe probe into a destructive second pass.
+pub const NORMALIZED_MARKER: &str = "showbiz-normalized-1";
+
 /// ffmpeg arguments to re-encode `input` into `output` with dense keyframes.
 /// Video is re-encoded (visually lossless CRF); audio is copied untouched.
 pub fn ffmpeg_normalize_args(input: &Path, output: &Path) -> Vec<String> {
@@ -72,10 +77,20 @@ pub fn ffmpeg_normalize_args(input: &Path, output: &Path) -> Vec<String> {
         "yuv420p".into(),
         "-c:a".into(),
         "copy".into(),
+        "-metadata".into(),
+        format!("comment={NORMALIZED_MARKER}"),
         "-movflags".into(),
         "+faststart".into(),
         output.display().to_string(),
     ]
+}
+
+/// The tmp file a normalize writes: unique per process, so two instances
+/// (e.g. dev-watcher restarts overlapping) can never interleave their ffmpeg
+/// output into one file. A shared tmp name is how the media library got
+/// cross-spliced on 2026-07-02.
+fn normalize_tmp_path(path: &Path) -> PathBuf {
+    path.with_extension(format!("normalizing.{}.mp4", std::process::id()))
 }
 
 fn which_in_path(name: &str) -> Option<PathBuf> {
@@ -122,6 +137,23 @@ fn run_tool(tool: &Path, args: &[String]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
+/// Read the container comment tag; normalized files carry NORMALIZED_MARKER.
+fn read_marker(ffprobe: &Path, path: &Path) -> Result<String, String> {
+    let out = run_tool(
+        ffprobe,
+        &[
+            "-v".into(),
+            "error".into(),
+            "-show_entries".into(),
+            "format_tags=comment".into(),
+            "-of".into(),
+            "csv=p=0".into(),
+            path.display().to_string(),
+        ],
+    )?;
+    Ok(out.trim().to_string())
+}
+
 fn probe(ffprobe: &Path, path: &Path) -> Result<VideoStats, String> {
     let keyframes_out = run_tool(
         ffprobe,
@@ -159,15 +191,21 @@ fn probe(ffprobe: &Path, path: &Path) -> Result<VideoStats, String> {
 }
 
 /// Normalize one video file in place if its keyframes are too sparse.
-/// Re-encodes to a temp file, verifies duration survived, then atomically
-/// replaces the original. Returns whether a re-encode happened.
+/// Re-encodes to a per-process temp file, verifies duration survived, then
+/// atomically replaces the original. Files already carrying the normalized
+/// marker are never touched, regardless of what a (possibly racing) probe
+/// says. Returns whether a re-encode happened.
 fn normalize_file(ffmpeg: &Path, ffprobe: &Path, path: &Path) -> Result<bool, String> {
+    if read_marker(ffprobe, path)? == NORMALIZED_MARKER {
+        return Ok(false);
+    }
+
     let stats = probe(ffprobe, path)?;
     if !needs_normalization(&stats) {
         return Ok(false);
     }
 
-    let tmp = path.with_extension("normalizing.mp4");
+    let tmp = normalize_tmp_path(path);
     let result = run_tool(ffmpeg, &ffmpeg_normalize_args(path, &tmp));
     if let Err(e) = result {
         let _ = std::fs::remove_file(&tmp);
@@ -206,9 +244,10 @@ fn collect_mp4s(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else { return };
     for entry in entries.flatten() {
         let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
         if path.is_dir() {
             collect_mp4s(&path, out);
-        } else if path.extension().and_then(|e| e.to_str()) == Some("mp4") {
+        } else if name.ends_with(".mp4") && !name.contains(".normalizing.") {
             out.push(path);
         }
     }
@@ -223,6 +262,32 @@ pub fn normalize_library(app: &AppHandle) {
         eprintln!("[normalize] ffmpeg/ffprobe not found; skipping library backfill");
         return;
     };
+
+    // Exclusive backfill lock: overlapping instances (dev-watcher restarts)
+    // must never normalize the same library concurrently. A stale lock
+    // (crashed instance) expires after 30 minutes.
+    let lock_path = videos_dir.join(".normalize.lock");
+    match std::fs::OpenOptions::new().write(true).create_new(true).open(&lock_path) {
+        Ok(_) => {}
+        Err(_) => {
+            let stale = std::fs::metadata(&lock_path)
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.elapsed().ok())
+                .map(|age| age.as_secs() > 30 * 60)
+                .unwrap_or(true);
+            if !stale {
+                println!("[normalize] another instance holds the backfill lock; skipping");
+                return;
+            }
+            eprintln!("[normalize] removing stale backfill lock");
+            let _ = std::fs::remove_file(&lock_path);
+            if std::fs::OpenOptions::new().write(true).create_new(true).open(&lock_path).is_err() {
+                println!("[normalize] could not acquire backfill lock; skipping");
+                return;
+            }
+        }
+    }
 
     let mut files = Vec::new();
     collect_mp4s(&videos_dir, &mut files);
@@ -242,6 +307,7 @@ pub fn normalize_library(app: &AppHandle) {
         "[normalize] library backfill done: {} re-encoded, {} already fine, {} failed",
         normalized, skipped, failed
     );
+    let _ = std::fs::remove_file(&lock_path);
 }
 
 #[cfg(test)]
@@ -293,6 +359,26 @@ mod tests {
         assert_eq!(args.last().unwrap(), "/out.mp4");
         // Optional audio mapping must not fail on silent clips
         assert!(joined.contains("-map 0:a:0?"));
+        // The marker prevents any future pass from re-encoding this file
+        assert!(joined.contains(&format!("comment={NORMALIZED_MARKER}")));
+    }
+
+    #[test]
+    fn tmp_path_is_unique_per_process() {
+        let tmp = normalize_tmp_path(Path::new("/media/videos/clip.mp4"));
+        let name = tmp.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(name.contains(&std::process::id().to_string()), "{name}");
+        assert!(name.contains(".normalizing."), "{name}");
+        // The backfill scanner must never pick tmp files up as videos
+        let mut found = Vec::new();
+        let dir = std::env::temp_dir().join(format!("showbiz-tmp-scan-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(&name), b"x").unwrap();
+        std::fs::write(dir.join("real.mp4"), b"x").unwrap();
+        collect_mp4s(&dir, &mut found);
+        assert_eq!(found.len(), 1);
+        assert!(found[0].ends_with("real.mp4"));
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     // End-to-end against real ffmpeg; skipped when the tools aren't installed
