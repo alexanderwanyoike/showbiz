@@ -1,4 +1,4 @@
-import type { TimelineEdit, TimelineTrack } from "./tauri-api";
+import type { TimelineTrack } from "./tauri-api";
 
 /** Track definition for UI rendering, re-exported from tauri-api */
 export type Track = TimelineTrack;
@@ -16,8 +16,15 @@ export interface Shot {
 }
 
 export interface TimelineClip {
+  /** timeline_clips row id — the identity of a clip everywhere in the editor */
+  clipId: string;
   shot: Shot;
-  edit: TimelineEdit | null;
+  /**
+   * Resolved source video: the pinned version's URL, or the shot's current
+   * video. Null while a pinned version's URL has not loaded yet.
+   */
+  videoUrl: string | null;
+  videoVersionId: string | null;
   /** Real length of the source video in seconds (probed, or shot.duration fallback) */
   sourceDuration: number;
   /** Resolved trim window in source-file seconds, clamped to [0, sourceDuration] */
@@ -28,27 +35,29 @@ export interface TimelineClip {
   track: string;
 }
 
-/** An explicit entry saying "this shot starts at this time on this track" */
+/** One timeline_clips row, in builder-friendly shape */
 export interface TimelineClipEntry {
+  clipId: string;
   shotId: string;
   track: string;
   startTime: number;
+  trimIn: number | null;
+  trimOut: number | null;
+  videoVersionId: string | null;
 }
 
 /**
- * Build timeline clips from explicit entries (user-added clips only).
- * Each entry has a startTime for free-form positioning on the timeline.
- * `durations` maps shot id to the probed real video duration; without it the
- * stale integer shot.duration is used and trims may not match the actual file.
+ * Build timeline clips from clip entries. Trims live on each entry (per-clip,
+ * not per-shot). `durations` maps a video URL to its probed real duration;
+ * `versionUrls` maps a video version id to that version's file URL.
  */
 export function buildTimelineClipsFromExplicit(
   entries: TimelineClipEntry[],
   shots: Shot[],
-  edits: TimelineEdit[],
-  durations: Record<string, number> = {}
+  durations: Record<string, number> = {},
+  versionUrls: Record<string, string> = {}
 ): TimelineClip[] {
   const shotMap = new Map(shots.map((s) => [s.id, s]));
-  const editMap = new Map(edits.map((e) => [e.shot_id, e]));
 
   const clips: TimelineClip[] = [];
 
@@ -56,14 +65,19 @@ export function buildTimelineClipsFromExplicit(
     const shot = shotMap.get(entry.shotId);
     if (!shot || shot.status !== "complete" || !shot.video_url) continue;
 
-    const edit = editMap.get(shot.id) || null;
-    const sourceDuration = durations[shot.id] ?? shot.duration;
-    const trimOut = Math.min(edit?.trim_out ?? sourceDuration, sourceDuration);
-    const trimIn = Math.min(Math.max(edit?.trim_in ?? 0, 0), trimOut);
+    const videoUrl = entry.videoVersionId
+      ? versionUrls[entry.videoVersionId] ?? null
+      : shot.video_url;
+
+    const sourceDuration = (videoUrl && durations[videoUrl]) || shot.duration;
+    const trimOut = Math.min(entry.trimOut ?? sourceDuration, sourceDuration);
+    const trimIn = Math.min(Math.max(entry.trimIn ?? 0, 0), trimOut);
 
     clips.push({
+      clipId: entry.clipId,
       shot,
-      edit,
+      videoUrl,
+      videoVersionId: entry.videoVersionId,
       sourceDuration,
       trimIn,
       trimOut,
@@ -203,6 +217,34 @@ export function resolvePlaybackStart(
   return { timelineTime: startTime, state: resolvePlayheadState(startTime, clips) };
 }
 
+export interface ClipSplit {
+  clipId: string;
+  /** Cut point in source-file seconds */
+  splitLocalTime: number;
+  /** Timeline start of the second piece */
+  secondStartTime: number;
+}
+
+/**
+ * Compute the split of a clip at the playhead. Returns null when the playhead
+ * is not inside the clip or a piece would fall below the minimum duration.
+ */
+export function computeClipSplit(
+  clip: TimelineClip,
+  playheadTime: number,
+  minPieceDuration = 0.5
+): ClipSplit | null {
+  const offset = playheadTime - clip.startOffset;
+  if (offset < minPieceDuration || offset > clip.effectiveDuration - minPieceDuration) {
+    return null;
+  }
+  return {
+    clipId: clip.clipId,
+    splitLocalTime: clip.trimIn + offset,
+    secondStartTime: playheadTime,
+  };
+}
+
 /**
  * Order clips for export: by timeline position, with higher-priority tracks
  * first when clips start at the same time. Export concatenates clips, so
@@ -253,50 +295,6 @@ export function snapStartTime(
   }
 
   return best;
-}
-
-/**
- * Convert timeline time to clip-local time
- */
-export function timelineToClipTime(
-  timelineTime: number,
-  clips: TimelineClip[]
-): { clipIndex: number; localTime: number } | null {
-  let accumulated = 0;
-
-  for (let i = 0; i < clips.length; i++) {
-    const clip = clips[i];
-    const clipDuration = clip.effectiveDuration;
-
-    if (timelineTime < accumulated + clipDuration) {
-      const localTime = clip.trimIn + (timelineTime - accumulated);
-      return { clipIndex: i, localTime };
-    }
-
-    accumulated += clipDuration;
-  }
-
-  return null;
-}
-
-/**
- * Convert clip-local time to timeline time
- */
-export function clipToTimelineTime(
-  clipIndex: number,
-  localTime: number,
-  clips: TimelineClip[]
-): number {
-  let accumulated = 0;
-
-  for (let i = 0; i < clipIndex; i++) {
-    accumulated += clips[i].effectiveDuration;
-  }
-
-  const clip = clips[clipIndex];
-  const offsetInClip = localTime - clip.trimIn;
-
-  return accumulated + offsetInClip;
 }
 
 /**

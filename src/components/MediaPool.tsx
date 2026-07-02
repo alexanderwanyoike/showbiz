@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Film } from "lucide-react";
 import { useVideoDurations } from "../hooks/useVideoDurations";
 
@@ -6,12 +7,21 @@ interface MediaPoolShot {
   order: number;
   image_url: string | null;
   video_url: string | null;
-  status: "pending" | "generating" | "complete" | "failed";
+  status: "pending" | "generating" | "failed" | "complete";
   duration: number;
+}
+
+export interface MediaPoolVersion {
+  id: string;
+  version_number: number;
+  video_url: string;
+  is_current: boolean;
 }
 
 interface MediaPoolProps {
   shots: MediaPoolShot[];
+  /** shot id → its video versions; each is draggable as a pinned clip */
+  versionsByShot: Record<string, MediaPoolVersion[]>;
   onDragStart?: (shotId: string) => void;
 }
 
@@ -35,9 +45,28 @@ function statusColor(status: MediaPoolShot["status"]): string {
   }
 }
 
-export default function MediaPool({ shots, onDragStart }: MediaPoolProps) {
+function setShotDragPayload(e: React.DragEvent, shotId: string, versionId: string | null) {
+  e.dataTransfer.setData(
+    "application/x-showbiz-shot",
+    JSON.stringify({ shotId, versionId })
+  );
+  e.dataTransfer.effectAllowed = "copy";
+}
+
+export default function MediaPool({ shots, versionsByShot, onDragStart }: MediaPoolProps) {
   const visibleShots = shots.filter((s) => s.image_url);
-  const probedDurations = useVideoDurations(visibleShots);
+
+  const durationUrls = useMemo(() => {
+    const urls = new Set<string>();
+    for (const shot of shots) {
+      if (shot.video_url) urls.add(shot.video_url);
+    }
+    for (const versions of Object.values(versionsByShot)) {
+      for (const version of versions) urls.add(version.video_url);
+    }
+    return [...urls];
+  }, [shots, versionsByShot]);
+  const probedDurations = useVideoDurations(durationUrls);
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -71,14 +100,18 @@ export default function MediaPool({ shots, onDragStart }: MediaPoolProps) {
               {visibleShots.map((shot) => {
                 const hasVideo = !!shot.video_url;
                 const isDraggable = hasVideo && shot.status === "complete";
+                const versions = versionsByShot[shot.id] ?? [];
+                const displayDuration = shot.video_url
+                  ? probedDurations[shot.video_url] ?? shot.duration
+                  : shot.duration;
                 return (
                   <div
                     key={shot.id}
                     draggable={isDraggable}
                     onDragStart={(e) => {
                       if (!isDraggable) return;
-                      e.dataTransfer.setData("application/x-showbiz-shot", shot.id);
-                      e.dataTransfer.effectAllowed = "copy";
+                      // Dragging the card follows the shot's current version
+                      setShotDragPayload(e, shot.id, null);
                       onDragStart?.(shot.id);
                     }}
                     className={`group ${
@@ -118,10 +151,36 @@ export default function MediaPool({ shots, onDragStart }: MediaPoolProps) {
                       </span>
                       {hasVideo && (
                         <span className="text-xs font-mono text-muted-foreground tabular-nums">
-                          {formatDuration(probedDurations[shot.id] ?? shot.duration)}
+                          {formatDuration(displayDuration)}
                         </span>
                       )}
                     </div>
+                    {/* Version chips — drag one to pin that version to the clip */}
+                    {isDraggable && versions.length > 1 && (
+                      <div className="flex flex-wrap gap-0.5 mt-0.5 px-0.5">
+                        {versions.map((version) => (
+                          <span
+                            key={version.id}
+                            draggable
+                            onDragStart={(e) => {
+                              e.stopPropagation();
+                              setShotDragPayload(e, shot.id, version.id);
+                              onDragStart?.(shot.id);
+                            }}
+                            title={`Drag to pin v${version.version_number} (${formatDuration(
+                              probedDurations[version.video_url] ?? shot.duration
+                            )})${version.is_current ? " — current" : ""}`}
+                            className={`cursor-grab active:cursor-grabbing text-[9px] font-mono leading-none px-1 py-0.5 rounded-sm border ${
+                              version.is_current
+                                ? "border-primary text-primary"
+                                : "border-border text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            v{version.version_number}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}

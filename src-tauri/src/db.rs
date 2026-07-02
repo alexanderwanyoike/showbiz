@@ -34,7 +34,10 @@ pub fn init(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 // an `M::up(include_str!(...))` entry below. Never edit a migration once it has
 // shipped; only append.
 fn migrations() -> Migrations<'static> {
-    Migrations::new(vec![M::up(include_str!("migrations/01-baseline.sql"))])
+    Migrations::new(vec![
+        M::up(include_str!("migrations/01-baseline.sql")),
+        M::up(include_str!("migrations/02-clip-trims-and-version-pins.sql")),
+    ])
 }
 
 fn migrate(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
@@ -149,6 +152,155 @@ pub mod tests {
         for removed in ["intent_action", "intent_camera", "intent_mood", "compiled_prompt", "prompt_override"] {
             assert!(!columns.contains(&removed.to_string()), "shots should not have {removed}");
         }
+    }
+
+    #[test]
+    fn timeline_clips_have_trim_and_version_columns() {
+        let conn = open_test_db();
+        let columns: Vec<String> = conn
+            .prepare("PRAGMA table_info(timeline_clips)")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        for column in ["trim_in", "trim_out", "video_version_id"] {
+            assert!(columns.contains(&column.to_string()), "timeline_clips missing {column}");
+        }
+    }
+
+    #[test]
+    fn timeline_edits_table_is_gone() {
+        let conn = open_test_db();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'timeline_edits'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 0, "timeline_edits should be dropped");
+    }
+
+    #[test]
+    fn clip_trims_migration_copies_edit_data() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        migrations()
+            .to_version(&mut conn, 1)
+            .expect("apply baseline only");
+
+        conn.execute("INSERT INTO projects (id, name) VALUES ('p1', 'P')", []).unwrap();
+        conn.execute(
+            "INSERT INTO storyboards (id, project_id, name) VALUES ('sb1', 'p1', 'SB')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            r#"INSERT INTO shots (id, storyboard_id, "order", status) VALUES ('sh1', 'sb1', 1, 'complete')"#,
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO timeline_edits (id, storyboard_id, shot_id, trim_in, trim_out)
+             VALUES ('e1', 'sb1', 'sh1', 1.5, 6.5)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO timeline_clips (id, storyboard_id, shot_id, track_id, start_time)
+             VALUES ('c1', 'sb1', 'sh1', 'V1', 0.0)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).expect("apply remaining migrations");
+
+        let (trim_in, trim_out): (f64, f64) = conn
+            .query_row(
+                "SELECT trim_in, trim_out FROM timeline_clips WHERE id = 'c1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(trim_in, 1.5);
+        assert_eq!(trim_out, 6.5);
+    }
+
+    #[test]
+    fn clips_without_edits_migrate_with_null_trims() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        migrations().to_version(&mut conn, 1).unwrap();
+
+        conn.execute("INSERT INTO projects (id, name) VALUES ('p1', 'P')", []).unwrap();
+        conn.execute(
+            "INSERT INTO storyboards (id, project_id, name) VALUES ('sb1', 'p1', 'SB')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            r#"INSERT INTO shots (id, storyboard_id, "order", status) VALUES ('sh1', 'sb1', 1, 'complete')"#,
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO timeline_clips (id, storyboard_id, shot_id, track_id, start_time)
+             VALUES ('c1', 'sb1', 'sh1', 'V1', 0.0)",
+            [],
+        )
+        .unwrap();
+
+        migrations().to_latest(&mut conn).unwrap();
+
+        let (trim_in, trim_out): (Option<f64>, Option<f64>) = conn
+            .query_row(
+                "SELECT trim_in, trim_out FROM timeline_clips WHERE id = 'c1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(trim_in, None);
+        assert_eq!(trim_out, None);
+    }
+
+    #[test]
+    fn deleting_video_version_nulls_clip_pin() {
+        let conn = open_test_db();
+        conn.execute("INSERT INTO projects (id, name) VALUES ('p1', 'P')", []).unwrap();
+        conn.execute(
+            "INSERT INTO storyboards (id, project_id, name) VALUES ('sb1', 'p1', 'SB')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            r#"INSERT INTO shots (id, storyboard_id, "order", status) VALUES ('sh1', 'sb1', 1, 'complete')"#,
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO video_versions (id, shot_id, version_number, edit_type, video_path, is_current)
+             VALUES ('v1', 'sh1', 1, 'generation', 'videos/sh1.mp4', 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO timeline_clips (id, storyboard_id, shot_id, track_id, start_time, video_version_id)
+             VALUES ('c1', 'sb1', 'sh1', 'V1', 0.0, 'v1')",
+            [],
+        )
+        .unwrap();
+
+        conn.execute("DELETE FROM video_versions WHERE id = 'v1'", []).unwrap();
+
+        let version_id: Option<String> = conn
+            .query_row(
+                "SELECT video_version_id FROM timeline_clips WHERE id = 'c1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(version_id, None, "pin should reset to follow-current");
     }
 
     #[test]

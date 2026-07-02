@@ -144,7 +144,7 @@ index.html vite.config.ts package.json tsconfig.json
 ### TypeScript (Vitest)
 
 ```bash
-yarn test          # Run all 298 tests (watch mode)
+yarn test          # Run all 293 tests (watch mode)
 yarn test --run    # Run once, exit
 ```
 
@@ -160,7 +160,7 @@ Tests are co-located with source under `src/lib/`:
 ### Rust (cargo test)
 
 ```bash
-cd src-tauri && cargo test    # Run all 83 tests
+cd src-tauri && cargo test    # Run all 93 tests
 ```
 
 Tests use inline `#[cfg(test)] mod tests` in each module:
@@ -171,12 +171,12 @@ Tests use inline `#[cfg(test)] mod tests` in each module:
 
 ## Database Schema
 
-Twelve tables with cascade deletes (SQLite via rusqlite). The schema lives in `src-tauri/src/migrations/` and is applied by `rusqlite_migration`, tracked via SQLite's `user_version`. To change the schema, add a new numbered `.sql` file; never edit a shipped migration.
+Eleven tables with cascade deletes (SQLite via rusqlite). The schema lives in `src-tauri/src/migrations/` and is applied by `rusqlite_migration`, tracked via SQLite's `user_version`. To change the schema, add a new numbered `.sql` file; never edit a shipped migration.
 
 - **projects**: id, name, timestamps
 - **storyboards**: id, project_id (FK), name, image_model, video_model, timestamps
 - **shots**: id, storyboard_id (FK), order, duration, image_prompt, image_path (start frame), **end_frame_path**, video_prompt, video_path, status, timestamps
-- **timeline_edits / timeline_tracks / timeline_clips**: multi-track timeline state
+- **timeline_tracks / timeline_clips**: multi-track timeline state; each clip owns its trim window (trim_in/trim_out, source-file seconds) and may pin a video_version_id (NULL = follow the shot's current version)
 - **settings**: key (PK), value, updated_at
 - **image_versions / video_versions**: per-shot version trees (self-ref FK, edit_type, is_current)
 - **bibles**: id, project_id (FK), name, is_default (auto-created per project via trigger)

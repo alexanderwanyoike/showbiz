@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { ZoomIn, ZoomOut, Loader2, Plus } from "lucide-react";
-import type { TimelineEdit, TimelineTrack as TimelineTrackType, TimelineClipRow } from "../../lib/tauri-api";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { ZoomIn, ZoomOut, Loader2, Plus, Scissors } from "lucide-react";
+import type { TimelineTrack as TimelineTrackType, TimelineClipRow } from "../../lib/tauri-api";
 import {
-  updateTimelineEdit,
   saveAssembledVideo,
   addTimelineClip,
   removeTimelineClip,
@@ -11,9 +10,13 @@ import {
   deleteTimelineTrack,
   getTimelineClips,
   getTimelineTracks,
+  updateTimelineClipTrims,
+  splitTimelineClip,
 } from "../../lib/tauri-api";
 import {
   buildTimelineClipsFromExplicit,
+  getActiveClipAtTime,
+  computeClipSplit,
   snapStartTime,
   orderClipsForExport,
   Shot,
@@ -35,10 +38,12 @@ import TrackHeader from "./TrackHeader";
 interface TimelineEditorProps {
   storyboardId: string;
   shots: Shot[];
-  edits: TimelineEdit[];
-  onEditsChange: (edits: TimelineEdit[]) => void;
   tracks: TimelineTrackType[];
   clipRows: TimelineClipRow[];
+  /** video version id → that version's file URL */
+  versionUrls: Record<string, string>;
+  /** video version id → version number, for pin badges */
+  versionNumbers: Record<string, number>;
   onTracksChange: (tracks: TimelineTrackType[]) => void;
   onClipsChange: (clips: TimelineClipRow[]) => void;
 }
@@ -50,22 +55,32 @@ const SNAP_PIXELS = 10; // snap radius for clip moves, in screen pixels
 export default function TimelineEditor({
   storyboardId,
   shots,
-  edits,
-  onEditsChange,
   tracks,
   clipRows,
+  versionUrls,
+  versionNumbers,
   onTracksChange,
   onClipsChange,
 }: TimelineEditorProps) {
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
-  const [localEdits, setLocalEdits] = useState<TimelineEdit[]>(edits);
+  // Optimistic trim values while a handle is being dragged, keyed by clip id
+  const [localTrims, setLocalTrims] = useState<Record<string, { trimIn: number; trimOut: number }>>({});
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
   const [exportStatus, setExportStatus] = useState<{ percent: number; stage: string } | null>(null);
 
-  // Convert DB clip rows to TimelineClipEntry for the clip builder
+  // Convert DB clip rows (+ optimistic trims) to entries for the clip builder
   const clipEntries: TimelineClipEntry[] = useMemo(
-    () => clipRows.map((r) => ({ shotId: r.shot_id, track: r.track_id, startTime: r.start_time })),
-    [clipRows]
+    () =>
+      clipRows.map((r) => ({
+        clipId: r.id,
+        shotId: r.shot_id,
+        track: r.track_id,
+        startTime: r.start_time,
+        trimIn: localTrims[r.id]?.trimIn ?? r.trim_in,
+        trimOut: localTrims[r.id]?.trimOut ?? r.trim_out,
+        videoVersionId: r.video_version_id,
+      })),
+    [clipRows, localTrims]
   );
 
   // Sort tracks: video tracks (descending by track_id), then audio tracks (ascending)
@@ -87,19 +102,26 @@ export default function TimelineEditor({
     setZoomIndex((prev) => Math.max(prev - 1, 0));
   }, []);
 
-  // Sync local edits with props
-  useEffect(() => {
-    setLocalEdits(edits);
-  }, [edits]);
+  // Probe real durations for every URL the timeline can play: each shot's
+  // current video plus any version pinned by a clip
+  const durationUrls = useMemo(() => {
+    const urls = new Set<string>();
+    for (const shot of shots) {
+      if (shot.video_url) urls.add(shot.video_url);
+    }
+    for (const row of clipRows) {
+      const pinned = row.video_version_id && versionUrls[row.video_version_id];
+      if (pinned) urls.add(pinned);
+    }
+    return [...urls];
+  }, [shots, clipRows, versionUrls]);
+  const durations = useVideoDurations(durationUrls);
 
-  // Real video durations probed from the files (shot.duration is stale)
-  const durations = useVideoDurations(shots);
-
-  // Build clips from explicit entries (empty timeline by default).
-  // Memoized so the playback poll loop is not torn down every render.
+  // Build clips from entries. Memoized so the playback poll loop is not torn
+  // down every render.
   const clips = useMemo(
-    () => buildTimelineClipsFromExplicit(clipEntries, shots, localEdits, durations),
-    [clipEntries, shots, localEdits, durations]
+    () => buildTimelineClipsFromExplicit(clipEntries, shots, durations, versionUrls),
+    [clipEntries, shots, durations, versionUrls]
   );
 
   // Group clips by track
@@ -117,15 +139,14 @@ export default function TimelineEditor({
 
   const mpv = useMpvPlayer();
 
-  // Handle drop from media pool — append at end of track content
-  const handleDropShot = useCallback(
-    async (shotId: string, trackId: string, dropTime?: number) => {
-      // Don't add if already on this track
-      const alreadyOnTrack = clipRows.some(
-        (r) => r.shot_id === shotId && r.track_id === trackId
-      );
-      if (alreadyOnTrack) return;
+  const refreshClips = useCallback(async () => {
+    const updatedClips = await getTimelineClips(storyboardId);
+    onClipsChange(updatedClips);
+  }, [storyboardId, onClipsChange]);
 
+  // Handle drop from media pool; a versionId pins that version to the clip
+  const handleDropShot = useCallback(
+    async (shotId: string, versionId: string | null, trackId: string, dropTime?: number) => {
       // Calculate start time: use dropTime if provided, else append after last clip on track
       let startTime = dropTime ?? 0;
       if (dropTime === undefined) {
@@ -137,53 +158,39 @@ export default function TimelineEditor({
         }
       } else {
         const shot = shots.find((s) => s.id === shotId);
-        const dropDuration = durations[shotId] ?? shot?.duration ?? 0;
+        const url = versionId ? versionUrls[versionId] : shot?.video_url;
+        const dropDuration = (url && durations[url]) || shot?.duration || 0;
         startTime = snapStartTime(dropTime, dropDuration, clips, SNAP_PIXELS / pixelsPerSecond);
       }
 
       try {
-        await addTimelineClip(storyboardId, shotId, trackId, startTime);
-        const updatedClips = await getTimelineClips(storyboardId);
-        onClipsChange(updatedClips);
+        await addTimelineClip(storyboardId, shotId, trackId, startTime, versionId);
+        await refreshClips();
       } catch (error) {
         console.error("Failed to add clip:", error);
       }
     },
-    [storyboardId, clipRows, clips, shots, durations, pixelsPerSecond, onClipsChange]
+    [storyboardId, clips, shots, durations, versionUrls, pixelsPerSecond, refreshClips]
   );
 
   // Remove a clip from the timeline
   const handleRemoveClip = useCallback(
-    async (shotId: string) => {
-      const clipRow = clipRows.find((r) => r.shot_id === shotId);
-      if (!clipRow) return;
-
+    async (clipId: string) => {
       try {
-        await removeTimelineClip(clipRow.id);
-        const updatedClips = await getTimelineClips(storyboardId);
-        onClipsChange(updatedClips);
+        await removeTimelineClip(clipId);
+        await refreshClips();
       } catch (error) {
         console.error("Failed to remove clip:", error);
       }
     },
-    [storyboardId, clipRows, onClipsChange]
+    [refreshClips]
   );
 
   // Move a clip to a new time/track
   const handleMoveClip = useCallback(
-    async (shotId: string, sourceTrack: string, targetTrack: string, startTime: number) => {
-      // Find the clip row by shotId + sourceTrack
-      const clipRow = clipRows.find(
-        (r) => r.shot_id === shotId && r.track_id === sourceTrack
-      );
-      if (!clipRow) return;
-
-      const movingClip = clips.find(
-        (c) => c.shot.id === shotId && c.track === sourceTrack
-      );
-      const otherClips = clips.filter(
-        (c) => !(c.shot.id === shotId && c.track === sourceTrack)
-      );
+    async (clipId: string, targetTrack: string, startTime: number) => {
+      const movingClip = clips.find((c) => c.clipId === clipId);
+      const otherClips = clips.filter((c) => c.clipId !== clipId);
       const snapped = snapStartTime(
         Math.max(0, startTime),
         movingClip?.effectiveDuration ?? 0,
@@ -192,14 +199,13 @@ export default function TimelineEditor({
       );
 
       try {
-        await moveTimelineClip(clipRow.id, targetTrack, Math.max(0, snapped));
-        const updatedClips = await getTimelineClips(storyboardId);
-        onClipsChange(updatedClips);
+        await moveTimelineClip(clipId, targetTrack, Math.max(0, snapped));
+        await refreshClips();
       } catch (error) {
         console.error("Failed to move clip:", error);
       }
     },
-    [storyboardId, clipRows, clips, pixelsPerSecond, onClipsChange]
+    [clips, pixelsPerSecond, refreshClips]
   );
 
   // Add a new track
@@ -235,7 +241,8 @@ export default function TimelineEditor({
   );
 
   const handleExport = useCallback(async () => {
-    if (clips.length === 0) {
+    const exportable = orderClipsForExport(clips).filter((c) => c.videoUrl);
+    if (exportable.length === 0) {
       alert("No clips to export!");
       return;
     }
@@ -243,8 +250,8 @@ export default function TimelineEditor({
     setExportStatus({ percent: 0, stage: "Starting..." });
 
     try {
-      const trimmedClips = orderClipsForExport(clips).map((clip) => ({
-        videoUrl: clip.shot.video_url!,
+      const trimmedClips = exportable.map((clip) => ({
+        videoUrl: clip.videoUrl!,
         trimIn: clip.trimIn,
         trimOut: clip.trimOut,
       }));
@@ -274,63 +281,47 @@ export default function TimelineEditor({
 
   const playback = useTimelinePlayback({ clips, mpv });
 
+  // Split the clip under the playhead (the selected one if it's there, else
+  // the topmost) into two independent clips
+  const handleSplit = useCallback(async () => {
+    const selected = selectedClipId ? clips.find((c) => c.clipId === selectedClipId) : null;
+    const target =
+      (selected && computeClipSplit(selected, playback.currentTime) ? selected : null) ??
+      getActiveClipAtTime(playback.currentTime, clips)?.clip;
+    if (!target) return;
+
+    const split = computeClipSplit(target, playback.currentTime);
+    if (!split) return;
+
+    try {
+      await splitTimelineClip(split.clipId, split.splitLocalTime, split.secondStartTime);
+      await refreshClips();
+    } catch (error) {
+      console.error("Failed to split clip:", error);
+    }
+  }, [clips, selectedClipId, playback.currentTime, refreshClips]);
+
   // Handle optimistic trim updates during drag
-  const handleTrimChange = useCallback(
-    (shotId: string, trimIn: number, trimOut: number) => {
-      setLocalEdits((prev) => {
-        const existing = prev.find((e) => e.shot_id === shotId);
-        if (existing) {
-          return prev.map((e) =>
-            e.shot_id === shotId ? { ...e, trim_in: trimIn, trim_out: trimOut } : e
-          );
-        }
-        // Create a temporary edit
-        return [
-          ...prev,
-          {
-            id: `temp-${shotId}`,
-            storyboard_id: storyboardId,
-            shot_id: shotId,
-            trim_in: trimIn,
-            trim_out: trimOut,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        ];
-      });
-    },
-    [storyboardId]
-  );
+  const handleTrimChange = useCallback((clipId: string, trimIn: number, trimOut: number) => {
+    setLocalTrims((prev) => ({ ...prev, [clipId]: { trimIn, trimOut } }));
+  }, []);
 
   // Handle trim end - persist to database
   const handleTrimEnd = useCallback(
-    async (shotId: string, trimIn: number, trimOut: number) => {
+    async (clipId: string, trimIn: number, trimOut: number) => {
       try {
-        const updatedEdit = await updateTimelineEdit(
-          storyboardId,
-          shotId,
-          trimIn,
-          trimOut
-        );
-        // Update local state with persisted edit
-        setLocalEdits((prev) => {
-          const existing = prev.find((e) => e.shot_id === shotId);
-          if (existing) {
-            return prev.map((e) => (e.shot_id === shotId ? updatedEdit : e));
-          }
-          return [...prev, updatedEdit];
-        });
-        // Notify parent
-        onEditsChange(
-          localEdits.map((e) => (e.shot_id === shotId ? updatedEdit : e))
-        );
+        await updateTimelineClipTrims(clipId, trimIn, trimOut);
+        await refreshClips();
       } catch (error) {
         console.error("Failed to save trim:", error);
-        // Revert to original edits on error
-        setLocalEdits(edits);
+      } finally {
+        setLocalTrims((prev) => {
+          const { [clipId]: _dropped, ...rest } = prev;
+          return rest;
+        });
       }
     },
-    [storyboardId, edits, localEdits, onEditsChange]
+    [refreshClips]
   );
 
   // Trim drag hook
@@ -384,6 +375,10 @@ export default function TimelineEditor({
           e.preventDefault();
           playback.play();
           break;
+        case "KeyS":
+          e.preventDefault();
+          handleSplit();
+          break;
         case "Equal":
         case "NumpadAdd":
           e.preventDefault();
@@ -407,7 +402,7 @@ export default function TimelineEditor({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playback, zoomIn, zoomOut, selectedClipId, handleRemoveClip]);
+  }, [playback, zoomIn, zoomOut, selectedClipId, handleRemoveClip, handleSplit]);
 
   return (
     <div className="flex flex-col flex-1 bg-muted/50 dark:bg-card overflow-hidden">
@@ -435,8 +430,17 @@ export default function TimelineEditor({
           onSkipForward={playback.skipForward}
         />
 
-        {/* Export Controls */}
+        {/* Edit + Export Controls */}
         <div className="flex items-center gap-2">
+          <Button
+            onClick={handleSplit}
+            variant="secondary"
+            size="sm"
+            title="Split clip at playhead (S)"
+          >
+            <Scissors className="h-4 w-4 mr-1.5" />
+            Split
+          </Button>
           <Button
             onClick={handleExport}
             disabled={exportStatus !== null || clips.length === 0}
@@ -538,9 +542,10 @@ export default function TimelineEditor({
                         clips={clipsByTrack.get(track.track_id) || []}
                         pixelsPerSecond={pixelsPerSecond}
                         selectedClipId={selectedClipId}
+                        versionNumbers={versionNumbers}
                         onClipSelect={setSelectedClipId}
-                        onTrimStart={(e, shotId, edge, trimIn, trimOut, maxDuration) =>
-                          startTrim(e, shotId, edge, trimIn, trimOut, maxDuration)
+                        onTrimStart={(e, clipId, edge, trimIn, trimOut, maxDuration) =>
+                          startTrim(e, clipId, edge, trimIn, trimOut, maxDuration)
                         }
                         onDropShot={handleDropShot}
                         onMoveClip={handleMoveClip}
@@ -579,6 +584,7 @@ export default function TimelineEditor({
       <div className="flex-shrink-0 px-4 py-2 bg-muted text-muted-foreground text-xs border-t border-border flex items-center justify-between">
         <div>
           <span className="mr-4">Space: Play/Pause</span>
+          <span className="mr-4">S: Split</span>
           <span className="mr-4">J/K/L: Back 5s/Pause/Play</span>
           <span className="mr-4">Arrows: Step 0.1s (Shift: 1s)</span>
           <span className="mr-4">+/-: Zoom</span>

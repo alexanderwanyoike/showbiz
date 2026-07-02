@@ -8,17 +8,19 @@ interface TimelineTrackProps {
   clips: TimelineClipType[];
   pixelsPerSecond: number;
   selectedClipId: string | null;
-  onClipSelect: (shotId: string) => void;
+  /** video version id → version number, for pin badges */
+  versionNumbers: Record<string, number>;
+  onClipSelect: (clipId: string) => void;
   onTrimStart: (
     e: React.MouseEvent,
-    shotId: string,
+    clipId: string,
     edge: "in" | "out",
     trimIn: number,
     trimOut: number,
     maxDuration: number
   ) => void;
-  onDropShot?: (shotId: string, trackId: string, dropTime?: number) => void;
-  onMoveClip?: (shotId: string, sourceTrack: string, targetTrack: string, startTime: number) => void;
+  onDropShot?: (shotId: string, versionId: string | null, trackId: string, dropTime?: number) => void;
+  onMoveClip?: (clipId: string, targetTrack: string, startTime: number) => void;
 }
 
 export default function TimelineTrack({
@@ -27,6 +29,7 @@ export default function TimelineTrack({
   clips,
   pixelsPerSecond,
   selectedClipId,
+  versionNumbers,
   onClipSelect,
   onTrimStart,
   onDropShot,
@@ -88,20 +91,26 @@ export default function TimelineTrack({
     const clipMoveData = e.dataTransfer.getData("application/x-showbiz-clip-move");
     if (clipMoveData && onMoveClip) {
       e.preventDefault();
-      const parts = clipMoveData.split(":");
-      const shotId = parts[0];
-      const sourceTrack = parts[1];
-      const grabOffset = parseFloat(parts[2]) || 0;
-      const adjustedTime = Math.max(0, dropTime - grabOffset);
-      onMoveClip(shotId, sourceTrack, trackId, adjustedTime);
+      try {
+        const { clipId, grabOffset } = JSON.parse(clipMoveData);
+        const adjustedTime = Math.max(0, dropTime - (grabOffset || 0));
+        onMoveClip(clipId, trackId, adjustedTime);
+      } catch (error) {
+        console.error("Malformed clip-move drag payload:", error);
+      }
       return;
     }
 
-    // Handle shot drop from media pool
-    const shotId = e.dataTransfer.getData("application/x-showbiz-shot");
-    if (shotId) {
+    // Handle shot (or pinned version) drop from media pool
+    const shotDropData = e.dataTransfer.getData("application/x-showbiz-shot");
+    if (shotDropData) {
       e.preventDefault();
-      onDropShot?.(shotId, trackId, dropTime);
+      try {
+        const { shotId, versionId } = JSON.parse(shotDropData);
+        onDropShot?.(shotId, versionId ?? null, trackId, dropTime);
+      } catch (error) {
+        console.error("Malformed shot drag payload:", error);
+      }
     }
   };
 
@@ -150,18 +159,18 @@ export default function TimelineTrack({
     >
       {clips.map((clip) => (
         <div
-          key={clip.shot.id}
+          key={clip.clipId}
           className="absolute top-0 bottom-0"
           style={{ left: clip.startOffset * pixelsPerSecond }}
         >
           <TimelineClip
             clip={clip}
-            trackId={trackId}
             pixelsPerSecond={pixelsPerSecond}
-            isSelected={selectedClipId === clip.shot.id}
-            onClick={() => onClipSelect(clip.shot.id)}
+            isSelected={selectedClipId === clip.clipId}
+            versionNumber={clip.videoVersionId ? versionNumbers[clip.videoVersionId] : undefined}
+            onClick={() => onClipSelect(clip.clipId)}
             onTrimStart={(e, edge, trimIn, trimOut, maxDuration) =>
-              onTrimStart(e, clip.shot.id, edge, trimIn, trimOut, maxDuration)
+              onTrimStart(e, clip.clipId, edge, trimIn, trimOut, maxDuration)
             }
           />
         </div>

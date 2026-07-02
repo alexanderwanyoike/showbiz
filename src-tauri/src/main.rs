@@ -117,11 +117,6 @@ fn main() {
             commands::video_versions::switch_to_video_version,
             commands::video_versions::get_video_version_count,
             commands::video_versions::create_video_generation_version,
-            // Timeline
-            commands::timeline::get_timeline_edits,
-            commands::timeline::update_timeline_edit,
-            commands::timeline::reset_timeline_edit,
-            commands::timeline::reset_all_timeline_edits,
             // Timeline Tracks & Clips
             commands::timeline::get_timeline_tracks,
             commands::timeline::create_timeline_track,
@@ -132,6 +127,8 @@ fn main() {
             commands::timeline::remove_timeline_clip,
             commands::timeline::remove_all_timeline_clips,
             commands::timeline::move_timeline_clip,
+            commands::timeline::update_timeline_clip_trims,
+            commands::timeline::split_timeline_clip,
             // Media
             commands::media_cmd::get_media_path,
             commands::media_cmd::save_assembled_video,
