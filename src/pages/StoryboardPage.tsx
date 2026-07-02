@@ -1061,7 +1061,7 @@ export default function StoryboardPage() {
                 image_url: s.image_url,
                 video_url: s.video_url,
                 status: s.status,
-                duration: 8,
+                duration: s.duration,
               }))}
             />
           </div>

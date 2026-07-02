@@ -18,6 +18,11 @@ export interface Shot {
 export interface TimelineClip {
   shot: Shot;
   edit: TimelineEdit | null;
+  /** Real length of the source video in seconds (probed, or shot.duration fallback) */
+  sourceDuration: number;
+  /** Resolved trim window in source-file seconds, clamped to [0, sourceDuration] */
+  trimIn: number;
+  trimOut: number;
   effectiveDuration: number;
   startOffset: number;
   track: string;
@@ -31,45 +36,16 @@ export interface TimelineClipEntry {
 }
 
 /**
- * Build timeline clips from shots and edits (auto-populates from all complete shots).
- * @deprecated Use buildTimelineClipsFromExplicit for user-controlled timelines.
- */
-export function buildTimelineClips(
-  shots: Shot[],
-  edits: TimelineEdit[]
-): TimelineClip[] {
-  const editMap = new Map(edits.map((e) => [e.shot_id, e]));
-  let offset = 0;
-
-  return shots
-    .filter((shot) => shot.status === "complete" && shot.video_url)
-    .map((shot) => {
-      const edit = editMap.get(shot.id) || null;
-      const trimIn = edit?.trim_in ?? 0;
-      const trimOut = edit?.trim_out ?? shot.duration;
-      const effectiveDuration = trimOut - trimIn;
-
-      const clip: TimelineClip = {
-        shot,
-        edit,
-        effectiveDuration,
-        startOffset: offset,
-        track: "V1",
-      };
-
-      offset += effectiveDuration;
-      return clip;
-    });
-}
-
-/**
  * Build timeline clips from explicit entries (user-added clips only).
  * Each entry has a startTime for free-form positioning on the timeline.
+ * `durations` maps shot id to the probed real video duration; without it the
+ * stale integer shot.duration is used and trims may not match the actual file.
  */
 export function buildTimelineClipsFromExplicit(
   entries: TimelineClipEntry[],
   shots: Shot[],
-  edits: TimelineEdit[]
+  edits: TimelineEdit[],
+  durations: Record<string, number> = {}
 ): TimelineClip[] {
   const shotMap = new Map(shots.map((s) => [s.id, s]));
   const editMap = new Map(edits.map((e) => [e.shot_id, e]));
@@ -81,14 +57,17 @@ export function buildTimelineClipsFromExplicit(
     if (!shot || shot.status !== "complete" || !shot.video_url) continue;
 
     const edit = editMap.get(shot.id) || null;
-    const trimIn = edit?.trim_in ?? 0;
-    const trimOut = edit?.trim_out ?? shot.duration;
-    const effectiveDuration = trimOut - trimIn;
+    const sourceDuration = durations[shot.id] ?? shot.duration;
+    const trimOut = Math.min(edit?.trim_out ?? sourceDuration, sourceDuration);
+    const trimIn = Math.min(Math.max(edit?.trim_in ?? 0, 0), trimOut);
 
     clips.push({
       shot,
       edit,
-      effectiveDuration,
+      sourceDuration,
+      trimIn,
+      trimOut,
+      effectiveDuration: trimOut - trimIn,
       startOffset: entry.startTime,
       track: entry.track,
     });
@@ -143,8 +122,7 @@ export function getActiveClipAtTime(
   for (const clip of clips) {
     const clipEnd = clip.startOffset + clip.effectiveDuration;
     if (time >= clip.startOffset && time < clipEnd) {
-      const trimIn = clip.edit?.trim_in ?? 0;
-      const localTime = trimIn + (time - clip.startOffset);
+      const localTime = clip.trimIn + (time - clip.startOffset);
       candidates.push({ clip, localTime });
     }
   }
@@ -176,8 +154,105 @@ export function getNextClipAfterTime(
   });
 
   const clip = candidates[0];
-  const trimIn = clip.edit?.trim_in ?? 0;
-  return { clip, localTime: trimIn };
+  return { clip, localTime: clip.trimIn };
+}
+
+export type PlayheadState =
+  | { kind: "clip"; clip: TimelineClip; localTime: number }
+  | { kind: "gap"; nextStart: number | null }
+  | { kind: "end" };
+
+/**
+ * Classify a timeline position: on a clip (play its video), in a gap
+ * (show black and let time pass), or at/past the end of all content.
+ */
+export function resolvePlayheadState(
+  time: number,
+  clips: TimelineClip[]
+): PlayheadState {
+  const active = getActiveClipAtTime(time, clips);
+  if (active) return { kind: "clip", ...active };
+
+  const total = getTotalDuration(clips);
+  if (time < total) {
+    const next = getNextClipAfterTime(time, clips);
+    return { kind: "gap", nextStart: next ? next.clip.startOffset : null };
+  }
+
+  return { kind: "end" };
+}
+
+export interface PlaybackStart {
+  /** Timeline time playback actually starts at (may differ from the playhead) */
+  timelineTime: number;
+  state: PlayheadState;
+}
+
+/**
+ * Resolve where playback should start for a given playhead position.
+ * Gaps are honored: playback starts where the playhead is, showing black
+ * until the next clip. Past the end, restart from timeline zero.
+ */
+export function resolvePlaybackStart(
+  time: number,
+  clips: TimelineClip[]
+): PlaybackStart | null {
+  if (clips.length === 0) return null;
+
+  const startTime = time < getTotalDuration(clips) ? time : 0;
+  return { timelineTime: startTime, state: resolvePlayheadState(startTime, clips) };
+}
+
+/**
+ * Order clips for export: by timeline position, with higher-priority tracks
+ * first when clips start at the same time. Export concatenates clips, so
+ * without this the output follows DB order (track id, then time) and does
+ * not match what the timeline shows.
+ */
+export function orderClipsForExport(clips: TimelineClip[]): TimelineClip[] {
+  return [...clips].sort((a, b) => {
+    const timeDiff = a.startOffset - b.startOffset;
+    if (timeDiff !== 0) return timeDiff;
+    return trackPriority(b.track) - trackPriority(a.track);
+  });
+}
+
+/**
+ * Snap a proposed clip start time to nearby snap points: timeline zero and
+ * the start/end edges of other clips (either edge of the moving clip may
+ * land on them). Returns the proposed time unchanged when nothing is within
+ * the threshold.
+ */
+export function snapStartTime(
+  proposedStart: number,
+  clipDuration: number,
+  otherClips: TimelineClip[],
+  threshold: number
+): number {
+  const snapPoints = [0];
+  for (const clip of otherClips) {
+    snapPoints.push(clip.startOffset, clip.startOffset + clip.effectiveDuration);
+  }
+
+  let best = proposedStart;
+  let bestDistance = threshold;
+
+  for (const point of snapPoints) {
+    const startEdgeDistance = Math.abs(proposedStart - point);
+    if (startEdgeDistance <= bestDistance) {
+      bestDistance = startEdgeDistance;
+      best = point;
+    }
+
+    const endAlignedStart = point - clipDuration;
+    const endEdgeDistance = Math.abs(proposedStart - endAlignedStart);
+    if (endAlignedStart >= 0 && endEdgeDistance < bestDistance) {
+      bestDistance = endEdgeDistance;
+      best = endAlignedStart;
+    }
+  }
+
+  return best;
 }
 
 /**
@@ -194,8 +269,7 @@ export function timelineToClipTime(
     const clipDuration = clip.effectiveDuration;
 
     if (timelineTime < accumulated + clipDuration) {
-      const trimIn = clip.edit?.trim_in ?? 0;
-      const localTime = trimIn + (timelineTime - accumulated);
+      const localTime = clip.trimIn + (timelineTime - accumulated);
       return { clipIndex: i, localTime };
     }
 
@@ -220,8 +294,7 @@ export function clipToTimelineTime(
   }
 
   const clip = clips[clipIndex];
-  const trimIn = clip.edit?.trim_in ?? 0;
-  const offsetInClip = localTime - trimIn;
+  const offsetInClip = localTime - clip.trimIn;
 
   return accumulated + offsetInClip;
 }

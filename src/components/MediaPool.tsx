@@ -1,4 +1,5 @@
 import { Film } from "lucide-react";
+import { useVideoDurations } from "../hooks/useVideoDurations";
 
 interface MediaPoolShot {
   id: string;
@@ -36,6 +37,7 @@ function statusColor(status: MediaPoolShot["status"]): string {
 
 export default function MediaPool({ shots, onDragStart }: MediaPoolProps) {
   const visibleShots = shots.filter((s) => s.image_url);
+  const probedDurations = useVideoDurations(visibleShots);
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -114,9 +116,11 @@ export default function MediaPool({ shots, onDragStart }: MediaPoolProps) {
                       <span className="text-xs text-muted-foreground truncate">
                         Shot #{shot.order}
                       </span>
-                      <span className="text-xs font-mono text-muted-foreground tabular-nums">
-                        {formatDuration(shot.duration)}
-                      </span>
+                      {hasVideo && (
+                        <span className="text-xs font-mono text-muted-foreground tabular-nums">
+                          {formatDuration(probedDurations[shot.id] ?? shot.duration)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );

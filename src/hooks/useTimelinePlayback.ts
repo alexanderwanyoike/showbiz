@@ -1,13 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
   TimelineClip,
-  getActiveClipAtTime,
-  getNextClipAfterTime,
-  clipToTimelineTime,
+  resolvePlayheadState,
+  resolvePlaybackStart,
   getTotalDuration,
 } from "../lib/timeline-utils";
 import { MpvPlayer } from "./useMpvPlayer";
-import { assetUrlToPath } from "../lib/tauri-api";
 import { resolveSeekAction } from "../lib/seek-utils";
 
 interface UseTimelinePlaybackOptions {
@@ -15,41 +13,74 @@ interface UseTimelinePlaybackOptions {
   mpv: MpvPlayer;
 }
 
+/** Wall-clock anchor used to advance the playhead through a gap (black screen) */
+interface GapAnchor {
+  wallClock: number;
+  timelineTime: number;
+}
+
 export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const pendingRef = useRef(false);
   const currentFileRef = useRef<string>("");
-  // Track which clip is actively loaded so we detect transitions
+  // Track which clip is actively loaded; null while traversing a gap
   const activeClipRef = useRef<{ shotId: string; track: string } | null>(null);
+  const gapAnchorRef = useRef<GapAnchor | null>(null);
 
   const totalDuration = getTotalDuration(clips);
 
+  // Load a clip into mpv at the given source-file position and start it
+  const startClip = useCallback(
+    async (clip: TimelineClip, localTime: number) => {
+      const videoUrl = clip.shot.video_url;
+      if (!videoUrl) return;
+      activeClipRef.current = { shotId: clip.shot.id, track: clip.track };
+      gapAnchorRef.current = null;
+      await mpv.show();
+      const { shouldReload, path } = resolveSeekAction(videoUrl, currentFileRef.current);
+      if (shouldReload) {
+        await mpv.loadFile(videoUrl, localTime);
+        currentFileRef.current = path;
+      } else {
+        await mpv.seek(localTime);
+      }
+      await mpv.play();
+    },
+    [mpv]
+  );
+
+  // Enter gap traversal: black screen, playhead advances on wall-clock time
+  const startGap = useCallback(
+    async (timelineTime: number) => {
+      activeClipRef.current = null;
+      gapAnchorRef.current = { wallClock: performance.now(), timelineTime };
+      await mpv.pause();
+      await mpv.hide();
+    },
+    [mpv]
+  );
+
   const play = useCallback(async () => {
-    if (clips.length === 0 || pendingRef.current) return;
+    if (clips.length === 0 || pendingRef.current || !mpv.ready) return;
     pendingRef.current = true;
 
-    const active = getActiveClipAtTime(currentTime, clips);
-    if (active) {
-      const { clip, localTime } = active;
-      if (clip.shot.video_url) {
-        activeClipRef.current = { shotId: clip.shot.id, track: clip.track };
-        const { shouldReload, path } = resolveSeekAction(clip.shot.video_url, currentFileRef.current);
-        if (shouldReload) {
-          await mpv.loadFile(clip.shot.video_url, localTime);
-          currentFileRef.current = path;
-        } else if (localTime > 0) {
-          await mpv.seek(localTime);
-        }
-        await mpv.play();
-        setIsPlaying(true);
+    const start = resolvePlaybackStart(currentTime, clips);
+    if (start && start.state.kind !== "end") {
+      setCurrentTime(start.timelineTime);
+      if (start.state.kind === "clip") {
+        await startClip(start.state.clip, start.state.localTime);
+      } else {
+        await startGap(start.timelineTime);
       }
+      setIsPlaying(true);
     }
     pendingRef.current = false;
-  }, [clips, currentTime, mpv]);
+  }, [clips, currentTime, mpv, startClip, startGap]);
 
   const pause = useCallback(async () => {
     setIsPlaying(false);
+    gapAnchorRef.current = null;
     pendingRef.current = false;
     await mpv.pause();
   }, [mpv]);
@@ -58,23 +89,41 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
     async (time: number) => {
       const clamped = Math.max(0, Math.min(time, totalDuration));
       setCurrentTime(clamped);
+      if (!mpv.ready) return;
 
-      const active = getActiveClipAtTime(clamped, clips);
-      if (!active) return;
-      const { clip, localTime } = active;
-      if (!clip.shot.video_url) return;
-
-      activeClipRef.current = { shotId: clip.shot.id, track: clip.track };
-      const { shouldReload, path } = resolveSeekAction(clip.shot.video_url, currentFileRef.current);
-      if (shouldReload) {
-        await mpv.loadFile(clip.shot.video_url, localTime);
-        currentFileRef.current = path;
+      const state = resolvePlayheadState(clamped, clips);
+      if (state.kind === "clip" && state.clip.shot.video_url) {
+        const videoUrl = state.clip.shot.video_url;
+        activeClipRef.current = { shotId: state.clip.shot.id, track: state.clip.track };
+        gapAnchorRef.current = null;
+        await mpv.show();
+        const { shouldReload, path } = resolveSeekAction(videoUrl, currentFileRef.current);
+        if (shouldReload) {
+          await mpv.loadFile(videoUrl, state.localTime);
+          currentFileRef.current = path;
+        } else {
+          await mpv.seek(state.localTime);
+        }
+        // Preserve transport state: keep rolling if playing, else show the frame
+        if (isPlaying) {
+          await mpv.play();
+        } else {
+          await mpv.pause();
+        }
       } else {
-        await mpv.seek(localTime);
+        // Gap or end of timeline: show black
+        activeClipRef.current = null;
+        await mpv.pause();
+        await mpv.hide();
+        if (state.kind === "gap" && isPlaying) {
+          gapAnchorRef.current = { wallClock: performance.now(), timelineTime: clamped };
+        } else {
+          gapAnchorRef.current = null;
+          if (state.kind === "end") setIsPlaying(false);
+        }
       }
-      await mpv.pause(); // show frame, don't play
     },
-    [clips, totalDuration, mpv]
+    [clips, totalDuration, mpv, isPlaying]
   );
 
   const skipToStart = useCallback(() => seek(0), [seek]);
@@ -85,60 +134,76 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
     [seek, currentTime, totalDuration]
   );
 
-  // Poll mpv position at ~100 ms while playing; handle clip transitions
+  // Drive the playhead at ~100 ms while playing: poll mpv inside clips,
+  // advance on wall-clock time through gaps, and handle transitions.
   useEffect(() => {
     if (!isPlaying || clips.length === 0) return;
+
+    const stopAtEnd = async () => {
+      setIsPlaying(false);
+      gapAnchorRef.current = null;
+      await mpv.pause();
+      setCurrentTime(totalDuration);
+    };
 
     const interval = setInterval(async () => {
       if (pendingRef.current) return;
 
-      const pos = await mpv.getPosition();
-      if (pos === null) return;
-
       const active = activeClipRef.current;
-      if (!active) return;
+      if (active) {
+        const pos = await mpv.getPosition();
+        if (pos === null) return;
 
-      // Find the currently loaded clip to check trimOut
-      const loadedClip = clips.find(
-        (c) => c.shot.id === active.shotId && c.track === active.track
-      );
-      if (!loadedClip) return;
+        const loadedClip = clips.find(
+          (c) => c.shot.id === active.shotId && c.track === active.track
+        );
+        if (!loadedClip) return;
 
-      const trimOut = loadedClip.edit?.trim_out ?? loadedClip.shot.duration;
+        if (pos >= loadedClip.trimOut - 0.05) {
+          // Current clip ended — resolve what the timeline holds next
+          const endTime = loadedClip.startOffset + loadedClip.effectiveDuration;
+          const state = resolvePlayheadState(endTime + 0.001, clips);
 
-      if (pos >= trimOut - 0.05) {
-        // Current clip ended — advance timeline time and re-resolve
-        const nextTime = loadedClip.startOffset + loadedClip.effectiveDuration + 0.01;
-        const nextActive = getActiveClipAtTime(nextTime, clips);
-
-        // Try exact time first, then scan forward for the next clip after a gap
-        const resolved = nextActive ?? getNextClipAfterTime(nextTime, clips);
-
-        if (resolved && resolved.clip.shot.video_url) {
           pendingRef.current = true;
-          const { clip: nextClip, localTime: nextLocalTime } = resolved;
-          activeClipRef.current = { shotId: nextClip.shot.id, track: nextClip.track };
-          setCurrentTime(nextClip.startOffset);
-          await mpv.loadFile(nextClip.shot.video_url, nextLocalTime);
-          currentFileRef.current = assetUrlToPath(nextClip.shot.video_url) ?? nextClip.shot.video_url;
-          await mpv.play();
+          if (state.kind === "clip") {
+            setCurrentTime(state.clip.startOffset);
+            await startClip(state.clip, state.localTime);
+          } else if (state.kind === "gap") {
+            setCurrentTime(endTime);
+            await startGap(endTime);
+          } else {
+            await stopAtEnd();
+          }
           pendingRef.current = false;
         } else {
-          // No more clips — stop playback
-          setIsPlaying(false);
-          await mpv.pause();
-          setCurrentTime(totalDuration);
+          // Still playing current clip — update timeline position
+          const timeInClip = pos - loadedClip.trimIn;
+          setCurrentTime(loadedClip.startOffset + timeInClip);
         }
       } else {
-        // Still playing current clip — update timeline position
-        const trimIn = loadedClip.edit?.trim_in ?? 0;
-        const timeInClip = pos - trimIn;
-        setCurrentTime(loadedClip.startOffset + timeInClip);
+        // Gap traversal — advance the playhead on wall-clock time
+        const anchor = gapAnchorRef.current;
+        if (!anchor) return;
+
+        const newTime =
+          anchor.timelineTime + (performance.now() - anchor.wallClock) / 1000;
+        const state = resolvePlayheadState(newTime, clips);
+
+        if (state.kind === "clip") {
+          pendingRef.current = true;
+          setCurrentTime(newTime);
+          await startClip(state.clip, state.localTime);
+          pendingRef.current = false;
+        } else if (state.kind === "gap") {
+          setCurrentTime(newTime);
+        } else {
+          await stopAtEnd();
+        }
       }
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isPlaying, clips, totalDuration, mpv]);
+  }, [isPlaying, clips, totalDuration, mpv, startClip, startGap]);
 
   return {
     isPlaying,

@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { assetUrlToPath } from "../lib/tauri-api";
@@ -24,6 +24,10 @@ export interface MpvPlayer {
   seek: (seconds: number) => Promise<void>;
   /** Poll mpv for current playback position. Returns null if not playing. */
   getPosition: () => Promise<number | null>;
+  /** Hide the mpv window (the black container shows through, e.g. timeline gaps). */
+  hide: () => Promise<void>;
+  /** Show the mpv window again after hide(). */
+  show: () => Promise<void>;
   /** Move/resize the mpv X11 child window to match the container div. */
   syncGeometry: () => Promise<void>;
 }
@@ -106,6 +110,14 @@ export function useMpvPlayer(): MpvPlayer {
     }
   }, []);
 
+  const hide = useCallback(async () => {
+    await invoke("mpv_hide");
+  }, []);
+
+  const show = useCallback(async () => {
+    await invoke("mpv_show");
+  }, []);
+
   const syncGeometry = useCallback(async () => {
     const el = containerRef.current;
     if (!el || !ready) return;
@@ -113,5 +125,10 @@ export function useMpvPlayer(): MpvPlayer {
     await invoke("mpv_update_geometry", rect).catch(() => {});
   }, [ready]);
 
-  return { containerRef, ready, error, start, stop, loadFile, play, pause, seek, getPosition, syncGeometry };
+  // Stable object identity so effects depending on the player (e.g. the
+  // playback poll loop) are not torn down on every render.
+  return useMemo(
+    () => ({ containerRef, ready, error, start, stop, loadFile, play, pause, seek, getPosition, hide, show, syncGeometry }),
+    [ready, error, start, stop, loadFile, play, pause, seek, getPosition, hide, show, syncGeometry]
+  );
 }
