@@ -3,7 +3,7 @@ import {
   TimelineClip,
   getActiveClipAtTime,
   getNextClipAfterTime,
-  clipToTimelineTime,
+  resolvePlaybackStart,
   getTotalDuration,
 } from "../lib/timeline-utils";
 import { MpvPlayer } from "./useMpvPlayer";
@@ -26,24 +26,26 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
   const totalDuration = getTotalDuration(clips);
 
   const play = useCallback(async () => {
-    if (clips.length === 0 || pendingRef.current) return;
+    if (clips.length === 0 || pendingRef.current || !mpv.ready) return;
     pendingRef.current = true;
 
-    const active = getActiveClipAtTime(currentTime, clips);
-    if (active) {
-      const { clip, localTime } = active;
-      if (clip.shot.video_url) {
-        activeClipRef.current = { shotId: clip.shot.id, track: clip.track };
-        const { shouldReload, path } = resolveSeekAction(clip.shot.video_url, currentFileRef.current);
-        if (shouldReload) {
-          await mpv.loadFile(clip.shot.video_url, localTime);
-          currentFileRef.current = path;
-        } else if (localTime > 0) {
-          await mpv.seek(localTime);
-        }
-        await mpv.play();
-        setIsPlaying(true);
+    // Inside a clip: play there. In a gap or past the end: jump to the
+    // next/first clip instead of silently doing nothing.
+    const start = resolvePlaybackStart(currentTime, clips);
+    const videoUrl = start?.clip.shot.video_url;
+    if (start && videoUrl) {
+      const { clip, localTime, timelineTime } = start;
+      activeClipRef.current = { shotId: clip.shot.id, track: clip.track };
+      setCurrentTime(timelineTime);
+      const { shouldReload, path } = resolveSeekAction(videoUrl, currentFileRef.current);
+      if (shouldReload) {
+        await mpv.loadFile(videoUrl, localTime);
+        currentFileRef.current = path;
+      } else {
+        await mpv.seek(localTime);
       }
+      await mpv.play();
+      setIsPlaying(true);
     }
     pendingRef.current = false;
   }, [clips, currentTime, mpv]);
@@ -58,6 +60,7 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
     async (time: number) => {
       const clamped = Math.max(0, Math.min(time, totalDuration));
       setCurrentTime(clamped);
+      if (!mpv.ready) return;
 
       const active = getActiveClipAtTime(clamped, clips);
       if (!active) return;
@@ -72,9 +75,14 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
       } else {
         await mpv.seek(localTime);
       }
-      await mpv.pause(); // show frame, don't play
+      // Preserve transport state: keep rolling if playing, else show the frame
+      if (isPlaying) {
+        await mpv.play();
+      } else {
+        await mpv.pause();
+      }
     },
-    [clips, totalDuration, mpv]
+    [clips, totalDuration, mpv, isPlaying]
   );
 
   const skipToStart = useCallback(() => seek(0), [seek]);
@@ -104,9 +112,7 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
       );
       if (!loadedClip) return;
 
-      const trimOut = loadedClip.edit?.trim_out ?? loadedClip.shot.duration;
-
-      if (pos >= trimOut - 0.05) {
+      if (pos >= loadedClip.trimOut - 0.05) {
         // Current clip ended — advance timeline time and re-resolve
         const nextTime = loadedClip.startOffset + loadedClip.effectiveDuration + 0.01;
         const nextActive = getActiveClipAtTime(nextTime, clips);
@@ -131,8 +137,7 @@ export function useTimelinePlayback({ clips, mpv }: UseTimelinePlaybackOptions) 
         }
       } else {
         // Still playing current clip — update timeline position
-        const trimIn = loadedClip.edit?.trim_in ?? 0;
-        const timeInClip = pos - trimIn;
+        const timeInClip = pos - loadedClip.trimIn;
         setCurrentTime(loadedClip.startOffset + timeInClip);
       }
     }, 100);

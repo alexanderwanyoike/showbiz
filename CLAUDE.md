@@ -89,7 +89,7 @@ src/                              # React app (Vite)
     ProjectBibleView.tsx          # Bible: assets, variants, scene-frame composer
     ShotList.tsx ShotPreview.tsx ShotInspector.tsx  # Storyboard-mode zones
     MediaPool.tsx                 # Editor-mode media grid
-    StoryboardModeView.tsx EditorModeView.tsx       # Slot-based mode views
+    StoryboardModeView.tsx        # Slot-based storyboard-mode view
     layout/                       # Zone layout system
     timeline/                     # Multi-track timeline editor
     ImageVersionTimeline.tsx VideoVersionTimeline.tsx
@@ -106,11 +106,12 @@ src/                              # React app (Vite)
     bible-assets.ts               # Bible variant helpers
     video-assembler.ts            # FFmpeg.wasm concatenation
     timeline-utils.ts             # Timeline clip utilities
+    video-duration.ts             # Probed video duration cache
     thumbnail-generator.ts        # Video thumbnail generation
   actions/
     generation-actions.ts         # Image/video gen + composeFrameAction
   hooks/
-    useTrimDrag.ts useVideoPool.ts useTimelinePlayback.ts
+    useMpvPlayer.ts useTimelinePlayback.ts useTrimDrag.ts useVideoDurations.ts
 
 src-tauri/                        # Rust backend
   src/
@@ -143,12 +144,12 @@ index.html vite.config.ts package.json tsconfig.json
 ### TypeScript (Vitest)
 
 ```bash
-yarn test          # Run all 267 tests (watch mode)
+yarn test          # Run all 288 tests (watch mode)
 yarn test --run    # Run once, exit
 ```
 
 Tests are co-located with source under `src/lib/`:
-- `timeline-utils`, `seek-utils`, `video-preview` - timeline + playback utilities
+- `timeline-utils`, `seek-utils`, `video-preview`, `video-duration` - timeline + playback utilities
 - `tauri-api` - asset URL conversion
 - `bible-assets` - variant selection, export, shot video source
 - `generation/video-modes` - generation mode selection + request validation

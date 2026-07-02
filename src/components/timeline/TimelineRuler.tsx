@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 interface TimelineRulerProps {
   totalDuration: number;
   pixelsPerSecond: number;
@@ -67,19 +69,47 @@ export default function TimelineRuler({
     });
   }
 
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const isScrubbingRef = useRef(false);
+  const lastSeekAtRef = useRef(0);
+
+  const seekFromPointer = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const seekTime = clickX / pixelsPerSecond;
+    const pointerX = e.clientX - rect.left;
+    const seekTime = pointerX / pixelsPerSecond;
     onSeek(Math.max(0, Math.min(totalDuration, seekTime)));
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isScrubbingRef.current = true;
+    lastSeekAtRef.current = performance.now();
+    seekFromPointer(e);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isScrubbingRef.current) return;
+    // Throttle scrub seeks so mpv isn't flooded with file loads/seeks
+    const now = performance.now();
+    if (now - lastSeekAtRef.current < 80) return;
+    lastSeekAtRef.current = now;
+    seekFromPointer(e);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isScrubbingRef.current) return;
+    isScrubbingRef.current = false;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    seekFromPointer(e);
   };
 
   const playheadPosition = currentTime * pixelsPerSecond;
 
   return (
     <div
-      className="relative h-6 bg-secondary cursor-pointer select-none"
-      onClick={handleClick}
+      className="relative h-6 bg-secondary cursor-pointer select-none touch-none"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
       style={{ width: Math.max(totalWidth, 200) }}
     >
       {/* Tick marks */}

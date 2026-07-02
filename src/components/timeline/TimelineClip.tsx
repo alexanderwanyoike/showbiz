@@ -36,17 +36,16 @@ export default function TimelineClip({
   onTrimStart,
   trackId,
 }: TimelineClipProps) {
-  const trimIn = clip.edit?.trim_in ?? 0;
-  const trimOut = clip.edit?.trim_out ?? clip.shot.duration;
+  const { trimIn, trimOut, sourceDuration } = clip;
   const width = clip.effectiveDuration * pixelsPerSecond;
   const durationLabel = formatDuration(clip.effectiveDuration, pixelsPerSecond);
 
   const handleLeftHandleMouseDown = (e: React.MouseEvent) => {
-    onTrimStart(e, "in", trimIn, trimOut, clip.shot.duration);
+    onTrimStart(e, "in", trimIn, trimOut, sourceDuration);
   };
 
   const handleRightHandleMouseDown = (e: React.MouseEvent) => {
-    onTrimStart(e, "out", trimIn, trimOut, clip.shot.duration);
+    onTrimStart(e, "out", trimIn, trimOut, sourceDuration);
   };
 
   const clipRef = useRef<HTMLDivElement>(null);

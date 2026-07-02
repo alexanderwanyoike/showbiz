@@ -14,12 +14,15 @@ import {
 } from "../../lib/tauri-api";
 import {
   buildTimelineClipsFromExplicit,
+  snapStartTime,
+  orderClipsForExport,
   Shot,
   TimelineClipEntry,
 } from "../../lib/timeline-utils";
 import { useTimelinePlayback } from "../../hooks/useTimelinePlayback";
 import { useMpvPlayer } from "../../hooks/useMpvPlayer";
 import { useTrimDrag } from "../../hooks/useTrimDrag";
+import { useVideoDurations } from "../../hooks/useVideoDurations";
 import { videoAssembler } from "../../lib/video-assembler";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
@@ -42,6 +45,7 @@ interface TimelineEditorProps {
 
 const ZOOM_LEVELS = [25, 50, 75, 100, 150, 200];
 const DEFAULT_ZOOM_INDEX = 1; // 50px per second
+const SNAP_PIXELS = 10; // snap radius for clip moves, in screen pixels
 
 export default function TimelineEditor({
   storyboardId,
@@ -88,18 +92,28 @@ export default function TimelineEditor({
     setLocalEdits(edits);
   }, [edits]);
 
-  // Build clips from explicit entries (empty timeline by default)
-  const clips = buildTimelineClipsFromExplicit(clipEntries, shots, localEdits);
+  // Real video durations probed from the files (shot.duration is stale)
+  const durations = useVideoDurations(shots);
+
+  // Build clips from explicit entries (empty timeline by default).
+  // Memoized so the playback poll loop is not torn down every render.
+  const clips = useMemo(
+    () => buildTimelineClipsFromExplicit(clipEntries, shots, localEdits, durations),
+    [clipEntries, shots, localEdits, durations]
+  );
 
   // Group clips by track
-  const clipsByTrack = new Map<string, typeof clips>();
-  for (const clip of clips) {
-    const trackId = clip.track;
-    if (!clipsByTrack.has(trackId)) {
-      clipsByTrack.set(trackId, []);
+  const clipsByTrack = useMemo(() => {
+    const byTrack = new Map<string, typeof clips>();
+    for (const clip of clips) {
+      const trackId = clip.track;
+      if (!byTrack.has(trackId)) {
+        byTrack.set(trackId, []);
+      }
+      byTrack.get(trackId)!.push(clip);
     }
-    clipsByTrack.get(trackId)!.push(clip);
-  }
+    return byTrack;
+  }, [clips]);
 
   const mpv = useMpvPlayer();
 
@@ -121,6 +135,10 @@ export default function TimelineEditor({
             ...trackClips.map((c) => c.startOffset + c.effectiveDuration)
           );
         }
+      } else {
+        const shot = shots.find((s) => s.id === shotId);
+        const dropDuration = durations[shotId] ?? shot?.duration ?? 0;
+        startTime = snapStartTime(dropTime, dropDuration, clips, SNAP_PIXELS / pixelsPerSecond);
       }
 
       try {
@@ -131,7 +149,7 @@ export default function TimelineEditor({
         console.error("Failed to add clip:", error);
       }
     },
-    [storyboardId, clipRows, clips, onClipsChange]
+    [storyboardId, clipRows, clips, shots, durations, pixelsPerSecond, onClipsChange]
   );
 
   // Remove a clip from the timeline
@@ -160,15 +178,28 @@ export default function TimelineEditor({
       );
       if (!clipRow) return;
 
+      const movingClip = clips.find(
+        (c) => c.shot.id === shotId && c.track === sourceTrack
+      );
+      const otherClips = clips.filter(
+        (c) => !(c.shot.id === shotId && c.track === sourceTrack)
+      );
+      const snapped = snapStartTime(
+        Math.max(0, startTime),
+        movingClip?.effectiveDuration ?? 0,
+        otherClips,
+        SNAP_PIXELS / pixelsPerSecond
+      );
+
       try {
-        await moveTimelineClip(clipRow.id, targetTrack, Math.max(0, startTime));
+        await moveTimelineClip(clipRow.id, targetTrack, Math.max(0, snapped));
         const updatedClips = await getTimelineClips(storyboardId);
         onClipsChange(updatedClips);
       } catch (error) {
         console.error("Failed to move clip:", error);
       }
     },
-    [storyboardId, clipRows, onClipsChange]
+    [storyboardId, clipRows, clips, pixelsPerSecond, onClipsChange]
   );
 
   // Add a new track
@@ -212,10 +243,10 @@ export default function TimelineEditor({
     setExportStatus({ percent: 0, stage: "Starting..." });
 
     try {
-      const trimmedClips = clips.map((clip) => ({
+      const trimmedClips = orderClipsForExport(clips).map((clip) => ({
         videoUrl: clip.shot.video_url!,
-        trimIn: clip.edit?.trim_in ?? 0,
-        trimOut: clip.edit?.trim_out ?? clip.shot.duration,
+        trimIn: clip.trimIn,
+        trimOut: clip.trimOut,
       }));
 
       const videoBytes = await videoAssembler.assembleTrimmedVideos(
@@ -335,11 +366,11 @@ export default function TimelineEditor({
           break;
         case "ArrowLeft":
           e.preventDefault();
-          playback.skipBackward();
+          playback.seek(playback.currentTime - (e.shiftKey ? 1 : 0.1));
           break;
         case "ArrowRight":
           e.preventDefault();
-          playback.skipForward();
+          playback.seek(playback.currentTime + (e.shiftKey ? 1 : 0.1));
           break;
         case "KeyJ":
           e.preventDefault();
@@ -548,8 +579,8 @@ export default function TimelineEditor({
       <div className="flex-shrink-0 px-4 py-2 bg-muted text-muted-foreground text-xs border-t border-border flex items-center justify-between">
         <div>
           <span className="mr-4">Space: Play/Pause</span>
-          <span className="mr-4">J/K/L: Rev/Stop/Play</span>
-          <span className="mr-4">Arrow Keys: Skip 5s</span>
+          <span className="mr-4">J/K/L: Back 5s/Pause/Play</span>
+          <span className="mr-4">Arrows: Step 0.1s (Shift: 1s)</span>
           <span className="mr-4">+/-: Zoom</span>
           <span className="mr-4">Del: Remove clip</span>
           <span>Drag clip edges to trim</span>

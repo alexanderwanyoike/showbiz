@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { assetUrlToPath } from "../lib/tauri-api";
@@ -113,5 +113,10 @@ export function useMpvPlayer(): MpvPlayer {
     await invoke("mpv_update_geometry", rect).catch(() => {});
   }, [ready]);
 
-  return { containerRef, ready, error, start, stop, loadFile, play, pause, seek, getPosition, syncGeometry };
+  // Stable object identity so effects depending on the player (e.g. the
+  // playback poll loop) are not torn down on every render.
+  return useMemo(
+    () => ({ containerRef, ready, error, start, stop, loadFile, play, pause, seek, getPosition, syncGeometry }),
+    [ready, error, start, stop, loadFile, play, pause, seek, getPosition, syncGeometry]
+  );
 }
