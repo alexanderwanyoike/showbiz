@@ -646,16 +646,10 @@ impl MpvController {
             let log_path =
                 std::env::temp_dir().join(format!("showbiz-mpv-{}.log", std::process::id()));
 
-            let mut args = vec![
-                "--idle=yes".to_string(),
-                "--keep-open=yes".to_string(),
-                "--osc=no".to_string(),
-                "--osd-level=0".to_string(),
-                "--no-terminal".to_string(),
-                format!("--log-file={}", log_path.display()),
-                format!("--wid={wid}"),
-                format!("--input-ipc-server={}", ipc_channel.socket_arg()),
-            ];
+            let mut args = playback_flags();
+            args.push(format!("--log-file={}", log_path.display()));
+            args.push(format!("--wid={wid}"));
+            args.push(format!("--input-ipc-server={}", ipc_channel.socket_arg()));
 
             #[cfg(target_os = "linux")]
             args.push("--x11-name=showbiz".to_string());
@@ -1252,9 +1246,35 @@ pub fn mpv_diagnose() -> String {
     serde_json::Value::Object(info).to_string()
 }
 
+/// Static mpv launch flags shared by every playback session. Audio is
+/// forced audible: PulseAudio's stream-restore remembers per-application
+/// mute/volume, so a stale "mpv muted" entry from any other mpv usage on the
+/// machine would otherwise silence Showbiz playback.
+fn playback_flags() -> Vec<String> {
+    vec![
+        "--idle=yes".to_string(),
+        "--keep-open=yes".to_string(),
+        "--osc=no".to_string(),
+        "--osd-level=0".to_string(),
+        "--no-terminal".to_string(),
+        "--mute=no".to_string(),
+        "--volume=100".to_string(),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn playback_flags_force_audio_on() {
+        let flags = playback_flags();
+        // PulseAudio stream-restore can remember mpv as muted/quiet from an
+        // unrelated session; Showbiz playback must never inherit that.
+        assert!(flags.iter().any(|f| f == "--mute=no"), "{flags:?}");
+        assert!(flags.iter().any(|f| f == "--volume=100"), "{flags:?}");
+        assert!(flags.iter().any(|f| f == "--keep-open=yes"), "{flags:?}");
+    }
 
     #[test]
     fn controller_new_is_not_running() {
