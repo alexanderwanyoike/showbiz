@@ -3,6 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { appDataDir, loadMigrations, openDatabase } from "./db";
 import { createProjectCommands } from "./commands/projects";
+import { createShotCommands } from "./commands/shots";
 import { createHttpCommands } from "./commands/http";
 import { createMediaCommands } from "./commands/media";
 import { createSettingsCommands } from "./commands/settings";
@@ -41,6 +42,7 @@ function registerIpc() {
   initMediaDirs(mediaDir);
   const invokeHandler = createInvokeHandler({
     ...createProjectCommands(db, mediaDir),
+    ...createShotCommands(db, mediaDir),
     ...createMediaCommands(mediaDir),
     ...createSettingsCommands(db),
     ...createHttpCommands(),
