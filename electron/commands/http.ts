@@ -38,6 +38,11 @@ function messageOf(error: unknown): string {
  * from the network call so it is unit-testable without a real fetch: headers and
  * body pass through untouched, and a null body is omitted (fetch forbids a body
  * on GET/HEAD, and the caller sends null for those).
+ *
+ * Two dormant divergences from the Rust reqwest proxy, unhit by any current
+ * caller: fetch throws on a non-null GET/HEAD body (reqwest allowed it), and
+ * fetch's Headers folds duplicate header names into one comma-joined line
+ * (reqwest kept separate lines).
  */
 export function buildFetchArgs(args: HttpRequestArgs): {
   url: string;

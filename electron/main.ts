@@ -9,6 +9,7 @@ import { createSettingsCommands } from "./commands/settings";
 import { createTimelineCommands } from "./commands/timeline";
 import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
+import { initMediaDirs, mediaBaseDir } from "./media-files";
 
 const isDev = !app.isPackaged;
 const DEV_SERVER_URL = process.env.SHOWBIZ_DEV_SERVER_URL ?? "http://localhost:1420";
@@ -31,9 +32,13 @@ function openShowbizDatabase() {
 
 function registerIpc() {
   const db = openShowbizDatabase();
+  const mediaDir = mediaBaseDir(appDataDir());
+  // Save helpers assume the media subdirectories exist, exactly like the Rust
+  // shell where main.rs calls media::init() at startup.
+  initMediaDirs(mediaDir);
   const invokeHandler = createInvokeHandler({
     ...createProjectCommands(db),
-    ...createMediaCommands(path.join(appDataDir(), "media")),
+    ...createMediaCommands(mediaDir),
     ...createSettingsCommands(db),
     ...createHttpCommands(),
     ...createTimelineCommands(db),
@@ -42,7 +47,6 @@ function registerIpc() {
     invokeHandler(cmd, args)
   );
 
-  const mediaDir = path.join(appDataDir(), "media");
   ipcMain.handle("showbiz:read-media-bytes", (_event, relativePath: string) =>
     fs.promises.readFile(resolveMediaPath(mediaDir, relativePath))
   );
