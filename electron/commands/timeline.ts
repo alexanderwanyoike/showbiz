@@ -130,6 +130,8 @@ export function createTimelineCommands(db: DatabaseSync) {
       | undefined;
 
     if (!track) {
+      // Deliberate deviation: Rust surfaces rusqlite's incidental
+      // "Query returned no rows" here; no caller matches on the text.
       throw new Error("Track not found");
     }
 
