@@ -1,12 +1,14 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { invoke, isElectron } from "./bridge";
+import { electronMediaUrlResolver } from "./electron-media-url";
 
 // Helper to convert absolute paths from Rust to asset:// URLs with cache busting
-function mediaUrl(absPath: string | null): string | null {
+async function mediaUrl(absPath: string | null, invalidate = false): Promise<string | null> {
   if (!absPath) return null;
-  // Electron media serving lands in Phase 2 (blob-over-IPC); until then the
-  // Electron shell renders without media rather than crash on convertFileSrc.
-  if (isElectron()) return null;
+  if (isElectron()) {
+    if (invalidate) electronMediaUrlResolver.invalidate(absPath);
+    return electronMediaUrlResolver.resolve(absPath);
+  }
   return convertFileSrc(absPath) + "?t=" + Date.now();
 }
 
@@ -238,10 +240,10 @@ export async function getStoryboards(projectId: string): Promise<Storyboard[]> {
 export async function getStoryboardsWithPreview(projectId: string): Promise<StoryboardWithPreview[]> {
   const results: StoryboardWithPreview[] = await invoke("get_storyboards_with_preview", { projectId });
   // Convert preview paths to URLs
-  return results.map(s => ({
+  return Promise.all(results.map(async s => ({
     ...s,
-    preview_image_path: s.preview_image_path ? mediaUrl(s.preview_image_path) : null,
-  }));
+    preview_image_path: s.preview_image_path ? await mediaUrl(s.preview_image_path) : null,
+  })));
 }
 
 export async function getStoryboard(id: string): Promise<Storyboard | null> {
@@ -265,10 +267,10 @@ export async function updateStoryboardModels(id: string, imageModel: string, vid
 }
 
 // --- Bibles ---
-function convertBibleVariantUrls(variant: BibleAssetVariant): BibleAssetVariant {
+async function convertBibleVariantUrls(variant: BibleAssetVariant, invalidate = false): Promise<BibleAssetVariant> {
   return {
     ...variant,
-    media_url: mediaUrl(variant.media_url),
+    media_url: await mediaUrl(variant.media_url, invalidate),
   };
 }
 
@@ -306,12 +308,12 @@ export async function deleteBibleAsset(id: string): Promise<boolean> {
 
 export async function getBibleAssetVariants(assetId: string): Promise<BibleAssetVariant[]> {
   const variants: BibleAssetVariant[] = await invoke("get_bible_asset_variants", { assetId });
-  return variants.map(convertBibleVariantUrls);
+  return Promise.all(variants.map((variant) => convertBibleVariantUrls(variant)));
 }
 
 export async function createBibleAssetVariant(assetId: string, input: BibleAssetVariantInput): Promise<BibleAssetVariant> {
   const variant: BibleAssetVariant = await invoke("create_bible_asset_variant", { assetId, input });
-  return convertBibleVariantUrls(variant);
+  return convertBibleVariantUrls(variant, true);
 }
 
 export async function updateBibleAssetVariantStatus(
@@ -332,18 +334,18 @@ export async function getBibleVariantImageBase64(variantId: string): Promise<str
 }
 
 // --- Shots ---
-function convertShotUrls(shot: ShotWithUrls): ShotWithUrls {
+async function convertShotUrls(shot: ShotWithUrls, invalidate = false): Promise<ShotWithUrls> {
   return {
     ...shot,
-    image_url: mediaUrl(shot.image_url),
-    end_frame_url: mediaUrl(shot.end_frame_url),
-    video_url: mediaUrl(shot.video_url),
+    image_url: await mediaUrl(shot.image_url, invalidate),
+    end_frame_url: await mediaUrl(shot.end_frame_url, invalidate),
+    video_url: await mediaUrl(shot.video_url, invalidate),
   };
 }
 
 export async function getShots(storyboardId: string): Promise<ShotWithUrls[]> {
   const shots: ShotWithUrls[] = await invoke("get_shots", { storyboardId });
-  return shots.map(convertShotUrls);
+  return Promise.all(shots.map((shot) => convertShotUrls(shot)));
 }
 
 export async function createShot(storyboardId: string): Promise<ShotWithUrls> {
@@ -366,12 +368,12 @@ export async function reorderShots(storyboardId: string, shotIds: string[]): Pro
 
 export async function saveShotImage(id: string, base64DataUrl: string, prompt: string): Promise<ShotWithUrls | null> {
   const shot: ShotWithUrls | null = await invoke("save_shot_image", { id, base64DataUrl, prompt });
-  return shot ? convertShotUrls(shot) : null;
+  return shot ? convertShotUrls(shot, true) : null;
 }
 
 export async function saveShotVideo(id: string, base64DataUrl: string): Promise<ShotWithUrls | null> {
   const shot: ShotWithUrls | null = await invoke("save_shot_video", { id, base64DataUrl });
-  return shot ? convertShotUrls(shot) : null;
+  return shot ? convertShotUrls(shot, true) : null;
 }
 
 export async function getShotImageBase64(shotId: string): Promise<string | null> {
@@ -380,7 +382,7 @@ export async function getShotImageBase64(shotId: string): Promise<string | null>
 
 export async function saveShotEndFrame(id: string, base64DataUrl: string): Promise<ShotWithUrls | null> {
   const shot: ShotWithUrls | null = await invoke("save_shot_end_frame", { id, base64DataUrl });
-  return shot ? convertShotUrls(shot) : null;
+  return shot ? convertShotUrls(shot, true) : null;
 }
 
 export async function clearShotEndFrame(id: string): Promise<ShotWithUrls | null> {
@@ -394,7 +396,7 @@ export async function getShotEndFrameBase64(shotId: string): Promise<string | nu
 
 export async function copyImageFromShot(targetShotId: string, sourceShotId: string): Promise<ShotWithUrls | null> {
   const shot: ShotWithUrls | null = await invoke("copy_image_from_shot", { targetShotId, sourceShotId });
-  return shot ? convertShotUrls(shot) : null;
+  return shot ? convertShotUrls(shot, true) : null;
 }
 
 // --- Settings ---
@@ -425,36 +427,36 @@ export async function getApiKey(provider: string): Promise<string | null> {
 }
 
 // --- Image Versions ---
-function convertVersionUrls(node: ImageVersionNode): ImageVersionNode {
+async function convertVersionUrls(node: ImageVersionNode): Promise<ImageVersionNode> {
   return {
     version: {
       ...node.version,
-      image_url: mediaUrl(node.version.image_url) || node.version.image_url,
-      mask_url: node.version.mask_url ? mediaUrl(node.version.mask_url) : null,
+      image_url: (await mediaUrl(node.version.image_url)) || node.version.image_url,
+      mask_url: node.version.mask_url ? await mediaUrl(node.version.mask_url) : null,
     },
-    children: node.children.map(convertVersionUrls),
+    children: await Promise.all(node.children.map(convertVersionUrls)),
   };
 }
 
 export async function getImageVersions(shotId: string): Promise<ImageVersionNode[]> {
   const nodes: ImageVersionNode[] = await invoke("get_image_versions", { shotId });
-  return nodes.map(convertVersionUrls);
+  return Promise.all(nodes.map(convertVersionUrls));
 }
 
 export async function switchToVersion(shotId: string, versionId: string): Promise<ImageVersionWithUrl | null> {
   const ver: ImageVersionWithUrl | null = await invoke("switch_to_version", { shotId, versionId });
   if (!ver) return null;
-  return { ...ver, image_url: mediaUrl(ver.image_url) || ver.image_url, mask_url: ver.mask_url ? mediaUrl(ver.mask_url) : null };
+  return { ...ver, image_url: (await mediaUrl(ver.image_url)) || ver.image_url, mask_url: ver.mask_url ? await mediaUrl(ver.mask_url) : null };
 }
 
 export async function createGenerationVersion(shotId: string, prompt: string, imageBase64: string, parentVersionId: string | null): Promise<ImageVersionWithUrl> {
   const ver: ImageVersionWithUrl = await invoke("create_generation_version", { shotId, prompt, imageBase64, parentVersionId });
-  return { ...ver, image_url: mediaUrl(ver.image_url) || ver.image_url, mask_url: ver.mask_url ? mediaUrl(ver.mask_url) : null };
+  return { ...ver, image_url: (await mediaUrl(ver.image_url, true)) || ver.image_url, mask_url: ver.mask_url ? await mediaUrl(ver.mask_url, true) : null };
 }
 
 export async function createRemixVersion(shotId: string, parentVersionId: string, editPrompt: string, resultImageBase64: string): Promise<ImageVersionWithUrl> {
   const ver: ImageVersionWithUrl = await invoke("create_remix_version", { shotId, parentVersionId, editPrompt, resultImageBase64 });
-  return { ...ver, image_url: mediaUrl(ver.image_url) || ver.image_url, mask_url: ver.mask_url ? mediaUrl(ver.mask_url) : null };
+  return { ...ver, image_url: (await mediaUrl(ver.image_url, true)) || ver.image_url, mask_url: ver.mask_url ? await mediaUrl(ver.mask_url, true) : null };
 }
 
 export async function getVersionImageBase64(versionId: string): Promise<string | null> {
@@ -484,31 +486,31 @@ export async function getCurrentImageVersion(shotId: string): Promise<ImageVersi
 }
 
 // --- Video Versions ---
-function convertVideoVersionUrls(node: VideoVersionNode): VideoVersionNode {
+async function convertVideoVersionUrls(node: VideoVersionNode): Promise<VideoVersionNode> {
   return {
     version: {
       ...node.version,
-      video_url: mediaUrl(node.version.video_url) || node.version.video_url,
+      video_url: (await mediaUrl(node.version.video_url)) || node.version.video_url,
     },
-    children: node.children.map(convertVideoVersionUrls),
+    children: await Promise.all(node.children.map(convertVideoVersionUrls)),
   };
 }
 
 export async function getVideoVersions(shotId: string): Promise<VideoVersionNode[]> {
   const nodes: VideoVersionNode[] = await invoke("get_video_versions", { shotId });
-  return nodes.map(convertVideoVersionUrls);
+  return Promise.all(nodes.map(convertVideoVersionUrls));
 }
 
 export async function getCurrentVideoVersion(shotId: string): Promise<VideoVersionWithUrl | null> {
   const ver: VideoVersionWithUrl | null = await invoke("get_current_video_version", { shotId });
   if (!ver) return null;
-  return { ...ver, video_url: mediaUrl(ver.video_url) || ver.video_url };
+  return { ...ver, video_url: (await mediaUrl(ver.video_url)) || ver.video_url };
 }
 
 export async function switchToVideoVersion(shotId: string, versionId: string): Promise<VideoVersionWithUrl | null> {
   const ver: VideoVersionWithUrl | null = await invoke("switch_to_video_version", { shotId, versionId });
   if (!ver) return null;
-  return { ...ver, video_url: mediaUrl(ver.video_url) || ver.video_url };
+  return { ...ver, video_url: (await mediaUrl(ver.video_url)) || ver.video_url };
 }
 
 export async function getVideoVersionCount(shotId: string): Promise<number> {
@@ -533,7 +535,7 @@ export async function createVideoGenerationVersion(
     modelId,
     parentVersionId,
   });
-  return { ...ver, video_url: mediaUrl(ver.video_url) || ver.video_url };
+  return { ...ver, video_url: (await mediaUrl(ver.video_url, true)) || ver.video_url };
 }
 
 // --- Timeline Tracks ---
@@ -605,5 +607,5 @@ export async function saveAssembledVideo(videoData: number[], savePath: string):
 // --- Video save (used by generation-actions) ---
 export async function saveAndCompleteVideo(shotId: string, videoData: number[], mimeType: string): Promise<ShotWithUrls> {
   const shot: ShotWithUrls = await invoke("save_and_complete_video", { shotId, videoData, mimeType });
-  return convertShotUrls(shot);
+  return convertShotUrls(shot, true);
 }
