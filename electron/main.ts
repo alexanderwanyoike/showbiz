@@ -7,6 +7,7 @@ import { createHttpCommands } from "./commands/http";
 import { createMediaCommands } from "./commands/media";
 import { createSettingsCommands } from "./commands/settings";
 import { createTimelineCommands } from "./commands/timeline";
+import { createBibleCommands } from "./commands/bibles";
 import { createImageVersionCommands } from "./commands/image-versions";
 import { createVideoVersionCommands } from "./commands/video-versions";
 import { createInvokeHandler } from "./ipc";
@@ -44,6 +45,7 @@ function registerIpc() {
     ...createSettingsCommands(db),
     ...createHttpCommands(),
     ...createTimelineCommands(db),
+    ...createBibleCommands(db, mediaDir),
     ...createImageVersionCommands(db, mediaDir),
     ...createVideoVersionCommands(db, mediaDir),
   });
