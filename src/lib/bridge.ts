@@ -17,9 +17,23 @@ export function isElectron(): boolean {
   return typeof window !== "undefined" && window.showbiz !== undefined;
 }
 
+// Tauri rejects failed commands with the bare Err(String) value; Electron's
+// ipcRenderer.invoke wraps handler throws as
+//   Error invoking remote method 'showbiz:invoke': Error: <msg>
+// Strip that wrapping so both shells reject identically and UI code doing
+// String(e) shows the same message.
+function toBareErrorMessage(e: unknown): string {
+  const message = e instanceof Error ? e.message : String(e);
+  return message
+    .replace(/^Error invoking remote method '[^']+': /, "")
+    .replace(/^Error: /, "");
+}
+
 export function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (typeof window !== "undefined" && window.showbiz) {
-    return window.showbiz.invoke<T>(cmd, args);
+    return window.showbiz.invoke<T>(cmd, args).catch((e: unknown) => {
+      throw toBareErrorMessage(e);
+    });
   }
   return tauriInvoke<T>(cmd, args);
 }
