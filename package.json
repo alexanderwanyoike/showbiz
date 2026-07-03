@@ -1,6 +1,8 @@
 {
   "name": "showbiz",
   "version": "0.1.0",
+  "description": "AI-powered video storyboard desktop application",
+  "author": "Alex Wanyoike <alex.m.wanyoike@gmail.com>",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.cjs",
@@ -11,8 +13,47 @@
     "dev:electron": "node scripts/dev-electron.mjs",
     "build:frontend": "vite build",
     "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron --out-extension:.js=.cjs",
+    "package:electron": "yarn build:frontend && yarn build:electron && electron-builder",
     "test": "vitest run",
     "test:watch": "vitest"
+  },
+  "build": {
+    "appId": "com.showbiz.app",
+    "productName": "Showbiz",
+    "directories": {
+      "output": "dist-package"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "src-tauri/src/migrations/*.sql",
+      "!node_modules/**"
+    ],
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "AudioVideo",
+      "icon": "src-tauri/icons/128x128@2x.png",
+      "extraResources": [
+        { "from": "node_modules/ffmpeg-static/ffmpeg", "to": "bin/ffmpeg" },
+        { "from": "node_modules/ffprobe-static/bin/linux/${arch}/ffprobe", "to": "bin/ffprobe" }
+      ]
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "src-tauri/icons/icon.icns",
+      "extraResources": [
+        { "from": "node_modules/ffmpeg-static/ffmpeg", "to": "bin/ffmpeg" },
+        { "from": "node_modules/ffprobe-static/bin/darwin/${arch}/ffprobe", "to": "bin/ffprobe" }
+      ]
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "src-tauri/icons/icon.ico",
+      "extraResources": [
+        { "from": "node_modules/ffmpeg-static/ffmpeg.exe", "to": "bin/ffmpeg.exe" },
+        { "from": "node_modules/ffprobe-static/bin/win32/${arch}/ffprobe.exe", "to": "bin/ffprobe.exe" }
+      ]
+    }
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
@@ -51,6 +92,7 @@
     "@vitejs/plugin-react": "^4",
     "autoprefixer": "^10",
     "electron": "^43.0.0",
+    "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
     "postcss": "^8",
     "tailwindcss": "^4",

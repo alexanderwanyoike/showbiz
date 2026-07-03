@@ -66,3 +66,4 @@ src-tauri/binaries/mpv-libs/
 src-tauri/binaries/mpv.app/
 dist-electron
 .codex/
+dist-package

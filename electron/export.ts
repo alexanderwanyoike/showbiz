@@ -308,30 +308,34 @@ export function runFfmpegExport(
   });
 }
 
-// -- static binary path resolution (dev) --
+// -- static binary path resolution --
 
 /**
- * Path to the bundled ffmpeg binary. Dev-only: the binary ships in
- * node_modules via ffmpeg-static. Packaging must asar-unpack it and resolve
- * from process.resourcesPath instead (Phase 4).
+ * Path to the ffmpeg binary. Dev: ships in node_modules via ffmpeg-static.
+ * Packaged: electron-builder copies it to resources/bin (extraResources), so
+ * callers pass process.resourcesPath as resourcesPath.
  */
 export function ffmpegBinaryPath(
   appPath: string,
-  platform: NodeJS.Platform = process.platform
+  platform: NodeJS.Platform = process.platform,
+  resourcesPath?: string
 ): string {
   const name = platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+  if (resourcesPath) return path.join(resourcesPath, "bin", name);
   return path.join(appPath, "node_modules", "ffmpeg-static", name);
 }
 
 /**
- * Path to the bundled ffprobe binary (used to probe default resolution/fps and
- * audio presence). Dev-only, same packaging caveat as ffmpegBinaryPath.
+ * Path to the ffprobe binary (used to probe default resolution/fps and audio
+ * presence). Same dev/packaged split as ffmpegBinaryPath.
  */
 export function ffprobeBinaryPath(
   appPath: string,
   platform: NodeJS.Platform = process.platform,
-  arch: string = process.arch
+  arch: string = process.arch,
+  resourcesPath?: string
 ): string {
   const name = platform === "win32" ? "ffprobe.exe" : "ffprobe";
+  if (resourcesPath) return path.join(resourcesPath, "bin", name);
   return path.join(appPath, "node_modules", "ffprobe-static", "bin", platform, arch, name);
 }
