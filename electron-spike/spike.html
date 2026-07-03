@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Showbiz Electron Spike</title>
+  <style>
+    body { margin: 0; padding: 16px; background: #0b0d10; color: #d7dce2; font: 13px system-ui, sans-serif; }
+    h1 { font-size: 16px; margin: 0 0 4px; }
+    .muted { color: #8b95a1; font-size: 11px; }
+    .criteria { background: #12161b; border: 1px solid #262c34; border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: 12px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card { background: #12161b; border: 1px solid #262c34; border-radius: 6px; padding: 8px; }
+    .videobox { position: relative; aspect-ratio: 16/9; background: #000; border-radius: 4px; overflow: hidden; }
+    video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+    .overlay-label { position: absolute; left: 10px; top: 10px; background: #dc2626cc; color: #fff; font-weight: 700; padding: 3px 8px; border-radius: 4px; }
+    .overlay-ring { position: absolute; right: 12px; bottom: 12px; width: 56px; height: 56px; border-radius: 50%; border: 4px solid #facc15; background: #3b82f680; }
+    .row { display: flex; gap: 6px; margin: 6px 0; flex-wrap: wrap; align-items: center; }
+    button { background: #1c232b; color: #d7dce2; border: 1px solid #323a44; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+    button:hover { background: #242d37; }
+    button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+    input[type=range] { flex: 1; }
+    .diag { font: 11px ui-monospace, monospace; color: #8b95a1; white-space: pre-wrap; }
+    .log { max-height: 56px; overflow-y: auto; background: #0e1114; border-radius: 4px; padding: 4px 6px; font: 10px ui-monospace, monospace; color: #6f7a86; margin-top: 4px; }
+    .mode { position: fixed; top: 14px; right: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Electron / Chromium video spike</h1>
+  <p class="muted">Real Showbiz media + a worst-case clip (1 keyframe / 8s). This page is plain DOM over &lt;video&gt; — the thing WebKitGTK could not do.</p>
+  <div class="criteria">
+    <b>Pass criteria (eyeball each):</b>
+    <ol style="margin:4px 0 0 18px; padding:0;">
+      <li>Frames visible and moving in all four videos at once, no black boxes</li>
+      <li>Red OVERLAY label + yellow ring render ON TOP of moving video</li>
+      <li>Slider scrub and SCRUB STORM show clean frames — <b>no macroblock smear, ever</b>, including on the "sparse-worstcase" clip</li>
+      <li>Seeks land accurately and instantly; nothing ever wedges (buttons always respond)</li>
+      <li>Audio audible on the sparse clip (440Hz tone) after Unmute</li>
+      <li>Blob-URL sources (the Showbiz player architecture) seek natively</li>
+    </ol>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const state = { mode: "stream", files: [], blobUrls: new Map() };
+
+    function diagLine(v) {
+      return `t=${v.currentTime.toFixed(2)}/${(v.duration || 0).toFixed(2)}  ` +
+        `${v.videoWidth}x${v.videoHeight}  ready=${v.readyState} net=${v.networkState}` +
+        (v.error ? `  ERROR code ${v.error.code}` : "");
+    }
+
+    async function srcFor(file) {
+      // Same architecture as the Showbiz HTML5 player: bytes -> blob URL.
+      if (!state.blobUrls.has(file)) {
+        const bytes = await window.spike.readVideo(file);
+        state.blobUrls.set(file, URL.createObjectURL(new Blob([bytes], { type: "video/mp4" })));
+      }
+      return state.blobUrls.get(file);
+    }
+
+    function makeCard(file, index) {
+      const name = file.split("/").slice(-2).join("/");
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div><b>${index === 0 ? "A (overlay test)" : String.fromCharCode(65 + index)}</b> <span class="muted">${name}</span></div>
+        <div class="videobox">
+          <video playsinline></video>
+          ${index === 0 ? '<div class="overlay-label">OVERLAY — text over video</div><div class="overlay-ring"></div>' : ""}
+        </div>
+        <div class="row">
+          <button data-act="play">Play</button>
+          <button data-act="pause">Pause</button>
+          <button data-act="back">-1s</button>
+          <button data-act="fwd">+1s</button>
+          <button data-act="rand">Random seek</button>
+          <button data-act="storm">SCRUB STORM (5s)</button>
+          <button data-act="mute">Unmute</button>
+        </div>
+        <div class="row"><input type="range" min="0" max="100" step="0.1" value="0" /></div>
+        <div class="diag">loading…</div>
+        <div class="log"></div>`;
+
+      const video = card.querySelector("video");
+      const slider = card.querySelector("input");
+      const diag = card.querySelector(".diag");
+      const log = card.querySelector(".log");
+      video.muted = true;
+
+      for (const ev of ["loadedmetadata", "canplay", "playing", "pause", "seeked", "waiting", "stalled", "error", "ended"]) {
+        video.addEventListener(ev, () => {
+          log.prepend(Object.assign(document.createElement("div"), { textContent: `${new Date().toISOString().slice(11, 19)} ${ev}` }));
+          while (log.children.length > 40) log.lastChild.remove();
+        });
+      }
+
+      let scrubbing = false;
+      slider.addEventListener("input", () => {
+        scrubbing = true;
+        if (video.duration) video.currentTime = (slider.value / 100) * video.duration;
+      });
+      slider.addEventListener("change", () => (scrubbing = false));
+
+      card.addEventListener("click", (e) => {
+        const act = e.target.dataset && e.target.dataset.act;
+        if (!act) return;
+        if (act === "play") video.play();
+        if (act === "pause") video.pause();
+        if (act === "back") video.currentTime -= 1;
+        if (act === "fwd") video.currentTime += 1;
+        if (act === "rand") video.currentTime = Math.random() * (video.duration || 0);
+        if (act === "mute") { video.muted = !video.muted; e.target.textContent = video.muted ? "Unmute" : "Mute"; }
+        if (act === "storm") {
+          // Hammer seeks harder than any human scrub for 5 seconds
+          const end = performance.now() + 5000;
+          const timer = setInterval(() => {
+            if (performance.now() > end) return clearInterval(timer);
+            video.currentTime = Math.random() * (video.duration || 0);
+          }, 40);
+        }
+      });
+
+      setInterval(() => {
+        diag.textContent = diagLine(video);
+        if (!scrubbing && video.duration) slider.value = (video.currentTime / video.duration) * 100;
+      }, 200);
+
+      srcFor(file).then((src) => { video.src = src; });
+      return card;
+    }
+
+    async function render() {
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+      // Worst-case sparse clip first, then three real library files
+      state.files.slice(0, 4).forEach((f, i) => grid.appendChild(makeCard(f, i)));
+    }
+
+    window.spike.listVideos().then((files) => {
+      state.files = files;
+      render();
+    });
+  </script>
+</body>
+</html>
