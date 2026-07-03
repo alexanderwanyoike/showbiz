@@ -96,7 +96,23 @@ async function fetchFalQueueUrl(
   return fetch(url, { method: "POST", headers });
 }
 
-/** Poll a fal.ai queue request until completion, then fetch and return the result. */
+/** Consecutive transient poll failures tolerated before giving up on a running job. */
+const MAX_TRANSIENT_POLL_FAILURES = 5;
+
+/** Poll statuses that recover on their own: server errors and rate limiting. */
+function isTransientStatus(status: number): boolean {
+  return status >= 500 || status === 429;
+}
+
+/**
+ * Poll a fal.ai queue request until completion, then fetch and return the result.
+ *
+ * Once submitted, the job keeps running on fal's side no matter what happens to
+ * our polling requests — so a dropped connection, a 5xx, or a rate-limited
+ * status check must NOT abandon the run. Those are retried on the normal poll
+ * cadence and only give up after several failures in a row; definitive answers
+ * (4xx, FAILED) still fail immediately.
+ */
 export async function pollFalResult<T>(
   endpointId: string,
   requestId: string,
@@ -109,23 +125,51 @@ export async function pollFalResult<T>(
   const responseUrl =
     urls.responseUrl ?? `${FAL_QUEUE_BASE}/${endpointId}/requests/${requestId}`;
 
+  let transientFailures = 0;
+  const retryTransient = (error: Error): { done: false } => {
+    transientFailures += 1;
+    if (transientFailures >= MAX_TRANSIENT_POLL_FAILURES) {
+      throw new Error(
+        `fal.ai polling gave up after ${MAX_TRANSIENT_POLL_FAILURES} consecutive failures for ${endpointId} request ${requestId} (the job may still be running on fal.ai): ${error.message}`
+      );
+    }
+    return { done: false as const };
+  };
+  const asError = (error: unknown): Error =>
+    error instanceof Error ? error : new Error(String(error));
+
   return pollUntilDone<T>({
     async check() {
-      const statusRes = await fetchFalQueueUrl(statusUrl, headers);
+      let statusRes: Awaited<ReturnType<typeof fetch>>;
+      try {
+        statusRes = await fetchFalQueueUrl(statusUrl, headers);
+      } catch (error) {
+        return retryTransient(asError(error));
+      }
 
       if (!statusRes.ok) {
         const text = await statusRes.text();
-        throw falQueueRequestError("status", endpointId, requestId, statusRes.status, text);
+        const error = falQueueRequestError("status", endpointId, requestId, statusRes.status, text);
+        if (isTransientStatus(statusRes.status)) return retryTransient(error);
+        throw error;
       }
 
       const statusJson = (await statusRes.json()) as { status: string };
 
       if (statusJson.status === "COMPLETED") {
-        // Fetch the full result
-        const resultRes = await fetchFalQueueUrl(responseUrl, headers);
+        // Fetch the full result; a blip here is also retried, since the next
+        // poll re-reads COMPLETED and re-fetches.
+        let resultRes: Awaited<ReturnType<typeof fetch>>;
+        try {
+          resultRes = await fetchFalQueueUrl(responseUrl, headers);
+        } catch (error) {
+          return retryTransient(asError(error));
+        }
         if (!resultRes.ok) {
           const text = await resultRes.text();
-          throw falQueueRequestError("result", endpointId, requestId, resultRes.status, text);
+          const error = falQueueRequestError("result", endpointId, requestId, resultRes.status, text);
+          if (isTransientStatus(resultRes.status)) return retryTransient(error);
+          throw error;
         }
         const value = (await resultRes.json()) as T;
         return { done: true as const, value };
@@ -136,6 +180,7 @@ export async function pollFalResult<T>(
       }
 
       // IN_QUEUE or IN_PROGRESS — keep polling
+      transientFailures = 0;
       return { done: false as const };
     },
     initialInterval: POLL_INITIAL_MS,

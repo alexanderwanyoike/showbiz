@@ -23,7 +23,18 @@ export interface VideoModelConfig {
       endpoint: string;
       inputs?: {
         startImage?: boolean;
-        endImage?: boolean;
+        /** "required" = the endpoint rejects requests without an end frame (e.g. WAN FLF2V). */
+        endImage?: boolean | "required";
+      };
+      /**
+       * Separate endpoint used only when the request carries an end frame
+       * (e.g. Veo 3.1 first-last-frame-to-video), with its own image param
+       * names. The base endpoint then handles start-frame-only requests.
+       */
+      endFrameEndpoint?: {
+        endpoint: string;
+        imageInput?: string;
+        endImageInput?: string;
       };
     };
   };

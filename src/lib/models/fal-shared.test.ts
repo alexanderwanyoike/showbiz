@@ -248,9 +248,9 @@ describe("pollFalResult", () => {
     expect(error.message).toBe("fal.ai generation failed");
   });
 
-  it("throws on status check HTTP error", async () => {
+  it("throws immediately on a definitive 4xx status check error", async () => {
     mockFetch.mockResolvedValue(
-      textResponse("Rate limited", 429) as unknown as Awaited<ReturnType<typeof fetch>>
+      textResponse("Not found", 404) as unknown as Awaited<ReturnType<typeof fetch>>
     );
 
     const promise = pollFalResult("fal-ai/flux/schnell", "req-123", "key");
@@ -258,8 +258,83 @@ describe("pollFalResult", () => {
 
     expect(error).toBeInstanceOf(Error);
     expect(error.message).toBe(
-      "fal.ai queue status failed for fal-ai/flux/schnell request req-123: fal.ai rate limit exceeded. Please try again later."
+      "fal.ai queue status failed for fal-ai/flux/schnell request req-123: Not found"
     );
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps polling through a transient network error and still resolves", async () => {
+    let statusCalls = 0;
+    mockFetch.mockImplementation(async (url) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+      if (urlStr.includes("/status")) {
+        statusCalls++;
+        if (statusCalls === 1) throw new Error("Network error: socket hang up");
+        return jsonResponse({ status: "COMPLETED" }) as Awaited<ReturnType<typeof fetch>>;
+      }
+      return jsonResponse({ video: { url: "https://cdn.fal.ai/out.mp4" } }) as Awaited<
+        ReturnType<typeof fetch>
+      >;
+    });
+
+    const promise = pollFalResult<{ video: { url: string } }>(
+      "fal-ai/veo3.1/first-last-frame-to-video",
+      "req-9",
+      "key"
+    );
+    await vi.advanceTimersByTimeAsync(0); // first check: network error, retried
+    await vi.advanceTimersByTimeAsync(2000); // second check: COMPLETED + result
+
+    const result = await promise;
+    expect(result.video.url).toBe("https://cdn.fal.ai/out.mp4");
+  });
+
+  it("keeps polling through fal 5xx and 429 status blips", async () => {
+    let statusCalls = 0;
+    mockFetch.mockImplementation(async (url) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+      if (urlStr.includes("/status")) {
+        statusCalls++;
+        if (statusCalls === 1)
+          return textResponse("Bad gateway", 502) as unknown as Awaited<ReturnType<typeof fetch>>;
+        if (statusCalls === 2)
+          return textResponse("Rate limited", 429) as unknown as Awaited<ReturnType<typeof fetch>>;
+        return jsonResponse({ status: "COMPLETED" }) as Awaited<ReturnType<typeof fetch>>;
+      }
+      return jsonResponse({ images: [{ url: "https://cdn.fal.ai/img.png" }] }) as Awaited<
+        ReturnType<typeof fetch>
+      >;
+    });
+
+    const promise = pollFalResult<{ images: Array<{ url: string }> }>(
+      "fal-ai/flux/schnell",
+      "req-123",
+      "key"
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(4000);
+
+    const result = await promise;
+    expect(result.images[0].url).toBe("https://cdn.fal.ai/img.png");
+  });
+
+  it("gives up after persistent consecutive network failures, naming the request id", async () => {
+    mockFetch.mockRejectedValue(new Error("Network error: request timed out"));
+
+    const promise = pollFalResult("fal-ai/veo3.1/first-last-frame-to-video", "req-9", "key");
+    const captured = promise.catch((e: Error) => e);
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(4000);
+    await vi.advanceTimersByTimeAsync(8000);
+    await vi.advanceTimersByTimeAsync(8000);
+
+    const error = await captured;
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain("req-9");
+    expect((error as Error).message).toContain("may still be running");
+    expect(mockFetch).toHaveBeenCalledTimes(5);
   });
 
   it("reports result fetch stage and endpoint on HTTP error", async () => {

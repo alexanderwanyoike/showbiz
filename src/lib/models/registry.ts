@@ -24,7 +24,10 @@ function videoModeCapabilities(config: VideoModelConfig) {
       ? {
           endpoint: explicit.imageToVideo.endpoint,
           supportsStartImage: explicit.imageToVideo.inputs?.startImage ?? true,
-          supportsEndImage: explicit.imageToVideo.inputs?.endImage ?? false,
+          supportsEndImage:
+            explicit.imageToVideo.inputs?.endImage === true ||
+            explicit.imageToVideo.inputs?.endImage === "required",
+          requiresEndImage: explicit.imageToVideo.inputs?.endImage === "required",
         }
       : config.models.imageToVideo
         ? { endpoint: config.models.imageToVideo, supportsStartImage: true, supportsEndImage: false }

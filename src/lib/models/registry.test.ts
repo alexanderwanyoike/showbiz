@@ -59,6 +59,19 @@ describe("video configs", () => {
     expect(provider?.modeCapabilities.imageToVideo?.supportsStartImage).toBe(true);
     expect(provider?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
   });
+
+  it("WAN first-last-frame requires an end frame (its fal endpoint accepts nothing less)", () => {
+    const provider = videoProviders.get("wan-flf2v-fal" as never);
+    expect(provider?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
+    expect(provider?.modeCapabilities.imageToVideo?.requiresEndImage).toBe(true);
+  });
+
+  it("Veo 3.1 fal keeps the end frame optional via a start-only base endpoint", () => {
+    const provider = videoProviders.get("veo-3.1-fal" as never);
+    expect(provider?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
+    expect(provider?.modeCapabilities.imageToVideo?.requiresEndImage).toBeFalsy();
+    expect(provider?.modeCapabilities.imageToVideo?.endpoint).toBe("fal-ai/veo3.1/image-to-video");
+  });
 });
 
 describe("image configs", () => {

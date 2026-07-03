@@ -34,6 +34,8 @@ export interface VideoModelModeCapabilities {
     endpoint: string;
     supportsStartImage?: boolean;
     supportsEndImage?: boolean;
+    /** The endpoint cannot run without an end frame (e.g. WAN FLF2V). */
+    requiresEndImage?: boolean;
   };
 }
 
