@@ -6,6 +6,7 @@ import { createProjectCommands } from "./commands/projects";
 import { createHttpCommands } from "./commands/http";
 import { createMediaCommands } from "./commands/media";
 import { createSettingsCommands } from "./commands/settings";
+import { createTimelineCommands } from "./commands/timeline";
 import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
 
@@ -35,6 +36,7 @@ function registerIpc() {
     ...createMediaCommands(path.join(appDataDir(), "media")),
     ...createSettingsCommands(db),
     ...createHttpCommands(),
+    ...createTimelineCommands(db),
   });
   ipcMain.handle("showbiz:invoke", (_event, cmd: string, args?: Record<string, unknown>) =>
     invokeHandler(cmd, args)
