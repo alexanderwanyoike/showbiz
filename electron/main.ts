@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, Menu } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { appDataDir, loadMigrations, openDatabase } from "./db";
@@ -14,6 +14,7 @@ import { createVideoVersionCommands } from "./commands/video-versions";
 import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
 import { initMediaDirs, mediaBaseDir } from "./media-files";
+import { hideDefaultApplicationMenu } from "./app-menu";
 
 const isDev = !app.isPackaged;
 const DEV_SERVER_URL = process.env.SHOWBIZ_DEV_SERVER_URL ?? "http://localhost:1420";
@@ -86,6 +87,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  hideDefaultApplicationMenu(Menu);
   registerIpc();
   createWindow();
 });
