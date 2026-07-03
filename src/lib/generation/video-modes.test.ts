@@ -98,4 +98,36 @@ describe("validateVideoGenerationRequest", () => {
     };
     expect(() => validateVideoGenerationRequest(baseCapabilities, request)).not.toThrow();
   });
+
+  const requiresEndCapabilities: VideoModelModeCapabilities = {
+    imageToVideo: {
+      endpoint: "image",
+      supportsStartImage: true,
+      supportsEndImage: true,
+      requiresEndImage: true,
+    },
+  };
+
+  it("rejects a missing end frame when the model requires one", () => {
+    const request: VideoGenerationRequest = {
+      mode: "image-to-video",
+      prompt: "Morph",
+      settings: { duration: "8" },
+      startImage: "data:image/png;base64,abc",
+    };
+    expect(() => validateVideoGenerationRequest(requiresEndCapabilities, request)).toThrow(
+      "requires both a start frame and an end frame"
+    );
+  });
+
+  it("accepts start and end frames when the model requires an end frame", () => {
+    const request: VideoGenerationRequest = {
+      mode: "image-to-video",
+      prompt: "Morph",
+      settings: { duration: "8" },
+      startImage: "data:image/png;base64,abc",
+      endImage: "data:image/png;base64,def",
+    };
+    expect(() => validateVideoGenerationRequest(requiresEndCapabilities, request)).not.toThrow();
+  });
 });

@@ -91,14 +91,20 @@ export const falVideoTransport: VideoTransport = {
     if (request.mode === "image-to-video") {
       const mode = config.generationModes?.imageToVideo;
       const opts = (config.transportOptions ?? {}) as Record<string, string>;
-      const endpoint = mode?.endpoint ?? opts.imageToVideoEndpoint ?? config.models.imageToVideo;
+      // Models like Veo 3.1 split start-only and start+end across two fal
+      // endpoints with different param names; endFrameEndpoint carries the
+      // start+end variant so the end frame stays optional for the user.
+      const endFrame = request.endImage ? mode?.endFrameEndpoint : undefined;
+      const endpoint =
+        endFrame?.endpoint ?? mode?.endpoint ?? opts.imageToVideoEndpoint ?? config.models.imageToVideo;
       if (!endpoint) throw new Error(`${config.name} does not support image-to-video`);
       if (request.startImage) {
-        const imageKey = config.paramMapping?.imageInput ?? "image_url";
+        const imageKey = endFrame?.imageInput ?? config.paramMapping?.imageInput ?? "image_url";
         input[imageKey] = uploadImageToFal(request.startImage);
       }
       if (request.endImage) {
-        const endKey = config.paramMapping?.endImageInput ?? "end_image_url";
+        const endKey =
+          endFrame?.endImageInput ?? config.paramMapping?.endImageInput ?? "end_image_url";
         input[endKey] = uploadImageToFal(request.endImage);
       }
       return submitAndDownload(endpoint, input, apiKey);

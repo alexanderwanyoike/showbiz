@@ -128,4 +128,63 @@ describe("falVideoTransport.generateVideoRequest", () => {
       "key"
     );
   });
+
+  describe("endFrameEndpoint routing (Veo 3.1: end frame optional)", () => {
+    const veoRoutedConfig: VideoModelConfig = {
+      ...seedanceConfig,
+      id: "veo-3.1-fal",
+      generationModes: {
+        imageToVideo: {
+          endpoint: "fal-ai/veo3.1/image-to-video",
+          inputs: { startImage: true, endImage: true },
+          endFrameEndpoint: {
+            endpoint: "fal-ai/veo3.1/first-last-frame-to-video",
+            imageInput: "first_frame_url",
+            endImageInput: "last_frame_url",
+          },
+        },
+      },
+      paramMapping: { duration: "duration", audio: "generate_audio", imageInput: "image_url" },
+    };
+
+    it("routes a start-only request to the base image-to-video endpoint", async () => {
+      await falVideoTransport.generateVideoRequest!(veoRoutedConfig, {
+        mode: "image-to-video",
+        prompt: "p",
+        settings: { duration: "8s", audio: true },
+        startImage: "start",
+        endImage: null,
+      }, "key");
+
+      expect(mockSubmitFalQueueRequest).toHaveBeenCalledWith(
+        "fal-ai/veo3.1/image-to-video",
+        expect.objectContaining({ image_url: "data:image/png;base64,start" }),
+        "key"
+      );
+      const input = mockSubmitFalQueueRequest.mock.calls[0][1] as Record<string, unknown>;
+      expect(input.first_frame_url).toBeUndefined();
+      expect(input.last_frame_url).toBeUndefined();
+    });
+
+    it("routes a start+end request to the end-frame endpoint with its own param names", async () => {
+      await falVideoTransport.generateVideoRequest!(veoRoutedConfig, {
+        mode: "image-to-video",
+        prompt: "p",
+        settings: { duration: "8s", audio: true },
+        startImage: "start",
+        endImage: "end",
+      }, "key");
+
+      expect(mockSubmitFalQueueRequest).toHaveBeenCalledWith(
+        "fal-ai/veo3.1/first-last-frame-to-video",
+        expect.objectContaining({
+          first_frame_url: "data:image/png;base64,start",
+          last_frame_url: "data:image/png;base64,end",
+        }),
+        "key"
+      );
+      const input = mockSubmitFalQueueRequest.mock.calls[0][1] as Record<string, unknown>;
+      expect(input.image_url).toBeUndefined();
+    });
+  });
 });
