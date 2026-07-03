@@ -11,6 +11,7 @@ import { createTimelineCommands } from "./commands/timeline";
 import { createBibleCommands } from "./commands/bibles";
 import { createImageVersionCommands } from "./commands/image-versions";
 import { createVideoVersionCommands } from "./commands/video-versions";
+import { createExportCommandsForApp } from "./export-deps";
 import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
 import { initMediaDirs, mediaBaseDir } from "./media-files";
@@ -51,6 +52,7 @@ function registerIpc() {
     ...createBibleCommands(db, mediaDir),
     ...createImageVersionCommands(db, mediaDir),
     ...createVideoVersionCommands(db, mediaDir),
+    ...createExportCommandsForApp(db, mediaDir),
   });
   ipcMain.handle("showbiz:invoke", (_event, cmd: string, args?: Record<string, unknown>) =>
     invokeHandler(cmd, args)

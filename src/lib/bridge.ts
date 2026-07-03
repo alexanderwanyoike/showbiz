@@ -5,6 +5,8 @@ import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 export interface ElectronBridge {
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
   readMediaBytes(relativePath: string): Promise<Uint8Array>;
+  /** Subscribe to native export progress; returns an unsubscribe function. */
+  onExportProgress(cb: (payload: { percent: number }) => void): () => void;
 }
 
 declare global {

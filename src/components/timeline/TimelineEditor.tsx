@@ -29,7 +29,12 @@ import { useVideoPool } from "../../hooks/useVideoPool";
 import { useTrimDrag } from "../../hooks/useTrimDrag";
 import { useVideoDurations } from "../../hooks/useVideoDurations";
 import { videoAssembler } from "../../lib/video-assembler";
-import { isElectron } from "../../lib/bridge";
+import { isElectron, invoke } from "../../lib/bridge";
+import {
+  buildExportClips,
+  parseExportSettings,
+  type ExportSettingsForm,
+} from "../../lib/export-payload";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import PreviewPlayer from "./PreviewPlayer";
@@ -71,6 +76,13 @@ export default function TimelineEditor({
   const [localTrims, setLocalTrims] = useState<Record<string, { trimIn: number; trimOut: number }>>({});
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
   const [exportStatus, setExportStatus] = useState<{ percent: number; stage: string } | null>(null);
+  // Electron-only export settings (blank numeric fields = probe the first clip).
+  const [exportSettings, setExportSettings] = useState<ExportSettingsForm>({
+    width: "",
+    height: "",
+    fps: "",
+    preset: "medium",
+  });
   const electronRuntime = isElectron();
 
   // Convert DB clip rows (+ optimistic trims) to entries for the clip builder
@@ -247,6 +259,42 @@ export default function TimelineEditor({
   );
 
   const handleExport = useCallback(async () => {
+    // Electron: spawned native ffmpeg. Main resolves file paths from the DB
+    // (renderer clip URLs are blob: here), inserts black for gaps, and reports
+    // progress over IPC.
+    if (electronRuntime) {
+      const payload = buildExportClips(clips);
+      if (payload.length === 0) {
+        alert("No clips to export!");
+        return;
+      }
+
+      const savePath = await invoke<string | null>("show_export_save_dialog");
+      if (!savePath) return;
+
+      setExportStatus({ percent: 0, stage: "Exporting..." });
+      const unsubscribe = window.showbiz!.onExportProgress(({ percent }) =>
+        setExportStatus({ percent, stage: "Exporting..." })
+      );
+
+      try {
+        await invoke("export_timeline_video", {
+          clips: payload,
+          settings: parseExportSettings(exportSettings),
+          savePath,
+        });
+        alert("Video exported successfully!");
+      } catch (error) {
+        console.error("Export failed:", error);
+        alert("Failed to export video. Check console for details.");
+      } finally {
+        unsubscribe();
+        setExportStatus(null);
+      }
+      return;
+    }
+
+    // Tauri: FFmpeg.wasm in-memory assembly + native save dialog (unchanged).
     const exportable = orderClipsForExport(clips).filter((c) => c.videoUrl);
     if (exportable.length === 0) {
       alert("No clips to export!");
@@ -283,7 +331,7 @@ export default function TimelineEditor({
     } finally {
       setExportStatus(null);
     }
-  }, [clips]);
+  }, [clips, electronRuntime, exportSettings]);
 
   const mpvPlayback = useTimelinePlayback({ clips, mpv });
   const html5Playback = useHtml5TimelinePlayback({ clips, pool });
@@ -453,6 +501,51 @@ export default function TimelineEditor({
             <Scissors className="h-4 w-4 mr-1.5" />
             Split
           </Button>
+          {/* Native export settings (Electron only). Blank W/H/FPS = auto (probe first clip). */}
+          {electronRuntime && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <input
+                type="number"
+                min={1}
+                placeholder="W"
+                value={exportSettings.width}
+                onChange={(e) => setExportSettings((s) => ({ ...s, width: e.target.value }))}
+                className="w-14 h-8 px-1.5 rounded border border-border bg-background text-foreground"
+                title="Width (auto)"
+              />
+              <span>x</span>
+              <input
+                type="number"
+                min={1}
+                placeholder="H"
+                value={exportSettings.height}
+                onChange={(e) => setExportSettings((s) => ({ ...s, height: e.target.value }))}
+                className="w-14 h-8 px-1.5 rounded border border-border bg-background text-foreground"
+                title="Height (auto)"
+              />
+              <input
+                type="number"
+                min={1}
+                placeholder="fps"
+                value={exportSettings.fps}
+                onChange={(e) => setExportSettings((s) => ({ ...s, fps: e.target.value }))}
+                className="w-14 h-8 px-1.5 rounded border border-border bg-background text-foreground"
+                title="Frames per second (auto)"
+              />
+              <select
+                value={exportSettings.preset}
+                onChange={(e) => setExportSettings((s) => ({ ...s, preset: e.target.value }))}
+                className="h-8 px-1.5 rounded border border-border bg-background text-foreground"
+                title="Encoder preset"
+              >
+                <option value="ultrafast">ultrafast</option>
+                <option value="veryfast">veryfast</option>
+                <option value="fast">fast</option>
+                <option value="medium">medium</option>
+                <option value="slow">slow</option>
+              </select>
+            </div>
+          )}
           <Button
             onClick={handleExport}
             disabled={exportStatus !== null || clips.length === 0}
