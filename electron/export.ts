@@ -88,6 +88,10 @@ function fmt(seconds: number): string {
  * end (startOffset + effectiveDuration) and the next clip's startOffset becomes
  * a black gap segment; a leading gap before the first clip (startOffset > 0) is
  * included.
+ *
+ * Known limitation (issue #77): overlapping clips across tracks concatenate
+ * back-to-back instead of the preview's track-priority splice, matching the
+ * legacy wasm exporter.
  */
 export function buildExportPlan(clips: ExportClip[]): ExportPlan {
   const ordered = [...clips].sort((a, b) => {
