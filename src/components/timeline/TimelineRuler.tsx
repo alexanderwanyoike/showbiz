@@ -4,7 +4,10 @@ interface TimelineRulerProps {
   totalDuration: number;
   pixelsPerSecond: number;
   currentTime: number;
-  onSeek: (time: number) => void;
+  onSeek?: (time: number) => void;
+  onScrubStart?: () => void;
+  onScrub?: (time: number) => void;
+  onScrubEnd?: (time: number) => void;
 }
 
 // Determine tick intervals based on zoom level
@@ -49,6 +52,9 @@ export default function TimelineRuler({
   pixelsPerSecond,
   currentTime,
   onSeek,
+  onScrubStart,
+  onScrub,
+  onScrubEnd,
 }: TimelineRulerProps) {
   const totalWidth = totalDuration * pixelsPerSecond;
   const { minor, major, labelFormat } = getTickIntervals(pixelsPerSecond);
@@ -72,18 +78,19 @@ export default function TimelineRuler({
   const isScrubbingRef = useRef(false);
   const lastSeekAtRef = useRef(0);
 
-  const seekFromPointer = (e: React.PointerEvent<HTMLDivElement>) => {
+  const timeFromPointer = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const pointerX = e.clientX - rect.left;
-    const seekTime = pointerX / pixelsPerSecond;
-    onSeek(Math.max(0, Math.min(totalDuration, seekTime)));
+    return Math.max(0, Math.min(totalDuration, pointerX / pixelsPerSecond));
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     isScrubbingRef.current = true;
     lastSeekAtRef.current = performance.now();
-    seekFromPointer(e);
+    const time = timeFromPointer(e);
+    onScrubStart?.();
+    (onScrub ?? onSeek)?.(time);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -92,14 +99,15 @@ export default function TimelineRuler({
     const now = performance.now();
     if (now - lastSeekAtRef.current < 80) return;
     lastSeekAtRef.current = now;
-    seekFromPointer(e);
+    (onScrub ?? onSeek)?.(timeFromPointer(e));
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isScrubbingRef.current) return;
     isScrubbingRef.current = false;
     e.currentTarget.releasePointerCapture(e.pointerId);
-    seekFromPointer(e);
+    const time = timeFromPointer(e);
+    (onScrubEnd ?? onSeek)?.(time);
   };
 
   const playheadPosition = currentTime * pixelsPerSecond;

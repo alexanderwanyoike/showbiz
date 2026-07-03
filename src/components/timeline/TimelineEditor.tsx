@@ -24,12 +24,16 @@ import {
 } from "../../lib/timeline-utils";
 import { useTimelinePlayback } from "../../hooks/useTimelinePlayback";
 import { useMpvPlayer } from "../../hooks/useMpvPlayer";
+import { useHtml5TimelinePlayback } from "../../hooks/useHtml5TimelinePlayback";
+import { useVideoPool } from "../../hooks/useVideoPool";
 import { useTrimDrag } from "../../hooks/useTrimDrag";
 import { useVideoDurations } from "../../hooks/useVideoDurations";
 import { videoAssembler } from "../../lib/video-assembler";
+import { isElectron } from "../../lib/bridge";
 import { save } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import PreviewPlayer from "./PreviewPlayer";
+import TimelinePreview from "./TimelinePreview";
 import TransportControls from "./TransportControls";
 import TimelineRuler from "./TimelineRuler";
 import TimelineTrack from "./TimelineTrack";
@@ -67,6 +71,7 @@ export default function TimelineEditor({
   const [localTrims, setLocalTrims] = useState<Record<string, { trimIn: number; trimOut: number }>>({});
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
   const [exportStatus, setExportStatus] = useState<{ percent: number; stage: string } | null>(null);
+  const electronRuntime = isElectron();
 
   // Convert DB clip rows (+ optimistic trims) to entries for the clip builder
   const clipEntries: TimelineClipEntry[] = useMemo(
@@ -138,6 +143,7 @@ export default function TimelineEditor({
   }, [clips]);
 
   const mpv = useMpvPlayer();
+  const pool = useVideoPool();
 
   const refreshClips = useCallback(async () => {
     const updatedClips = await getTimelineClips(storyboardId);
@@ -279,7 +285,9 @@ export default function TimelineEditor({
     }
   }, [clips]);
 
-  const playback = useTimelinePlayback({ clips, mpv });
+  const mpvPlayback = useTimelinePlayback({ clips, mpv });
+  const html5Playback = useHtml5TimelinePlayback({ clips, pool });
+  const playback = electronRuntime ? html5Playback : mpvPlayback;
 
   // Split the clip under the playhead (the selected one if it's there, else
   // the topmost) into two independent clips
@@ -409,10 +417,14 @@ export default function TimelineEditor({
       {/* Preview Player - Theater Mode (large but leaves room for timeline) */}
       <div className="min-h-0 px-4 py-2 flex justify-center bg-black">
         <div className="w-full max-h-[55vh]" style={{ aspectRatio: '16/9', maxWidth: 'calc(55vh * 16 / 9)' }}>
-          <PreviewPlayer
-            clips={clips}
-            mpv={mpv}
-          />
+          {electronRuntime ? (
+            <TimelinePreview pool={pool} hasClips={clips.length > 0} />
+          ) : (
+            <PreviewPlayer
+              clips={clips}
+              mpv={mpv}
+            />
+          )}
         </div>
       </div>
 
@@ -522,7 +534,10 @@ export default function TimelineEditor({
                 totalDuration={playback.totalDuration}
                 pixelsPerSecond={pixelsPerSecond}
                 currentTime={playback.currentTime}
-                onSeek={playback.seek}
+                onSeek={electronRuntime ? undefined : playback.seek}
+                onScrubStart={electronRuntime ? html5Playback.beginScrub : undefined}
+                onScrub={electronRuntime ? html5Playback.scrub : undefined}
+                onScrubEnd={electronRuntime ? html5Playback.endScrub : undefined}
               />
 
               {/* Timeline Tracks */}
