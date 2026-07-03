@@ -1,9 +1,12 @@
-import { invoke } from "@tauri-apps/api/core";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { invoke, isElectron } from "./bridge";
 
 // Helper to convert absolute paths from Rust to asset:// URLs with cache busting
 function mediaUrl(absPath: string | null): string | null {
   if (!absPath) return null;
+  // Electron media serving lands in Phase 2 (blob-over-IPC); until then the
+  // Electron shell renders without media rather than crash on convertFileSrc.
+  if (isElectron()) return null;
   return convertFileSrc(absPath) + "?t=" + Date.now();
 }
 
