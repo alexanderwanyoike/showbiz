@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -26,6 +27,11 @@ export function appDataDir(
     default:
       throw new Error(`Unsupported platform: ${platform}`);
   }
+}
+
+/** Generate a unique prefixed ID, e.g. "proj-1708123456789-a1b2c3d" (parity with Rust generate_id). */
+export function generateId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${crypto.randomUUID().slice(0, 7)}`;
 }
 
 /** Load the numbered .sql migrations (shared with the Rust shell) in order. */

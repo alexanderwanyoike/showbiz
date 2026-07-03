@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import path from "node:path";
-import { appDataDir, loadMigrations, migrate, openDatabase } from "./db";
+import { appDataDir, generateId, loadMigrations, migrate, openDatabase } from "./db";
 import { DatabaseSync } from "node:sqlite";
 
 export const MIGRATIONS_DIR = path.resolve(
@@ -36,6 +36,31 @@ describe("appDataDir", () => {
     expect(
       appDataDir("win32", { APPDATA: "C:\\Users\\u\\AppData\\Roaming" }, "C:\\Users\\u")
     ).toBe(path.join("C:\\Users\\u\\AppData\\Roaming", "com.showbiz.app"));
+  });
+});
+
+describe("generateId (parity with Rust generate_id)", () => {
+  it("has the prefix-timestamp-random format", () => {
+    const id = generateId("sb");
+    const parts = id.split("-");
+    expect(parts.length).toBe(3);
+    expect(parts[0]).toBe("sb");
+    expect(Number.isInteger(Number(parts[1]))).toBe(true);
+    expect(parts[2].length).toBe(7);
+  });
+
+  it("embeds the current timestamp", () => {
+    const before = Date.now();
+    const id = generateId("test");
+    const after = Date.now();
+    const ts = Number(id.split("-")[1]);
+    expect(ts).toBeGreaterThanOrEqual(before);
+    expect(ts).toBeLessThanOrEqual(after);
+  });
+
+  it("is unique across many calls", () => {
+    const ids = Array.from({ length: 100 }, () => generateId("x"));
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });
 
