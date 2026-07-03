@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { appDataDir, loadMigrations, openDatabase } from "./db";
 import { createProjectCommands } from "./commands/projects";
 import { createMediaCommands } from "./commands/media";
+import { createSettingsCommands } from "./commands/settings";
 import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
 
@@ -31,6 +32,7 @@ function registerIpc() {
   const invokeHandler = createInvokeHandler({
     ...createProjectCommands(db),
     ...createMediaCommands(path.join(appDataDir(), "media")),
+    ...createSettingsCommands(db),
   });
   ipcMain.handle("showbiz:invoke", (_event, cmd: string, args?: Record<string, unknown>) =>
     invokeHandler(cmd, args)
