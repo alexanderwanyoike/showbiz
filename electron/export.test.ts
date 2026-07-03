@@ -266,4 +266,17 @@ describe("binary path resolution", () => {
       "/app/node_modules/ffprobe-static/bin/win32/x64/ffprobe.exe"
     );
   });
+
+  it("resolves packaged binaries from resources/bin when a resourcesPath is given", () => {
+    expect(ffmpegBinaryPath("/ignored", "linux", "/opt/Showbiz/resources")).toBe(
+      "/opt/Showbiz/resources/bin/ffmpeg"
+    );
+    expect(ffmpegBinaryPath("/ignored", "win32", "/resources")).toBe("/resources/bin/ffmpeg.exe");
+    expect(ffprobeBinaryPath("/ignored", "linux", "x64", "/opt/Showbiz/resources")).toBe(
+      "/opt/Showbiz/resources/bin/ffprobe"
+    );
+    expect(ffprobeBinaryPath("/ignored", "win32", "x64", "/resources")).toBe(
+      "/resources/bin/ffprobe.exe"
+    );
+  });
 });

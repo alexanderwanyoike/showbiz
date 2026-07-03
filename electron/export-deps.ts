@@ -46,8 +46,11 @@ async function probeVideo(ffprobePath: string, filePath: string): Promise<ProbeR
  */
 export function createExportCommandsForApp(db: DatabaseSync, mediaDir: string) {
   const appPath = app.getAppPath();
-  const ffmpegPath = ffmpegBinaryPath(appPath);
-  const ffprobePath = ffprobeBinaryPath(appPath);
+  // Packaged builds carry the binaries in resources/bin (electron-builder
+  // extraResources); dev resolves them from node_modules.
+  const resourcesPath = app.isPackaged ? process.resourcesPath : undefined;
+  const ffmpegPath = ffmpegBinaryPath(appPath, process.platform, resourcesPath);
+  const ffprobePath = ffprobeBinaryPath(appPath, process.platform, process.arch, resourcesPath);
 
   return createExportCommands(db, mediaDir, {
     spawn: (command, args) => spawn(command, args),

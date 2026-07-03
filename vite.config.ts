@@ -4,6 +4,9 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Relative asset paths: packaged Electron loads index.html from a file://
+  // asar path where absolute /assets/ URLs resolve nowhere.
+  base: "./",
   plugins: [react()],
   resolve: {
     alias: {
