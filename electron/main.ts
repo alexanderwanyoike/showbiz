@@ -37,7 +37,7 @@ function registerIpc() {
   // shell where main.rs calls media::init() at startup.
   initMediaDirs(mediaDir);
   const invokeHandler = createInvokeHandler({
-    ...createProjectCommands(db),
+    ...createProjectCommands(db, mediaDir),
     ...createMediaCommands(mediaDir),
     ...createSettingsCommands(db),
     ...createHttpCommands(),
