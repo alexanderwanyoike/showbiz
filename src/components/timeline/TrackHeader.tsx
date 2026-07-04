@@ -14,9 +14,21 @@ export default function TrackHeader({ name, type, onRemove, canRemove }: TrackHe
   const [isVisible, setIsVisible] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
 
+  // Audio lanes are half the height of video lanes: lay the name and buttons
+  // out in a single row so the header fits inside its lane.
+  const compact = type === "audio";
+
   return (
-    <div className="w-[120px] flex-shrink-0 bg-muted/80 border-r border-border flex flex-col justify-center px-2 py-1">
-      <span className="text-xs font-medium text-muted-foreground truncate mb-1">
+    <div
+      className={`w-[120px] h-full flex-shrink-0 overflow-hidden bg-muted/80 border-r border-border flex ${
+        compact ? "flex-row items-center gap-1 px-1.5 py-0.5" : "flex-col justify-center px-2 py-1"
+      }`}
+    >
+      <span
+        className={`text-xs font-medium text-muted-foreground truncate ${
+          compact ? "flex-1" : "mb-1"
+        }`}
+      >
         {name}
       </span>
       <div className="flex items-center gap-0.5">

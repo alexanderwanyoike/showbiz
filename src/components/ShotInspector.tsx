@@ -23,6 +23,7 @@ import VideoVersionTimeline from "./VideoVersionTimeline";
 import type { ImageVersionNode, ImageVersionWithUrl, VideoVersionNode, VideoVersionWithUrl } from "../lib/backend-api";
 import { hasUsableShotVideoSource } from "../lib/bible-assets";
 import { filterFrameOptions } from "../lib/bible-compose";
+import { formatDurationLabel } from "../lib/video-preview";
 import type { VideoGenerationSettings, VideoModelInfo } from "../lib/models/types";
 
 export type ShotFrameRole = "start" | "end";
@@ -432,7 +433,7 @@ export default function ShotInspector({
                       <SelectContent>
                         {videoModel.capabilities.durations.map((duration) => (
                           <SelectItem key={duration} value={duration}>
-                            {duration === "auto" ? "Auto" : `${duration}s`}
+                            {formatDurationLabel(duration)}
                           </SelectItem>
                         ))}
                       </SelectContent>

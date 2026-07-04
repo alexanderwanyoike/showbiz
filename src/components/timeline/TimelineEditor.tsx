@@ -528,7 +528,7 @@ export default function TimelineEditor({
                     />
                   </div>
                   {isLastVideoBeforeAudio && (
-                    <div className="flex justify-center py-0.5 bg-muted/80 border-r border-border">
+                    <div className="flex justify-center py-1 bg-muted/80 border-r border-border">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -541,7 +541,7 @@ export default function TimelineEditor({
                     </div>
                   )}
                   {isLastAudio && (
-                    <div className="flex justify-center py-0.5 bg-muted/80 border-r border-border">
+                    <div className="flex justify-center py-1 bg-muted/80 border-r border-border">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -559,7 +559,7 @@ export default function TimelineEditor({
           </div>
 
           {/* Scrollable timeline content */}
-          <div className="flex-1 overflow-x-auto p-4">
+          <div className="flex-1 overflow-x-auto px-4 pb-4">
             <div className="min-w-fit">
               {/* Timeline Ruler */}
               <TimelineRuler
