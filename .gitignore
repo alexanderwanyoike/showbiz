@@ -20,11 +20,7 @@
 # vite
 /dist/
 
-# tauri
-/src-tauri/target/
-
 # production
-/build
 
 # misc
 .DS_Store
@@ -54,16 +50,6 @@ next-env.d.ts
 /features/
 /.notes/
 
-# Bundled mpv binaries (downloaded per-platform, not committed)
-src-tauri/binaries/mpv-*
-!src-tauri/binaries/mpv-macos/
-src-tauri/binaries/mpv-macos/*
-!src-tauri/binaries/mpv-macos/.gitkeep
-!src-tauri/binaries/mpv-macos/lib/
-src-tauri/binaries/mpv-macos/lib/*
-!src-tauri/binaries/mpv-macos/lib/.gitkeep
-src-tauri/binaries/mpv-libs/
-src-tauri/binaries/mpv.app/
 dist-electron
 .codex/
 dist-package

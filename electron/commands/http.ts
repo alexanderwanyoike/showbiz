@@ -1,6 +1,6 @@
 /**
  * Cross-origin HTTP proxy for the Electron shell. Ports
- * src-tauri/src/commands/http_client.rs: a thin main-process fetch that
+ * the retired Rust backend's commands/http_client.rs: a thin main-process fetch that
  * completely bypasses the renderer, returning the body as base64.
  *
  * Request/response JSON shapes match the Rust command exactly (same signature

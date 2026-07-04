@@ -1,7 +1,5 @@
-import { invoke as tauriInvoke } from "@tauri-apps/api/core";
-
-// Runtime bridge: the frontend calls invoke() without knowing which shell it
-// runs in. Electron's preload exposes window.showbiz; absent that, Tauri.
+// Runtime bridge to the Electron main process, exposed by the preload script
+// as window.showbiz.
 export interface ElectronBridge {
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
   readMediaBytes(relativePath: string): Promise<Uint8Array>;
@@ -15,15 +13,9 @@ declare global {
   }
 }
 
-export function isElectron(): boolean {
-  return typeof window !== "undefined" && window.showbiz !== undefined;
-}
-
-// Tauri rejects failed commands with the bare Err(String) value; Electron's
-// ipcRenderer.invoke wraps handler throws as
+// Electron's ipcRenderer.invoke wraps handler throws as
 //   Error invoking remote method 'showbiz:invoke': Error: <msg>
-// Strip that wrapping so both shells reject identically and UI code doing
-// String(e) shows the same message.
+// Strip that wrapping so UI code doing String(e) shows the bare message.
 function toBareErrorMessage(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e);
   return message
@@ -32,10 +24,10 @@ function toBareErrorMessage(e: unknown): string {
 }
 
 export function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  if (typeof window !== "undefined" && window.showbiz) {
-    return window.showbiz.invoke<T>(cmd, args).catch((e: unknown) => {
-      throw toBareErrorMessage(e);
-    });
+  if (typeof window === "undefined" || !window.showbiz) {
+    return Promise.reject("Electron bridge (window.showbiz) is unavailable");
   }
-  return tauriInvoke<T>(cmd, args);
+  return window.showbiz.invoke<T>(cmd, args).catch((e: unknown) => {
+    throw toBareErrorMessage(e);
+  });
 }

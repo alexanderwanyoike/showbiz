@@ -21,8 +21,8 @@ export function hasReachedEnd(position: number, duration: number): boolean {
 }
 
 /**
- * Map a play/pause toggle to the mpv action it requires:
- * stopped → start mpv; playing → pause; paused → resume,
+ * Map a play/pause toggle to the player action it requires:
+ * stopped → start playback; playing → pause; paused → resume,
  * or restart from the beginning when paused on the final frame.
  */
 export function resolveToggleAction(

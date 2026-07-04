@@ -29,12 +29,12 @@ export function appDataDir(
   }
 }
 
-/** Generate a unique prefixed ID, e.g. "proj-1708123456789-a1b2c3d" (parity with Rust generate_id). */
+/** Generate a unique prefixed ID, e.g. "proj-1708123456789-a1b2c3d". */
 export function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${crypto.randomUUID().slice(0, 7)}`;
 }
 
-/** Load the numbered .sql migrations (shared with the Rust shell) in order. */
+/** Load the numbered .sql migrations in order. */
 export function loadMigrations(dir: string): string[] {
   return fs
     .readdirSync(dir)

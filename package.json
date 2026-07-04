@@ -9,8 +9,6 @@
   "scripts": {
     "dev": "node scripts/dev-electron.mjs",
     "build": "yarn package:electron",
-    "dev:tauri": "tauri dev",
-    "build:tauri": "tauri build",
     "dev:frontend": "vite dev",
     "dev:electron": "node scripts/dev-electron.mjs",
     "build:frontend": "vite build",
@@ -28,7 +26,7 @@
     "files": [
       "dist/**",
       "dist-electron/**",
-      "src-tauri/src/migrations/*.sql",
+      "electron/migrations/*.sql",
       "!node_modules/**"
     ],
     "linux": {
@@ -37,7 +35,7 @@
         "deb"
       ],
       "category": "AudioVideo",
-      "icon": "src-tauri/icons/128x128@2x.png",
+      "icon": "build/icons/icon.png",
       "extraResources": [
         {
           "from": "node_modules/ffmpeg-static/ffmpeg",
@@ -47,13 +45,15 @@
           "from": "node_modules/ffprobe-static/bin/linux/${arch}/ffprobe",
           "to": "bin/ffprobe"
         }
-      ]
+      ],
+      "desktopName": "showbiz.desktop",
+      "syncDesktopName": true
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "icon": "src-tauri/icons/icon.icns",
+      "icon": "build/icons/icon.icns",
       "extraResources": [
         {
           "from": "node_modules/ffmpeg-static/ffmpeg",
@@ -69,7 +69,7 @@
       "target": [
         "nsis"
       ],
-      "icon": "src-tauri/icons/icon.ico",
+      "icon": "build/icons/icon.ico",
       "extraResources": [
         {
           "from": "node_modules/ffmpeg-static/ffmpeg.exe",
@@ -83,8 +83,6 @@
     }
   },
   "dependencies": {
-    "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -93,10 +91,6 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-dialog": "^2.6.0",
-    "@tauri-apps/plugin-http": "^2.5.7",
-    "@tauri-apps/plugin-shell": "^2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
@@ -112,7 +106,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@tauri-apps/cli": "^2",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",

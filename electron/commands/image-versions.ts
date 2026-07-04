@@ -5,7 +5,7 @@ import { getImageAsBase64, saveVersionImage } from "../media-files";
 
 /**
  * Ported image-version-tree commands; names, argument keys and JSON shapes
- * match src-tauri/src/commands/image_versions.rs. The Rust commands derive the
+ * match the retired Rust backend's commands/image_versions.rs. The Rust commands derive the
  * media base dir from an AppHandle; here it is passed in explicitly
  * (appDataDir/media) so the module stays pure and testable.
  */

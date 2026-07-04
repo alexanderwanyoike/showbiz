@@ -25,7 +25,7 @@ import {
   saveVersionVideo,
 } from "./media-files";
 
-// -- parse_data_url tests (mirror src-tauri/src/media.rs) --
+// -- parse_data_url tests (mirror the retired Rust backend's media.rs) --
 
 describe("parseDataUrl", () => {
   it("parses a valid png data URL", () => {

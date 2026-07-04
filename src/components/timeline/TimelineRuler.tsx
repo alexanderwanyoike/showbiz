@@ -95,7 +95,7 @@ export default function TimelineRuler({
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isScrubbingRef.current) return;
-    // Throttle scrub seeks so mpv isn't flooded with file loads/seeks
+    // Throttle scrub seeks so the player isn't flooded with seeks
     const now = performance.now();
     if (now - lastSeekAtRef.current < 80) return;
     lastSeekAtRef.current = now;

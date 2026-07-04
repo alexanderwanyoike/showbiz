@@ -1,27 +1,11 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { invoke, isElectron } from "./bridge";
+import { invoke } from "./bridge";
 import { electronMediaUrlResolver } from "./electron-media-url";
 
-// Helper to convert absolute paths from Rust to asset:// URLs with cache busting
+// Resolve an absolute media path from the main process to a renderer blob: URL
 async function mediaUrl(absPath: string | null, invalidate = false): Promise<string | null> {
   if (!absPath) return null;
-  if (isElectron()) {
-    if (invalidate) electronMediaUrlResolver.invalidate(absPath);
-    return electronMediaUrlResolver.resolve(absPath);
-  }
-  return convertFileSrc(absPath) + "?t=" + Date.now();
-}
-
-// Convert an asset:// URL back to the absolute filesystem path.
-// asset://localhost/%2Fhome%2F...%2Ffile.mp4?t=123 → /home/.../file.mp4
-export function assetUrlToPath(assetUrl: string): string | null {
-  try {
-    const withoutQuery = assetUrl.split("?")[0];
-    const url = new URL(withoutQuery);
-    return decodeURIComponent(url.pathname.slice(1));
-  } catch {
-    return null;
-  }
+  if (invalidate) electronMediaUrlResolver.invalidate(absPath);
+  return electronMediaUrlResolver.resolve(absPath);
 }
 
 // --- Types ---
@@ -597,11 +581,6 @@ export async function moveTimelineClip(clipId: string, targetTrackId: string, st
 // --- Media Helper ---
 export async function getMediaBasePath(): Promise<string> {
   return invoke("get_media_path");
-}
-
-// --- Assembled Video Export ---
-export async function saveAssembledVideo(videoData: number[], savePath: string): Promise<void> {
-  return invoke("save_assembled_video", { videoData, savePath });
 }
 
 // --- Video save (used by generation-actions) ---

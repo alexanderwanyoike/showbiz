@@ -1,8 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { ZoomIn, ZoomOut, Loader2, Plus, Scissors } from "lucide-react";
-import type { TimelineTrack as TimelineTrackType, TimelineClipRow } from "../../lib/tauri-api";
+import type { TimelineTrack as TimelineTrackType, TimelineClipRow } from "../../lib/backend-api";
 import {
-  saveAssembledVideo,
   addTimelineClip,
   removeTimelineClip,
   moveTimelineClip,
@@ -12,32 +11,26 @@ import {
   getTimelineTracks,
   updateTimelineClipTrims,
   splitTimelineClip,
-} from "../../lib/tauri-api";
+} from "../../lib/backend-api";
 import {
   buildTimelineClipsFromExplicit,
   getActiveClipAtTime,
   computeClipSplit,
   snapStartTime,
-  orderClipsForExport,
   Shot,
   TimelineClipEntry,
 } from "../../lib/timeline-utils";
-import { useTimelinePlayback } from "../../hooks/useTimelinePlayback";
-import { useMpvPlayer } from "../../hooks/useMpvPlayer";
 import { useHtml5TimelinePlayback } from "../../hooks/useHtml5TimelinePlayback";
 import { useVideoPool } from "../../hooks/useVideoPool";
 import { useTrimDrag } from "../../hooks/useTrimDrag";
 import { useVideoDurations } from "../../hooks/useVideoDurations";
-import { videoAssembler } from "../../lib/video-assembler";
-import { isElectron, invoke } from "../../lib/bridge";
+import { invoke } from "../../lib/bridge";
 import {
   buildExportClips,
   parseExportSettings,
   type ExportSettingsForm,
 } from "../../lib/export-payload";
-import { save } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
-import PreviewPlayer from "./PreviewPlayer";
 import TimelinePreview from "./TimelinePreview";
 import TransportControls from "./TransportControls";
 import TimelineRuler from "./TimelineRuler";
@@ -76,14 +69,13 @@ export default function TimelineEditor({
   const [localTrims, setLocalTrims] = useState<Record<string, { trimIn: number; trimOut: number }>>({});
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
   const [exportStatus, setExportStatus] = useState<{ percent: number; stage: string } | null>(null);
-  // Electron-only export settings (blank numeric fields = probe the first clip).
+  // Export settings (blank numeric fields = probe the first clip).
   const [exportSettings, setExportSettings] = useState<ExportSettingsForm>({
     width: "",
     height: "",
     fps: "",
     preset: "medium",
   });
-  const electronRuntime = isElectron();
 
   // Convert DB clip rows (+ optimistic trims) to entries for the clip builder
   const clipEntries: TimelineClipEntry[] = useMemo(
@@ -154,7 +146,6 @@ export default function TimelineEditor({
     return byTrack;
   }, [clips]);
 
-  const mpv = useMpvPlayer();
   const pool = useVideoPool();
 
   const refreshClips = useCallback(async () => {
@@ -259,83 +250,40 @@ export default function TimelineEditor({
   );
 
   const handleExport = useCallback(async () => {
-    // Electron: spawned native ffmpeg. Main resolves file paths from the DB
-    // (renderer clip URLs are blob: here), inserts black for gaps, and reports
-    // progress over IPC.
-    if (electronRuntime) {
-      const payload = buildExportClips(clips);
-      if (payload.length === 0) {
-        alert("No clips to export!");
-        return;
-      }
-
-      const savePath = await invoke<string | null>("show_export_save_dialog");
-      if (!savePath) return;
-
-      setExportStatus({ percent: 0, stage: "Exporting..." });
-      const unsubscribe = window.showbiz!.onExportProgress(({ percent }) =>
-        setExportStatus({ percent, stage: "Exporting..." })
-      );
-
-      try {
-        await invoke("export_timeline_video", {
-          clips: payload,
-          settings: parseExportSettings(exportSettings),
-          savePath,
-        });
-        alert("Video exported successfully!");
-      } catch (error) {
-        console.error("Export failed:", error);
-        alert("Failed to export video. Check console for details.");
-      } finally {
-        unsubscribe();
-        setExportStatus(null);
-      }
-      return;
-    }
-
-    // Tauri: FFmpeg.wasm in-memory assembly + native save dialog (unchanged).
-    const exportable = orderClipsForExport(clips).filter((c) => c.videoUrl);
-    if (exportable.length === 0) {
+    // Spawned native ffmpeg. Main resolves file paths from the DB (renderer
+    // clip URLs are blob:), inserts black for gaps, and reports progress
+    // over IPC.
+    const payload = buildExportClips(clips);
+    if (payload.length === 0) {
       alert("No clips to export!");
       return;
     }
 
-    setExportStatus({ percent: 0, stage: "Starting..." });
+    const savePath = await invoke<string | null>("show_export_save_dialog");
+    if (!savePath) return;
+
+    setExportStatus({ percent: 0, stage: "Exporting..." });
+    const unsubscribe = window.showbiz!.onExportProgress(({ percent }) =>
+      setExportStatus({ percent, stage: "Exporting..." })
+    );
 
     try {
-      const trimmedClips = exportable.map((clip) => ({
-        videoUrl: clip.videoUrl!,
-        trimIn: clip.trimIn,
-        trimOut: clip.trimOut,
-      }));
-
-      const videoBytes = await videoAssembler.assembleTrimmedVideos(
-        trimmedClips,
-        (percent, stage) => setExportStatus({ percent, stage })
-      );
-
-      // Show save dialog
-      const savePath = await save({
-        defaultPath: "edited-video.mp4",
-        filters: [{ name: "Video", extensions: ["mp4"] }],
+      await invoke("export_timeline_video", {
+        clips: payload,
+        settings: parseExportSettings(exportSettings),
+        savePath,
       });
-
-      if (savePath) {
-        await saveAssembledVideo(Array.from(videoBytes), savePath);
-        alert("Video exported successfully!");
-      }
+      alert("Video exported successfully!");
     } catch (error) {
       console.error("Export failed:", error);
       alert("Failed to export video. Check console for details.");
     } finally {
+      unsubscribe();
       setExportStatus(null);
     }
-  }, [clips, electronRuntime, exportSettings]);
+  }, [clips, exportSettings]);
 
-  const mpvPlayback = useTimelinePlayback({ clips, mpv });
-  const html5Playback = useHtml5TimelinePlayback({ clips, pool });
-  const playback = electronRuntime ? html5Playback : mpvPlayback;
+  const playback = useHtml5TimelinePlayback({ clips, pool });
 
   // Split the clip under the playhead (the selected one if it's there, else
   // the topmost) into two independent clips
@@ -465,14 +413,7 @@ export default function TimelineEditor({
       {/* Preview Player - Theater Mode (large but leaves room for timeline) */}
       <div className="min-h-0 px-4 py-2 flex justify-center bg-black">
         <div className="w-full max-h-[55vh]" style={{ aspectRatio: '16/9', maxWidth: 'calc(55vh * 16 / 9)' }}>
-          {electronRuntime ? (
-            <TimelinePreview pool={pool} hasClips={clips.length > 0} />
-          ) : (
-            <PreviewPlayer
-              clips={clips}
-              mpv={mpv}
-            />
-          )}
+          <TimelinePreview pool={pool} hasClips={clips.length > 0} />
         </div>
       </div>
 
@@ -501,9 +442,8 @@ export default function TimelineEditor({
             <Scissors className="h-4 w-4 mr-1.5" />
             Split
           </Button>
-          {/* Native export settings (Electron only). Blank W/H/FPS = auto (probe first clip). */}
-          {electronRuntime && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          {/* Native export settings. Blank W/H/FPS = auto (probe first clip). */}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <input
                 type="number"
                 min={1}
@@ -545,7 +485,6 @@ export default function TimelineEditor({
                 <option value="slow">slow</option>
               </select>
             </div>
-          )}
           <Button
             onClick={handleExport}
             disabled={exportStatus !== null || clips.length === 0}
@@ -627,10 +566,9 @@ export default function TimelineEditor({
                 totalDuration={playback.totalDuration}
                 pixelsPerSecond={pixelsPerSecond}
                 currentTime={playback.currentTime}
-                onSeek={electronRuntime ? undefined : playback.seek}
-                onScrubStart={electronRuntime ? html5Playback.beginScrub : undefined}
-                onScrub={electronRuntime ? html5Playback.scrub : undefined}
-                onScrubEnd={electronRuntime ? html5Playback.endScrub : undefined}
+                onScrubStart={playback.beginScrub}
+                onScrub={playback.scrub}
+                onScrubEnd={playback.endScrub}
               />
 
               {/* Timeline Tracks */}

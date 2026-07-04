@@ -51,7 +51,7 @@ interface ShotRow {
 const SHOT_COLUMNS = `id, storyboard_id, "order", duration, image_prompt, image_path,
                       end_frame_path, video_prompt, video_path, status, created_at, updated_at`;
 
-/** Ported shot commands; names and JSON shapes match src-tauri/src/commands/shots.rs. */
+/** Ported shot commands; names and JSON shapes match the retired Rust backend's commands/shots.rs. */
 export function createShotCommands(db: DatabaseSync, mediaDir: string) {
   /**
    * Build an absolute file path for a media file, mirroring Rust make_media_url

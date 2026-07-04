@@ -5,7 +5,7 @@ import { saveVersionVideo } from "../media-files";
 
 /**
  * Ported video version tree commands; names and JSON shapes match
- * src-tauri/src/commands/video_versions.rs. `mediaDir` is the appDataDir/media
+ * the retired Rust backend's commands/video_versions.rs. `mediaDir` is the appDataDir/media
  * path (the Rust command derives it from the AppHandle via
  * media::get_media_base_dir).
  */

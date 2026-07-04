@@ -22,7 +22,7 @@ const PROVIDERS: ReadonlyArray<readonly [string, string]> = [
 
 const dbKeyFor = (provider: string): string => `${provider}_api_key`;
 
-/** Ported settings/API-key commands; names and JSON shapes match src-tauri/src/commands/settings.rs. */
+/** Ported settings/API-key commands; names and JSON shapes match the retired Rust backend's commands/settings.rs. */
 export function createSettingsCommands(db: DatabaseSync) {
   function readValue(provider: string): string | null {
     const row = db

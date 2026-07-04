@@ -1,6 +1,6 @@
-import type { TimelineTrack } from "./tauri-api";
+import type { TimelineTrack } from "./backend-api";
 
-/** Track definition for UI rendering, re-exported from tauri-api */
+/** Track definition for UI rendering, re-exported from backend-api */
 export type Track = TimelineTrack;
 
 export interface Shot {
