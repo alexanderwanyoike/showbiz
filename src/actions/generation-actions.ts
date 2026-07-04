@@ -1,7 +1,8 @@
-import { getApiKey, saveShotImage, saveAndCompleteVideo, getShotImageBase64, getVersionImageBase64, createVideoGenerationVersion, getCurrentVideoVersion } from "../lib/tauri-api";
+import { getApiKey, getShotImageBase64, getShotEndFrameBase64, createVideoGenerationVersion, getCurrentVideoVersion } from "../lib/backend-api";
 import { getImageModel, getVideoModel, ImageModelId, VideoModelId } from "../lib/models";
 import { generateText } from "../lib/models/gemini-text";
 import type { VideoGenerationSettings } from "../lib/models/types";
+import type { VideoGenerationRequest } from "../lib/generation/types";
 
 export async function generateImageAction(prompt: string, modelId: ImageModelId = "imagen4"): Promise<string> {
   const model = getImageModel(modelId);
@@ -18,7 +19,7 @@ export async function generateImageAction(prompt: string, modelId: ImageModelId 
 export async function generateAndSaveVideoAction(
   shotId: string,
   prompt: string,
-  modelId: VideoModelId = "veo3",
+  modelId: VideoModelId = "seedance-2-fal",
   settings?: VideoGenerationSettings
 ): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
   const model = getVideoModel(modelId);
@@ -68,6 +69,57 @@ export async function generateAndSaveVideoAction(
   }
 }
 
+export async function generateAndSaveVideoRequestAction(
+  shotId: string,
+  modelId: VideoModelId,
+  request: VideoGenerationRequest
+): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
+  const model = getVideoModel(modelId);
+  const apiKey = await getApiKey(model.apiKeyProvider);
+  if (!apiKey) {
+    return { success: false, videoUrl: null, error: `${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.` };
+  }
+  try {
+    let effectiveRequest = request;
+    if (request.mode === "image-to-video") {
+      effectiveRequest = {
+        ...request,
+        startImage: request.startImage ?? (await getShotImageBase64(shotId)),
+        endImage: request.endImage ?? (await getShotEndFrameBase64(shotId)),
+      };
+    }
+    const videoBlob = model.generateVideoFromRequest
+      ? await model.generateVideoFromRequest(effectiveRequest, apiKey)
+      : await model.generateVideoBlob!(
+          effectiveRequest.prompt,
+          effectiveRequest.startImage ?? null,
+          apiKey,
+          effectiveRequest.settings
+        );
+
+    const arrayBuffer = await videoBlob.arrayBuffer();
+    const videoData = Array.from(new Uint8Array(arrayBuffer));
+    const mimeType = videoBlob.type || "video/mp4";
+    const currentVersion = await getCurrentVideoVersion(shotId);
+    const settingsJson = JSON.stringify({
+      ...effectiveRequest.settings,
+      generationMode: effectiveRequest.mode,
+    });
+    const result = await createVideoGenerationVersion(
+      shotId,
+      videoData,
+      mimeType,
+      effectiveRequest.prompt,
+      settingsJson,
+      modelId,
+      currentVersion?.id ?? null
+    );
+    return { success: true, videoUrl: result.video_url };
+  } catch (error) {
+    return { success: false, videoUrl: null, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 export async function editImageAction(sourceImageBase64: string, editPrompt: string, modelId: ImageModelId = "nano-banana"): Promise<string> {
   const model = getImageModel(modelId);
   const apiKey = await getApiKey(model.apiKeyProvider);
@@ -78,6 +130,26 @@ export async function editImageAction(sourceImageBase64: string, editPrompt: str
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(`Image edit failed: ${errorMessage}`);
+  }
+}
+
+// Compose a single frame from a prompt plus one or more reference images
+// (e.g. a Bible character + a location + a style). Used by the frame composer.
+export async function composeFrameAction(
+  prompt: string,
+  referenceImages: string[],
+  modelId: ImageModelId = "nano-banana"
+): Promise<string> {
+  const model = getImageModel(modelId);
+  const apiKey = await getApiKey(model.apiKeyProvider);
+  if (!apiKey) throw new Error(`${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`);
+  if (!model.composeImage) throw new Error(`${model.name} does not support multi-reference composition.`);
+  if (referenceImages.length === 0) throw new Error("Select at least one reference to compose a frame.");
+  try {
+    return await model.composeImage(prompt, referenceImages, apiKey);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Frame composition failed: ${errorMessage}`);
   }
 }
 

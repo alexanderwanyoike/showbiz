@@ -1,0 +1,43 @@
+{
+  "id": "wan-flf2v-fal",
+  "name": "Wan 2.1 FLF",
+  "description": "Wan 2.1 First-Last-Frame via fal.ai: cheap start + end frame, both required (480p/720p, ~5s clips).",
+  "transport": "fal-video",
+  "transportOptions": {
+    "imageToVideoEndpoint": "fal-ai/wan-flf2v"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "wan",
+  "models": {
+    "imageToVideo": "wan-flf2v-fal-i2v"
+  },
+  "generationModes": {
+    "imageToVideo": {
+      "endpoint": "fal-ai/wan-flf2v",
+      "inputs": {
+        "startImage": true,
+        "endImage": "required"
+      }
+    }
+  },
+  "paramMapping": {
+    "resolution": "resolution",
+    "imageInput": "start_image_url"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": [
+      "5"
+    ],
+    "resolutions": [
+      "480p",
+      "720p"
+    ]
+  },
+  "defaults": {
+    "duration": "5",
+    "resolution": "720p"
+  }
+}

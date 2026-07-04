@@ -5,7 +5,7 @@ interface ThumbnailCacheEntry {
 }
 
 interface ThumbnailCache {
-  [shotId: string]: ThumbnailCacheEntry;
+  [videoUrl: string]: ThumbnailCacheEntry;
 }
 
 class ThumbnailGenerator {
@@ -14,13 +14,10 @@ class ThumbnailGenerator {
   private thumbnailWidth = 80;
   private thumbnailHeight = 45; // 16:9 aspect ratio
 
-  async generateThumbnails(
-    videoUrl: string,
-    shotId: string
-  ): Promise<string[]> {
-    // Check cache first
-    if (this.cache[shotId]) {
-      return this.cache[shotId].frames;
+  async generateThumbnails(videoUrl: string): Promise<string[]> {
+    // Cache keyed by URL so different versions of a shot get their own frames
+    if (this.cache[videoUrl]) {
+      return this.cache[videoUrl].frames;
     }
 
     // Fetch video as blob to work around GStreamer not understanding asset:// URLs
@@ -78,7 +75,7 @@ class ThumbnailGenerator {
     URL.revokeObjectURL(blobUrl);
 
     // Cache results
-    this.cache[shotId] = {
+    this.cache[videoUrl] = {
       frames,
       timestamps,
       generatedAt: Date.now(),
@@ -87,13 +84,44 @@ class ThumbnailGenerator {
     return frames;
   }
 
-  getCachedThumbnails(shotId: string): string[] | null {
-    return this.cache[shotId]?.frames || null;
+  async getVideoDuration(videoUrl: string): Promise<number> {
+    const { video, blobUrl } = await loadVideoElement(videoUrl);
+    const duration = video.duration;
+    URL.revokeObjectURL(blobUrl);
+    return Number.isFinite(duration) ? duration : 0;
   }
 
-  clearCache(shotId?: string): void {
-    if (shotId) {
-      delete this.cache[shotId];
+  async extractFrame(videoUrl: string, time?: number): Promise<string> {
+    const { video, blobUrl } = await loadVideoElement(videoUrl);
+    const duration = Number.isFinite(video.duration) ? video.duration : 0;
+    const frameTime = time ?? Math.max(0, duration - 0.05);
+    video.currentTime = Math.max(0, Math.min(duration, frameTime));
+
+    await new Promise<void>((resolve) => {
+      video.onseeked = () => resolve();
+    });
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      URL.revokeObjectURL(blobUrl);
+      throw new Error("Failed to get canvas context");
+    }
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    URL.revokeObjectURL(blobUrl);
+    return dataUrl;
+  }
+
+  getCachedThumbnails(videoUrl: string): string[] | null {
+    return this.cache[videoUrl]?.frames || null;
+  }
+
+  clearCache(videoUrl?: string): void {
+    if (videoUrl) {
+      delete this.cache[videoUrl];
     } else {
       this.cache = {};
     }
@@ -101,3 +129,23 @@ class ThumbnailGenerator {
 }
 
 export const thumbnailGenerator = new ThumbnailGenerator();
+
+async function loadVideoElement(videoUrl: string): Promise<{ video: HTMLVideoElement; blobUrl: string }> {
+  const response = await window.fetch(videoUrl);
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
+
+  const video = document.createElement("video");
+  video.src = blobUrl;
+  video.muted = true;
+
+  await new Promise<void>((resolve, reject) => {
+    video.onloadedmetadata = () => resolve();
+    video.onerror = () => {
+      URL.revokeObjectURL(blobUrl);
+      reject(new Error("Failed to load video"));
+    };
+  });
+
+  return { video, blobUrl };
+}

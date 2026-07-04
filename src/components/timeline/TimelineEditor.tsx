@@ -1,42 +1,105 @@
-import { useState, useEffect, useCallback } from "react";
-import { ZoomIn, ZoomOut, Loader2 } from "lucide-react";
-import { TimelineEdit } from "../../lib/tauri-api";
-import { updateTimelineEdit, saveAssembledVideo } from "../../lib/tauri-api";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { ZoomIn, ZoomOut, Loader2, Plus, Scissors } from "lucide-react";
+import type { TimelineTrack as TimelineTrackType, TimelineClipRow } from "../../lib/backend-api";
 import {
-  buildTimelineClips,
+  addTimelineClip,
+  removeTimelineClip,
+  moveTimelineClip,
+  createTimelineTrack,
+  deleteTimelineTrack,
+  getTimelineClips,
+  getTimelineTracks,
+  updateTimelineClipTrims,
+  splitTimelineClip,
+} from "../../lib/backend-api";
+import {
+  buildTimelineClipsFromExplicit,
+  getActiveClipAtTime,
+  computeClipSplit,
+  snapStartTime,
   Shot,
+  TimelineClipEntry,
 } from "../../lib/timeline-utils";
-import { useTimelinePlayback } from "../../hooks/useTimelinePlayback";
-import { useMpvPlayer } from "../../hooks/useMpvPlayer";
+import { useHtml5TimelinePlayback } from "../../hooks/useHtml5TimelinePlayback";
+import { useVideoPool } from "../../hooks/useVideoPool";
 import { useTrimDrag } from "../../hooks/useTrimDrag";
-import { videoAssembler } from "../../lib/video-assembler";
-import { save } from "@tauri-apps/plugin-dialog";
+import { useVideoDurations } from "../../hooks/useVideoDurations";
+import { invoke } from "../../lib/bridge";
+import {
+  buildExportClips,
+  parseExportSettings,
+  type ExportSettingsForm,
+} from "../../lib/export-payload";
 import { Button } from "@/components/ui/button";
-import PreviewPlayer from "./PreviewPlayer";
+import TimelinePreview from "./TimelinePreview";
 import TransportControls from "./TransportControls";
 import TimelineRuler from "./TimelineRuler";
 import TimelineTrack from "./TimelineTrack";
+import TrackHeader from "./TrackHeader";
 
 interface TimelineEditorProps {
   storyboardId: string;
   shots: Shot[];
-  edits: TimelineEdit[];
-  onEditsChange: (edits: TimelineEdit[]) => void;
+  tracks: TimelineTrackType[];
+  clipRows: TimelineClipRow[];
+  /** video version id → that version's file URL */
+  versionUrls: Record<string, string>;
+  /** video version id → version number, for pin badges */
+  versionNumbers: Record<string, number>;
+  onTracksChange: (tracks: TimelineTrackType[]) => void;
+  onClipsChange: (clips: TimelineClipRow[]) => void;
 }
 
 const ZOOM_LEVELS = [25, 50, 75, 100, 150, 200];
 const DEFAULT_ZOOM_INDEX = 1; // 50px per second
+const SNAP_PIXELS = 10; // snap radius for clip moves, in screen pixels
 
 export default function TimelineEditor({
   storyboardId,
   shots,
-  edits,
-  onEditsChange,
+  tracks,
+  clipRows,
+  versionUrls,
+  versionNumbers,
+  onTracksChange,
+  onClipsChange,
 }: TimelineEditorProps) {
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
-  const [localEdits, setLocalEdits] = useState<TimelineEdit[]>(edits);
+  // Optimistic trim values while a handle is being dragged, keyed by clip id
+  const [localTrims, setLocalTrims] = useState<Record<string, { trimIn: number; trimOut: number }>>({});
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
-  const [isExporting, setIsExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState<{ percent: number; stage: string } | null>(null);
+  // Export settings (blank numeric fields = probe the first clip).
+  const [exportSettings, setExportSettings] = useState<ExportSettingsForm>({
+    width: "",
+    height: "",
+    fps: "",
+    preset: "medium",
+  });
+
+  // Convert DB clip rows (+ optimistic trims) to entries for the clip builder
+  const clipEntries: TimelineClipEntry[] = useMemo(
+    () =>
+      clipRows.map((r) => ({
+        clipId: r.id,
+        shotId: r.shot_id,
+        track: r.track_id,
+        startTime: r.start_time,
+        trimIn: localTrims[r.id]?.trimIn ?? r.trim_in,
+        trimOut: localTrims[r.id]?.trimOut ?? r.trim_out,
+        videoVersionId: r.video_version_id,
+      })),
+    [clipRows, localTrims]
+  );
+
+  // Sort tracks: video tracks (descending by track_id), then audio tracks (ascending)
+  const sortedTracks = useMemo(() => {
+    const videoTracks = tracks.filter((t) => t.track_type === "video").sort((a, b) => b.position - a.position);
+    const audioTracks = tracks.filter((t) => t.track_type === "audio").sort((a, b) => a.position - b.position);
+    return [...videoTracks, ...audioTracks];
+  }, [tracks]);
+
+  const videoTrackCount = useMemo(() => tracks.filter((t) => t.track_type === "video").length, [tracks]);
 
   const pixelsPerSecond = ZOOM_LEVELS[zoomIndex];
 
@@ -48,110 +111,221 @@ export default function TimelineEditor({
     setZoomIndex((prev) => Math.max(prev - 1, 0));
   }, []);
 
-  // Sync local edits with props
-  useEffect(() => {
-    setLocalEdits(edits);
-  }, [edits]);
+  // Probe real durations for every URL the timeline can play: each shot's
+  // current video plus any version pinned by a clip
+  const durationUrls = useMemo(() => {
+    const urls = new Set<string>();
+    for (const shot of shots) {
+      if (shot.video_url) urls.add(shot.video_url);
+    }
+    for (const row of clipRows) {
+      const pinned = row.video_version_id && versionUrls[row.video_version_id];
+      if (pinned) urls.add(pinned);
+    }
+    return [...urls];
+  }, [shots, clipRows, versionUrls]);
+  const durations = useVideoDurations(durationUrls);
 
-  // Build clips from shots and edits
-  const clips = buildTimelineClips(shots, localEdits);
+  // Build clips from entries. Memoized so the playback poll loop is not torn
+  // down every render.
+  const clips = useMemo(
+    () => buildTimelineClipsFromExplicit(clipEntries, shots, durations, versionUrls),
+    [clipEntries, shots, durations, versionUrls]
+  );
 
-  const mpv = useMpvPlayer();
+  // Group clips by track
+  const clipsByTrack = useMemo(() => {
+    const byTrack = new Map<string, typeof clips>();
+    for (const clip of clips) {
+      const trackId = clip.track;
+      if (!byTrack.has(trackId)) {
+        byTrack.set(trackId, []);
+      }
+      byTrack.get(trackId)!.push(clip);
+    }
+    return byTrack;
+  }, [clips]);
+
+  const pool = useVideoPool();
+
+  const refreshClips = useCallback(async () => {
+    const updatedClips = await getTimelineClips(storyboardId);
+    onClipsChange(updatedClips);
+  }, [storyboardId, onClipsChange]);
+
+  // Handle drop from media pool; a versionId pins that version to the clip
+  const handleDropShot = useCallback(
+    async (shotId: string, versionId: string | null, trackId: string, dropTime?: number) => {
+      // Calculate start time: use dropTime if provided, else append after last clip on track
+      let startTime = dropTime ?? 0;
+      if (dropTime === undefined) {
+        const trackClips = clips.filter((c) => c.track === trackId);
+        if (trackClips.length > 0) {
+          startTime = Math.max(
+            ...trackClips.map((c) => c.startOffset + c.effectiveDuration)
+          );
+        }
+      } else {
+        const shot = shots.find((s) => s.id === shotId);
+        const url = versionId ? versionUrls[versionId] : shot?.video_url;
+        const dropDuration = (url && durations[url]) || shot?.duration || 0;
+        startTime = snapStartTime(dropTime, dropDuration, clips, SNAP_PIXELS / pixelsPerSecond);
+      }
+
+      try {
+        await addTimelineClip(storyboardId, shotId, trackId, startTime, versionId);
+        await refreshClips();
+      } catch (error) {
+        console.error("Failed to add clip:", error);
+      }
+    },
+    [storyboardId, clips, shots, durations, versionUrls, pixelsPerSecond, refreshClips]
+  );
+
+  // Remove a clip from the timeline
+  const handleRemoveClip = useCallback(
+    async (clipId: string) => {
+      try {
+        await removeTimelineClip(clipId);
+        await refreshClips();
+      } catch (error) {
+        console.error("Failed to remove clip:", error);
+      }
+    },
+    [refreshClips]
+  );
+
+  // Move a clip to a new time/track
+  const handleMoveClip = useCallback(
+    async (clipId: string, targetTrack: string, startTime: number) => {
+      const movingClip = clips.find((c) => c.clipId === clipId);
+      const otherClips = clips.filter((c) => c.clipId !== clipId);
+      const snapped = snapStartTime(
+        Math.max(0, startTime),
+        movingClip?.effectiveDuration ?? 0,
+        otherClips,
+        SNAP_PIXELS / pixelsPerSecond
+      );
+
+      try {
+        await moveTimelineClip(clipId, targetTrack, Math.max(0, snapped));
+        await refreshClips();
+      } catch (error) {
+        console.error("Failed to move clip:", error);
+      }
+    },
+    [clips, pixelsPerSecond, refreshClips]
+  );
+
+  // Add a new track
+  const handleAddTrack = useCallback(
+    async (trackType: "video" | "audio") => {
+      try {
+        await createTimelineTrack(storyboardId, trackType);
+        const updatedTracks = await getTimelineTracks(storyboardId);
+        onTracksChange(updatedTracks);
+      } catch (error) {
+        console.error("Failed to add track:", error);
+      }
+    },
+    [storyboardId, onTracksChange]
+  );
+
+  // Remove a track
+  const handleRemoveTrack = useCallback(
+    async (trackDbId: string) => {
+      try {
+        await deleteTimelineTrack(trackDbId);
+        const [updatedTracks, updatedClips] = await Promise.all([
+          getTimelineTracks(storyboardId),
+          getTimelineClips(storyboardId),
+        ]);
+        onTracksChange(updatedTracks);
+        onClipsChange(updatedClips);
+      } catch (error) {
+        console.error("Failed to remove track:", error);
+      }
+    },
+    [storyboardId, onTracksChange, onClipsChange]
+  );
 
   const handleExport = useCallback(async () => {
-    if (clips.length === 0) {
+    // Spawned native ffmpeg. Main resolves file paths from the DB (renderer
+    // clip URLs are blob:), inserts black for gaps, and reports progress
+    // over IPC.
+    const payload = buildExportClips(clips);
+    if (payload.length === 0) {
       alert("No clips to export!");
       return;
     }
 
-    setIsExporting(true);
+    const savePath = await invoke<string | null>("show_export_save_dialog");
+    if (!savePath) return;
+
+    setExportStatus({ percent: 0, stage: "Exporting..." });
+    const unsubscribe = window.showbiz!.onExportProgress(({ percent }) =>
+      setExportStatus({ percent, stage: "Exporting..." })
+    );
 
     try {
-      const trimmedClips = clips.map((clip) => ({
-        videoUrl: clip.shot.video_url!,
-        trimIn: clip.edit?.trim_in ?? 0,
-        trimOut: clip.edit?.trim_out ?? clip.shot.duration,
-      }));
-
-      const videoBytes = await videoAssembler.assembleTrimmedVideos(trimmedClips);
-
-      // Show save dialog
-      const savePath = await save({
-        defaultPath: "edited-video.mp4",
-        filters: [{ name: "Video", extensions: ["mp4"] }],
+      await invoke("export_timeline_video", {
+        clips: payload,
+        settings: parseExportSettings(exportSettings),
+        savePath,
       });
-
-      if (savePath) {
-        await saveAssembledVideo(Array.from(videoBytes), savePath);
-        alert("Video exported successfully!");
-      }
+      alert("Video exported successfully!");
     } catch (error) {
       console.error("Export failed:", error);
       alert("Failed to export video. Check console for details.");
     } finally {
-      setIsExporting(false);
+      unsubscribe();
+      setExportStatus(null);
     }
-  }, [clips]);
+  }, [clips, exportSettings]);
 
-  const playback = useTimelinePlayback({ clips, mpv });
+  const playback = useHtml5TimelinePlayback({ clips, pool });
+
+  // Split the clip under the playhead (the selected one if it's there, else
+  // the topmost) into two independent clips
+  const handleSplit = useCallback(async () => {
+    const selected = selectedClipId ? clips.find((c) => c.clipId === selectedClipId) : null;
+    const target =
+      (selected && computeClipSplit(selected, playback.currentTime) ? selected : null) ??
+      getActiveClipAtTime(playback.currentTime, clips)?.clip;
+    if (!target) return;
+
+    const split = computeClipSplit(target, playback.currentTime);
+    if (!split) return;
+
+    try {
+      await splitTimelineClip(split.clipId, split.splitLocalTime, split.secondStartTime);
+      await refreshClips();
+    } catch (error) {
+      console.error("Failed to split clip:", error);
+    }
+  }, [clips, selectedClipId, playback.currentTime, refreshClips]);
 
   // Handle optimistic trim updates during drag
-  const handleTrimChange = useCallback(
-    (shotId: string, trimIn: number, trimOut: number) => {
-      setLocalEdits((prev) => {
-        const existing = prev.find((e) => e.shot_id === shotId);
-        if (existing) {
-          return prev.map((e) =>
-            e.shot_id === shotId ? { ...e, trim_in: trimIn, trim_out: trimOut } : e
-          );
-        }
-        // Create a temporary edit
-        return [
-          ...prev,
-          {
-            id: `temp-${shotId}`,
-            storyboard_id: storyboardId,
-            shot_id: shotId,
-            trim_in: trimIn,
-            trim_out: trimOut,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        ];
-      });
-    },
-    [storyboardId]
-  );
+  const handleTrimChange = useCallback((clipId: string, trimIn: number, trimOut: number) => {
+    setLocalTrims((prev) => ({ ...prev, [clipId]: { trimIn, trimOut } }));
+  }, []);
 
   // Handle trim end - persist to database
   const handleTrimEnd = useCallback(
-    async (shotId: string, trimIn: number, trimOut: number) => {
+    async (clipId: string, trimIn: number, trimOut: number) => {
       try {
-        const updatedEdit = await updateTimelineEdit(
-          storyboardId,
-          shotId,
-          trimIn,
-          trimOut
-        );
-        // Update local state with persisted edit
-        setLocalEdits((prev) => {
-          const existing = prev.find((e) => e.shot_id === shotId);
-          if (existing) {
-            return prev.map((e) => (e.shot_id === shotId ? updatedEdit : e));
-          }
-          return [...prev, updatedEdit];
-        });
-        // Notify parent
-        onEditsChange(
-          localEdits.map((e) => (e.shot_id === shotId ? updatedEdit : e))
-        );
+        await updateTimelineClipTrims(clipId, trimIn, trimOut);
+        await refreshClips();
       } catch (error) {
         console.error("Failed to save trim:", error);
-        // Revert to original edits on error
-        setLocalEdits(edits);
+      } finally {
+        setLocalTrims((prev) => {
+          const { [clipId]: _dropped, ...rest } = prev;
+          return rest;
+        });
       }
     },
-    [storyboardId, edits, localEdits, onEditsChange]
+    [refreshClips]
   );
 
   // Trim drag hook
@@ -187,11 +361,27 @@ export default function TimelineEditor({
           break;
         case "ArrowLeft":
           e.preventDefault();
-          playback.skipBackward();
+          playback.seek(playback.currentTime - (e.shiftKey ? 1 : 0.1));
           break;
         case "ArrowRight":
           e.preventDefault();
-          playback.skipForward();
+          playback.seek(playback.currentTime + (e.shiftKey ? 1 : 0.1));
+          break;
+        case "KeyJ":
+          e.preventDefault();
+          playback.skipBackward();
+          break;
+        case "KeyK":
+          e.preventDefault();
+          playback.pause();
+          break;
+        case "KeyL":
+          e.preventDefault();
+          playback.play();
+          break;
+        case "KeyS":
+          e.preventDefault();
+          handleSplit();
           break;
         case "Equal":
         case "NumpadAdd":
@@ -203,22 +393,27 @@ export default function TimelineEditor({
           e.preventDefault();
           zoomOut();
           break;
+        case "Delete":
+        case "Backspace":
+          if (selectedClipId) {
+            e.preventDefault();
+            handleRemoveClip(selectedClipId);
+            setSelectedClipId(null);
+          }
+          break;
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [playback, zoomIn, zoomOut]);
+  }, [playback, zoomIn, zoomOut, selectedClipId, handleRemoveClip, handleSplit]);
 
   return (
     <div className="flex flex-col flex-1 bg-muted/50 dark:bg-card overflow-hidden">
       {/* Preview Player - Theater Mode (large but leaves room for timeline) */}
       <div className="min-h-0 px-4 py-2 flex justify-center bg-black">
         <div className="w-full max-h-[55vh]" style={{ aspectRatio: '16/9', maxWidth: 'calc(55vh * 16 / 9)' }}>
-          <PreviewPlayer
-            clips={clips}
-            mpv={mpv}
-          />
+          <TimelinePreview pool={pool} hasClips={clips.length > 0} />
         </div>
       </div>
 
@@ -236,14 +431,66 @@ export default function TimelineEditor({
           onSkipForward={playback.skipForward}
         />
 
-        {/* Export Controls */}
+        {/* Edit + Export Controls */}
         <div className="flex items-center gap-2">
           <Button
+            onClick={handleSplit}
+            variant="secondary"
+            size="sm"
+            title="Split clip at playhead (S)"
+          >
+            <Scissors className="h-4 w-4 mr-1.5" />
+            Split
+          </Button>
+          {/* Native export settings. Blank W/H/FPS = auto (probe first clip). */}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <input
+                type="number"
+                min={1}
+                placeholder="W"
+                value={exportSettings.width}
+                onChange={(e) => setExportSettings((s) => ({ ...s, width: e.target.value }))}
+                className="w-14 h-8 px-1.5 rounded border border-border bg-background text-foreground"
+                title="Width (auto)"
+              />
+              <span>x</span>
+              <input
+                type="number"
+                min={1}
+                placeholder="H"
+                value={exportSettings.height}
+                onChange={(e) => setExportSettings((s) => ({ ...s, height: e.target.value }))}
+                className="w-14 h-8 px-1.5 rounded border border-border bg-background text-foreground"
+                title="Height (auto)"
+              />
+              <input
+                type="number"
+                min={1}
+                placeholder="fps"
+                value={exportSettings.fps}
+                onChange={(e) => setExportSettings((s) => ({ ...s, fps: e.target.value }))}
+                className="w-14 h-8 px-1.5 rounded border border-border bg-background text-foreground"
+                title="Frames per second (auto)"
+              />
+              <select
+                value={exportSettings.preset}
+                onChange={(e) => setExportSettings((s) => ({ ...s, preset: e.target.value }))}
+                className="h-8 px-1.5 rounded border border-border bg-background text-foreground"
+                title="Encoder preset"
+              >
+                <option value="ultrafast">ultrafast</option>
+                <option value="veryfast">veryfast</option>
+                <option value="fast">fast</option>
+                <option value="medium">medium</option>
+                <option value="slow">slow</option>
+              </select>
+            </div>
+          <Button
             onClick={handleExport}
-            disabled={isExporting || clips.length === 0}
+            disabled={exportStatus !== null || clips.length === 0}
             size="sm"
           >
-            {isExporting ? (
+            {exportStatus !== null ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Exporting...
@@ -256,28 +503,126 @@ export default function TimelineEditor({
       </div>
 
       {/* Timeline Area */}
-      <div className="flex-1 overflow-x-auto border-t border-border p-4">
-        <div className="min-w-fit">
-          {/* Timeline Ruler */}
-          <TimelineRuler
-            totalDuration={playback.totalDuration}
-            pixelsPerSecond={pixelsPerSecond}
-            currentTime={playback.currentTime}
-            onSeek={playback.seek}
-          />
+      <div className="flex-1 border-t border-border flex flex-col overflow-hidden">
+        <div className="flex-1 flex overflow-hidden">
+          {/* Track Headers (fixed left column) */}
+          <div className="flex-shrink-0 flex flex-col">
+            {/* Spacer for ruler height */}
+            <div className="h-6 bg-muted/80 border-r border-border" />
+            {/* Track headers */}
+            {sortedTracks.map((track, idx) => {
+              const isLastVideoBeforeAudio =
+                track.track_type === "video" &&
+                (idx === sortedTracks.length - 1 || sortedTracks[idx + 1]?.track_type === "audio");
+              const isLastAudio =
+                track.track_type === "audio" && idx === sortedTracks.length - 1;
 
-          {/* Timeline Track */}
-          <div className="mt-2">
-            <TimelineTrack
-              clips={clips}
-              pixelsPerSecond={pixelsPerSecond}
-              selectedClipId={selectedClipId}
-              onClipSelect={setSelectedClipId}
-              onTrimStart={(e, shotId, edge, trimIn, trimOut, maxDuration) =>
-                startTrim(e, shotId, edge, trimIn, trimOut, maxDuration)
-              }
-            />
+              return (
+                <div key={track.id}>
+                  <div className={`mt-0.5 ${track.track_type === "audio" ? "h-8" : "h-12"}`}>
+                    <TrackHeader
+                      name={track.name}
+                      type={track.track_type}
+                      onRemove={() => handleRemoveTrack(track.id)}
+                      canRemove={track.track_type === "video" ? videoTrackCount > 1 : true}
+                    />
+                  </div>
+                  {isLastVideoBeforeAudio && (
+                    <div className="flex justify-center py-0.5 bg-muted/80 border-r border-border">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        onClick={() => handleAddTrack("video")}
+                        title="Add video track"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                  {isLastAudio && (
+                    <div className="flex justify-center py-0.5 bg-muted/80 border-r border-border">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        onClick={() => handleAddTrack("audio")}
+                        title="Add audio track"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
+
+          {/* Scrollable timeline content */}
+          <div className="flex-1 overflow-x-auto p-4">
+            <div className="min-w-fit">
+              {/* Timeline Ruler */}
+              <TimelineRuler
+                totalDuration={playback.totalDuration}
+                pixelsPerSecond={pixelsPerSecond}
+                currentTime={playback.currentTime}
+                onScrubStart={playback.beginScrub}
+                onScrub={playback.scrub}
+                onScrubEnd={playback.endScrub}
+              />
+
+              {/* Timeline Tracks */}
+              {sortedTracks.map((track, idx) => {
+                const isLastVideoBeforeAudio =
+                  track.track_type === "video" &&
+                  (idx === sortedTracks.length - 1 || sortedTracks[idx + 1]?.track_type === "audio");
+                const isLastAudio =
+                  track.track_type === "audio" && idx === sortedTracks.length - 1;
+
+                return (
+                  <div key={track.id}>
+                    <div className="mt-0.5">
+                      <TimelineTrack
+                        trackId={track.track_id}
+                        trackType={track.track_type}
+                        clips={clipsByTrack.get(track.track_id) || []}
+                        pixelsPerSecond={pixelsPerSecond}
+                        selectedClipId={selectedClipId}
+                        versionNumbers={versionNumbers}
+                        onClipSelect={setSelectedClipId}
+                        onTrimStart={(e, clipId, edge, trimIn, trimOut, maxDuration) =>
+                          startTrim(e, clipId, edge, trimIn, trimOut, maxDuration)
+                        }
+                        onDropShot={handleDropShot}
+                        onMoveClip={handleMoveClip}
+                      />
+                    </div>
+                    {/* Spacer rows matching the add-track buttons in header column */}
+                    {(isLastVideoBeforeAudio || isLastAudio) && (
+                      <div className="h-[28px]" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Status Bar */}
+        <div className="flex-shrink-0 px-4 py-1 bg-muted/80 border-t border-border flex items-center justify-end gap-2 text-xs text-muted-foreground">
+          {exportStatus ? (
+            <>
+              <div className="max-w-[300px] w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-300"
+                  style={{ width: `${exportStatus.percent}%` }}
+                />
+              </div>
+              <span className="whitespace-nowrap">{exportStatus.stage} — {Math.round(exportStatus.percent)}%</span>
+            </>
+          ) : (
+            <span>{clips.length} clip{clips.length !== 1 ? "s" : ""} on timeline</span>
+          )}
         </div>
       </div>
 
@@ -285,8 +630,11 @@ export default function TimelineEditor({
       <div className="flex-shrink-0 px-4 py-2 bg-muted text-muted-foreground text-xs border-t border-border flex items-center justify-between">
         <div>
           <span className="mr-4">Space: Play/Pause</span>
-          <span className="mr-4">Arrow Keys: Skip 5s</span>
+          <span className="mr-4">S: Split</span>
+          <span className="mr-4">J/K/L: Back 5s/Pause/Play</span>
+          <span className="mr-4">Arrows: Step 0.1s (Shift: 1s)</span>
           <span className="mr-4">+/-: Zoom</span>
+          <span className="mr-4">Del: Remove clip</span>
           <span>Drag clip edges to trim</span>
         </div>
 

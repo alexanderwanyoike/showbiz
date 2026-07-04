@@ -1,0 +1,15 @@
+{
+  "id": "nano-banana-2",
+  "name": "Nano Banana 2",
+  "description": "Gemini 3.1 Flash Image (preview): fast generation; compose/edit not yet verified against a live key",
+  "transport": "google-interactions-image",
+  "enabled": true,
+  "apiKeyProvider": "gemini",
+  "models": {
+    "generate": "gemini-3.1-flash-image",
+    "edit": "gemini-3.1-flash-image"
+  },
+  "supportsEditing": true,
+  "supportsInpainting": false,
+  "supportsComposition": true
+}

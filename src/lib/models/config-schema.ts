@@ -15,14 +15,40 @@ export interface VideoModelConfig {
     textToVideo?: string;
     imageToVideo?: string;
   };
+  generationModes?: {
+    textToVideo?: {
+      endpoint: string;
+    };
+    imageToVideo?: {
+      endpoint: string;
+      inputs?: {
+        startImage?: boolean;
+        /** "required" = the endpoint rejects requests without an end frame (e.g. WAN FLF2V). */
+        endImage?: boolean | "required";
+      };
+      /**
+       * Separate endpoint used only when the request carries an end frame
+       * (e.g. Veo 3.1 first-last-frame-to-video), with its own image param
+       * names. The base endpoint then handles start-frame-only requests.
+       */
+      endFrameEndpoint?: {
+        endpoint: string;
+        imageInput?: string;
+        endImageInput?: string;
+      };
+    };
+  };
   paramMapping?: {
     duration?: string;
     resolution?: string;
     aspectRatio?: string;
     audio?: string;
     imageInput?: string;
+    endImageInput?: string;
     imageFormat?: "array" | "string";
   };
+  // Send `duration` as a number (some fal models require an integer enum, e.g. LTX-2.3).
+  numericDuration?: boolean;
   fixedParams?: Record<string, unknown>;
   capabilities: VideoModelCapabilities;
   defaults: VideoGenerationSettings;
@@ -42,8 +68,23 @@ export interface ImageModelConfig {
     generate: string;
     edit?: string;
   };
+  generationModes?: {
+    textToImage?: {
+      enabled: boolean;
+      endpoint?: string;
+    };
+    imageToImage?: {
+      enabled: boolean;
+      endpoint?: string;
+      imageInput?: string;
+      imageFormat?: "array" | "string";
+    };
+  };
   supportsEditing: boolean;
   supportsInpainting: boolean;
+  // Multi-reference composition (compose a frame from several images). Distinct
+  // from editing a single image; gates whether composeImage is exposed.
+  supportsComposition?: boolean;
   paramMapping?: Record<string, string>;
   fixedParams?: Record<string, unknown>;
 }
@@ -135,6 +176,16 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
   const models = config.models as Record<string, unknown>;
   if (!models.generate) {
     throw new Error(`Image config "${config.id}": models.generate is required`);
+  }
+
+  if (config.generationModes !== undefined) {
+    const modes = config.generationModes as Record<string, unknown>;
+    for (const [modeName, mode] of Object.entries(modes)) {
+      const modeConfig = mode as Record<string, unknown>;
+      if (typeof modeConfig.enabled !== "boolean") {
+        throw new Error(`Image config "${config.id}": ${modeName}.enabled must be boolean`);
+      }
+    }
   }
 
   return config as unknown as ImageModelConfig;

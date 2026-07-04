@@ -1,0 +1,37 @@
+{
+  "id": "kling-v3-fal",
+  "name": "Kling 3",
+  "description": "Kling 3.0 via fal.ai: newest Kling, high quality, start + end frame (3-15s).",
+  "transport": "fal-video",
+  "transportOptions": {
+    "imageToVideoEndpoint": "fal-ai/kling-video/v3/standard/image-to-video"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "kling",
+  "models": {
+    "imageToVideo": "kling-v3-fal-i2v"
+  },
+  "generationModes": {
+    "imageToVideo": {
+      "endpoint": "fal-ai/kling-video/v3/standard/image-to-video",
+      "inputs": {
+        "startImage": true,
+        "endImage": true
+      }
+    }
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "imageInput": "start_image_url"
+  },
+  "numericDuration": true,
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["5", "10"]
+  },
+  "defaults": {
+    "duration": "5"
+  }
+}

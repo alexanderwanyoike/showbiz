@@ -53,6 +53,25 @@ describe("video configs", () => {
       expect(hasEndpoint).toBe(true);
     }
   });
+
+  it("Seedance 2 fal exposes start/end-frame image-to-video capability", () => {
+    const provider = videoProviders.get("seedance-2-fal" as never);
+    expect(provider?.modeCapabilities.imageToVideo?.supportsStartImage).toBe(true);
+    expect(provider?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
+  });
+
+  it("WAN first-last-frame requires an end frame (its fal endpoint accepts nothing less)", () => {
+    const provider = videoProviders.get("wan-flf2v-fal" as never);
+    expect(provider?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
+    expect(provider?.modeCapabilities.imageToVideo?.requiresEndImage).toBe(true);
+  });
+
+  it("Veo 3.1 fal keeps the end frame optional via a start-only base endpoint", () => {
+    const provider = videoProviders.get("veo-3.1-fal" as never);
+    expect(provider?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
+    expect(provider?.modeCapabilities.imageToVideo?.requiresEndImage).toBeFalsy();
+    expect(provider?.modeCapabilities.imageToVideo?.endpoint).toBe("fal-ai/veo3.1/image-to-video");
+  });
 });
 
 describe("image configs", () => {
@@ -97,6 +116,24 @@ describe("image configs", () => {
         expect(config.provider).toBeTruthy();
       }
     }
+  });
+
+  it("Flux Kontext fal exposes image-to-image capability", () => {
+    const provider = imageProviders.get("flux-kontext-fal" as never);
+    expect(provider?.supportsImageEditing).toBe(true);
+    expect(provider?.modeCapabilities?.imageToImage?.enabled).toBe(true);
+  });
+
+  it("Flux Kontext fal uses separate text and edit endpoints", () => {
+    const config = imageConfigs.find((c) => c.id === "flux-kontext-fal");
+    expect(config?.transportOptions?.endpoint).toBe("fal-ai/flux-pro/kontext/text-to-image");
+    expect(config?.transportOptions?.editEndpoint).toBe("fal-ai/flux-pro/kontext");
+  });
+
+  it("Nano Banana exposes multi-reference composition", () => {
+    const provider = imageProviders.get("nano-banana" as never);
+    expect(provider?.supportsComposition).toBe(true);
+    expect(typeof provider?.composeImage).toBe("function");
   });
 });
 

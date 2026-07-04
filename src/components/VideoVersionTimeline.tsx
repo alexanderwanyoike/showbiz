@@ -8,7 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { VideoVersionNode } from "../lib/tauri-api";
+import type { VideoVersionNode } from "../lib/backend-api";
 
 interface VideoVersionTimelineProps {
   versions: VideoVersionNode[];

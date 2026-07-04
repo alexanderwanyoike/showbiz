@@ -1,0 +1,50 @@
+{
+  "id": "seedance-2-fal",
+  "name": "Seedance 2.0",
+  "description": "ByteDance's cinematic image-to-video model with synced audio via fal.ai",
+  "transport": "fal-video",
+  "transportOptions": {
+    "textToVideoEndpoint": "bytedance/seedance-2.0/text-to-video",
+    "imageToVideoEndpoint": "bytedance/seedance-2.0/image-to-video"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "seedance-2",
+  "models": {
+    "textToVideo": "seedance-2-fal-t2v",
+    "imageToVideo": "seedance-2-fal-i2v"
+  },
+  "generationModes": {
+    "textToVideo": {
+      "endpoint": "bytedance/seedance-2.0/text-to-video"
+    },
+    "imageToVideo": {
+      "endpoint": "bytedance/seedance-2.0/image-to-video",
+      "inputs": {
+        "startImage": true,
+        "endImage": true
+      }
+    }
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "resolution": "resolution",
+    "aspectRatio": "aspect_ratio",
+    "audio": "generate_audio",
+    "imageInput": "image_url"
+  },
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["auto", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"],
+    "resolutions": ["480p", "720p", "1080p"],
+    "aspectRatios": ["auto", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+    "hasAudio": true
+  },
+  "defaults": {
+    "duration": "auto",
+    "resolution": "720p",
+    "aspectRatio": "auto",
+    "audio": true
+  }
+}

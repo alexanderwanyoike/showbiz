@@ -1,8 +1,51 @@
 import type { ImageTransport } from "./types";
 import type { ImageModelConfig } from "../config-schema";
-import { submitFalQueue, pollFalResult } from "../fal-shared";
+import { submitFalQueueRequest, pollFalResult, runFalInference, uploadImageToFal } from "../fal-shared";
 import { fetch } from "../http";
 import { blobToBase64 } from "../types";
+
+function inferImageMimeType(url: string): string {
+  const cleanUrl = url.split("?")[0].toLowerCase();
+  if (cleanUrl.endsWith(".png")) return "image/png";
+  if (cleanUrl.endsWith(".webp")) return "image/webp";
+  if (cleanUrl.endsWith(".gif")) return "image/gif";
+  return "image/jpeg";
+}
+
+async function downloadFirstImage(
+  result: { images?: Array<{ url: string }> },
+  modelName: string
+): Promise<string> {
+  if (!result.images?.length) throw new Error("fal.ai returned no images");
+  const imageUrl = result.images[0].url;
+  const imgRes = await fetch(imageUrl);
+  if (!imgRes.ok)
+    throw new Error(`Failed to download ${modelName} image: ${imgRes.status}`);
+  const blob = await imgRes.blob();
+  const typedBlob = blob.type ? blob : new Blob([await blob.arrayBuffer()], { type: inferImageMimeType(imageUrl) });
+  return blobToBase64(typedBlob);
+}
+
+// Submit an input to a fal image endpoint (direct or queued) and return the
+// first result image as a base64 data URL.
+async function runFalImageRequest(
+  config: ImageModelConfig,
+  endpointId: string,
+  input: Record<string, unknown>,
+  apiKey: string
+): Promise<string> {
+  const opts = (config.transportOptions ?? {}) as Record<string, unknown>;
+  const result = opts.directInference
+    ? await runFalInference<{ images: Array<{ url: string }> }>(endpointId, input, apiKey)
+    : await (async () => {
+        const queueRequest = await submitFalQueueRequest(endpointId, input, apiKey);
+        return pollFalResult<{ images: Array<{ url: string }> }>(endpointId, queueRequest.requestId, apiKey, {
+          statusUrl: queueRequest.statusUrl,
+          responseUrl: queueRequest.responseUrl,
+        });
+      })();
+  return downloadFirstImage(result, config.name);
+}
 
 export const falImageTransport: ImageTransport = {
   async generateImage(
@@ -12,25 +55,48 @@ export const falImageTransport: ImageTransport = {
   ): Promise<string> {
     const opts = (config.transportOptions ?? {}) as Record<string, string>;
     const endpointId = opts.endpoint ?? config.models.generate;
+    const input: Record<string, unknown> = { prompt, ...(config.fixedParams ?? {}) };
+    return runFalImageRequest(config, endpointId, input, apiKey);
+  },
 
+  async editImage(
+    config: ImageModelConfig,
+    editPrompt: string,
+    sourceImageBase64: string,
+    apiKey: string
+  ): Promise<string> {
+    const opts = (config.transportOptions ?? {}) as Record<string, string>;
+    const endpointId = opts.editEndpoint ?? config.models.edit ?? opts.endpoint ?? config.models.generate;
+    const mode = config.generationModes?.imageToImage;
+    const imageInput = mode?.imageInput ?? "image_url";
+    const uploaded = uploadImageToFal(sourceImageBase64);
     const input: Record<string, unknown> = {
-      prompt,
+      prompt: editPrompt,
+      [imageInput]: mode?.imageFormat === "array" ? [uploaded] : uploaded,
       ...(config.fixedParams ?? {}),
     };
+    return runFalImageRequest(config, endpointId, input, apiKey);
+  },
 
-    const requestId = await submitFalQueue(endpointId, input, apiKey);
-    const result = await pollFalResult<{
-      images: Array<{ url: string }>;
-    }>(endpointId, requestId, apiKey);
-
-    if (!result.images?.length) throw new Error("fal.ai returned no images");
-
-    // Download image and convert to base64
-    const imgRes = await fetch(result.images[0].url);
-    if (!imgRes.ok)
-      throw new Error(`Failed to download fal image: ${imgRes.status}`);
-    const blob = await imgRes.blob();
-
-    return blobToBase64(blob);
+  // Compose from multiple reference images (e.g. GPT Image 2's /edit endpoint,
+  // which takes an `image_urls` array). Used for bible frame composition.
+  async composeImage(
+    config: ImageModelConfig,
+    prompt: string,
+    referenceImages: string[],
+    apiKey: string
+  ): Promise<string> {
+    if (referenceImages.length === 0) {
+      throw new Error("composeImage requires at least one reference image");
+    }
+    const opts = (config.transportOptions ?? {}) as Record<string, string>;
+    const endpointId = opts.editEndpoint ?? config.models.edit ?? opts.endpoint ?? config.models.generate;
+    const imageInput = config.generationModes?.imageToImage?.imageInput ?? "image_urls";
+    const input: Record<string, unknown> = {
+      prompt,
+      [imageInput]: referenceImages.map((img) => uploadImageToFal(img)),
+      ...(config.fixedParams ?? {}),
+    };
+    return runFalImageRequest(config, endpointId, input, apiKey);
   },
 };

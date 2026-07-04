@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
 interface TrimState {
-  shotId: string;
+  clipId: string;
   edge: "in" | "out";
   initialValue: number;
   initialMouseX: number;
@@ -10,8 +10,8 @@ interface TrimState {
 
 interface UseTrimDragOptions {
   pixelsPerSecond: number;
-  onTrimChange: (shotId: string, trimIn: number, trimOut: number) => void;
-  onTrimEnd: (shotId: string, trimIn: number, trimOut: number) => void;
+  onTrimChange: (clipId: string, trimIn: number, trimOut: number) => void;
+  onTrimEnd: (clipId: string, trimIn: number, trimOut: number) => void;
 }
 
 // Get snap precision based on zoom level (more zoomed = finer precision)
@@ -47,7 +47,7 @@ export function useTrimDrag({
   const startTrim = useCallback(
     (
       e: React.MouseEvent,
-      shotId: string,
+      clipId: string,
       edge: "in" | "out",
       currentTrimIn: number,
       currentTrimOut: number,
@@ -61,7 +61,7 @@ export function useTrimDrag({
       setCurrentTrimOut(currentTrimOut);
 
       setTrimState({
-        shotId,
+        clipId,
         edge,
         initialValue: edge === "in" ? currentTrimIn : currentTrimOut,
         initialMouseX: e.clientX,
@@ -96,7 +96,7 @@ export function useTrimDrag({
       }
 
       // Optimistic update during drag
-      onTrimChange(trimState.shotId, newTrimIn, newTrimOut);
+      onTrimChange(trimState.clipId, newTrimIn, newTrimOut);
     },
     [trimState, pixelsPerSecond, currentTrimIn, currentTrimOut, onTrimChange]
   );
@@ -108,7 +108,7 @@ export function useTrimDrag({
     const finalTrimOut = currentTrimOut ?? originalValuesRef.current?.trimOut ?? trimState.maxDuration;
 
     // Persist to database
-    onTrimEnd(trimState.shotId, finalTrimIn, finalTrimOut);
+    onTrimEnd(trimState.clipId, finalTrimIn, finalTrimOut);
 
     setTrimState(null);
     setCurrentTrimIn(null);
@@ -131,7 +131,7 @@ export function useTrimDrag({
 
   return {
     isDragging: trimState !== null,
-    draggingShotId: trimState?.shotId ?? null,
+    draggingClipId: trimState?.clipId ?? null,
     draggingEdge: trimState?.edge ?? null,
     startTrim,
   };

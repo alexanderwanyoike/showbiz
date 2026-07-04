@@ -16,6 +16,34 @@ import {
 } from "./config-schema";
 import { getVideoTransport, getImageTransport } from "./transports";
 
+function videoModeCapabilities(config: VideoModelConfig) {
+  const explicit = config.generationModes;
+  return {
+    textToVideo: explicit?.textToVideo ?? (config.models.textToVideo ? { endpoint: config.models.textToVideo } : undefined),
+    imageToVideo: explicit?.imageToVideo
+      ? {
+          endpoint: explicit.imageToVideo.endpoint,
+          supportsStartImage: explicit.imageToVideo.inputs?.startImage ?? true,
+          supportsEndImage:
+            explicit.imageToVideo.inputs?.endImage === true ||
+            explicit.imageToVideo.inputs?.endImage === "required",
+          requiresEndImage: explicit.imageToVideo.inputs?.endImage === "required",
+        }
+      : config.models.imageToVideo
+        ? { endpoint: config.models.imageToVideo, supportsStartImage: true, supportsEndImage: false }
+        : undefined,
+  };
+}
+
+function imageModeCapabilities(config: ImageModelConfig) {
+  return config.generationModes ?? {
+    textToImage: { enabled: true, endpoint: config.models.generate },
+    imageToImage: config.supportsEditing
+      ? { enabled: true, endpoint: config.models.edit ?? config.models.generate }
+      : undefined,
+  };
+}
+
 // Eagerly import all JSON configs via Vite's import.meta.glob
 const videoConfigModules = import.meta.glob("./providers/video/*.json", {
   eager: true,
@@ -56,6 +84,7 @@ function videoConfigToProvider(config: VideoModelConfig): VideoModelProvider {
     enabled: config.enabled,
     apiKeyProvider: config.apiKeyProvider as "gemini" | "ltx" | "kie" | "fal" | "replicate",
     capabilities: config.capabilities,
+    modeCapabilities: videoModeCapabilities(config),
     defaults: { ...config.defaults },
     supportsImageToVideo: !!config.models.imageToVideo,
     supportsTextToVideo: !!config.models.textToVideo,
@@ -90,6 +119,19 @@ function videoConfigToProvider(config: VideoModelConfig): VideoModelProvider {
         settings ?? config.defaults
       );
     },
+
+    async generateVideoFromRequest(request, apiKey): Promise<Blob> {
+      if (transport.generateVideoRequest) {
+        return transport.generateVideoRequest(config, request, apiKey);
+      }
+      return transport.generateVideo(
+        config,
+        request.prompt,
+        request.startImage ?? null,
+        apiKey,
+        request.settings
+      );
+    },
   };
 }
 
@@ -104,6 +146,7 @@ function imageConfigToProvider(config: ImageModelConfig): ImageModelProvider {
     apiKeyProvider: config.apiKeyProvider as "gemini" | "ltx" | "kie" | "fal" | "replicate",
     supportsImageEditing: config.supportsEditing,
     supportsInpainting: config.supportsInpainting,
+    modeCapabilities: imageModeCapabilities(config),
 
     async generateImage(prompt: string, apiKey: string): Promise<string> {
       return transport.generateImage(config, prompt, apiKey);
@@ -117,6 +160,17 @@ function imageConfigToProvider(config: ImageModelConfig): ImageModelProvider {
       apiKey: string
     ): Promise<string> => {
       return transport.editImage!(config, prompt, sourceImageBase64, apiKey);
+    };
+  }
+
+  if (config.supportsComposition && transport.composeImage) {
+    provider.supportsComposition = true;
+    provider.composeImage = async (
+      prompt: string,
+      referenceImages: string[],
+      apiKey: string
+    ): Promise<string> => {
+      return transport.composeImage!(config, prompt, referenceImages, apiKey);
     };
   }
 
@@ -161,6 +215,7 @@ export function getGroupedVideoModels(): ModelGroup<VideoModelInfo>[] {
       apiKeyProvider: provider.apiKeyProvider,
       provider: config?.provider,
       capabilities: provider.capabilities,
+      modeCapabilities: provider.modeCapabilities,
       defaults: provider.defaults,
       supportsImageToVideo: provider.supportsImageToVideo,
       supportsTextToVideo: provider.supportsTextToVideo,
@@ -201,6 +256,7 @@ export function getGroupedImageModels(): ModelGroup<ImageModelInfo>[] {
       provider: config?.provider,
       supportsImageEditing: provider.supportsImageEditing,
       supportsInpainting: provider.supportsInpainting,
+      modeCapabilities: provider.modeCapabilities,
     };
     if (!familyMap.has(family)) familyMap.set(family, []);
     familyMap.get(family)!.push({ info, config: config! });

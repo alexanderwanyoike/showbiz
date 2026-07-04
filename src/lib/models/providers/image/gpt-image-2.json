@@ -1,0 +1,32 @@
+{
+  "id": "gpt-image-2",
+  "name": "GPT Image 2",
+  "description": "OpenAI GPT Image 2 via fal.ai (fal key): generate, edit, and multi-reference compose",
+  "transport": "fal-image",
+  "transportOptions": {
+    "endpoint": "openai/gpt-image-2",
+    "editEndpoint": "openai/gpt-image-2/edit"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "models": {
+    "generate": "openai/gpt-image-2",
+    "edit": "openai/gpt-image-2/edit"
+  },
+  "generationModes": {
+    "textToImage": {
+      "enabled": true,
+      "endpoint": "openai/gpt-image-2"
+    },
+    "imageToImage": {
+      "enabled": true,
+      "endpoint": "openai/gpt-image-2/edit",
+      "imageInput": "image_urls",
+      "imageFormat": "array"
+    }
+  },
+  "supportsEditing": true,
+  "supportsInpainting": false,
+  "supportsComposition": true
+}

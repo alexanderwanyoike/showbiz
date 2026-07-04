@@ -1,13 +1,16 @@
+import type { VideoGenerationRequest } from "../generation/types";
+
 export type ImageModelId =
-  | "imagen4" | "nano-banana" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5"
-  | "flux-schnell-fal" | "flux-dev-fal"
-  | "flux-schnell-replicate" | "flux-dev-replicate";
+  | "imagen4" | "nano-banana" | "nano-banana-2" | "nano-banana-2-lite" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5"
+  | "flux-schnell-fal" | "flux-dev-fal" | "flux-kontext-fal"
+  | "flux-schnell-replicate" | "flux-dev-replicate" | "gpt-image-2";
 export type VideoModelId =
-  | "veo3" | "veo3-fast" | "ltx-video"
-  | "kling-3" | "kling-2.6" | "seedance-2" | "seedance-1.5"
-  | "hailuo-2.3" | "wan-2.6" | "sora-2-pro" | "grok-imagine"
-  | "kling-3-fal" | "kling-2.6-fal" | "hailuo-2.3-fal" | "wan-2.2-fal"
-  | "kling-2.6-replicate" | "wan-2.5-replicate" | "hailuo-02-replicate" | "luma-ray-3";
+  | "veo-3.1-fal"
+  | "kling-v3-fal"
+  | "wan-flf2v-fal"
+  | "seedance-2-fal"
+  | "seedance-2-fast-fal"
+  | "ltx-2.3-fal";
 
 export interface VideoModelCapabilities {
   durations: string[];
@@ -23,12 +26,37 @@ export interface VideoGenerationSettings {
   audio?: boolean;
 }
 
+export interface VideoModelModeCapabilities {
+  textToVideo?: {
+    endpoint: string;
+  };
+  imageToVideo?: {
+    endpoint: string;
+    supportsStartImage?: boolean;
+    supportsEndImage?: boolean;
+    /** The endpoint cannot run without an end frame (e.g. WAN FLF2V). */
+    requiresEndImage?: boolean;
+  };
+}
+
+export interface ImageModelModeCapabilities {
+  textToImage?: {
+    enabled: boolean;
+    endpoint?: string;
+  };
+  imageToImage?: {
+    enabled: boolean;
+    endpoint?: string;
+    imageInput?: string;
+  };
+}
+
 export interface ImageModelProvider {
   id: ImageModelId;
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
   generateImage(prompt: string, apiKey: string): Promise<string>;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
@@ -43,6 +71,12 @@ export interface ImageModelProvider {
     maskBase64: string,
     apiKey: string
   ): Promise<string>;
+  supportsComposition?: boolean;
+  composeImage?(
+    prompt: string,
+    referenceImages: string[],
+    apiKey: string
+  ): Promise<string>;
 }
 
 export interface VideoModelProvider {
@@ -50,8 +84,9 @@ export interface VideoModelProvider {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
   capabilities: VideoModelCapabilities;
+  modeCapabilities: VideoModelModeCapabilities;
   defaults: VideoGenerationSettings;
   supportsImageToVideo: boolean;
   supportsTextToVideo: boolean;
@@ -67,6 +102,10 @@ export interface VideoModelProvider {
     apiKey: string,
     settings?: VideoGenerationSettings
   ): Promise<Blob>;
+  generateVideoFromRequest?(
+    request: VideoGenerationRequest,
+    apiKey: string
+  ): Promise<Blob>;
 }
 
 export interface ImageModelInfo {
@@ -74,10 +113,11 @@ export interface ImageModelInfo {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
   provider?: string;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
+  modeCapabilities?: ImageModelModeCapabilities;
 }
 
 export interface VideoModelInfo {
@@ -85,9 +125,10 @@ export interface VideoModelInfo {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate";
+  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
   provider?: string;
   capabilities: VideoModelCapabilities;
+  modeCapabilities: VideoModelModeCapabilities;
   defaults: VideoGenerationSettings;
   supportsImageToVideo: boolean;
   supportsTextToVideo: boolean;

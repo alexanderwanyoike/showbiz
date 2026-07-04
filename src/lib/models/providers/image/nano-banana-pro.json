@@ -1,17 +1,15 @@
 {
   "id": "nano-banana-pro",
   "name": "Nano Banana Pro",
-  "description": "High-quality image generation via Gemini 2.5 Pro with 4K support",
-  "transport": "google-image",
-  "transportOptions": {
-    "apiPattern": "generateContent"
-  },
+  "description": "Gemini 3 Pro Image (preview): highest quality; compose/edit not yet verified against a live key",
+  "transport": "google-interactions-image",
   "enabled": true,
   "apiKeyProvider": "gemini",
   "models": {
-    "generate": "gemini-3-pro-image-preview",
-    "edit": "gemini-3-pro-image-preview"
+    "generate": "gemini-3-pro-image",
+    "edit": "gemini-3-pro-image"
   },
   "supportsEditing": true,
-  "supportsInpainting": false
+  "supportsInpainting": false,
+  "supportsComposition": true
 }

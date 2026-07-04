@@ -1,10 +1,15 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Plus, Loader2, Sparkles, ImageIcon, Video, SlidersHorizontal, Save } from "lucide-react";
+import { Plus, Loader2, Sparkles, ImageIcon, Video, Save } from "lucide-react";
 import { Header } from "../components/Header";
-import ShotCard from "../components/ShotCard";
+import ShotList from "../components/ShotList";
+import ShotPreview from "../components/ShotPreview";
+import ShotInspector from "../components/ShotInspector";
+import MediaPool from "../components/MediaPool";
 import TabNavigation from "../components/TabNavigation";
 import TimelineEditor from "../components/timeline/TimelineEditor";
+import StoryboardModeView from "../components/StoryboardModeView";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,19 +24,6 @@ import {
 } from "@/components/ui/dialog";
 import { ModelPicker } from "../components/ModelPicker";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import {
   getStoryboard,
   updateStoryboard,
   updateStoryboardModels,
@@ -42,7 +34,8 @@ import {
   reorderShots,
   getShotImageBase64,
   copyImageFromShot,
-  getTimelineEdits,
+  ensureDefaultTracks,
+  getTimelineClips,
   getImageVersions,
   getCurrentImageVersion,
   getVersionCount,
@@ -54,26 +47,36 @@ import {
   getCurrentVideoVersion,
   getVideoVersionCount,
   switchToVideoVersion,
-} from "../lib/tauri-api";
+  getBibles,
+  getBibleAssets,
+  getBibleAssetVariants,
+  getBibleVariantImageBase64,
+  getShotEndFrameBase64,
+  saveShotEndFrame,
+  clearShotEndFrame,
+} from "../lib/backend-api";
 import type {
   Storyboard,
   ShotWithUrls,
-  TimelineEdit,
+  TimelineTrack,
+  TimelineClipRow,
   ImageVersionNode,
   ImageVersionWithUrl,
   VideoVersionNode,
   VideoVersionWithUrl,
-} from "../lib/tauri-api";
+  BibleAsset,
+  BibleAssetVariant,
+} from "../lib/backend-api";
 import {
   generateImageAction,
   editImageAction,
   generateVideoPromptFromImage,
   enhanceVideoPrompt,
-  generateAndSaveVideoAction,
+  generateAndSaveVideoRequestAction,
 } from "../actions/generation-actions";
-import { videoAssembler } from "../lib/video-assembler";
-import { save } from "@tauri-apps/plugin-dialog";
-import { saveAssembledVideo } from "../lib/tauri-api";
+import { buildShotConcatClips } from "../lib/export-payload";
+import { videoDurationCache } from "../lib/video-duration";
+import { invoke } from "../lib/bridge";
 import {
   ImageModelId,
   VideoModelId,
@@ -83,6 +86,17 @@ import {
   getGroupedImageModels,
 } from "../lib/models";
 import type { VideoGenerationSettings } from "../lib/models/types";
+import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
+import type { VideoGenerationRequest } from "../lib/generation/types";
+import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
+import { buildFrameOptions } from "../lib/bible-compose";
+import { versionsForShot, valueForShot, flattenVersionTree } from "../lib/shot-versions";
+import {
+  invalidateGenerationRun,
+  isCurrentGenerationRun,
+  startGenerationRun,
+  type GenerationRunMap,
+} from "../lib/generation/run-guard";
 
 interface Shot {
   id: string;
@@ -91,6 +105,7 @@ interface Shot {
   duration: number;
   image_prompt: string | null;
   image_url: string | null;
+  end_frame_url: string | null;
   video_prompt: string | null;
   video_url: string | null;
   status: "pending" | "generating" | "complete" | "failed";
@@ -99,32 +114,7 @@ interface Shot {
   updated_at: string;
 }
 
-// Map database shot to ShotCard format
-interface ShotCardData {
-  id: string;
-  order: number;
-  uploaded_image: string | null;
-  gemini_prompt: string | null;
-  generated_image: string | null;
-  video_prompt: string;
-  video_url: string | null;
-  status: "pending" | "generating" | "complete" | "failed";
-  error_message?: string | null;
-}
-
-function mapShotToCardData(shot: Shot): ShotCardData {
-  return {
-    id: shot.id,
-    order: shot.order,
-    uploaded_image: null, // We use image_url for both
-    gemini_prompt: shot.image_prompt,
-    generated_image: shot.image_url,
-    video_prompt: shot.video_prompt || "",
-    video_url: shot.video_url,
-    status: shot.status,
-    error_message: shot.error_message,
-  };
-}
+type ShotUpdateInput = Partial<Pick<Shot, "video_prompt" | "status">>;
 
 function shotFromShotWithUrls(s: ShotWithUrls): Shot {
   return {
@@ -134,6 +124,7 @@ function shotFromShotWithUrls(s: ShotWithUrls): Shot {
     duration: s.duration,
     image_prompt: s.image_prompt,
     image_url: s.image_url,
+    end_frame_url: s.end_frame_url,
     video_prompt: s.video_prompt,
     video_url: s.video_url,
     status: s.status as Shot["status"],
@@ -152,11 +143,17 @@ export default function StoryboardPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
 
+  // Selection State
+  const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
+
   // Tab State
   const [activeTab, setActiveTab] = useState<"storyboard" | "editor">("storyboard");
 
   // Timeline Edit State
-  const [timelineEdits, setTimelineEdits] = useState<TimelineEdit[]>([]);
+  const [timelineTracks, setTimelineTracks] = useState<TimelineTrack[]>([]);
+  const [timelineClipRows, setTimelineClipRows] = useState<TimelineClipRow[]>([]);
+  const [bibleAssets, setBibleAssets] = useState<BibleAsset[]>([]);
+  const [bibleVariants, setBibleVariants] = useState<Record<string, BibleAssetVariant[]>>({});
 
   // Assembly State
   const [isAssembling, setIsAssembling] = useState(false);
@@ -169,7 +166,7 @@ export default function StoryboardPage() {
 
   // Model Selection
   const [imageModel, setImageModel] = useState<ImageModelId>("imagen4");
-  const [videoModel, setVideoModel] = useState<VideoModelId>("veo3");
+  const [videoModel, setVideoModel] = useState<VideoModelId>("seedance-2-fal");
   const imageModels = getAvailableImageModels();
   const videoModels = getAvailableVideoModels();
   const videoGroups = getGroupedVideoModels();
@@ -177,7 +174,7 @@ export default function StoryboardPage() {
 
   // Video Settings
   const [videoSettings, setVideoSettings] = useState<VideoGenerationSettings>(() => {
-    const model = videoModels.find((m) => m.id === "veo3");
+    const model = videoModels.find((m) => m.id === "seedance-2-fal");
     return model?.defaults ?? { duration: "8" };
   });
 
@@ -186,16 +183,12 @@ export default function StoryboardPage() {
     [videoModel, videoModels]
   );
 
-  const hasConfigurableSettings = useMemo(() => {
-    if (!currentVideoModel) return false;
-    const caps = currentVideoModel.capabilities;
-    return (
-      caps.durations.length > 1 ||
-      (caps.resolutions?.length ?? 0) > 1 ||
-      (caps.aspectRatios?.length ?? 0) > 1 ||
-      caps.hasAudio === true
-    );
-  }, [currentVideoModel]);
+  // Frames composed in the Bible (scene assets) that a shot can pick as start/end.
+  const frameOptions: FrameOption[] = useMemo(
+    () => buildFrameOptions(bibleAssets, bibleVariants),
+    [bibleAssets, bibleVariants]
+  );
+
 
   // Image Version State - per shot
   const [shotVersions, setShotVersions] = useState<Record<string, ImageVersionNode[]>>({});
@@ -206,6 +199,46 @@ export default function StoryboardPage() {
   const [shotVideoVersions, setShotVideoVersions] = useState<Record<string, VideoVersionNode[]>>({});
   const [shotCurrentVideoVersions, setShotCurrentVideoVersions] = useState<Record<string, VideoVersionWithUrl | null>>({});
   const [shotVideoVersionCounts, setShotVideoVersionCounts] = useState<Record<string, number>>({});
+
+  // Flat video version lists for the editor: media pool chips + clip pins
+  const videoVersionsFlat = useMemo(() => {
+    const map: Record<string, VideoVersionWithUrl[]> = {};
+    for (const [shotId, nodes] of Object.entries(shotVideoVersions)) {
+      map[shotId] = flattenVersionTree(nodes).sort(
+        (a, b) => a.version_number - b.version_number
+      );
+    }
+    return map;
+  }, [shotVideoVersions]);
+
+  const versionUrls = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const versions of Object.values(videoVersionsFlat)) {
+      for (const version of versions) map[version.id] = version.video_url;
+    }
+    return map;
+  }, [videoVersionsFlat]);
+
+  const versionNumbers = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const versions of Object.values(videoVersionsFlat)) {
+      for (const version of versions) map[version.id] = version.version_number;
+    }
+    return map;
+  }, [videoVersionsFlat]);
+
+  const mediaPoolVersions = useMemo(() => {
+    const map: Record<string, { id: string; version_number: number; video_url: string; is_current: boolean }[]> = {};
+    for (const [shotId, versions] of Object.entries(videoVersionsFlat)) {
+      map[shotId] = versions.map((v) => ({
+        id: v.id,
+        version_number: v.version_number,
+        video_url: v.video_url,
+        is_current: !!v.is_current,
+      }));
+    }
+    return map;
+  }, [videoVersionsFlat]);
 
   // Edit Modal State
   const [editModalState, setEditModalState] = useState<{
@@ -220,6 +253,7 @@ export default function StoryboardPage() {
   // Prompt Generation State - track per shot
   const [generatingPromptShots, setGeneratingPromptShots] = useState<Set<string>>(new Set());
   const [enhancingPromptShots, setEnhancingPromptShots] = useState<Set<string>>(new Set());
+  const videoGenerationRuns = useRef<GenerationRunMap>({});
 
   // Load storyboard and shots on mount
   useEffect(() => {
@@ -230,10 +264,11 @@ export default function StoryboardPage() {
     if (!id) return;
     setIsLoading(true);
     try {
-      const [storyboardData, shotsData, editsData] = await Promise.all([
+      const [storyboardData, shotsData, tracksData, clipsData] = await Promise.all([
         getStoryboard(id),
         getShots(id),
-        getTimelineEdits(id),
+        ensureDefaultTracks(id),
+        getTimelineClips(id),
       ]);
 
       if (!storyboardData) {
@@ -244,15 +279,23 @@ export default function StoryboardPage() {
       setStoryboard(storyboardData);
       const mappedShots = shotsData.map(shotFromShotWithUrls);
       setShots(mappedShots);
-      setTimelineEdits(editsData);
+      if (mappedShots.length > 0) {
+        setSelectedShotId(mappedShots[0].id);
+      }
+      setTimelineTracks(tracksData);
+      setTimelineClipRows(clipsData);
       setEditedName(storyboardData.name);
       setImageModel((storyboardData.image_model as ImageModelId) || "imagen4");
-      const loadedVideoModel = (storyboardData.video_model as VideoModelId) || "veo3";
+      const loadedVideoModel: VideoModelId = videoModels.some((m) => m.id === storyboardData.video_model)
+        ? (storyboardData.video_model as VideoModelId)
+        : "seedance-2-fal";
       setVideoModel(loadedVideoModel);
       const loadedModel = videoModels.find((m) => m.id === loadedVideoModel);
       if (loadedModel) {
         setVideoSettings({ ...loadedModel.defaults });
       }
+
+      await loadBibleData(storyboardData);
 
       // Load version data for each shot
       await loadVersionDataForShots(mappedShots);
@@ -262,6 +305,16 @@ export default function StoryboardPage() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function loadBibleData(storyboardData: Storyboard) {
+    const bibles = await getBibles(storyboardData.project_id);
+    const assets = (await Promise.all(bibles.map((bible) => getBibleAssets(bible.id)))).flat();
+    setBibleAssets(assets);
+    const variantEntries = await Promise.all(
+      assets.map(async (asset) => [asset.id, await getBibleAssetVariants(asset.id)] as const)
+    );
+    setBibleVariants(Object.fromEntries(variantEntries));
   }
 
   async function loadVersionDataForShots(shotsData: Shot[]) {
@@ -368,6 +421,10 @@ export default function StoryboardPage() {
       const newShotData = await createShot(id);
       const newShot = shotFromShotWithUrls(newShotData);
       setShots((prev) => [...prev, newShot]);
+      // Select the new shot and load ITS (empty) version data, so the inspector
+      // shows the new shot - not the previously selected shot's versions.
+      setSelectedShotId(newShot.id);
+      await refreshVersionData(newShot.id);
     } catch (error) {
       console.error("Failed to create shot:", error);
       alert("Failed to create shot");
@@ -376,7 +433,7 @@ export default function StoryboardPage() {
 
   async function handleUpdateShot(
     shotId: string,
-    updates: Partial<ShotCardData>
+    updates: ShotUpdateInput
   ) {
     // Optimistic update for UI responsiveness
     setShots((prev) =>
@@ -407,6 +464,9 @@ export default function StoryboardPage() {
   async function handleDeleteShot(shotId: string) {
     try {
       await deleteShot(shotId);
+      if (selectedShotId === shotId) {
+        setSelectedShotId(null);
+      }
       setShots((prev) => {
         const filtered = prev.filter((s) => s.id !== shotId);
         // Reorder remaining shots
@@ -444,12 +504,6 @@ export default function StoryboardPage() {
 
   // --- Image Handlers ---
 
-  function openImageModal(shotId: string) {
-    setActiveShotId(shotId);
-    setImagePrompt("");
-    setIsModalOpen(true);
-  }
-
   async function handleGenerateImage() {
     if (!id || !activeShotId || !imagePrompt) return;
 
@@ -483,36 +537,62 @@ export default function StoryboardPage() {
     }
   }
 
-  async function handleUploadImage(shotId: string, file: File) {
+  async function handleUploadFrame(shotId: string, role: ShotFrameRole, file: File) {
     if (!id) return;
     const reader = new FileReader();
     reader.onload = async (e) => {
-      if (typeof e.target?.result === "string") {
-        try {
-          // Get current version to use as parent (if exists)
-          const currentVersion = shotCurrentVersions[shotId];
-
-          // Create a new version for uploaded image
-          await createGenerationVersion(
-            shotId,
-            "Uploaded image",
-            e.target.result,
-            currentVersion?.id || null
-          );
-
-          // Reload shot data and version data
-          const updatedShots = await getShots(id);
-          setShots(updatedShots.map(shotFromShotWithUrls));
-          await refreshVersionData(shotId);
-
-          // Reset final video since content changed
-            } catch (error) {
-          console.error("Failed to upload image:", error);
-          alert("Failed to upload image");
-        }
+      if (typeof e.target?.result !== "string") return;
+      try {
+        await setShotFrameFromDataUrl(shotId, role, e.target.result);
+      } catch (error) {
+        console.error("Failed to upload frame:", error);
+        alert("Failed to upload frame");
       }
     };
     reader.readAsDataURL(file);
+  }
+
+  // Set a shot's start or end frame from a base64 data URL.
+  // The start frame is versioned (image_versions); the end frame is a single slot.
+  async function setShotFrameFromDataUrl(shotId: string, role: ShotFrameRole, dataUrl: string) {
+    if (!id) return;
+    if (role === "start") {
+      const currentVersion = shotCurrentVersions[shotId];
+      await createGenerationVersion(shotId, "Uploaded frame", dataUrl, currentVersion?.id || null);
+      await refreshVersionData(shotId);
+    } else {
+      await saveShotEndFrame(shotId, dataUrl);
+    }
+    const updatedShots = await getShots(id);
+    setShots(updatedShots.map(shotFromShotWithUrls));
+  }
+
+  async function handleClearEndFrame(shotId: string) {
+    if (!id) return;
+    try {
+      await clearShotEndFrame(shotId);
+      const updatedShots = await getShots(id);
+      setShots(updatedShots.map(shotFromShotWithUrls));
+    } catch (error) {
+      console.error("Failed to clear end frame:", error);
+    }
+  }
+
+  // Use a frame composed in the Bible as the shot's start/end frame.
+  async function handlePickFrame(shotId: string, role: ShotFrameRole, variantId: string) {
+    if (!id) return;
+    try {
+      const dataUrl = await getBibleVariantImageBase64(variantId);
+      if (!dataUrl) {
+        alert("That frame has no image yet.");
+        return;
+      }
+      await setShotFrameFromDataUrl(shotId, role, dataUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Failed to set frame:", message);
+      alert(`Failed to set frame: ${message}`);
+    }
   }
 
   // --- Copy Image from Another Shot ---
@@ -624,33 +704,61 @@ export default function StoryboardPage() {
   async function handleGenerateVideo(shotId: string) {
     const shot = shots.find((s) => s.id === shotId);
     if (!shot) return;
+    if (!currentVideoModel) return;
+    const runId = startGenerationRun(videoGenerationRuns.current, shotId);
 
-    // Set this shot to generating status
-    setShots((prev) =>
-      prev.map((s) =>
-        s.id === shotId ? { ...s, status: "generating" as const, video_url: null } : s
-      )
-    );
-
-    // Use the combined generate-and-save action (avoids 10MB body size limit)
-    const result = await generateAndSaveVideoAction(
-      shotId,
-      shot.video_prompt || "",
-      videoModel,
-      videoSettings
-    );
-
-    if (result.success && result.videoUrl) {
+    const prompt = shot.video_prompt?.trim() ?? "";
+    if (!shot.image_url && !prompt) {
       setShots((prev) =>
         prev.map((s) =>
           s.id === shotId
-            ? { ...s, status: "complete" as const, video_url: result.videoUrl }
+            ? { ...s, status: "failed" as const, error_message: "Add a start frame or a prompt before generating." }
             : s
         )
       );
-      // Refresh video version data
-      await refreshVersionData(shotId);
-    } else {
+      return;
+    }
+
+    setShots((prev) =>
+      prev.map((s) =>
+        s.id === shotId
+          ? { ...s, status: "generating" as const, video_url: null, error_message: null }
+          : s
+      )
+    );
+
+    try {
+      const startImage = shot.image_url ? await getShotImageBase64(shotId) : null;
+      const supportsEndFrame = currentVideoModel.modeCapabilities.imageToVideo?.supportsEndImage === true;
+      const endImage =
+        supportsEndFrame && shot.end_frame_url ? await getShotEndFrameBase64(shotId) : null;
+      const mode = chooseVideoGenerationMode(currentVideoModel.modeCapabilities, {
+        hasStartImage: !!startImage,
+      });
+      const request: VideoGenerationRequest = {
+        mode,
+        prompt,
+        settings: videoSettings,
+        startImage,
+        endImage: mode === "image-to-video" ? endImage : null,
+      };
+      validateVideoGenerationRequest(currentVideoModel.modeCapabilities, request);
+
+      const result = await generateAndSaveVideoRequestAction(shotId, videoModel, request);
+      if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
+
+      if (result.success && result.videoUrl) {
+        setShots((prev) =>
+          prev.map((s) =>
+            s.id === shotId
+              ? { ...s, status: "complete" as const, video_url: result.videoUrl }
+              : s
+          )
+        );
+        await refreshVersionData(shotId);
+        return;
+      }
+
       const errorMessage = result.error || "Video generation failed";
       console.error(`Video generation failed for shot ${shotId}:`, errorMessage);
       setShots((prev) =>
@@ -660,6 +768,34 @@ export default function StoryboardPage() {
             : s
         )
       );
+    } catch (error) {
+      if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`Video generation preflight failed for shot ${shotId}:`, errorMessage);
+      setShots((prev) =>
+        prev.map((s) =>
+          s.id === shotId
+            ? { ...s, status: "failed" as const, error_message: errorMessage }
+            : s
+        )
+      );
+    }
+  }
+
+  async function handleCancelVideoGeneration(shotId: string) {
+    invalidateGenerationRun(videoGenerationRuns.current, shotId);
+    const errorMessage = "Stopped waiting locally. The provider job may still finish remotely.";
+    setShots((prev) =>
+      prev.map((s) =>
+        s.id === shotId
+          ? { ...s, status: "failed" as const, error_message: errorMessage }
+          : s
+      )
+    );
+    try {
+      await updateShot(shotId, { status: "failed" });
+    } catch (error) {
+      console.error("Failed to persist cancelled generation status:", error);
     }
   }
 
@@ -732,19 +868,29 @@ export default function StoryboardPage() {
 
     setIsAssembling(true);
     try {
-      const videoUrls = completedShots.map((s) => s.video_url!);
-      const videoBytes = await videoAssembler.assembleVideos(videoUrls);
-
-      const defaultFilename = `${storyboard?.name.replace(/\s+/g, "_") || "movie"}.mp4`;
-      const savePath = await save({
-        defaultPath: defaultFilename,
-        filters: [{ name: "Video", extensions: ["mp4"] }],
-      });
-
-      if (savePath) {
-        await saveAssembledVideo(Array.from(videoBytes), savePath);
-        alert("Video exported successfully!");
+      // Native ffmpeg concat: probe real durations, lay the shots end to end,
+      // and let the main process resolve file paths from the DB.
+      const durations: Record<string, number | null> = {};
+      await Promise.all(
+        completedShots.map(async (s) => {
+          durations[s.video_url!] = await videoDurationCache.get(s.video_url!);
+        })
+      );
+      const clips = buildShotConcatClips(completedShots, durations);
+      if (clips.length === 0) {
+        alert("Could not read any shot video durations. Try again.");
+        return;
       }
+
+      const savePath = await invoke<string | null>("show_export_save_dialog");
+      if (!savePath) return;
+
+      await invoke("export_timeline_video", {
+        clips,
+        settings: { preset: "medium" },
+        savePath,
+      });
+      alert("Video exported successfully!");
     } catch (error) {
       console.error("Assembly failed:", error);
       alert("Failed to assemble videos. Check console for details.");
@@ -777,7 +923,7 @@ export default function StoryboardPage() {
   }
 
   return (
-    <div className={`bg-background flex flex-col ${activeTab === "editor" ? "h-dvh overflow-hidden" : "min-h-screen"}`}>
+    <div className="bg-background flex flex-col h-dvh overflow-hidden">
       {/* Main App Header */}
       <Header
         backHref={`/project/${storyboard.project_id}`}
@@ -814,102 +960,6 @@ export default function StoryboardPage() {
               }
             />
 
-            {/* Video Settings Popover */}
-            {hasConfigurableSettings && currentVideoModel && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1 px-2">
-                    <SlidersHorizontal className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-56 space-y-4">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {currentVideoModel.name} Settings
-                  </p>
-
-                  {currentVideoModel.capabilities.durations.length > 1 && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Duration</label>
-                      <Select
-                        value={videoSettings.duration}
-                        onValueChange={(v) =>
-                          setVideoSettings((prev) => ({ ...prev, duration: v }))
-                        }
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currentVideoModel.capabilities.durations.map((d) => (
-                            <SelectItem key={d} value={d}>
-                              {d}s
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {(currentVideoModel.capabilities.resolutions?.length ?? 0) > 1 && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Resolution</label>
-                      <Select
-                        value={videoSettings.resolution ?? ""}
-                        onValueChange={(v) =>
-                          setVideoSettings((prev) => ({ ...prev, resolution: v }))
-                        }
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currentVideoModel.capabilities.resolutions!.map((r) => (
-                            <SelectItem key={r} value={r}>
-                              {r}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {(currentVideoModel.capabilities.aspectRatios?.length ?? 0) > 1 && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Aspect Ratio</label>
-                      <Select
-                        value={videoSettings.aspectRatio ?? ""}
-                        onValueChange={(v) =>
-                          setVideoSettings((prev) => ({ ...prev, aspectRatio: v }))
-                        }
-                      >
-                        <SelectTrigger className="h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currentVideoModel.capabilities.aspectRatios!.map((a) => (
-                            <SelectItem key={a} value={a}>
-                              {a}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {currentVideoModel.capabilities.hasAudio && (
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-medium">Audio</label>
-                      <Switch
-                        checked={videoSettings.audio ?? false}
-                        onCheckedChange={(checked) =>
-                          setVideoSettings((prev) => ({ ...prev, audio: checked }))
-                        }
-                      />
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
-            )}
           </div>}
 
           <Badge variant="secondary" className="text-sm">
@@ -939,69 +989,113 @@ export default function StoryboardPage() {
         </div>
       </Header>
 
-      {/* Main Content — storyboard kept mounted (hidden) to preserve loaded images */}
-      <main className="flex-1 p-4 md:p-6" style={{ display: activeTab === "storyboard" ? undefined : "none" }}>
-        {/* Shots Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {shots.map((shot, index) => {
-            // Get other shots with images for the copy feature
-            const otherShotsWithImages = shots
-              .filter((s) => s.id !== shot.id && s.image_url)
-              .map((s) => ({
+      {activeTab === "storyboard" && (
+        <StoryboardModeView
+          shotListSlot={
+            <ShotList
+              shots={shots.map(shot => ({
+                id: shot.id,
+                order: shot.order,
+                image_prompt: shot.image_prompt,
+                video_prompt: shot.video_prompt,
+                image_url: shot.image_url,
+                video_url: shot.video_url,
+                status: shot.status,
+              }))}
+              selectedShotId={selectedShotId}
+              onSelectShot={setSelectedShotId}
+              onAddShot={handleAddShot}
+              onMoveShot={handleMoveShot}
+              onDeleteShot={handleDeleteShot}
+            />
+          }
+          previewSlot={
+            <ShotPreview
+              shot={selectedShotId ? (() => {
+                const s = shots.find(s => s.id === selectedShotId);
+                return s ? {
+                  id: s.id,
+                  order: s.order,
+                  image_url: s.image_url,
+                  video_url: s.video_url,
+                  status: s.status,
+                } : null;
+              })() : null}
+            />
+          }
+          inspectorSlot={
+            <ShotInspector
+              shot={selectedShotId ? (() => {
+                const s = shots.find(s => s.id === selectedShotId);
+                return s ? {
+                  id: s.id,
+                  order: s.order,
+                  image_prompt: s.image_prompt,
+                  image_url: s.image_url,
+                  end_frame_url: s.end_frame_url,
+                  video_prompt: s.video_prompt,
+                  video_url: s.video_url,
+                  status: s.status,
+                  error_message: s.error_message,
+                } : null;
+              })() : null}
+              frameOptions={frameOptions}
+              onPickFrame={handlePickFrame}
+              onUploadFrame={handleUploadFrame}
+              onClearEndFrame={handleClearEndFrame}
+              onGenerateVideo={handleGenerateVideo}
+              onCancelVideoGeneration={handleCancelVideoGeneration}
+              onUpdateShot={(shotId, updates) => handleUpdateShot(shotId, updates)}
+              videoModel={currentVideoModel ?? null}
+              videoSettings={videoSettings}
+              onVideoSettingsChange={setVideoSettings}
+              versions={versionsForShot(shotVersions, selectedShotId)}
+              currentVersion={valueForShot(shotCurrentVersions, selectedShotId, null)}
+              versionCount={valueForShot(shotVersionCounts, selectedShotId, 0)}
+              videoVersions={versionsForShot(shotVideoVersions, selectedShotId)}
+              currentVideoVersion={valueForShot(shotCurrentVideoVersions, selectedShotId, null)}
+              videoVersionCount={valueForShot(shotVideoVersionCounts, selectedShotId, 0)}
+              onVersionSelect={handleVersionSelect}
+              onBranchFrom={handleBranchFrom}
+              onEditImage={handleOpenEditModal}
+              onVideoVersionSelect={handleVideoVersionSelect}
+              onGenerateVideoPrompt={handleGenerateVideoPrompt}
+              onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
+              isGeneratingPrompt={selectedShotId ? generatingPromptShots.has(selectedShotId) : false}
+              isEnhancingPrompt={selectedShotId ? enhancingPromptShots.has(selectedShotId) : false}
+            />
+          }
+        />
+      )}
+
+      {activeTab === "editor" && (
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          {/* Media Pool — left sidebar */}
+          <div className="w-56 flex-shrink-0 border-r border-border overflow-hidden">
+            <MediaPool
+              shots={shots.map(s => ({
                 id: s.id,
                 order: s.order,
-                image_url: s.image_url!,
-              }));
-
-            return (
-              <ShotCard
-                key={shot.id}
-                shot={mapShotToCardData(shot)}
-                index={index}
-                totalShots={shots.length}
-                otherShotsWithImages={otherShotsWithImages}
-                versions={shotVersions[shot.id] || []}
-                currentVersion={shotCurrentVersions[shot.id] || null}
-                versionCount={shotVersionCounts[shot.id] || 0}
-                videoVersions={shotVideoVersions[shot.id] || []}
-                currentVideoVersion={shotCurrentVideoVersions[shot.id] || null}
-                videoVersionCount={shotVideoVersionCounts[shot.id] || 0}
-                onUpdate={handleUpdateShot}
-                onDelete={handleDeleteShot}
-                onMove={handleMoveShot}
-                onGenerateImage={openImageModal}
-                onUploadImage={handleUploadImage}
-                onCopyImageFromShot={handleCopyImageFromShot}
-                onGenerateVideo={handleGenerateVideo}
-                onVersionSelect={handleVersionSelect}
-                onBranchFrom={handleBranchFrom}
-                onEditImage={handleOpenEditModal}
-                onVideoVersionSelect={handleVideoVersionSelect}
-                onGenerateVideoPrompt={handleGenerateVideoPrompt}
-                onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
-                isGeneratingPrompt={generatingPromptShots.has(shot.id)}
-                isEnhancingPrompt={enhancingPromptShots.has(shot.id)}
-              />
-            );
-          })}
-
-          {/* Add Shot Card */}
-          <button
-            onClick={handleAddShot}
-            className="aspect-video border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
-          >
-            <Plus className="h-8 w-8 mb-2" />
-            <span className="text-sm font-medium">Add Shot</span>
-          </button>
+                image_url: s.image_url,
+                video_url: s.video_url,
+                status: s.status,
+                duration: s.duration,
+              }))}
+              versionsByShot={mediaPoolVersions}
+            />
+          </div>
+          {/* Timeline Editor — fills remaining space (has its own preview + transport) */}
+          <TimelineEditor
+            storyboardId={id!}
+            shots={shots}
+            tracks={timelineTracks}
+            clipRows={timelineClipRows}
+            versionUrls={versionUrls}
+            versionNumbers={versionNumbers}
+            onTracksChange={setTimelineTracks}
+            onClipsChange={setTimelineClipRows}
+          />
         </div>
-      </main>
-      {activeTab === "editor" && (
-        <TimelineEditor
-          storyboardId={id!}
-          shots={shots}
-          edits={timelineEdits}
-          onEditsChange={setTimelineEdits}
-        />
       )}
 
 

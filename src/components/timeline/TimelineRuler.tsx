@@ -1,8 +1,13 @@
+import { useRef } from "react";
+
 interface TimelineRulerProps {
   totalDuration: number;
   pixelsPerSecond: number;
   currentTime: number;
-  onSeek: (time: number) => void;
+  onSeek?: (time: number) => void;
+  onScrubStart?: () => void;
+  onScrub?: (time: number) => void;
+  onScrubEnd?: (time: number) => void;
 }
 
 // Determine tick intervals based on zoom level
@@ -47,6 +52,9 @@ export default function TimelineRuler({
   pixelsPerSecond,
   currentTime,
   onSeek,
+  onScrubStart,
+  onScrub,
+  onScrubEnd,
 }: TimelineRulerProps) {
   const totalWidth = totalDuration * pixelsPerSecond;
   const { minor, major, labelFormat } = getTickIntervals(pixelsPerSecond);
@@ -67,19 +75,49 @@ export default function TimelineRuler({
     });
   }
 
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const isScrubbingRef = useRef(false);
+  const lastSeekAtRef = useRef(0);
+
+  const timeFromPointer = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const seekTime = clickX / pixelsPerSecond;
-    onSeek(Math.max(0, Math.min(totalDuration, seekTime)));
+    const pointerX = e.clientX - rect.left;
+    return Math.max(0, Math.min(totalDuration, pointerX / pixelsPerSecond));
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    isScrubbingRef.current = true;
+    lastSeekAtRef.current = performance.now();
+    const time = timeFromPointer(e);
+    onScrubStart?.();
+    (onScrub ?? onSeek)?.(time);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isScrubbingRef.current) return;
+    // Throttle scrub seeks so the player isn't flooded with seeks
+    const now = performance.now();
+    if (now - lastSeekAtRef.current < 80) return;
+    lastSeekAtRef.current = now;
+    (onScrub ?? onSeek)?.(timeFromPointer(e));
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isScrubbingRef.current) return;
+    isScrubbingRef.current = false;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    const time = timeFromPointer(e);
+    (onScrubEnd ?? onSeek)?.(time);
   };
 
   const playheadPosition = currentTime * pixelsPerSecond;
 
   return (
     <div
-      className="relative h-6 bg-secondary cursor-pointer select-none"
-      onClick={handleClick}
+      className="relative h-6 bg-secondary cursor-pointer select-none touch-none"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
       style={{ width: Math.max(totalWidth, 200) }}
     >
       {/* Tick marks */}
@@ -98,11 +136,11 @@ export default function TimelineRuler({
 
       {/* Playhead indicator */}
       <div
-        className="absolute top-0 w-0.5 h-full bg-destructive pointer-events-none z-10"
+        className="absolute top-0 w-0.5 h-full bg-red-500 pointer-events-none z-10"
         style={{ left: playheadPosition }}
       >
-        {/* Playhead triangle */}
-        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] border-t-destructive" />
+        {/* Playhead triangle handle */}
+        <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-red-500" />
       </div>
     </div>
   );

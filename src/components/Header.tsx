@@ -23,24 +23,24 @@ export function Header({ title, backHref, backLabel, children }: HeaderProps) {
 
   return (
     <header className="border-b border-border bg-card">
-      <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/" className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
-            <Film className="h-6 w-6" />
-            <span className="font-bold text-lg">Showbiz</span>
+      <div className="px-3 h-10 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-1.5 text-primary hover:opacity-80 transition-opacity">
+            <Film className="h-5 w-5" />
+            <span className="font-bold text-sm">Showbiz</span>
           </Link>
           {backHref && backLabel && (
             <>
-              <span className="text-muted-foreground">/</span>
-              <Link to={backHref} className="text-muted-foreground hover:text-foreground transition-colors">
+              <span className="text-muted-foreground text-xs">/</span>
+              <Link to={backHref} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 {backLabel}
               </Link>
             </>
           )}
           {title && (
             <>
-              <span className="text-muted-foreground">/</span>
-              <span className="font-medium text-foreground truncate max-w-[200px]">{title}</span>
+              <span className="text-muted-foreground text-xs">/</span>
+              <span className="text-sm font-medium text-foreground truncate max-w-[200px]">{title}</span>
             </>
           )}
           {children}
@@ -54,7 +54,7 @@ export function Header({ title, backHref, backLabel, children }: HeaderProps) {
                   size="icon"
                   onClick={() => setSettingsOpen(true)}
                 >
-                  <Settings className="h-5 w-5" />
+                  <Settings className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Settings</TooltipContent>

@@ -105,8 +105,17 @@ describe("getAvailableVideoModels", () => {
       expect(typeof model.supportsImageToVideo).toBe("boolean");
       expect(typeof model.supportsTextToVideo).toBe("boolean");
       expect(model.capabilities).toBeDefined();
+      expect(model.modeCapabilities).toBeDefined();
       expect(model.defaults).toBeDefined();
     }
+  });
+
+  it("exposes Seedance fal start/end-frame capability to pages", () => {
+    const seedance = getAvailableVideoModels().find((model) => model.id === "seedance-2-fal");
+    expect(seedance?.modeCapabilities.imageToVideo?.endpoint).toBe(
+      "bytedance/seedance-2.0/image-to-video"
+    );
+    expect(seedance?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
   });
 
   it("provider field matches config", () => {
