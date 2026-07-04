@@ -5,6 +5,7 @@ import {
   resolvePreviewStill,
   resolveToggleAction,
   hasReachedEnd,
+formatDurationLabel,
 } from "./video-preview";
 
 describe("video preview helpers", () => {
@@ -63,5 +64,19 @@ describe("transport controls", () => {
   it("never reports end for an unknown duration", () => {
     expect(hasReachedEnd(5, 0)).toBe(false);
     expect(hasReachedEnd(5, Number.NaN)).toBe(false);
+  });
+});
+
+describe("formatDurationLabel", () => {
+  it("appends s to bare numeric durations", () => {
+    expect(formatDurationLabel("8")).toBe("8s");
+  });
+
+  it("does not double the suffix when the duration already has one (Veo 3.1 uses \"8s\")", () => {
+    expect(formatDurationLabel("8s")).toBe("8s");
+  });
+
+  it("labels auto as Auto", () => {
+    expect(formatDurationLabel("auto")).toBe("Auto");
   });
 });

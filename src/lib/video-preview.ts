@@ -41,3 +41,12 @@ export function resolvePreviewStill(
 ): string | null {
   return imageUrl || posterUrl || null;
 }
+
+/**
+ * Label for a model duration option. Configs mix bare seconds ("8") and
+ * suffixed values ("8s", Veo 3.1) — never double the suffix.
+ */
+export function formatDurationLabel(duration: string): string {
+  if (duration === "auto") return "Auto";
+  return duration.endsWith("s") ? duration : `${duration}s`;
+}
