@@ -12,7 +12,15 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshot.png" alt="Showbiz — Timeline Editor" width="800">
+  <img src="docs/assets/storyboard.png" alt="Showbiz — storyboard mode: shots, start/end frames, and video generation" width="800">
+  <br/>
+  <em>Storyboard mode — build each shot from a start/end frame and a prompt, pick a model, generate</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/timeline.png" alt="Showbiz — editor mode: multi-track timeline with preview and export" width="800">
+  <br/>
+  <em>Editor mode — arrange, trim and split shots on a multi-track timeline, then export with native ffmpeg</em>
 </p>
 
 ## Download
