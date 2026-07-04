@@ -7,10 +7,10 @@ AI-powered video storyboard desktop application. Each shot is built from a start
 ### 1. Research, don't guess
 **Always research before acting** - this applies to everything: bug fixes, new features, architecture decisions, planning, and ideation. Read source code, check docs, search the web, review GitHub issues. Understand the problem space before proposing or implementing a solution. Never trial-and-error your way through.
 
-### 2. TDD for all TypeScript and Rust changes
+### 2. TDD for all TypeScript changes
 Write a **failing test first**, then implement the fix/feature to make it pass. This applies to:
 - All new functions in `src/lib/` (Vitest)
-- All new Rust commands and utilities (`#[cfg(test)]` modules)
+- All new Electron main-process commands and utilities (`electron/`, Vitest)
 - Bug fixes: reproduce the bug in a test before fixing
 
 ### 3. Clean code practices
@@ -18,19 +18,12 @@ Write a **failing test first**, then implement the fix/feature to make it pass. 
 - No dead code, no commented-out code, no TODO comments without a tracking issue
 - DRY - extract shared logic, but don't abstract prematurely
 - Consistent patterns: if the codebase does something one way, follow that convention
-- Handle errors explicitly - no silent swallows, no bare `unwrap()` in production paths
+- Handle errors explicitly - no silent swallows
 
-### 4. Memory-safe Rust
-- Prefer safe Rust APIs over `unsafe` blocks whenever possible
-- Use owned types (`String`, `Vec<u8>`) over raw pointers
-- Prefer `.get()` over indexing, `Option`/`Result` over panics
-- If `unsafe` is genuinely needed, document why and keep the block minimal
-- Use `clippy` guidance: `cargo clippy` should pass clean
+### 4. Always use yarn (never npm)
 
-### 5. Always use yarn (never npm)
-
-### 6. Always check the build
-Run `yarn build:frontend` and `cargo check` before considering work done.
+### 5. Always check the build
+Run `yarn build:frontend` and `yarn build:electron` before considering work done. For packaging changes, run `yarn build` (full electron-builder pass).
 
 ## What It Does
 
@@ -40,45 +33,36 @@ Showbiz lets users create video storyboards by:
 3. Creating storyboards within projects and adding shots
 4. Giving each shot a **start frame** and an optional **end frame** plus a prompt. Frames come from the bible composer, image generation, or upload
 5. Generating a video that animates between the start and end frames
-6. Assembling all shot videos into a final movie using FFmpeg.wasm
+6. Assembling all shot videos into a final movie with native ffmpeg
 
 ## Tech Stack
 
-- **Desktop Framework**: Tauri v2
+- **Desktop Framework**: Electron (Chromium renderer + Node main process)
 - **Frontend**: React 19 + Vite
-- **Routing**: React Router v7 (3 routes)
-- **Backend**: Rust (database, file I/O)
-- **Database**: SQLite via rusqlite, migrations via `rusqlite_migration`
-- **Image generation / scene composition**: Gemini image models (Nano Banana = 2.5 Flash via `generateContent`; Nano Banana 2 = 3.1 Flash and Nano Banana Pro = 3 Pro via the Interactions API), OpenAI GPT Image 2, Flux (via fal). Multi-reference composition through a shared `composeImage` transport interface.
-- **Video generation**: Google Veo 3 / Veo 3.1 Fast, Seedance 2 (start/end-frame, via fal). Provider registry driven by JSON configs.
-- **Video Assembly**: FFmpeg.wasm (browser-based, single-threaded build)
-- **Video Playback**: mpv (external process on Linux/Windows, libmpv on macOS)
+- **Routing**: React Router v7 with `HashRouter` (path routing cannot match `file://` asar paths in packaged builds)
+- **Backend**: Electron main process (`electron/`) - database, file I/O, export
+- **Database**: SQLite via `node:sqlite`, numbered `.sql` migrations in `electron/migrations/` tracked via `user_version`
+- **Image generation / scene composition**: Gemini image models (Nano Banana = 2.5 Flash via `generateContent`; Nano Banana 2 = 3.1 Flash and Nano Banana Pro = 3 Pro via the Interactions API), OpenAI GPT Image 2 (fal-hosted), Flux (via fal). Multi-reference composition through a shared `composeImage` transport interface.
+- **Video generation**: Google Veo 3.1, Seedance 2, Kling 3, LTX-2.3, Wan 2.1 FLF (all via fal). Provider registry driven by JSON configs.
+- **Video export**: native ffmpeg spawned by the main process (`ffmpeg-static` / `ffprobe-static`, unpacked to `resources/bin/` in packaged builds)
+- **Video Playback**: HTML5 `<video>` (Chromium)
 - **Styling**: Tailwind CSS v4
 
 ## Architecture
 
-**Hybrid backend**: Rust handles DB + file I/O. TypeScript handles API calls to model providers (image, video, text). API keys are fetched securely from Rust, passed to TS for the API call, then discarded. Cross-origin API calls are proxied through a Rust `http_request` command (the WebView cannot make them directly), which sends a single JSON string body, so providers must use JSON endpoints (not multipart).
+**Split by process**: the Electron main process handles DB + file I/O + export. The renderer (TypeScript) handles UI and API calls to model providers (image, video, text). API keys are fetched from the main process per call, used, then discarded. Cross-origin API calls are proxied through the main-process `http_request` command, which sends a single JSON string body, so providers must use JSON endpoints (not multipart).
 
-**Video playback**: mpv, NOT HTML5 `<video>` (broken in WebKit/Tauri WebView). Embedded via X11 child windows (Linux), in-process libmpv (macOS), native views (Windows).
+**IPC bridge**: the preload script exposes `window.showbiz` (`invoke`, `readMediaBytes`, `onExportProgress`). `src/lib/bridge.ts` wraps it and strips Electron's IPC error wrapping so UI code sees bare error messages. Command names and JSON shapes are snake_case (preserved from the original Rust backend).
 
-**Video export**: FFmpeg.wasm assembles videos in-memory, then bytes are saved to disk via Rust command + native save dialog (`tauri-plugin-dialog`). No blob URL downloads (broken in Tauri WebView).
+**Media files**: served blob-over-IPC. `src/lib/electron-media-url.ts` reads bytes via `readMediaBytes` and caches `blob:` URLs per absolute path; saves that overwrite a file in place must pass `invalidate=true`. Do NOT use a custom streamed protocol - Electron's `protocol.handle` mishandles Chromium's abort/resume media fetches.
 
-**Media files**: Served via Tauri's `asset://` protocol using `convertFileSrc()`.
-
-### FFmpeg.wasm
-
-- Uses **single-threaded** `@ffmpeg/core` (NOT `@ffmpeg/core-mt`) - does NOT require SharedArrayBuffer
-- Core loaded from CDN (`unpkg.com`) using **ESM** build (not UMD - UMD fails in WebKitGTK module workers)
-- CSP must include `https://unpkg.com` in `script-src` for dynamic import inside worker
-- CSP must include `wasm-unsafe-eval` in `script-src` for WASM compilation
-- `Cross-Origin-Embedder-Policy: unsafe-none` required in Tauri headers (WebKitGTK injects COEP by default which blocks workers)
-- `@ffmpeg/ffmpeg` and `@ffmpeg/util` excluded from Vite dep optimization (`optimizeDeps.exclude`) to preserve worker imports
+**Video export**: the renderer sends clip identity + trim + position (`export_timeline_video`); the main process resolves file paths from the DB (renderer URLs are `blob:`), builds an ffmpeg filter graph (trims via `-ss`/`-to` input options where `-to` is ABSOLUTE from file start, black+silence for gaps, probe-based setting defaults), and streams `-progress pipe:1` back over IPC. Known limitation (issue #77): overlapping tracks concatenate instead of preview-style splicing.
 
 ## Project Structure
 
 ```
-src/                              # React app (Vite)
-  main.tsx                        # Entry point
+src/                              # React app (Vite, renderer)
+  main.tsx                        # Entry point (HashRouter)
   App.tsx                         # React Router setup (3 routes)
   globals.css                     # Tailwind CSS theme
   pages/
@@ -91,11 +75,13 @@ src/                              # React app (Vite)
     MediaPool.tsx                 # Editor-mode media grid
     StoryboardModeView.tsx        # Slot-based storyboard-mode view
     layout/                       # Zone layout system
-    timeline/                     # Multi-track timeline editor
+    timeline/                     # Multi-track timeline editor (HTML5 pool playback)
     ImageVersionTimeline.tsx VideoVersionTimeline.tsx
     SettingsDialog.tsx Header.tsx ProjectCard.tsx StoryboardCard.tsx
   lib/
-    tauri-api.ts                  # Bridge layer (invoke wrappers)
+    bridge.ts                     # window.showbiz IPC wrapper + error normalization
+    backend-api.ts                # Typed invoke wrappers for every command
+    electron-media-url.ts         # blob-over-IPC media URL cache
     models/
       providers/{image,video}/*.json  # One JSON config per model
       transports/                 # Per-API adapters: google-image,
@@ -104,74 +90,43 @@ src/                              # React app (Vite)
       registry.ts config-schema.ts types.ts
     generation/                   # video-modes (mode + validation), run-guard, types
     bible-assets.ts               # Bible variant helpers
-    video-assembler.ts            # FFmpeg.wasm concatenation
+    export-payload.ts             # Export clip payload builders (timeline + concat)
     timeline-utils.ts             # Timeline clip utilities
     video-duration.ts             # Probed video duration cache
     thumbnail-generator.ts        # Video thumbnail generation
   actions/
     generation-actions.ts         # Image/video gen + composeFrameAction
   hooks/
-    useMpvPlayer.ts useTimelinePlayback.ts useTrimDrag.ts useVideoDurations.ts
+    useHtml5TimelinePlayback.ts useVideoPool.ts useTrimDrag.ts useVideoDurations.ts
 
-src-tauri/                        # Rust backend
-  src/
-    main.rs                       # Command registration + plugin init
-    db.rs                         # Migration runner (rusqlite_migration)
-    migrations/                   # Numbered .sql migration files (append-only)
-    media.rs                      # File I/O (save/read/delete)
-    commands/
-      projects.rs                 # Project + storyboard CRUD
-      shots.rs                    # Shot CRUD, start/end frame media
-      bibles.rs                   # Bible, assets, variants CRUD
-      settings.rs                 # API key storage
-      image_versions.rs           # Image version tree
-      video_versions.rs           # Video version tree
-      timeline.rs                 # Timeline edits, tracks, clips
-      media_cmd.rs                # Media path utility + assembled video export
-      mpv/                        # mpv video player control
-      http_client.rs              # JSON HTTP proxy for cross-origin API calls
-  capabilities/main.json          # Tauri v2 permissions
-  Cargo.toml
-  tauri.conf.json
+electron/                         # Main process
+  main.ts                         # Window, IPC registration, app menu
+  preload.ts                      # window.showbiz bridge
+  db.ts                           # node:sqlite open + migration runner
+  migrations/                     # Numbered .sql migration files (append-only)
+  media-files.ts                  # File I/O (save/read/delete)
+  export.ts export-deps.ts        # ffmpeg export planning + binary resolution
+  commands/                       # projects, shots, bibles, settings,
+                                  #   image-versions, video-versions, timeline,
+                                  #   media, export, http (JSON proxy)
 
+build/icons/                      # App icons (electron-builder buildResources)
 components/ui/                    # shadcn components
 lib/utils.ts                      # cn() utility
+scripts/dev-electron.mjs          # Dev harness (Vite + Electron together)
 index.html vite.config.ts package.json tsconfig.json
 ```
 
 ## Tests
 
-### TypeScript (Vitest)
+All tests run under Vitest (`yarn test` = run once, `yarn test:watch` = watch):
 
-```bash
-yarn test          # Run all 295 tests (watch mode)
-yarn test --run    # Run once, exit
-```
-
-Tests are co-located with source under `src/lib/`:
-- `timeline-utils`, `seek-utils`, `video-preview`, `video-duration` - timeline + playback utilities
-- `tauri-api` - asset URL conversion
-- `bible-assets` - variant selection, export, shot video source
-- `generation/video-modes` - generation mode selection + request validation
-- `generation/run-guard` - generation run guarding
-- `models/*` - registry, capabilities, config schema, polling
-- `models/transports/*` - per-API request/response shapes (google-image, google-interactions-image, openai-image, fal-image, fal-video)
-
-### Rust (cargo test)
-
-```bash
-cd src-tauri && cargo test    # Run all 93 tests
-```
-
-Tests use inline `#[cfg(test)] mod tests` in each module:
-- `db.rs` - migration validity, schema (start/end frame, scene asset type, cascades), ID generation
-- `media.rs` - data URL parsing, MIME type and extension mapping
-- `commands/{projects,settings,timeline,image_versions,video_versions,bibles}.rs` - CRUD, cascades, constraints
-- `commands/mpv/mod.rs` - mpv controller
+- `src/lib/**` - co-located frontend unit tests: timeline + playback utilities, bridge, bible assets/compose, export payloads, generation modes, run guard, model registry/capabilities/schema/polling, per-API transport shapes
+- `electron/**` - main-process tests: migration validity + schema, media file I/O, export planning/args, every command module (CRUD, cascades, constraints) against in-memory SQLite
 
 ## Database Schema
 
-Eleven tables with cascade deletes (SQLite via rusqlite). The schema lives in `src-tauri/src/migrations/` and is applied by `rusqlite_migration`, tracked via SQLite's `user_version`. To change the schema, add a new numbered `.sql` file; never edit a shipped migration.
+Eleven tables with cascade deletes (SQLite via `node:sqlite`). The schema lives in `electron/migrations/` and is applied by the runner in `electron/db.ts`, tracked via SQLite's `user_version`. To change the schema, add a new numbered `.sql` file; never edit a shipped migration.
 
 - **projects**: id, name, timestamps
 - **storyboards**: id, project_id (FK), name, image_model, video_model, timestamps
@@ -183,7 +138,7 @@ Eleven tables with cascade deletes (SQLite via rusqlite). The schema lives in `s
 - **bible_assets**: id, bible_id (FK), asset_type (`character`/`location`/`prop`/`style`/`reference`/`note`/`scene`), name, status
 - **bible_asset_variants**: id, asset_id (FK), media_path, prompt, source_kind, status, is_primary (the images, including composed scene frames)
 
-Database stored at `{appDataDir}/data/showbiz.db`.
+Database stored at `{appDataDir}/data/showbiz.db` (appId `com.showbiz.app`).
 
 ## Media Storage
 
@@ -193,8 +148,7 @@ Database stored at `{appDataDir}/data/showbiz.db`.
 - Version images: `{appDataDir}/media/images/versions/{shot-id}/vN.{ext}`
 - Bible variant images: `{appDataDir}/media/bible/{bible-id}/{variant-id}.{ext}`
 - Masks: `{appDataDir}/media/masks/{shot-id}/{version-id}.png`
-- Database stores relative paths, frontend uses `convertFileSrc()` for asset:// URLs
-- Cache-busting timestamps added to URLs for regeneration
+- Database stores relative paths; the renderer resolves them to `blob:` URLs via `electron-media-url.ts`
 
 ## Key Implementation Details
 
@@ -205,20 +159,20 @@ Database stored at `{appDataDir}/data/showbiz.db`.
 4. Composed frames are stored as bible `scene` variants, then assigned to a shot's start or end frame from the inspector
 
 ### Video Generation Flow
-1. Mode is chosen from the shot's frames: a start frame (with optional end frame) gives image-to-video, otherwise text-to-video
-2. TS gets the API key from Rust (`get_api_key`), reads the frame(s) as base64, calls the model API
-3. TS sends the video bytes to Rust (`save_and_complete_video` / video-version commands)
-4. Rust saves the file + updates the DB, returns the path, frontend converts to an `asset://` URL
+1. Mode is chosen from the shot's frames: a start frame (with optional end frame) gives image-to-video, otherwise text-to-video. Models declaring `inputs.endImage: "required"` are validated pre-submit; models with an `endFrameEndpoint` route start-only and start+end requests to different endpoints (e.g. Veo 3.1)
+2. The renderer gets the API key (`get_api_key`), reads the frame(s) as base64, calls the model API. fal polling retries transient failures (network errors, 5xx, 429) up to 5 consecutive before giving up with the request id in the message
+3. The renderer sends the video bytes to the main process (`save_and_complete_video` / video-version commands)
+4. The main process saves the file + updates the DB, returns the path, the renderer resolves it to a `blob:` URL
 
 ### Video Export Flow
-1. FFmpeg.wasm assembles videos in-memory → returns `Uint8Array`
-2. Native save dialog (`@tauri-apps/plugin-dialog`) lets user choose path
-3. Bytes written to disk via Rust `save_assembled_video` command
+1. Timeline export: `buildExportClips` maps timeline clips to identity + trim + position; storyboard-mode assemble: `buildShotConcatClips` lays completed shots end to end using probed durations
+2. `show_export_save_dialog` opens the native save dialog
+3. `export_timeline_video` runs ffmpeg in the main process with progress streamed over IPC
 
 ### API Keys
 - Stored in the DB `settings` table, managed via the Settings dialog
 - Providers: `gemini`, `openai`, `ltx`, `kie`, `fal`, `replicate`
-- Fetched on demand from Rust for a single API call; not persisted in TS
+- Fetched on demand from the main process for a single API call; not persisted in the renderer
 
 ## Git Workflow
 
@@ -239,12 +193,11 @@ main  ← stable releases only (tagged here, CI builds release artifacts)
 ## Commands
 
 ```bash
-yarn dev          # Launch Tauri dev mode (frontend + Rust backend)
-yarn build        # Production build (produces .deb/.AppImage on Linux)
+yarn dev          # Launch Electron dev mode (Vite + Electron shell)
+yarn build        # Production Electron build (installers in dist-package/)
 yarn dev:frontend # Frontend-only dev server (Vite)
 yarn build:frontend # Frontend-only build
-yarn test         # Run Vitest (watch mode)
-yarn test --run   # Run Vitest once
-cd src-tauri && cargo test   # Run Rust tests
-cd src-tauri && cargo check  # Type-check Rust without building
+yarn build:electron # Bundle the main process (esbuild → dist-electron/)
+yarn test         # Run all tests once (Vitest)
+yarn test:watch   # Run tests in watch mode
 ```

@@ -22,7 +22,7 @@ import {
   updateBibleAssetVariantStatus,
   type BibleAsset,
   type BibleAssetVariant,
-} from "../lib/tauri-api";
+} from "../lib/backend-api";
 import { composeFrameAction, editImageAction, generateImageAction } from "../actions/generation-actions";
 import {
   assetBasePrompt,

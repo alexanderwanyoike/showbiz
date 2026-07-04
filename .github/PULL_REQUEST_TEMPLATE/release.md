@@ -17,10 +17,9 @@
 
 - [ ] All feature branches merged into `dev`
 - [ ] `yarn test` — all tests pass
-- [ ] `cargo test` — all Rust tests pass
-- [ ] `yarn build:frontend` — no build errors
+- [ ] `yarn build` — packaging succeeds
 - [ ] Full app tested in `yarn dev` (Linux/macOS/Windows as applicable)
-- [ ] Version bumped in `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`
+- [ ] Version bumped in `package.json`
 - [ ] CHANGELOG updated (if applicable)
 
 ### Post-merge

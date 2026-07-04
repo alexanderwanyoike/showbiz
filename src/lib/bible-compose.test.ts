@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { BibleAsset, BibleAssetVariant } from "./tauri-api";
+import type { BibleAsset, BibleAssetVariant } from "./backend-api";
 import {
   parseRecipe,
   primaryPicture,

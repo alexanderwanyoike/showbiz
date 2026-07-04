@@ -13,8 +13,8 @@ import {
   createStoryboard,
   deleteStoryboard,
   updateProject,
-} from "../lib/tauri-api";
-import type { Project, StoryboardWithPreview } from "../lib/tauri-api";
+} from "../lib/backend-api";
+import type { Project, StoryboardWithPreview } from "../lib/backend-api";
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();

@@ -48,4 +48,9 @@ export function validateVideoGenerationRequest(
   if (request.endImage && !capabilities.imageToVideo.supportsEndImage) {
     throw new Error("Selected model does not support an end frame");
   }
+  if (capabilities.imageToVideo.requiresEndImage && !request.endImage) {
+    throw new Error(
+      "Selected model requires both a start frame and an end frame — add an end frame or pick a different model"
+    );
+  }
 }

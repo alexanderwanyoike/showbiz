@@ -1,4 +1,4 @@
-import type { BibleAsset, BibleAssetVariant } from "./tauri-api";
+import type { BibleAsset, BibleAssetVariant } from "./backend-api";
 
 // A frame's compose recipe, stored as JSON on the frame asset so the frame can
 // be reproduced (retaken) or varied while keeping its characters and location.

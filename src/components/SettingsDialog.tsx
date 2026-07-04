@@ -16,7 +16,7 @@ import {
   saveApiKeyAction,
   deleteApiKeyAction,
   type ApiKeyProvider,
-} from "../lib/tauri-api";
+} from "../lib/backend-api";
 
 interface ApiKeyStatus {
   provider: ApiKeyProvider;

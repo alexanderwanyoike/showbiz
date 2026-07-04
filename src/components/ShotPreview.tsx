@@ -1,9 +1,6 @@
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, type SyntheticEvent } from "react";
 import { ImageIcon, Play, Pause, Film, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { assetUrlToPath } from "../lib/tauri-api";
 import { thumbnailGenerator } from "../lib/thumbnail-generator";
 import {
   clampPlaybackTime,
@@ -30,43 +27,33 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
   const [duration, setDuration] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mpvActiveRef = useRef(false);
+  const [metadataLoaded, setMetadataLoaded] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const pendingSeekRef = useRef(0);
 
-  const showMpv = status !== "stopped";
+  const showVideo = status !== "stopped";
 
-  // Stop mpv helper
-  const stopMpv = useCallback(() => {
-    if (mpvActiveRef.current) {
-      mpvActiveRef.current = false;
-      invoke("mpv_stop").catch(() => {});
+  const stopVideo = useCallback(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.pause();
+      if (metadataLoaded) {
+        try {
+          video.currentTime = 0;
+        } catch (error) {
+          console.error("Failed to reset preview video:", error);
+        }
+      }
     }
     setStatus("stopped");
     setPosition(0);
     pendingSeekRef.current = 0;
-  }, []);
-
-  // Reset when shot changes
-  useEffect(() => {
-    stopMpv();
-  }, [shot?.id, stopMpv]);
+  }, [metadataLoaded]);
 
   useEffect(() => {
     let cancelled = false;
-    setDuration(0);
-    setPosition(0);
     setPosterUrl(null);
     if (!shot?.video_url) return;
-
-    thumbnailGenerator
-      .getVideoDuration(shot.video_url)
-      .then((loadedDuration) => {
-        if (!cancelled) setDuration(loadedDuration);
-      })
-      .catch(() => {
-        if (!cancelled) setDuration(0);
-      });
 
     if (!shot.image_url) {
       thumbnailGenerator
@@ -84,149 +71,129 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
     };
   }, [shot?.image_url, shot?.video_url]);
 
-  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      if (mpvActiveRef.current) {
-        invoke("mpv_stop").catch(() => {});
-      }
-    };
-  }, []);
+    const video = videoRef.current;
+    video?.pause();
+    setStatus("stopped");
+    setPosition(0);
+    setDuration(0);
+    setMetadataLoaded(false);
+    pendingSeekRef.current = 0;
+  }, [shot?.video_url]);
 
-  // Start mpv when showMpv becomes true
   useEffect(() => {
-    if (!showMpv || !shot?.video_url) return;
-    const el = containerRef.current;
-    if (!el) return;
+    const video = videoRef.current;
+    if (!video || !shot?.video_url || !metadataLoaded) return;
 
-    let destroyed = false;
-
-    async function startMpv() {
-      const scale = await getCurrentWindow().scaleFactor();
-      const r = el!.getBoundingClientRect();
-      const rect = {
-        x: Math.round(r.left * scale),
-        y: Math.round(r.top * scale),
-        w: Math.round(r.width * scale),
-        h: Math.round(r.height * scale),
-      };
-      await invoke("mpv_start", rect);
-      if (destroyed) { invoke("mpv_stop"); return; }
-
-      mpvActiveRef.current = true;
-
-      const path = assetUrlToPath(shot!.video_url!);
-      if (path) {
-        await invoke("mpv_load_file", { path });
-        if (pendingSeekRef.current > 0) {
-          await invoke("mpv_seek", { seconds: pendingSeekRef.current });
+    if (status === "playing") {
+      if (pendingSeekRef.current > 0) {
+        const clamped = clampPlaybackTime(pendingSeekRef.current, duration);
+        try {
+          video.currentTime = clamped;
+          setPosition(clamped);
+        } catch (error) {
+          console.error("Failed to seek preview video:", error);
         }
-        await invoke("mpv_resume");
+        pendingSeekRef.current = 0;
       }
+
+      video.play().catch((error) => {
+        console.error("Failed to play preview video:", error);
+        setStatus((prev) => (prev === "playing" ? "paused" : prev));
+      });
+    } else {
+      video.pause();
     }
+  }, [status, shot?.video_url, metadataLoaded, duration]);
 
-    async function sync() {
-      if (!el || destroyed) return;
-      const scale = await getCurrentWindow().scaleFactor();
-      const r = el.getBoundingClientRect();
-      invoke("mpv_update_geometry", {
-        x: Math.round(r.left * scale),
-        y: Math.round(r.top * scale),
-        w: Math.round(r.width * scale),
-        h: Math.round(r.height * scale),
-      }).catch(() => {});
-    }
-
-    startMpv().catch(console.error);
-
-    // Sync geometry on window move/resize
-    let unlistenMove: (() => void) | undefined;
-    let unlistenResize: (() => void) | undefined;
-    const win = getCurrentWindow();
-    win.onMoved(sync).then((fn) => { if (!destroyed) unlistenMove = fn; else fn(); });
-    win.onResized(sync).then((fn) => { if (!destroyed) unlistenResize = fn; else fn(); });
-
-    // ResizeObserver for layout changes
-    const observer = new ResizeObserver(sync);
-    observer.observe(el);
-
-    return () => {
-      destroyed = true;
-      observer.disconnect();
-      unlistenMove?.();
-      unlistenResize?.();
-      if (mpvActiveRef.current) {
-        mpvActiveRef.current = false;
-        invoke("mpv_stop").catch(() => {});
-      }
-    };
-  }, [showMpv, shot?.video_url]);
-
-  useEffect(() => {
-    if (!showMpv) return;
-
-    const interval = window.setInterval(async () => {
-      if (isSeeking) return;
-      try {
-        const current = await invoke<number>("mpv_get_position");
-        const clamped = clampPlaybackTime(current, duration);
-        setPosition(clamped);
-        // mpv runs with --keep-open=yes, so it pauses itself on the last
-        // frame; reflect that in the transport state.
-        if (hasReachedEnd(clamped, duration)) {
-          setStatus((prev) => (prev === "playing" ? "paused" : prev));
-        }
-      } catch {
-        // mpv may briefly have no time-pos during load or after stop.
-      }
-    }, 250);
-
-    return () => window.clearInterval(interval);
-  }, [showMpv, duration, isSeeking]);
-
-  async function seekTo(nextPosition: number) {
+  const seekTo = useCallback((nextPosition: number) => {
     const clamped = clampPlaybackTime(nextPosition, duration);
     setPosition(clamped);
-    if (!showMpv) {
+    if (!showVideo) {
       pendingSeekRef.current = clamped;
       setStatus("playing");
       return;
     }
-    try {
-      await invoke("mpv_seek", { seconds: clamped });
-    } catch (error) {
-      console.error("Failed to seek preview:", error);
-    }
-  }
 
-  const togglePlayback = useCallback(async () => {
-    if (!shot?.video_url) return;
-    try {
-      switch (resolveToggleAction(status, { position, duration })) {
-        case "start":
-          setStatus("playing");
-          break;
-        case "pause":
-          await invoke("mpv_pause");
-          setStatus("paused");
-          break;
-        case "resume":
-          await invoke("mpv_resume");
-          setStatus("playing");
-          break;
-        case "restart":
-          await invoke("mpv_seek", { seconds: 0 });
-          await invoke("mpv_resume");
-          setPosition(0);
-          setStatus("playing");
-          break;
+    const video = videoRef.current;
+    if (video && metadataLoaded) {
+      try {
+        video.currentTime = clamped;
+      } catch (error) {
+        console.error("Failed to seek preview video:", error);
       }
-    } catch (error) {
-      console.error("Failed to toggle playback:", error);
+    } else {
+      pendingSeekRef.current = clamped;
     }
-  }, [shot?.video_url, status, position, duration]);
+  }, [duration, metadataLoaded, showVideo]);
 
-  // Keyboard transport: Space = play/pause, arrows = step 0.1s (Shift: 1s)
+  const togglePlayback = useCallback(() => {
+    if (!shot?.video_url) return;
+
+    switch (resolveToggleAction(status, { position, duration })) {
+      case "start":
+        setStatus("playing");
+        break;
+      case "pause":
+        videoRef.current?.pause();
+        setStatus("paused");
+        break;
+      case "resume":
+        setStatus("playing");
+        break;
+      case "restart": {
+        const video = videoRef.current;
+        pendingSeekRef.current = 0;
+        if (video && metadataLoaded) {
+          try {
+            video.currentTime = 0;
+          } catch (error) {
+            console.error("Failed to restart preview video:", error);
+          }
+        }
+        setPosition(0);
+        setStatus("playing");
+        break;
+      }
+    }
+  }, [shot?.video_url, status, position, duration, metadataLoaded]);
+
+  const handleLoadedMetadata = useCallback((event: SyntheticEvent<HTMLVideoElement>) => {
+    const video = event.currentTarget;
+    const loadedDuration = Number.isFinite(video.duration) ? video.duration : 0;
+    setDuration(loadedDuration);
+    setMetadataLoaded(true);
+
+    if (pendingSeekRef.current > 0) {
+      const clamped = clampPlaybackTime(pendingSeekRef.current, loadedDuration);
+      try {
+        video.currentTime = clamped;
+        setPosition(clamped);
+      } catch (error) {
+        console.error("Failed to apply pending preview seek:", error);
+      }
+      pendingSeekRef.current = 0;
+    }
+  }, []);
+
+  const handleVideoPositionChange = useCallback((event: SyntheticEvent<HTMLVideoElement>) => {
+    if (isSeeking) return;
+    const video = event.currentTarget;
+    const loadedDuration = Number.isFinite(video.duration) ? video.duration : duration;
+    const clamped = clampPlaybackTime(video.currentTime, loadedDuration);
+    setPosition(clamped);
+    if (hasReachedEnd(clamped, loadedDuration)) {
+      setStatus((prev) => (prev === "playing" ? "paused" : prev));
+    }
+  }, [duration, isSeeking]);
+
+  const handleEnded = useCallback((event: SyntheticEvent<HTMLVideoElement>) => {
+    const video = event.currentTarget;
+    const loadedDuration = Number.isFinite(video.duration) ? video.duration : duration;
+    setPosition(clampPlaybackTime(video.currentTime, loadedDuration));
+    setStatus((prev) => (prev === "playing" ? "paused" : prev));
+  }, [duration]);
+
   useEffect(() => {
     if (!shot?.video_url) return;
 
@@ -258,7 +225,7 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  });
+  }, [shot?.video_url, togglePlayback, seekTo, position]);
 
   if (!shot) {
     return (
@@ -277,7 +244,6 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
 
   return (
     <div className="h-full flex flex-col bg-black">
-      {/* 16:9 preview area */}
       <div className="flex-1 flex items-center justify-center min-h-0">
         <div className="relative w-full max-h-full aspect-video">
           {isEmpty ? (
@@ -285,34 +251,38 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
               <ImageIcon className="h-10 w-10 mb-2 opacity-40" />
               <p className="text-sm">Generate or upload an image</p>
             </div>
-          ) : showMpv && hasVideo ? (
-            <>
-              {/* Inline mpv container — replaces the image */}
-              <div
-                ref={containerRef}
-                className="absolute inset-0 bg-black"
-              />
-              {/* Stop button overlaid on video */}
-              <button
-                onClick={stopMpv}
-                className="absolute top-2 right-2 z-10 bg-black/60 hover:bg-black/80 rounded p-1 text-white transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </>
           ) : (
             <>
-              {previewStill && (
-                <img
-                  src={previewStill}
-                  alt={`Shot ${shot.order}`}
-                  className="w-full h-full object-contain"
+              {hasVideo && shot.video_url && (
+                <video
+                  ref={videoRef}
+                  src={shot.video_url}
+                  preload="metadata"
+                  playsInline
+                  onLoadedMetadata={handleLoadedMetadata}
+                  onTimeUpdate={handleVideoPositionChange}
+                  onSeeked={handleVideoPositionChange}
+                  onEnded={handleEnded}
+                  onError={(event) => {
+                    console.error("Failed to load preview video:", event.currentTarget.error);
+                    setStatus((prev) => (prev === "playing" ? "paused" : prev));
+                  }}
+                  className={`absolute inset-0 h-full w-full bg-black object-contain ${
+                    showVideo ? "opacity-100" : "opacity-0 pointer-events-none"
+                  }`}
                 />
               )}
 
-              {/* Generating overlay */}
+              {!showVideo && previewStill && (
+                <img
+                  src={previewStill}
+                  alt={`Shot ${shot.order}`}
+                  className="absolute inset-0 h-full w-full object-contain"
+                />
+              )}
+
               {isGenerating && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
                   <Badge className="bg-primary/90 text-primary-foreground">
                     <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
                     Generating
@@ -320,11 +290,19 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
                 </div>
               )}
 
-              {/* Play video button */}
-              {hasVideo && !isGenerating && (
+              {showVideo && hasVideo && (
+                <button
+                  onClick={stopVideo}
+                  className="absolute top-2 right-2 z-20 bg-black/60 hover:bg-black/80 rounded p-1 text-white transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+
+              {!showVideo && hasVideo && !isGenerating && (
                 <button
                   onClick={() => setStatus("playing")}
-                  className="absolute inset-0 flex items-center justify-center group/play"
+                  className="absolute inset-0 z-10 flex items-center justify-center group/play"
                 >
                   <div className="bg-black/50 group-hover/play:bg-black/70 rounded-full p-4 transition-colors">
                     <Play className="h-8 w-8 text-white fill-white" />
@@ -336,12 +314,9 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
         </div>
       </div>
 
-      {/* Info bar */}
       <div className="space-y-1.5 bg-background/80 border-t border-border px-3 py-2 text-xs text-muted-foreground">
         <div className="flex items-center justify-between gap-3">
-          <span className="font-mono">
-            Shot #{shot.order}
-          </span>
+          <span className="font-mono">Shot #{shot.order}</span>
           {hasVideo && (
             <div className="flex items-center gap-1">
               <button
@@ -374,9 +349,7 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
           <span className="font-mono">
             {formatPlaybackTime(position)} / {formatPlaybackTime(duration)}
           </span>
-          <span className="font-mono uppercase">
-            {shot.status}
-          </span>
+          <span className="font-mono uppercase">{shot.status}</span>
         </div>
         {hasVideo && (
           <input

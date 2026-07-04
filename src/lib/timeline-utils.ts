@@ -1,6 +1,6 @@
-import type { TimelineTrack } from "./tauri-api";
+import type { TimelineTrack } from "./backend-api";
 
-/** Track definition for UI rendering, re-exported from tauri-api */
+/** Track definition for UI rendering, re-exported from backend-api */
 export type Track = TimelineTrack;
 
 export interface Shot {
@@ -215,6 +215,21 @@ export function resolvePlaybackStart(
 
   const startTime = time < getTotalDuration(clips) ? time : 0;
   return { timelineTime: startTime, state: resolvePlayheadState(startTime, clips) };
+}
+
+/**
+ * The clip that plays after `current` ends: the clip covering the moment
+ * after its end (contiguous, or an underlying track resuming), else the next
+ * clip further down the timeline.
+ */
+export function getFollowingClip(
+  current: TimelineClip,
+  clips: TimelineClip[]
+): { clip: TimelineClip; localTime: number } | null {
+  const end = current.startOffset + current.effectiveDuration + 0.001;
+  const atEnd = getActiveClipAtTime(end, clips);
+  if (atEnd && atEnd.clip.clipId !== current.clipId) return atEnd;
+  return getNextClipAfterTime(end, clips);
 }
 
 export interface ClipSplit {

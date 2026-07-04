@@ -38,7 +38,7 @@ describe("video preview helpers", () => {
 });
 
 describe("transport controls", () => {
-  it("starts mpv when toggling from stopped", () => {
+  it("starts playback when toggling from stopped", () => {
     expect(resolveToggleAction("stopped")).toBe("start");
   });
 

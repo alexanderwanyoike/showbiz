@@ -8,7 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { ImageVersionNode } from "../lib/tauri-api";
+import type { ImageVersionNode } from "../lib/backend-api";
 
 interface ImageVersionTimelineProps {
   versions: ImageVersionNode[];
