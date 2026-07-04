@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildExportClips, parseExportSettings } from "./export-payload";
+import { buildExportClips, buildShotConcatClips, parseExportSettings } from "./export-payload";
 import type { TimelineClip, Shot } from "./timeline-utils";
 
 function shot(id: string): Shot {
@@ -61,6 +61,41 @@ describe("buildExportClips", () => {
       clip({ clipId: "pending", shotId: "s-pending", videoUrl: null }),
     ];
     expect(buildExportClips(clips).map((c) => c.shotId)).toEqual(["s-ok"]);
+  });
+});
+
+describe("buildShotConcatClips", () => {
+  it("lays completed shots end to end with probed durations", () => {
+    const shots = [
+      { id: "s1", video_url: "blob:s1" },
+      { id: "s2", video_url: "blob:s2" },
+    ];
+    expect(buildShotConcatClips(shots, { "blob:s1": 8, "blob:s2": 4.5 })).toEqual([
+      { shotId: "s1", videoVersionId: null, track: "V1", trimIn: 0, trimOut: 8, startOffset: 0 },
+      { shotId: "s2", videoVersionId: null, track: "V1", trimIn: 0, trimOut: 4.5, startOffset: 8 },
+    ]);
+  });
+
+  it("skips shots whose duration could not be probed without leaving a gap", () => {
+    const shots = [
+      { id: "s1", video_url: "blob:s1" },
+      { id: "s2", video_url: "blob:s2" },
+      { id: "s3", video_url: "blob:s3" },
+    ];
+    expect(buildShotConcatClips(shots, { "blob:s1": 2, "blob:s2": null, "blob:s3": 3 })).toEqual([
+      { shotId: "s1", videoVersionId: null, track: "V1", trimIn: 0, trimOut: 2, startOffset: 0 },
+      { shotId: "s3", videoVersionId: null, track: "V1", trimIn: 0, trimOut: 3, startOffset: 2 },
+    ]);
+  });
+
+  it("skips shots without a video url", () => {
+    const shots = [
+      { id: "s1", video_url: null },
+      { id: "s2", video_url: "blob:s2" },
+    ];
+    expect(buildShotConcatClips(shots, { "blob:s2": 6 })).toEqual([
+      { shotId: "s2", videoVersionId: null, track: "V1", trimIn: 0, trimOut: 6, startOffset: 0 },
+    ]);
   });
 });
 

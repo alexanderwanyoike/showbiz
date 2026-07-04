@@ -31,7 +31,35 @@ export function buildExportClips(clips: TimelineClip[]): ExportClipPayload[] {
     }));
 }
 
-/** The Electron-only export settings form (string inputs; blank = auto/probe). */
+/**
+ * Build the export payload for the storyboard-mode "assemble movie" flow:
+ * every completed shot's current video, back to back on one track, no gaps.
+ * Shots without a video or a probeable duration are skipped so the ones
+ * after them close ranks instead of leaving black gaps.
+ */
+export function buildShotConcatClips(
+  shots: Array<{ id: string; video_url: string | null }>,
+  durations: Record<string, number | null>
+): ExportClipPayload[] {
+  const clips: ExportClipPayload[] = [];
+  let cursor = 0;
+  for (const shot of shots) {
+    const duration = shot.video_url ? durations[shot.video_url] : null;
+    if (!duration || duration <= 0) continue;
+    clips.push({
+      shotId: shot.id,
+      videoVersionId: null,
+      track: "V1",
+      trimIn: 0,
+      trimOut: duration,
+      startOffset: cursor,
+    });
+    cursor += duration;
+  }
+  return clips;
+}
+
+/** The export settings form (string inputs; blank = auto/probe). */
 export interface ExportSettingsForm {
   width: string;
   height: string;

@@ -5,9 +5,6 @@ import path from "node:path";
  * no electron, no child_process, no filesystem. The Electron command module
  * (commands/export.ts) resolves file paths from the DB and feeds resolved clips
  * in here, then spawns ffmpeg with the argv this produces.
- *
- * Replaces the FFmpeg.wasm concat pipeline (src/lib/video-assembler.ts) for the
- * Electron shell only; the Tauri wasm path is untouched during coexistence.
  */
 
 export interface ExportSettings {

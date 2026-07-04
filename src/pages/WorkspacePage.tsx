@@ -9,8 +9,8 @@ import {
   getProjects,
   createProject,
   deleteProject,
-} from "../lib/tauri-api";
-import type { Project } from "../lib/tauri-api";
+} from "../lib/backend-api";
+import type { Project } from "../lib/backend-api";
 
 export default function WorkspacePage() {
   const navigate = useNavigate();

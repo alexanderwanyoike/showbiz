@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
- * Media file I/O ported from src-tauri/src/media.rs. Where the Rust functions
+ * Media file I/O ported from the retired Rust backend's media.rs. Where the Rust functions
  * took an AppHandle to locate the app data dir, these take an explicit media
  * base directory string (the appDataDir/media path) so they stay pure and
  * testable. Shared dependency for the ported shots, bibles, image_versions and

@@ -1,3 +1,5 @@
+> **Status: complete (July 2026).** All five phases shipped; Electron is the only shell. Kept as a historical record.
+
 # Electron Migration
 
 Move Showbiz from Tauri (Rust + per-platform webviews) to Electron (Chromium

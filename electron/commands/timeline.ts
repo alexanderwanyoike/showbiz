@@ -42,7 +42,7 @@ export function validateClipTrims(trimIn: number, trimOut: number): void {
   }
 }
 
-/** Ported timeline commands; names and JSON shapes match src-tauri/src/commands/timeline.rs. */
+/** Ported timeline commands; names and JSON shapes match the retired Rust backend's commands/timeline.rs. */
 export function createTimelineCommands(db: DatabaseSync) {
   function getTimelineTracks(storyboardId: string): TimelineTrack[] {
     return db

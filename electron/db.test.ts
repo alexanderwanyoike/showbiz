@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 
 export const MIGRATIONS_DIR = path.resolve(
   import.meta.dirname,
-  "../src-tauri/src/migrations"
+  "../electron/migrations"
 );
 
 /** In-memory DB with all migrations applied, mirroring Rust's open_test_db(). */

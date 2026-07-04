@@ -1,4 +1,4 @@
-import { getApiKey, getShotImageBase64, getShotEndFrameBase64, createVideoGenerationVersion, getCurrentVideoVersion } from "../lib/tauri-api";
+import { getApiKey, getShotImageBase64, getShotEndFrameBase64, createVideoGenerationVersion, getCurrentVideoVersion } from "../lib/backend-api";
 import { getImageModel, getVideoModel, ImageModelId, VideoModelId } from "../lib/models";
 import { generateText } from "../lib/models/gemini-text";
 import type { VideoGenerationSettings } from "../lib/models/types";

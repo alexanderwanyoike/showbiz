@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import ImageVersionTimeline from "./ImageVersionTimeline";
 import VideoVersionTimeline from "./VideoVersionTimeline";
-import type { ImageVersionNode, ImageVersionWithUrl, VideoVersionNode, VideoVersionWithUrl } from "../lib/tauri-api";
+import type { ImageVersionNode, ImageVersionWithUrl, VideoVersionNode, VideoVersionWithUrl } from "../lib/backend-api";
 import { hasUsableShotVideoSource } from "../lib/bible-assets";
 import { filterFrameOptions } from "../lib/bible-compose";
 import type { VideoGenerationSettings, VideoModelInfo } from "../lib/models/types";

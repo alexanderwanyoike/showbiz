@@ -35,7 +35,7 @@ const STORYBOARD_COLUMNS =
 
 /**
  * Ported project + storyboard commands; names and JSON shapes match
- * src-tauri/src/commands/projects.rs. `mediaDir` is the appDataDir/media path,
+ * the retired Rust backend's commands/projects.rs. `mediaDir` is the appDataDir/media path,
  * needed to delete a project's/storyboard's media files on cascade delete (the
  * Rust commands derive it from the AppHandle).
  */

@@ -123,7 +123,7 @@ const VARIANT_COLUMNS =
 
 /**
  * Ported bible/asset/variant commands; names and JSON shapes match
- * src-tauri/src/commands/bibles.rs. `mediaDir` is the appDataDir/media path
+ * the retired Rust backend's commands/bibles.rs. `mediaDir` is the appDataDir/media path
  * (the Rust command derives it from the AppHandle); it is used both to save
  * variant images and to build the absolute `media_url`, mirroring Rust's
  * make_media_url which joins the media base dir with the relative media_path.

@@ -28,10 +28,8 @@ if (isDev) {
 function openShowbizDatabase() {
   const dataDir = path.join(appDataDir(), "data");
   fs.mkdirSync(dataDir, { recursive: true });
-  // Migrations are shared with the Rust shell (single source of truth during
-  // coexistence). Packaged-build resolution is a Phase 4 concern.
   const migrations = loadMigrations(
-    path.join(app.getAppPath(), "src-tauri/src/migrations")
+    path.join(app.getAppPath(), "electron/migrations")
   );
   return openDatabase(path.join(dataDir, "showbiz.db"), migrations);
 }

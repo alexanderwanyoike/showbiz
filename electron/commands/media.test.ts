@@ -21,43 +21,4 @@ describe("createMediaCommands", () => {
       expect(commands.get_media_path()).toBe(base);
     });
   });
-
-  describe("save_assembled_video", () => {
-    it("writes the video bytes to the requested path", () => {
-      const commands = createMediaCommands(base);
-      const savePath = path.join(base, "exports", "movie.mp4");
-      const videoData = [104, 105]; // "hi"
-
-      const result = commands.save_assembled_video({ videoData, savePath });
-
-      expect(result).toBeUndefined();
-      expect(fs.readFileSync(savePath).toString()).toBe("hi");
-    });
-
-    it("creates parent directories as needed", () => {
-      const commands = createMediaCommands(base);
-      const savePath = path.join(base, "a", "b", "c", "movie.mp4");
-
-      commands.save_assembled_video({ videoData: [1, 2, 3], savePath });
-
-      expect(fs.existsSync(savePath)).toBe(true);
-    });
-
-    it("preserves raw byte values", () => {
-      const commands = createMediaCommands(base);
-      const savePath = path.join(base, "movie.mp4");
-      const videoData = [0, 255, 128, 1];
-
-      commands.save_assembled_video({ videoData, savePath });
-
-      expect([...fs.readFileSync(savePath)]).toEqual(videoData);
-    });
-
-    it("throws a clear error when the save path is a directory", () => {
-      const commands = createMediaCommands(base);
-      expect(() =>
-        commands.save_assembled_video({ videoData: [1], savePath: base })
-      ).toThrow(/Failed to write assembled video/);
-    });
-  });
 });

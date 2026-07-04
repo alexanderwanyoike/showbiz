@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Plus, Loader2, Sparkles, ImageIcon, Video, Save } from "lucide-react";
 import { Header } from "../components/Header";
-import ShotCard from "../components/ShotCard";
 import ShotList from "../components/ShotList";
 import ShotPreview from "../components/ShotPreview";
 import ShotInspector from "../components/ShotInspector";
@@ -55,7 +54,7 @@ import {
   getShotEndFrameBase64,
   saveShotEndFrame,
   clearShotEndFrame,
-} from "../lib/tauri-api";
+} from "../lib/backend-api";
 import type {
   Storyboard,
   ShotWithUrls,
@@ -67,7 +66,7 @@ import type {
   VideoVersionWithUrl,
   BibleAsset,
   BibleAssetVariant,
-} from "../lib/tauri-api";
+} from "../lib/backend-api";
 import {
   generateImageAction,
   editImageAction,
@@ -75,9 +74,9 @@ import {
   enhanceVideoPrompt,
   generateAndSaveVideoRequestAction,
 } from "../actions/generation-actions";
-import { videoAssembler } from "../lib/video-assembler";
-import { save } from "@tauri-apps/plugin-dialog";
-import { saveAssembledVideo } from "../lib/tauri-api";
+import { buildShotConcatClips } from "../lib/export-payload";
+import { videoDurationCache } from "../lib/video-duration";
+import { invoke } from "../lib/bridge";
 import {
   ImageModelId,
   VideoModelId,
@@ -115,34 +114,7 @@ interface Shot {
   updated_at: string;
 }
 
-// Map database shot to ShotCard format
-interface ShotCardData {
-  id: string;
-  order: number;
-  uploaded_image: string | null;
-  gemini_prompt: string | null;
-  generated_image: string | null;
-  video_prompt: string;
-  video_url: string | null;
-  status: "pending" | "generating" | "complete" | "failed";
-  error_message?: string | null;
-}
-
 type ShotUpdateInput = Partial<Pick<Shot, "video_prompt" | "status">>;
-
-function mapShotToCardData(shot: Shot): ShotCardData {
-  return {
-    id: shot.id,
-    order: shot.order,
-    uploaded_image: null, // We use image_url for both
-    gemini_prompt: shot.image_prompt,
-    generated_image: shot.image_url,
-    video_prompt: shot.video_prompt || "",
-    video_url: shot.video_url,
-    status: shot.status,
-    error_message: shot.error_message,
-  };
-}
 
 function shotFromShotWithUrls(s: ShotWithUrls): Shot {
   return {
@@ -896,19 +868,29 @@ export default function StoryboardPage() {
 
     setIsAssembling(true);
     try {
-      const videoUrls = completedShots.map((s) => s.video_url!);
-      const videoBytes = await videoAssembler.assembleVideos(videoUrls);
-
-      const defaultFilename = `${storyboard?.name.replace(/\s+/g, "_") || "movie"}.mp4`;
-      const savePath = await save({
-        defaultPath: defaultFilename,
-        filters: [{ name: "Video", extensions: ["mp4"] }],
-      });
-
-      if (savePath) {
-        await saveAssembledVideo(Array.from(videoBytes), savePath);
-        alert("Video exported successfully!");
+      // Native ffmpeg concat: probe real durations, lay the shots end to end,
+      // and let the main process resolve file paths from the DB.
+      const durations: Record<string, number | null> = {};
+      await Promise.all(
+        completedShots.map(async (s) => {
+          durations[s.video_url!] = await videoDurationCache.get(s.video_url!);
+        })
+      );
+      const clips = buildShotConcatClips(completedShots, durations);
+      if (clips.length === 0) {
+        alert("Could not read any shot video durations. Try again.");
+        return;
       }
+
+      const savePath = await invoke<string | null>("show_export_save_dialog");
+      if (!savePath) return;
+
+      await invoke("export_timeline_video", {
+        clips,
+        settings: { preset: "medium" },
+        savePath,
+      });
+      alert("Video exported successfully!");
     } catch (error) {
       console.error("Assembly failed:", error);
       alert("Failed to assemble videos. Check console for details.");
