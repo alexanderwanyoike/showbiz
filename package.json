@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "AI-powered video storyboard desktop application",
   "author": "Alex Wanyoike <alex.m.wanyoike@gmail.com>",
+  "desktopName": "showbiz.desktop",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.cjs",
@@ -46,7 +47,6 @@
           "to": "bin/ffprobe"
         }
       ],
-      "desktopName": "showbiz.desktop",
       "syncDesktopName": true
     },
     "mac": {
