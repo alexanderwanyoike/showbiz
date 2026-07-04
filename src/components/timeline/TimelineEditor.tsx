@@ -508,7 +508,7 @@ export default function TimelineEditor({
           {/* Track Headers (fixed left column) */}
           <div className="flex-shrink-0 flex flex-col">
             {/* Spacer for ruler height */}
-            <div className="h-6 bg-muted/80 border-r border-border" />
+            <div className="flex-none h-6 bg-muted/80 border-r border-border" />
             {/* Track headers */}
             {sortedTracks.map((track, idx) => {
               const isLastVideoBeforeAudio =
@@ -518,7 +518,7 @@ export default function TimelineEditor({
                 track.track_type === "audio" && idx === sortedTracks.length - 1;
 
               return (
-                <div key={track.id}>
+                <div key={track.id} className="flex-none">
                   <div className={`mt-0.5 ${track.track_type === "audio" ? "h-8" : "h-12"}`}>
                     <TrackHeader
                       name={track.name}
