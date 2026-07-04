@@ -239,8 +239,10 @@ main  ← stable releases only (tagged here, CI builds release artifacts)
 ## Commands
 
 ```bash
-yarn dev          # Launch Tauri dev mode (frontend + Rust backend)
-yarn build        # Production build (produces .deb/.AppImage on Linux)
+yarn dev          # Launch Electron dev mode (Vite + Electron shell)
+yarn build        # Production Electron build (installers in dist-package/)
+yarn dev:tauri    # Launch Tauri dev mode (fallback shell until Phase 5)
+yarn build:tauri  # Production Tauri build (fallback shell until Phase 5)
 yarn dev:frontend # Frontend-only dev server (Vite)
 yarn build:frontend # Frontend-only build
 yarn test         # Run Vitest (watch mode)

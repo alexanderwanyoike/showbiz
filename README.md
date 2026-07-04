@@ -126,12 +126,14 @@ scoop install mpv    # or: winget install mpv
 
 ```bash
 yarn install
-yarn dev              # Launch Tauri dev mode (frontend + Rust backend)
+yarn dev              # Launch Electron dev mode (Vite + Electron shell)
 ```
 
 Other commands:
 ```bash
-yarn build            # Production build
+yarn build            # Production Electron build (installers in dist-package/)
+yarn dev:tauri        # Launch Tauri dev mode (fallback shell)
+yarn build:tauri      # Production Tauri build (fallback shell)
 yarn dev:frontend     # Frontend-only dev server
 yarn build:frontend   # Frontend-only build
 yarn test             # Run tests
