@@ -504,7 +504,10 @@ export default function TimelineEditor({
 
       {/* Timeline Area */}
       <div className="flex-1 border-t border-border flex flex-col overflow-hidden">
-        <div className="flex-1 flex overflow-hidden">
+        {/* Shared vertical scroller: headers and lanes move together on
+            vertical scroll; horizontal scroll stays on the lane side only. */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="flex min-h-full">
           {/* Track Headers (fixed left column) */}
           <div className="flex-shrink-0 flex flex-col">
             {/* Spacer for ruler height */}
@@ -605,6 +608,7 @@ export default function TimelineEditor({
                 );
               })}
             </div>
+          </div>
           </div>
         </div>
 
