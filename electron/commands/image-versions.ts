@@ -13,7 +13,7 @@ import { getImageAsBase64, saveVersionImage } from "../media-files";
 /**
  * One image version. Mirrors the Rust ImageVersion struct, including the
  * optional image_url/mask_url that Rust fills with absolute media paths.
- * (tauri-api.ts splits this into ImageVersion + ImageVersionWithUrl, but Rust
+ * (backend-api.ts splits this into ImageVersion + ImageVersionWithUrl, but Rust
  * serializes a single struct, so image_url is always present here.)
  */
 export interface ImageVersion {

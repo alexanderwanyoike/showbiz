@@ -21,24 +21,20 @@ Grab the latest release for your platform from [**Releases**](https://github.com
 
 | Platform | Formats |
 |----------|---------|
-| Linux | `.deb`, `.rpm`, `.AppImage` |
+| Linux | `.AppImage`, `.deb` |
 | macOS | `.dmg` |
-| Windows | `.exe` (installer), `.msi` |
-
-You'll also need [**mpv**](https://mpv.io/) installed for video playback (see [Prerequisites](#prerequisites)).
+| Windows | `.exe` (installer) |
 
 ## Features
 
 - **Project organization** — create projects, each containing multiple storyboards
-- **Shot-based workflow** — add shots to a storyboard, each with its own image and video prompt
-- **Image generation** — generate images with Nano Banana or Nano Banana Pro, or upload your own
-- **Image editing** — edit generated images with inpainting and prompt-based edits
-- **Image version tree** — every generation/edit creates a version; switch between versions non-destructively
-- **Video generation** — generate videos from images using Veo 3 or Veo 3 Fast with synchronized audio
-- **Video version tree** — regenerate videos and keep all versions; switch freely
-- **Timeline editor** — arrange shots, trim clips, preview playback
-- **Video export** — assemble all shots into a single video via FFmpeg.wasm
-- **Embedded video playback** — mpv player embedded directly into the app window
+- **Project bible** — reusable characters, locations, props and styles; compose consistent scene frames from them
+- **Shot-based workflow** — each shot has a start frame, an optional end frame, and a prompt; the video model animates between the frames
+- **Image generation & editing** — Nano Banana family, GPT Image 2, Flux; inpainting and prompt-based edits
+- **Image & video version trees** — every generation/edit creates a version; switch non-destructively
+- **Video generation** — Veo 3.1, Seedance 2, Kling 3, LTX-2.3, Wan 2.1 with start/end-frame support where the model has it
+- **Timeline editor** — multi-track arrange, trim, split, preview playback
+- **Video export** — native ffmpeg assembles the final movie with progress reporting
 - **Dark/light theme** — system-aware with manual toggle
 - **Config-driven models** — add new models by dropping a JSON file, no code changes needed
 
@@ -46,27 +42,30 @@ You'll also need [**mpv**](https://mpv.io/) installed for video playback (see [P
 
 ### Image Generation
 
-| Model | Provider | Editing |
-|-------|----------|---------|
-| Nano Banana | Google (Gemini 2.5 Flash) | Yes |
-| Nano Banana Pro | Google (Gemini 3 Pro) | Yes |
+| Model | Provider |
+|-------|----------|
+| Nano Banana / Nano Banana 2 / 2 Lite / Pro | Google (Gemini) |
+| GPT Image 2 | OpenAI (via fal.ai) |
+| Flux Dev / Flux Kontext | Black Forest Labs (via fal.ai) |
 
 ### Video Generation
 
-| Model | Provider | Duration | Audio |
-|-------|----------|----------|-------|
-| Veo 3 | Google | 8s | Yes |
-| Veo 3 Fast | Google | 8s | Yes |
-
-All models support both text-to-video and image-to-video generation.
+| Model | Provider | End frames |
+|-------|----------|------------|
+| Veo 3.1 | Google (via fal.ai) | Optional |
+| Seedance 2.0 / 2.0 Fast | ByteDance (via fal.ai) | Optional |
+| Kling 3 | Kuaishou (via fal.ai) | No |
+| LTX-2.3 | Lightricks (via fal.ai) | No |
+| Wan 2.1 FLF | Alibaba (via fal.ai) | Required |
 
 ## API Keys
 
-You need at least one API key to generate content. Configure them in **Settings** within the app, or set environment variables:
+You need at least one API key to generate content. Configure them in **Settings** within the app:
 
-| Key | Environment Variable | Models |
-|-----|---------------------|--------|
-| **Gemini** | `GEMINI_API_KEY` | Nano Banana, Nano Banana Pro, Veo 3, Veo 3 Fast |
+| Key | Models |
+|-----|--------|
+| **Gemini** | Nano Banana family |
+| **fal.ai** | GPT Image 2, Flux, Veo 3.1, Seedance, Kling, LTX, Wan |
 
 Keys are stored in the local SQLite database and never leave your machine except to authenticate API calls.
 
@@ -74,53 +73,24 @@ Keys are stored in the local SQLite database and never leave your machine except
 
 | Layer | Technology |
 |-------|-----------|
-| Desktop framework | [Tauri v2](https://v2.tauri.app/) |
+| Desktop framework | [Electron](https://www.electronjs.org/) |
 | Frontend | React 19, Vite, React Router v7 |
 | Styling | Tailwind CSS v4, shadcn/ui, Radix |
-| Backend | Rust — SQLite (rusqlite), file I/O, mpv IPC |
-| Video playback | mpv via native window embedding |
-| Video assembly | FFmpeg.wasm (in-browser) |
-| Testing | Vitest (frontend), built-in (Rust) |
+| Backend | Electron main process — SQLite (`node:sqlite`), file I/O |
+| Video playback | HTML5 `<video>` (Chromium) |
+| Video export | Native ffmpeg (`ffmpeg-static`) |
+| Testing | Vitest |
 
 ## Architecture
 
-Hybrid Tauri v2 app — Rust backend owns persistent state (SQLite, file system, mpv process), TypeScript frontend owns the UI and calls external model APIs directly. Models are config-driven: add a JSON file to `src/lib/models/providers/` and it's auto-discovered at build time with zero code changes.
+Electron app — the main process owns persistent state (SQLite, file system, ffmpeg export), the renderer owns the UI and calls external model APIs directly. Models are config-driven: add a JSON file to `src/lib/models/providers/` and it's auto-discovered at build time with zero code changes.
 
 See [**docs/architecture.md**](docs/architecture.md) for full documentation including system diagrams, generation flow, model registry internals, version trees, and database schema.
 
 ## Prerequisites
 
-### Required
-
-- [Node.js](https://nodejs.org/) (v20+)
+- [Node.js](https://nodejs.org/) (v22+)
 - [Yarn](https://yarnpkg.com/) (`npm install -g yarn`)
-- [Rust](https://rustup.rs/) (stable)
-- [mpv](https://mpv.io/) — required for video playback
-
-### Platform-Specific Dependencies
-
-**Linux (Debian/Ubuntu):**
-```bash
-sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
-  librsvg2-dev libx11-dev patchelf mpv
-```
-
-**Linux (Fedora):**
-```bash
-sudo dnf install webkit2gtk4.1-devel gtk3-devel libappindicator-gtk3-devel \
-  librsvg2-devel mpv
-```
-
-**macOS:**
-```bash
-xcode-select --install
-brew install mpv
-```
-
-**Windows:**
-```powershell
-scoop install mpv    # or: winget install mpv
-```
 
 ## Development
 
@@ -132,8 +102,6 @@ yarn dev              # Launch Electron dev mode (Vite + Electron shell)
 Other commands:
 ```bash
 yarn build            # Production Electron build (installers in dist-package/)
-yarn dev:tauri        # Launch Tauri dev mode (fallback shell)
-yarn build:tauri      # Production Tauri build (fallback shell)
 yarn dev:frontend     # Frontend-only dev server
 yarn build:frontend   # Frontend-only build
 yarn test             # Run tests
@@ -142,9 +110,8 @@ yarn test:watch       # Run tests in watch mode
 
 ## Platform Notes
 
-- **Wayland** — the app runs under XWayland (`GDK_BACKEND=x11`) because mpv embedding requires X11 window handles.
-- **mpv path override** — set `SHOWBIZ_MPV_PATH=/path/to/mpv` to use a custom binary.
 - **Data directory** — media and database are stored in your system's app data directory (`~/.local/share/com.showbiz.app/` on Linux).
+- **macOS** — unsigned builds need `xattr -cr /Applications/Showbiz.app` after install to clear Gatekeeper's "damaged" error.
 
 ## Contributing
 
