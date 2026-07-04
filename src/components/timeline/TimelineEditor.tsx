@@ -504,11 +504,14 @@ export default function TimelineEditor({
 
       {/* Timeline Area */}
       <div className="flex-1 border-t border-border flex flex-col overflow-hidden">
-        <div className="flex-1 flex overflow-hidden">
+        {/* Shared vertical scroller: headers and lanes move together on
+            vertical scroll; horizontal scroll stays on the lane side only. */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="flex min-h-full">
           {/* Track Headers (fixed left column) */}
           <div className="flex-shrink-0 flex flex-col">
             {/* Spacer for ruler height */}
-            <div className="h-6 bg-muted/80 border-r border-border" />
+            <div className="flex-none h-6 bg-muted/80 border-r border-border" />
             {/* Track headers */}
             {sortedTracks.map((track, idx) => {
               const isLastVideoBeforeAudio =
@@ -518,7 +521,7 @@ export default function TimelineEditor({
                 track.track_type === "audio" && idx === sortedTracks.length - 1;
 
               return (
-                <div key={track.id}>
+                <div key={track.id} className="flex-none">
                   <div className={`mt-0.5 ${track.track_type === "audio" ? "h-8" : "h-12"}`}>
                     <TrackHeader
                       name={track.name}
@@ -528,7 +531,7 @@ export default function TimelineEditor({
                     />
                   </div>
                   {isLastVideoBeforeAudio && (
-                    <div className="flex justify-center py-0.5 bg-muted/80 border-r border-border">
+                    <div className="flex justify-center py-1 bg-muted/80 border-r border-border">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -541,7 +544,7 @@ export default function TimelineEditor({
                     </div>
                   )}
                   {isLastAudio && (
-                    <div className="flex justify-center py-0.5 bg-muted/80 border-r border-border">
+                    <div className="flex justify-center py-1 bg-muted/80 border-r border-border">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -559,7 +562,7 @@ export default function TimelineEditor({
           </div>
 
           {/* Scrollable timeline content */}
-          <div className="flex-1 overflow-x-auto p-4">
+          <div className="flex-1 overflow-x-auto px-4 pb-4">
             <div className="min-w-fit">
               {/* Timeline Ruler */}
               <TimelineRuler
@@ -605,6 +608,7 @@ export default function TimelineEditor({
                 );
               })}
             </div>
+          </div>
           </div>
         </div>
 
