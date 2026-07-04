@@ -11,7 +11,7 @@ on:
       - ".github/pull_request_template.md"
       - "LICENSE"
   pull_request:
-    branches: [dev]
+    branches: [dev, electron-migration]
     paths-ignore:
       - "*.md"
       - "docs/**"
@@ -51,22 +51,35 @@ jobs:
       - run: yarn install --frozen-lockfile
       - run: yarn test
 
-  # Build verification — runs on PRs and dev pushes to catch build failures early.
-  # No artifacts are persisted (only release builds persist artifacts).
+  # Electron build verification — runs on PRs and dev pushes to catch
+  # packaging failures early. No artifacts are persisted (only release
+  # builds persist artifacts).
   build-check:
     if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
     needs: [test-rust, test-typescript]
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
+        platform: [ubuntu-22.04, macos-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - run: yarn package:electron --publish never
+
+  # Tauri remains the fallback shell for one release after the Electron
+  # cutover; verify it still builds on the cheapest platform until the
+  # Phase 5 deletion sweep removes it.
+  build-check-tauri:
+    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+    needs: [test-rust, test-typescript]
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -76,26 +89,23 @@ jobs:
       - run: yarn install --frozen-lockfile
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: x86_64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
           prefix-key: v1-rust
-      - if: matrix.platform == 'ubuntu-22.04'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev libx11-dev mpv
-      - if: startsWith(matrix.platform, 'macos')
-        run: brew install meson ninja pkg-config ffmpeg libplacebo libass
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev libx11-dev mpv
       - name: Download mpv sidecar
-        shell: bash
         run: cd src-tauri/binaries && chmod +x download-mpv.sh && ./download-mpv.sh
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tauriScript: yarn tauri
-          args: --target ${{ matrix.target }}
+          args: --target x86_64-unknown-linux-gnu
 
-  # Release build — only on tag push. Persists artifacts via GitHub Release.
+  # Release build — only on tag push. Builds Electron installers and
+  # attaches them to a CI-created draft GitHub Release.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [test-rust, test-typescript]
@@ -104,14 +114,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-          - platform: macos-latest
-            target: aarch64-apple-darwin
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
+        platform: [ubuntu-22.04, macos-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -119,38 +125,27 @@ jobs:
           node-version: 20
           cache: yarn
       - run: yarn install --frozen-lockfile
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          prefix-key: v1-rust
-      - if: matrix.platform == 'ubuntu-22.04'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev libx11-dev mpv
-      - if: startsWith(matrix.platform, 'macos')
-        run: brew install meson ninja pkg-config ffmpeg libplacebo libass
-      - name: Download mpv sidecar
-        shell: bash
-        run: cd src-tauri/binaries && chmod +x download-mpv.sh && ./download-mpv.sh
       - name: Set version from git tag
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           echo "Setting version to $VERSION"
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" package.json
           sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
           sed -i.bak "s/^version = \".*\"/version = \"$VERSION\"/" src-tauri/Cargo.toml
-          sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" package.json
-          rm -f src-tauri/tauri.conf.json.bak src-tauri/Cargo.toml.bak package.json.bak
-      - uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          rm -f package.json.bak src-tauri/tauri.conf.json.bak src-tauri/Cargo.toml.bak
+      - run: yarn package:electron --publish never
+      - name: Upload installers to draft release
+        uses: softprops/action-gh-release@v2
         with:
-          tauriScript: yarn tauri
-          args: --target ${{ matrix.target }}
-          tagName: ${{ github.ref_name }}
-          releaseName: ${{ github.ref_name }}
-          releaseBody: |
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: |
             See the assets below to download the installer for your platform.
-          releaseDraft: true
+          draft: true
           prerelease: false
+          files: |
+            dist-package/*.AppImage
+            dist-package/*.deb
+            dist-package/*.dmg
+            dist-package/*.exe
