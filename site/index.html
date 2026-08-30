@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Showbiz | AI-powered video storyboard desktop app</title>
+  <meta name="description" content="Showbiz is a desktop studio for AI filmmaking: generate images, turn them into videos, trim and arrange on a timeline, and export a final movie.">
+  <meta name="theme-color" content="#0b0c0f">
+  <link rel="icon" href="favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="canonical" href="https://alexanderwanyoike.github.io/showbiz/">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://alexanderwanyoike.github.io/showbiz/">
+  <meta property="og:title" content="Showbiz | AI-powered video storyboard desktop app">
+  <meta property="og:description" content="Generate images, turn them into videos, trim and arrange on a timeline, and export a final movie.">
+  <meta property="og:image" content="https://alexanderwanyoike.github.io/showbiz/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Showbiz | AI-powered video storyboard desktop app">
+  <meta name="twitter:description" content="Generate images, turn them into videos, trim and arrange on a timeline, and export a final movie.">
+  <meta name="twitter:image" content="https://alexanderwanyoike.github.io/showbiz/og.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="slate">
+    <div class="wrap slate-in">
+      <a class="wordmark" href="#top">
+        <img src="favicon.png" alt="" width="22" height="22">
+        <span>Showbiz</span>
+      </a>
+      <span class="ver" title="Latest release">v__VERSION_NUM__</span>
+      <nav>
+        <a href="#screens">Screens</a>
+        <a href="#features">Features</a>
+        <a href="#models">Models</a>
+        <a class="rec" href="#download"><span class="dot" aria-hidden="true"></span>Download</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <section class="hero">
+      <div class="wrap">
+        <p class="eyebrow rise" style="--d:0">Scene 01 &middot; AI-powered video storyboard</p>
+        <h1 class="rise" style="--d:1">From first frame<br>to <em>final cut.</em></h1>
+        <p class="sub rise" style="--d:2">
+          Showbiz is a desktop studio for AI filmmaking. Generate images,
+          turn them into videos, trim and arrange them on a timeline,
+          and export a finished movie &mdash; all on your machine.
+        </p>
+        <div class="cta rise" style="--d:3">
+          <a class="btn" href="#download"><span class="dot" aria-hidden="true"></span>Download <span class="mono">v__VERSION_NUM__</span></a>
+          <a class="btn ghost" href="https://github.com/alexanderwanyoike/showbiz">GitHub</a>
+        </div>
+        <p class="hero-meta rise mono" style="--d:4">
+          Released <span>__RELEASE_DATE__</span> &middot; MIT license &middot; Linux, macOS, Windows
+        </p>
+      </div>
+    </section>
+
+    <section class="screens" id="screens">
+      <div class="wrap">
+        <div class="frame">
+          <div class="slate-stripe mono"><span>SC 01A</span><span>Storyboard mode</span><span>TAKE __VERSION_NUM__</span></div>
+          <img src="images/storyboard.png" alt="Showbiz storyboard mode: shots with start and end frames, prompts, and a model picker" loading="lazy">
+        </div>
+        <p class="caption mono">Build each shot from a start frame, an optional end frame and a prompt. Pick a model, generate.</p>
+        <div class="frame">
+          <div class="slate-stripe mono"><span>SC 01B</span><span>Editor mode</span><span>TAKE __VERSION_NUM__</span></div>
+          <img src="images/timeline.png" alt="Showbiz editor mode: multi-track timeline with preview and export" loading="lazy">
+        </div>
+        <p class="caption mono">Arrange, trim and split shots on a multi-track timeline, then export with native ffmpeg.</p>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="wrap">
+        <p class="kicker mono">Scene 02 &middot; The callsheet</p>
+        <h2>Everything between<br>the idea and the export</h2>
+        <div class="cards">
+          <article class="card">
+            <span class="idx mono">01</span>
+            <h3>Project bible</h3>
+            <p>Reusable characters, locations, props and styles. Compose consistent scene frames from them so every shot belongs to the same world.</p>
+          </article>
+          <article class="card">
+            <span class="idx mono">02</span>
+            <h3>Shot-based workflow</h3>
+            <p>Each shot has a start frame, an optional end frame and a prompt. The video model animates between the frames.</p>
+          </article>
+          <article class="card">
+            <span class="idx mono">03</span>
+            <h3>Image generation &amp; editing</h3>
+            <p>Nano Banana, GPT Image 2 and Flux, with inpainting and prompt-based edits when a frame needs surgery.</p>
+          </article>
+          <article class="card">
+            <span class="idx mono">04</span>
+            <h3>Version trees</h3>
+            <p>Every generation and edit creates a version. Branch, compare and switch without ever destroying a take.</p>
+          </article>
+          <article class="card">
+            <span class="idx mono">05</span>
+            <h3>Video generation</h3>
+            <p>Veo 3.1, Seedance 2, Kling 3, LTX-2.3 and Wan 2.1, with start/end-frame support wherever the model has it.</p>
+          </article>
+          <article class="card">
+            <span class="idx mono">06</span>
+            <h3>Timeline &amp; export</h3>
+            <p>Multi-track arranging with trim, split and preview playback. Native ffmpeg assembles the final movie with progress reporting.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="models" id="models">
+      <div class="wrap">
+        <p class="kicker mono">Scene 03 &middot; The cast</p>
+        <h2>Supported models</h2>
+        <p class="section-sub">Config-driven: new models land by dropping a JSON file, no code changes needed.</p>
+
+        <h3 class="mono">Image generation</h3>
+        <table class="cast">
+          <thead>
+            <tr><th scope="col">Model</th><th scope="col">Provider</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Nano Banana / 2 / 2 Lite / Pro</td><td>Google (Gemini)</td></tr>
+            <tr><td>GPT Image 2</td><td>OpenAI, via fal.ai</td></tr>
+            <tr><td>Flux Dev / Flux Kontext</td><td>Black Forest Labs, via fal.ai</td></tr>
+          </tbody>
+        </table>
+
+        <h3 class="mono">Video generation</h3>
+        <table class="cast">
+          <thead>
+            <tr><th scope="col">Model</th><th scope="col">Provider</th><th scope="col">End frames</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Veo 3.1</td><td>Google, via fal.ai</td><td class="mono">optional</td></tr>
+            <tr><td>Seedance 2.0 / 2.0 Fast</td><td>ByteDance, via fal.ai</td><td class="mono">optional</td></tr>
+            <tr><td>Kling 3</td><td>Kuaishou, via fal.ai</td><td class="mono">no</td></tr>
+            <tr><td>LTX-2.3</td><td>Lightricks, via fal.ai</td><td class="mono">no</td></tr>
+            <tr><td>Wan 2.1 FLF</td><td>Alibaba, via fal.ai</td><td class="mono">required</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="download" id="download">
+      <div class="wrap">
+        <p class="kicker mono">Scene 04 &middot; The premiere</p>
+        <h2>Download <em>v__VERSION_NUM__</em></h2>
+        <p class="section-sub mono">Released __RELEASE_DATE__</p>
+        <div class="dl-grid">
+          <div class="dl-card">
+            <h3>Linux</h3>
+            <a class="dl-link mono" href="https://github.com/alexanderwanyoike/showbiz/releases/download/__VERSION__/Showbiz-__VERSION_NUM__.AppImage">Showbiz-__VERSION_NUM__.AppImage</a>
+            <a class="dl-link mono" href="https://github.com/alexanderwanyoike/showbiz/releases/download/__VERSION__/showbiz___VERSION_NUM___amd64.deb">showbiz___VERSION_NUM___amd64.deb</a>
+          </div>
+          <div class="dl-card">
+            <h3>macOS</h3>
+            <a class="dl-link mono" href="https://github.com/alexanderwanyoike/showbiz/releases/download/__VERSION__/Showbiz-__VERSION_NUM__-arm64.dmg">Showbiz-__VERSION_NUM__-arm64.dmg</a>
+            <p class="dl-note">Unsigned build? Run <code>xattr -cr /Applications/Showbiz.app</code> after install to clear Gatekeeper.</p>
+          </div>
+          <div class="dl-card">
+            <h3>Windows</h3>
+            <a class="dl-link mono" href="https://github.com/alexanderwanyoike/showbiz/releases/download/__VERSION__/Showbiz.Setup.__VERSION_NUM__.exe">Showbiz.Setup.__VERSION_NUM__.exe</a>
+          </div>
+        </div>
+        <p class="dl-more">All releases and changelogs live on <a href="https://github.com/alexanderwanyoike/showbiz/releases">GitHub Releases</a>.</p>
+      </div>
+    </section>
+
+    <section class="faq" id="faq">
+      <div class="wrap">
+        <p class="kicker mono">Scene 05 &middot; Q&amp;A</p>
+        <h2>Before you roll</h2>
+        <dl class="qa">
+          <div>
+            <dt>Do I need API keys?</dt>
+            <dd>Yes, at least one. A <strong>Gemini</strong> key covers the Nano Banana family; a <strong>fal.ai</strong> key covers GPT Image 2, Flux and every video model. Configure them in Settings inside the app.</dd>
+          </div>
+          <div>
+            <dt>Where does my data live?</dt>
+            <dd>On your machine. Projects, media and API keys are stored in a local SQLite database in your system's app data directory (<code>~/.local/share/com.showbiz.app/</code> on Linux). Keys never leave your machine except to authenticate API calls.</dd>
+          </div>
+          <div>
+            <dt>Is Showbiz free?</dt>
+            <dd>Showbiz is open source under the <a href="https://github.com/alexanderwanyoike/showbiz/blob/main/LICENSE">MIT license</a>. You bring your own model API keys and pay the providers directly for what you generate.</dd>
+          </div>
+          <div>
+            <dt>Can I add my own models?</dt>
+            <dd>Models are config-driven. Drop a JSON file into <code>src/lib/models/providers/</code> and it is auto-discovered at build time, no code changes needed.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="credits">
+    <div class="wrap credits-in mono">
+      <span>&copy; 2026 Showbiz contributors</span>
+      <span>MIT license</span>
+      <a href="https://github.com/alexanderwanyoike/showbiz">github.com/alexanderwanyoike/showbiz</a>
+    </div>
+  </footer>
+
+</body>
+</html>
