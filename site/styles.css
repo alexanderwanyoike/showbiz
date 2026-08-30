@@ -232,7 +232,9 @@ section { padding: 84px 0; }
 .dl-card h3 {
   font-family: var(--display); font-weight: 400; font-size: 24px;
   letter-spacing: .05em; text-transform: uppercase; margin-bottom: 14px;
+  display: flex; align-items: center;
 }
+.os { width: 19px; height: 19px; fill: var(--amber); margin-right: 10px; flex: none; }
 .dl-link {
   display: block; font-size: 13px; color: var(--amber-hi);
   text-decoration: none; padding: 7px 0;
