@@ -120,7 +120,7 @@
       <div class="wrap">
         <p class="kicker mono">Scene 03 &middot; The cast</p>
         <h2>Supported models</h2>
-        <p class="section-sub">Config-driven: new models land by dropping a JSON file, no code changes needed.</p>
+        <p class="section-sub">Config-driven: a new model is a JSON definition in the source tree, discovered when the app is built.</p>
 
         <h3 class="mono">Image generation</h3>
         <table class="cast">
@@ -194,7 +194,7 @@
           </div>
           <div>
             <dt>Can I add my own models?</dt>
-            <dd>Models are config-driven. Drop a JSON file into <code>src/lib/models/providers/</code> and it is auto-discovered at build time, no code changes needed.</dd>
+            <dd>Model definitions are config-driven: each one is a JSON file under <code>src/lib/models/providers/</code>, discovered when the app is built. That means adding a model is a change to the source tree and a rebuild, not a runtime option in packaged installs. The easy path is a PR: once merged, the model ships to everyone in the next release.</dd>
           </div>
         </dl>
       </div>
