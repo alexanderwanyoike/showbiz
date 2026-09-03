@@ -45,12 +45,22 @@ export const API_KEY_PROVIDERS = [
 
 export type ApiKeyProvider = (typeof API_KEY_PROVIDERS)[number]["id"];
 
-export interface ApiKeyProviderDefinition {
-  readonly id: ApiKeyProvider;
+export interface ProviderDefinition<ProviderId extends string> {
+  readonly id: ProviderId;
   readonly name: string;
   readonly credentialLabel: string;
   readonly helpText: string;
+  /** Stable display rank, independent of how catalog entries are assembled or imported. */
   readonly order: number;
+}
+
+export type ApiKeyProviderDefinition = ProviderDefinition<ApiKeyProvider>;
+
+export interface ApiKeyStatus {
+  provider: ApiKeyProvider;
+  name: string;
+  is_configured: boolean;
+  source: string | null;
 }
 
 const API_KEY_PROVIDER_IDS = new Set<string>(

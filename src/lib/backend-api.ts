@@ -1,7 +1,13 @@
 import { invoke } from "./bridge";
 import { electronMediaUrlResolver } from "./electron-media-url";
-export type { ApiKeyProvider } from "../../shared/provider-catalog";
-import type { ApiKeyProvider } from "../../shared/provider-catalog";
+export type {
+  ApiKeyProvider,
+  ApiKeyStatus,
+} from "../../shared/provider-catalog";
+import type {
+  ApiKeyProvider,
+  ApiKeyStatus,
+} from "../../shared/provider-catalog";
 
 // Resolve an absolute media path from the main process to a renderer blob: URL
 async function mediaUrl(absPath: string | null, invalidate = false): Promise<string | null> {
@@ -48,13 +54,6 @@ export interface ShotWithUrls {
   status: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface ApiKeyStatus {
-  provider: ApiKeyProvider;
-  name: string;
-  is_configured: boolean;
-  source: string | null;
 }
 
 export interface ImageVersion {

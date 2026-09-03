@@ -1,5 +1,9 @@
 import type { VideoModelCapabilities, VideoGenerationSettings } from "./types";
 import { VALID_VIDEO_TRANSPORTS, VALID_IMAGE_TRANSPORTS } from "./transports";
+import {
+  isApiKeyProvider,
+  type ApiKeyProvider,
+} from "../../../shared/provider-catalog";
 
 export interface VideoModelConfig {
   id: string;
@@ -8,7 +12,7 @@ export interface VideoModelConfig {
   transport: string;
   transportOptions?: Record<string, unknown>;
   enabled: boolean;
-  apiKeyProvider: string;
+  apiKeyProvider: ApiKeyProvider;
   provider?: string;
   modelFamily?: string;
   models: {
@@ -61,7 +65,7 @@ export interface ImageModelConfig {
   transport: string;
   transportOptions?: Record<string, unknown>;
   enabled: boolean;
-  apiKeyProvider: string;
+  apiKeyProvider: ApiKeyProvider;
   provider?: string;
   modelFamily?: string;
   models: {
@@ -110,6 +114,15 @@ export function validateVideoConfig(raw: unknown): VideoModelConfig {
   if (!VALID_VIDEO_TRANSPORTS.includes(config.transport as string)) {
     throw new Error(
       `Video config "${config.id}": unknown transport "${config.transport}". Valid: ${VALID_VIDEO_TRANSPORTS.join(", ")}`
+    );
+  }
+
+  if (
+    typeof config.apiKeyProvider !== "string" ||
+    !isApiKeyProvider(config.apiKeyProvider)
+  ) {
+    throw new Error(
+      `Video config "${config.id}": unknown API key provider "${String(config.apiKeyProvider)}"`
     );
   }
 
@@ -162,6 +175,15 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
   if (!VALID_IMAGE_TRANSPORTS.includes(config.transport as string)) {
     throw new Error(
       `Image config "${config.id}": unknown transport "${config.transport}". Valid: ${VALID_IMAGE_TRANSPORTS.join(", ")}`
+    );
+  }
+
+  if (
+    typeof config.apiKeyProvider !== "string" ||
+    !isApiKeyProvider(config.apiKeyProvider)
+  ) {
+    throw new Error(
+      `Image config "${config.id}": unknown API key provider "${String(config.apiKeyProvider)}"`
     );
   }
 

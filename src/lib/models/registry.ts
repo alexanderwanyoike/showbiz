@@ -8,7 +8,6 @@ import type {
   ImageModelInfo,
 } from "./types";
 import { blobToBase64 } from "./types";
-import type { ApiKeyProvider } from "../../../shared/provider-catalog";
 import {
   validateVideoConfig,
   validateImageConfig,
@@ -83,7 +82,7 @@ function videoConfigToProvider(config: VideoModelConfig): VideoModelProvider {
     name: config.name,
     description: config.description,
     enabled: config.enabled,
-    apiKeyProvider: config.apiKeyProvider as ApiKeyProvider,
+    apiKeyProvider: config.apiKeyProvider,
     capabilities: config.capabilities,
     modeCapabilities: videoModeCapabilities(config),
     defaults: { ...config.defaults },
@@ -144,7 +143,7 @@ function imageConfigToProvider(config: ImageModelConfig): ImageModelProvider {
     name: config.name,
     description: config.description,
     enabled: config.enabled,
-    apiKeyProvider: config.apiKeyProvider as ApiKeyProvider,
+    apiKeyProvider: config.apiKeyProvider,
     supportsImageEditing: config.supportsEditing,
     supportsInpainting: config.supportsInpainting,
     modeCapabilities: imageModeCapabilities(config),

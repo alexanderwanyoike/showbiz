@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ApiKeyProviderDefinition } from "../../shared/provider-catalog";
+import type { ProviderDefinition } from "../../shared/provider-catalog";
 import {
   buildProviderSettings,
   filterProviderSettings,
@@ -9,7 +9,7 @@ const providers = [
   { id: "openai", name: "OpenAI", credentialLabel: "OpenAI API key", helpText: "OpenAI help", order: 20 },
   { id: "fal", name: "fal.ai", credentialLabel: "fal.ai API key", helpText: "fal help", order: 30 },
   { id: "gemini", name: "Google AI (Gemini)", credentialLabel: "Google AI API key", helpText: "Gemini help", order: 10 },
-] satisfies ApiKeyProviderDefinition[];
+] satisfies ProviderDefinition<"openai" | "fal" | "gemini">[];
 
 const models = [
   { name: "Nano Banana Pro", apiKeyProvider: "gemini" },
@@ -54,7 +54,7 @@ describe("provider settings", () => {
       credentialLabel: `Provider ${index} API key`,
       helpText: `Provider ${index} help`,
       order: index,
-    })) as unknown as ApiKeyProviderDefinition[];
+    })) satisfies ProviderDefinition<string>[];
     const settings = buildProviderSettings(largeCatalog, [], []);
 
     expect(filterProviderSettings(settings, "provider 217")).toHaveLength(1);

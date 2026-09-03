@@ -1,31 +1,33 @@
 import type {
   ApiKeyProvider,
-  ApiKeyProviderDefinition,
+  ProviderDefinition,
 } from "../../shared/provider-catalog";
 
-interface ApiKeyStatusLike {
-  provider: ApiKeyProvider;
+interface ApiKeyStatusLike<ProviderId extends string> {
+  provider: ProviderId;
   name?: string;
   is_configured: boolean;
   source: string | null;
 }
 
-interface ModelCredentialRequirement {
+interface ModelCredentialRequirement<ProviderId extends string> {
   name: string;
-  apiKeyProvider: ApiKeyProvider;
+  apiKeyProvider: ProviderId;
 }
 
-export interface ProviderSetting extends ApiKeyProviderDefinition {
+export interface ProviderSetting<
+  ProviderId extends string = ApiKeyProvider,
+> extends ProviderDefinition<ProviderId> {
   isConfigured: boolean;
   source: string | null;
   modelNames: string[];
 }
 
-export function buildProviderSettings(
-  providers: readonly ApiKeyProviderDefinition[],
-  statuses: readonly ApiKeyStatusLike[],
-  models: readonly ModelCredentialRequirement[]
-): ProviderSetting[] {
+export function buildProviderSettings<ProviderId extends string>(
+  providers: readonly ProviderDefinition<ProviderId>[],
+  statuses: readonly ApiKeyStatusLike<ProviderId>[],
+  models: readonly ModelCredentialRequirement<ProviderId>[]
+): ProviderSetting<ProviderId>[] {
   const statusesByProvider = new Map(
     statuses.map((status) => [status.provider, status])
   );
@@ -55,16 +57,16 @@ export function buildProviderSettings(
     );
 }
 
-export function filterProviderSettings(
-  providers: readonly ProviderSetting[],
+export function filterProviderSettings<ProviderId extends string>(
+  providers: readonly ProviderSetting<ProviderId>[],
   query: string
-): ProviderSetting[] {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
+): ProviderSetting<ProviderId>[] {
+  const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return [...providers];
 
   return providers.filter((provider) =>
     [provider.id, provider.name, ...provider.modelNames].some((value) =>
-      value.toLocaleLowerCase().includes(normalizedQuery)
+      value.toLowerCase().includes(normalizedQuery)
     )
   );
 }

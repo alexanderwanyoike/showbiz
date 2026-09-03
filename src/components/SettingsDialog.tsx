@@ -104,16 +104,22 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     }
   }, [expandedProvider]);
 
-  async function loadApiKeyStatus() {
-    setLoading(true);
-    setLoadError(false);
+  async function loadApiKeyStatus(showLoading = true) {
+    if (showLoading) {
+      setLoading(true);
+      setLoadError(false);
+    }
     try {
       setApiKeyStatus(await getApiKeyStatusAction());
     } catch (error) {
       console.error("Failed to load API key status:", error);
-      setLoadError(true);
+      if (showLoading) {
+        setLoadError(true);
+      } else {
+        alert("The key changed, but provider status could not be refreshed.");
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }
 
@@ -150,7 +156,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         return;
       }
       updateKey(provider, "");
-      await loadApiKeyStatus();
+      await loadApiKeyStatus(false);
     } catch (error) {
       console.error("Failed to save API key:", error);
       alert("Failed to save API key");
@@ -169,7 +175,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
         alert(result.error || "Failed to delete API key");
         return;
       }
-      await loadApiKeyStatus();
+      await loadApiKeyStatus(false);
     } catch (error) {
       console.error("Failed to delete API key:", error);
       alert("Failed to delete API key");

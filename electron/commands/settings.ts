@@ -3,14 +3,8 @@ import {
   API_KEY_PROVIDERS,
   parseApiKeyProvider,
   type ApiKeyProvider,
+  type ApiKeyStatus,
 } from "../../shared/provider-catalog";
-
-export interface ApiKeyStatus {
-  provider: ApiKeyProvider;
-  name: string;
-  is_configured: boolean;
-  source: string | null;
-}
 
 const dbKeyFor = (provider: ApiKeyProvider): string => `${provider}_api_key`;
 

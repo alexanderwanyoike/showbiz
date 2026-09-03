@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 import { createElement } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { SettingsDialog } from "../components/SettingsDialog";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SettingsDialog } from "./SettingsDialog";
 import { API_KEY_PROVIDERS } from "../../shared/provider-catalog";
 
 const api = vi.hoisted(() => ({
@@ -13,17 +13,28 @@ const api = vi.hoisted(() => ({
   deleteApiKeyAction: vi.fn(),
 }));
 const scrollIntoView = vi.fn();
+const originalScrollIntoView = Element.prototype.scrollIntoView;
 
-Object.defineProperty(Element.prototype, "scrollIntoView", {
-  configurable: true,
-  value: scrollIntoView,
+beforeEach(() => {
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    value: scrollIntoView,
+  });
 });
 
-vi.mock("./backend-api", () => api);
+vi.mock("../lib/backend-api", () => api);
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  if (originalScrollIntoView) {
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: originalScrollIntoView,
+    });
+  } else {
+    Reflect.deleteProperty(Element.prototype, "scrollIntoView");
+  }
 });
 
 describe("SettingsDialog", () => {
@@ -158,5 +169,43 @@ describe("SettingsDialog", () => {
     );
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+  });
+
+  it("keeps the provider list mounted while status refreshes after saving", async () => {
+    const user = userEvent.setup();
+    let finishRefresh: ((statuses: typeof emptyStatuses) => void) | undefined;
+    api.getApiKeyStatusAction
+      .mockResolvedValueOnce(emptyStatuses)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishRefresh = resolve;
+          })
+      );
+    api.saveApiKeyAction.mockResolvedValue({ success: true });
+
+    render(
+      createElement(SettingsDialog, {
+        open: true,
+        onOpenChange: vi.fn(),
+      })
+    );
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Configure Google AI (Gemini)",
+      })
+    );
+    await user.type(screen.getByLabelText("Google AI API key"), "new-key");
+    await user.click(screen.getByRole("button", { name: "Save key" }));
+
+    await waitFor(() =>
+      expect(api.getApiKeyStatusAction).toHaveBeenCalledTimes(2)
+    );
+    expect(
+      screen.getByRole("button", { name: "Configure Google AI (Gemini)" })
+    ).toBeTruthy();
+
+    finishRefresh?.(emptyStatuses);
   });
 });
