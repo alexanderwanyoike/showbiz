@@ -1,30 +1,22 @@
 import type { DatabaseSync } from "node:sqlite";
+import {
+  API_KEY_PROVIDERS,
+  parseApiKeyProvider,
+  type ApiKeyProvider,
+} from "../../shared/provider-catalog";
 
 export interface ApiKeyStatus {
-  provider: string;
+  provider: ApiKeyProvider;
   name: string;
   is_configured: boolean;
   source: string | null;
 }
 
-/**
- * Providers and their display names, in the exact order the Rust
- * get_api_key_status command lists them.
- */
-const PROVIDERS: ReadonlyArray<readonly [string, string]> = [
-  ["gemini", "Google AI (Gemini)"],
-  ["openai", "OpenAI"],
-  ["ltx", "LTX Video"],
-  ["kie", "Kie AI"],
-  ["fal", "fal.ai"],
-  ["replicate", "Replicate"],
-];
-
-const dbKeyFor = (provider: string): string => `${provider}_api_key`;
+const dbKeyFor = (provider: ApiKeyProvider): string => `${provider}_api_key`;
 
 /** Ported settings/API-key commands; names and JSON shapes match the retired Rust backend's commands/settings.rs. */
 export function createSettingsCommands(db: DatabaseSync) {
-  function readValue(provider: string): string | null {
+  function readValue(provider: ApiKeyProvider): string | null {
     const row = db
       .prepare("SELECT value FROM settings WHERE key = ?")
       .get(dbKeyFor(provider)) as { value: string } | undefined;
@@ -33,14 +25,14 @@ export function createSettingsCommands(db: DatabaseSync) {
 
   return {
     get_api_key(args?: Record<string, unknown>): string | null {
-      return readValue(String(args?.provider));
+      return readValue(parseApiKeyProvider(args?.provider));
     },
 
     get_api_key_status(): ApiKeyStatus[] {
-      return PROVIDERS.map(([provider, name]) => {
-        const configured = readValue(provider) !== null;
+      return API_KEY_PROVIDERS.map(({ id, name }) => {
+        const configured = readValue(id) !== null;
         return {
-          provider,
+          provider: id,
           name,
           is_configured: configured,
           source: configured ? "database" : null,
@@ -49,7 +41,7 @@ export function createSettingsCommands(db: DatabaseSync) {
     },
 
     save_api_key(args?: Record<string, unknown>): void {
-      const provider = String(args?.provider);
+      const provider = parseApiKeyProvider(args?.provider);
       const trimmed = String(args?.apiKey ?? "").trim();
       if (trimmed.length === 0) {
         throw new Error("API key cannot be empty");
@@ -61,7 +53,8 @@ export function createSettingsCommands(db: DatabaseSync) {
     },
 
     delete_api_key(args?: Record<string, unknown>): void {
-      db.prepare("DELETE FROM settings WHERE key = ?").run(dbKeyFor(String(args?.provider)));
+      const provider = parseApiKeyProvider(args?.provider);
+      db.prepare("DELETE FROM settings WHERE key = ?").run(dbKeyFor(provider));
     },
   };
 }

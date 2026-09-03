@@ -1,4 +1,5 @@
 import type { VideoGenerationRequest } from "../generation/types";
+import type { ApiKeyProvider } from "../../../shared/provider-catalog";
 
 export type ImageModelId =
   | "imagen4" | "nano-banana" | "nano-banana-2" | "nano-banana-2-lite" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5"
@@ -56,7 +57,7 @@ export interface ImageModelProvider {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
+  apiKeyProvider: ApiKeyProvider;
   generateImage(prompt: string, apiKey: string): Promise<string>;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
@@ -84,7 +85,7 @@ export interface VideoModelProvider {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
+  apiKeyProvider: ApiKeyProvider;
   capabilities: VideoModelCapabilities;
   modeCapabilities: VideoModelModeCapabilities;
   defaults: VideoGenerationSettings;
@@ -113,7 +114,7 @@ export interface ImageModelInfo {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
+  apiKeyProvider: ApiKeyProvider;
   provider?: string;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
@@ -125,7 +126,7 @@ export interface VideoModelInfo {
   name: string;
   description: string;
   enabled: boolean;
-  apiKeyProvider: "gemini" | "ltx" | "kie" | "fal" | "replicate" | "openai";
+  apiKeyProvider: ApiKeyProvider;
   provider?: string;
   capabilities: VideoModelCapabilities;
   modeCapabilities: VideoModelModeCapabilities;
