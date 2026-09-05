@@ -11,18 +11,14 @@ on:
       - ".github/pull_request_template.md"
       - "LICENSE"
   pull_request:
-    branches: [dev, electron-migration]
-    paths-ignore:
-      - "*.md"
-      - "docs/**"
-      - ".github/ISSUE_TEMPLATE/**"
-      - ".github/PULL_REQUEST_TEMPLATE/**"
-      - ".github/pull_request_template.md"
-      - "LICENSE"
+    branches: [main, dev, electron-migration]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -36,39 +32,25 @@ jobs:
       - run: yarn install --frozen-lockfile
       - run: yarn test
 
-  # Build verification — runs on PRs and dev pushes to catch packaging
-  # failures early. No artifacts are persisted (only release builds
-  # persist artifacts).
   build-check:
-    if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-    needs: [test]
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu-22.04, macos-latest, windows-latest]
-    runs-on: ${{ matrix.platform }}
-    env:
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: yarn
-      - run: yarn install --frozen-lockfile
-      - run: yarn package:electron --publish never
-
-  # Release build — only on tag push. Builds installers and attaches them
-  # to a CI-created draft GitHub Release.
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: build-check (${{ matrix.platform }})
+    if: >-
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'pull_request' && github.base_ref == 'main' &&
+       github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)
     needs: [test]
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-22.04, macos-latest, windows-latest]
+        include:
+          - platform: ubuntu-22.04
+            target: linux-x64
+          - platform: macos-15
+            target: mac-arm64
+          - platform: windows-latest
+            target: win-x64
     runs-on: ${{ matrix.platform }}
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -79,25 +61,94 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --frozen-lockfile
-      - name: Set version from git tag
+      - name: Resolve stable package version
+        id: version
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "Setting version to $VERSION"
-          sed -i.bak "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" package.json
-          rm -f package.json.bak
-      - run: yarn package:electron --publish never
-      - name: Upload installers to draft release
-        uses: softprops/action-gh-release@v2
+          node --input-type=module <<'JS'
+          import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          const tagged = process.env.GITHUB_REF_TYPE === 'tag';
+          const tag = tagged ? process.env.GITHUB_REF_NAME : `v${pkg.version}`;
+          if (!/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(tag)) {
+            throw new Error(`Expected a stable tag vX.Y.Z, received: ${tag}`);
+          }
+          if (tagged) {
+            pkg.version = tag.slice(1);
+            writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, `tag=${tag}\n`);
+          JS
+      - run: yarn build --publish never
+      - name: Validate and stage platform artifacts
+        run: yarn prepare:release --tag "${{ steps.version.outputs.tag }}" --platform "${{ matrix.target }}" --source dist-package --output release-platform
+      - uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          body: |
-            See the assets below to download the installer for your platform.
-          draft: true
-          prerelease: false
-          files: |
-            dist-package/*.AppImage
-            dist-package/*.deb
-            dist-package/*.dmg
-            dist-package/*.exe
+          name: release-${{ matrix.target }}
+          path: release-platform/*
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  assemble:
+    needs: [build-check]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-input
+          merge-multiple: true
+      - name: Resolve release tag
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate complete distribution
+        run: yarn prepare:release --tag "${{ steps.version.outputs.tag }}" --source release-input --output release-set
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-set
+          path: release-set/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [assemble]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require a release commit on main
+        run: git merge-base --is-ancestor HEAD origin/main
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-set
+          path: release-set
+      - name: Create draft with the validated release set
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.assemble.outputs.tag }}
+        run: |
+          gh release create "$RELEASE_TAG" release-set/* \
+            --verify-tag --draft --title "$RELEASE_TAG" \
+            --notes "Download the installer for your platform from the assets below. Only published stable releases are eligible for automatic updates."
