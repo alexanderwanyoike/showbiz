@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,85 +10,153 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Check, Trash2, Eye, EyeOff } from "lucide-react";
 import {
+  Check,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { API_KEY_PROVIDERS } from "../../shared/provider-catalog";
+import {
+  deleteApiKeyAction,
   getApiKeyStatusAction,
   saveApiKeyAction,
-  deleteApiKeyAction,
   type ApiKeyProvider,
+  type ApiKeyStatus,
 } from "../lib/backend-api";
-
-interface ApiKeyStatus {
-  provider: ApiKeyProvider;
-  name: string;
-  is_configured: boolean;
-  source: string | null;
-}
+import {
+  getAvailableImageModels,
+  getAvailableVideoModels,
+} from "../lib/models";
+import {
+  buildProviderSettings,
+  filterProviderSettings,
+  type ProviderSetting,
+} from "../lib/provider-settings";
 
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
+const MODEL_CREDENTIAL_REQUIREMENTS = [
+  ...getAvailableImageModels(),
+  ...getAvailableVideoModels(),
+];
+
+function createProviderRecord<T>(initialValue: T): Record<ApiKeyProvider, T> {
+  return Object.fromEntries(
+    API_KEY_PROVIDERS.map((provider) => [provider.id, initialValue])
+  ) as Record<ApiKeyProvider, T>;
+}
+
+function modelSummary(provider: ProviderSetting): string {
+  if (provider.modelNames.length === 0) {
+    return "No generation models currently enabled";
+  }
+
+  const visibleNames = provider.modelNames.slice(0, 3).join(", ");
+  const remainingCount = provider.modelNames.length - 3;
+  return remainingCount > 0
+    ? `${visibleNames} +${remainingCount} more`
+    : visibleNames;
+}
+
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [savingProvider, setSavingProvider] = useState<ApiKeyProvider | null>(null);
+  const [expandedProvider, setExpandedProvider] = useState<ApiKeyProvider | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [keyValues, setKeyValues] = useState(() => createProviderRecord(""));
+  const [visibleKeys, setVisibleKeys] = useState(() => createProviderRecord(false));
+  const expandedEditorRef = useRef<HTMLDivElement>(null);
 
-  // Input states for each provider
-  const [geminiKey, setGeminiKey] = useState("");
-  const [openaiKey, setOpenaiKey] = useState("");
-  const [ltxKey, setLtxKey] = useState("");
-  const [kieKey, setKieKey] = useState("");
-  const [falKey, setFalKey] = useState("");
-  const [replicateKey, setReplicateKey] = useState("");
-  const [showGeminiKey, setShowGeminiKey] = useState(false);
-  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
-  const [showLtxKey, setShowLtxKey] = useState(false);
-  const [showKieKey, setShowKieKey] = useState(false);
-  const [showFalKey, setShowFalKey] = useState(false);
-  const [showReplicateKey, setShowReplicateKey] = useState(false);
-
-  const keyInputs: Record<ApiKeyProvider, { value: string; clear: () => void }> = {
-    gemini: { value: geminiKey, clear: () => setGeminiKey("") },
-    openai: { value: openaiKey, clear: () => setOpenaiKey("") },
-    ltx: { value: ltxKey, clear: () => setLtxKey("") },
-    kie: { value: kieKey, clear: () => setKieKey("") },
-    fal: { value: falKey, clear: () => setFalKey("") },
-    replicate: { value: replicateKey, clear: () => setReplicateKey("") },
-  };
+  const providerSettings = useMemo(
+    () =>
+      buildProviderSettings(
+        API_KEY_PROVIDERS,
+        apiKeyStatus,
+        MODEL_CREDENTIAL_REQUIREMENTS
+      ),
+    [apiKeyStatus]
+  );
+  const visibleProviders = useMemo(
+    () => filterProviderSettings(providerSettings, searchQuery),
+    [providerSettings, searchQuery]
+  );
+  const configuredCount = providerSettings.filter(
+    (provider) => provider.isConfigured
+  ).length;
 
   useEffect(() => {
-    if (open) {
-      loadApiKeyStatus();
-    }
+    if (open) void loadApiKeyStatus();
   }, [open]);
 
-  async function loadApiKeyStatus() {
-    setLoading(true);
+  useEffect(() => {
+    if (expandedProvider) {
+      expandedEditorRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [expandedProvider]);
+
+  async function loadApiKeyStatus(showLoading = true) {
+    if (showLoading) {
+      setLoading(true);
+      setLoadError(false);
+    }
     try {
-      const status = await getApiKeyStatusAction();
-      setApiKeyStatus(status);
+      setApiKeyStatus(await getApiKeyStatusAction());
     } catch (error) {
       console.error("Failed to load API key status:", error);
+      if (showLoading) {
+        setLoadError(true);
+      } else {
+        alert("The key changed, but provider status could not be refreshed.");
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }
 
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
+      setExpandedProvider(null);
+      setSearchQuery("");
+      setKeyValues(createProviderRecord(""));
+      setVisibleKeys(createProviderRecord(false));
+    }
+    onOpenChange(nextOpen);
+  }
+
+  function updateKey(provider: ApiKeyProvider, value: string) {
+    setKeyValues((current) => ({ ...current, [provider]: value }));
+  }
+
+  function toggleKeyVisibility(provider: ApiKeyProvider) {
+    setVisibleKeys((current) => ({
+      ...current,
+      [provider]: !current[provider],
+    }));
+  }
+
   async function handleSaveKey(provider: ApiKeyProvider) {
-    const key = keyInputs[provider].value;
+    const key = keyValues[provider];
     if (!key.trim()) return;
 
     setSavingProvider(provider);
     try {
       const result = await saveApiKeyAction(provider, key);
-      if (result.success) {
-        keyInputs[provider].clear();
-        await loadApiKeyStatus();
-      } else {
+      if (!result.success) {
         alert(result.error || "Failed to save API key");
+        return;
       }
+      updateKey(provider, "");
+      await loadApiKeyStatus(false);
     } catch (error) {
       console.error("Failed to save API key:", error);
       alert("Failed to save API key");
@@ -98,18 +166,16 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   }
 
   async function handleDeleteKey(provider: ApiKeyProvider) {
-    if (!confirm("Remove this API key from the database?")) {
-      return;
-    }
+    if (!confirm("Remove this API key from the database?")) return;
 
     setSavingProvider(provider);
     try {
       const result = await deleteApiKeyAction(provider);
-      if (result.success) {
-        await loadApiKeyStatus();
-      } else {
+      if (!result.success) {
         alert(result.error || "Failed to delete API key");
+        return;
       }
+      await loadApiKeyStatus(false);
     } catch (error) {
       console.error("Failed to delete API key:", error);
       alert("Failed to delete API key");
@@ -118,162 +184,194 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     }
   }
 
-  function getStatusForProvider(provider: ApiKeyProvider): ApiKeyStatus | undefined {
-    return apiKeyStatus.find((s) => s.provider === provider);
-  }
+  function renderProviderEditor(provider: ProviderSetting) {
+    const isSaving = savingProvider === provider.id;
 
-  function renderApiKeySection(
-    provider: ApiKeyProvider,
-    name: string,
-    description: string,
-    value: string,
-    setValue: (v: string) => void,
-    showKey: boolean,
-    setShowKey: (v: boolean) => void
-  ) {
-    const status = getStatusForProvider(provider);
-    const isSaving = savingProvider === provider;
-
-    return (
-      <div className="space-y-3 p-4 border rounded-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-medium">{name}</h4>
-            <p className="text-sm text-muted-foreground">{description}</p>
-          </div>
-          {status?.is_configured && (
-            <Badge variant="default">Saved</Badge>
-          )}
-        </div>
-
-        {status?.is_configured ? (
-          <div className="flex items-center gap-2">
-            <div className="flex-1 px-3 py-2 bg-muted rounded-md text-sm text-muted-foreground">
-              ••••••••••••••••
+    if (provider.isConfigured) {
+      return (
+        <div className="space-y-3 border-t bg-muted/25 px-4 py-3">
+          <p className="text-xs text-muted-foreground">{provider.helpText}</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted-foreground">
+              <KeyRound className="h-4 w-4 shrink-0" />
+              <span className="truncate">Saved in the local database</span>
             </div>
             <Button
               variant="outline"
-              size="icon"
-              onClick={() => handleDeleteKey(provider)}
+              size="sm"
+              onClick={() => handleDeleteKey(provider.id)}
               disabled={isSaving}
+              aria-label={`Remove ${provider.name} API key`}
             >
               {isSaving ? <Loader2 className="animate-spin" /> : <Trash2 />}
+              Remove
             </Button>
           </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Input
-                type={showKey ? "text" : "password"}
-                placeholder="Enter API key..."
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                onClick={() => setShowKey(!showKey)}
-              >
-                {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-            </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3 border-t bg-muted/25 px-4 py-3">
+        <p className="text-xs text-muted-foreground">{provider.helpText}</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Input
+              type={visibleKeys[provider.id] ? "text" : "password"}
+              aria-label={provider.credentialLabel}
+              placeholder={`Enter ${provider.credentialLabel.toLocaleLowerCase()}…`}
+              value={keyValues[provider.id]}
+              onChange={(event) => updateKey(provider.id, event.target.value)}
+              className="pr-10"
+              autoComplete="off"
+            />
             <Button
-              onClick={() => handleSaveKey(provider)}
-              disabled={!value.trim() || isSaving}
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+              onClick={() => toggleKeyVisibility(provider.id)}
+              aria-label={`${visibleKeys[provider.id] ? "Hide" : "Show"} ${provider.credentialLabel}`}
             >
-              {isSaving ? <Loader2 className="animate-spin" /> : <Check />}
-              Save
+              {visibleKeys[provider.id] ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
             </Button>
           </div>
-        )}
+          <Button
+            size="sm"
+            onClick={() => handleSaveKey(provider.id)}
+            disabled={!keyValues[provider.id].trim() || isSaving}
+          >
+            {isSaving ? <Loader2 className="animate-spin" /> : <Check />}
+            Save key
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Settings</DialogTitle>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[640px]">
+        <DialogHeader className="px-5 pt-5 pb-4 text-left sm:px-6 sm:pt-6">
+          <DialogTitle>Provider settings</DialogTitle>
           <DialogDescription>
-            Configure your API keys for image and video generation models.
+            Connect the services Showbiz uses to generate images and video.
           </DialogDescription>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div
+          role="region"
+          aria-label="API key providers"
+          tabIndex={0}
+          className="min-h-0 overflow-y-auto overscroll-contain px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:px-6"
+        >
+          <div className="sticky top-0 z-10 bg-background pb-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                aria-label="Search providers or models"
+                placeholder="Search providers or models…"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="pl-9"
+              />
+            </div>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {renderApiKeySection(
-              "gemini",
-              "Google AI (Gemini)",
-              "Required for Imagen 4, Nano Banana, Nano Banana Pro, and Veo 3",
-              geminiKey,
-              setGeminiKey,
-              showGeminiKey,
-              setShowGeminiKey
-            )}
 
-            {renderApiKeySection(
-              "openai",
-              "OpenAI",
-              "Required for GPT Image 2 (scene composition)",
-              openaiKey,
-              setOpenaiKey,
-              showOpenaiKey,
-              setShowOpenaiKey
-            )}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : loadError ? (
+            <div className="rounded-lg border border-dashed p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                Provider settings could not be loaded.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => void loadApiKeyStatus()}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : visibleProviders.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+              No providers or models match “{searchQuery.trim()}”.
+            </div>
+          ) : (
+            <ul className="overflow-hidden rounded-lg border" aria-label="Providers">
+              {visibleProviders.map((provider) => {
+                const isExpanded = expandedProvider === provider.id;
+                const editorId = `provider-${provider.id}-editor`;
 
-            {renderApiKeySection(
-              "ltx",
-              "LTX Video",
-              "Required for LTX Video generation",
-              ltxKey,
-              setLtxKey,
-              showLtxKey,
-              setShowLtxKey
-            )}
+                return (
+                  <li key={provider.id} className="border-b last:border-b-0">
+                    <button
+                      type="button"
+                      aria-label={`Configure ${provider.name}`}
+                      aria-expanded={isExpanded}
+                      aria-controls={editorId}
+                      onClick={() =>
+                        setExpandedProvider(isExpanded ? null : provider.id)
+                      }
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    >
+                      <span
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                          provider.isConfigured
+                            ? "bg-emerald-500"
+                            : "bg-muted-foreground/35"
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium">
+                            {provider.name}
+                          </span>
+                          {provider.isConfigured && (
+                            <Badge variant="secondary" className="shrink-0">
+                              Connected
+                            </Badge>
+                          )}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {modelSummary(provider)}
+                        </span>
+                      </span>
+                      <ChevronDown
+                        className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                          isExpanded ? "rotate-180" : ""
+                        }`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {isExpanded && (
+                      <div id={editorId} ref={expandedEditorRef}>
+                        {renderProviderEditor(provider)}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="h-4" />
+        </div>
 
-            {renderApiKeySection(
-              "kie",
-              "Kie AI",
-              "Required for Kling, Seedance, Hailuo, Flux Kontext, Seedream",
-              kieKey,
-              setKieKey,
-              showKieKey,
-              setShowKieKey
-            )}
-
-            {renderApiKeySection(
-              "fal",
-              "fal.ai",
-              "Required for Kling, Hailuo, Wan, and Flux models via fal.ai",
-              falKey,
-              setFalKey,
-              showFalKey,
-              setShowFalKey
-            )}
-
-            {renderApiKeySection(
-              "replicate",
-              "Replicate",
-              "Required for Kling, Wan, Hailuo, Luma, and Flux models via Replicate",
-              replicateKey,
-              setReplicateKey,
-              showReplicateKey,
-              setShowReplicateKey
-            )}
-          </div>
-        )}
-
-        <DialogFooter>
+        <DialogFooter className="flex-row items-center justify-between gap-3 border-t bg-background px-5 py-3 sm:px-6">
           <p className="text-xs text-muted-foreground">
-            API keys are stored securely in the local database.
+            {configuredCount} of {providerSettings.length} connected
+          </p>
+          <p className="text-right text-xs text-muted-foreground">
+            Keys are stored in the local Showbiz database.
           </p>
         </DialogFooter>
       </DialogContent>

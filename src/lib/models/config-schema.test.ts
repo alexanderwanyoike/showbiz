@@ -29,6 +29,12 @@ describe("validateVideoConfig", () => {
     );
   });
 
+  it("rejects an unknown API key provider", () => {
+    expect(() =>
+      validateVideoConfig({ ...validConfig, apiKeyProvider: "typo" })
+    ).toThrow('unknown API key provider "typo"');
+  });
+
   it("rejects config with no model IDs", () => {
     expect(() => validateVideoConfig({ ...validConfig, models: {} })).toThrow(
       "must have at least one"
@@ -121,6 +127,12 @@ describe("validateImageConfig", () => {
     expect(() => validateImageConfig({ ...validConfig, transport: "magic" })).toThrow(
       "unknown transport"
     );
+  });
+
+  it("rejects an unknown API key provider", () => {
+    expect(() =>
+      validateImageConfig({ ...validConfig, apiKeyProvider: "typo" })
+    ).toThrow('unknown API key provider "typo"');
   });
 
   it("rejects missing models.generate", () => {
