@@ -1,0 +1,46 @@
+{
+  "id": "minimax-h3-fal",
+  "name": "MiniMax H3",
+  "description": "MiniMax's open-weights omni-modal model on fal.ai: text or start/end frames to 5-15s 24fps video with native synced audio. ~$0.05-0.16/s depending on resolution.",
+  "transport": "fal-video",
+  "transportOptions": {
+    "textToVideoEndpoint": "minimax/h3/text-to-video",
+    "imageToVideoEndpoint": "minimax/h3/image-to-video"
+  },
+  "enabled": true,
+  "apiKeyProvider": "fal",
+  "provider": "fal.ai",
+  "modelFamily": "minimax-h3",
+  "models": {
+    "textToVideo": "minimax-h3-fal-t2v",
+    "imageToVideo": "minimax-h3-fal-i2v"
+  },
+  "generationModes": {
+    "textToVideo": {
+      "endpoint": "minimax/h3/text-to-video"
+    },
+    "imageToVideo": {
+      "endpoint": "minimax/h3/image-to-video",
+      "inputs": {
+        "startImage": true,
+        "endImage": true
+      }
+    }
+  },
+  "paramMapping": {
+    "duration": "duration",
+    "resolution": "resolution",
+    "imageInput": "image_url",
+    "endImageInput": "end_image_url"
+  },
+  "numericDuration": true,
+  "fixedParams": {},
+  "capabilities": {
+    "durations": ["5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"],
+    "resolutions": ["480P", "768P", "2K", "4K"]
+  },
+  "defaults": {
+    "duration": "5",
+    "resolution": "768P"
+  }
+}
