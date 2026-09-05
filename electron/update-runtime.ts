@@ -26,7 +26,7 @@ function withoutArguments<T>(handler: () => T) {
   };
 }
 
-export function createUpdateRuntime(environment: Partial<UpdateEnvironment> = {}) {
+export function createUpdateRuntime(environment: Partial<UpdateEnvironment> = {}, onStatus?: (status: { state: string }) => void) {
   const service = createUpdateService({
     currentVersion: app.getVersion(),
     unavailableReason: updateUnavailableReason({
@@ -40,6 +40,7 @@ export function createUpdateRuntime(environment: Partial<UpdateEnvironment> = {}
     },
   });
   service.subscribe((status) => {
+    onStatus?.(status);
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
         window.webContents.send("showbiz:update_status", status);

@@ -21,3 +21,19 @@ it("forwards only update status and removes the exact listener on unsubscribe", 
   unsubscribe();
   expect(native.removeListener).toHaveBeenCalledExactlyOnceWith(channel, receive);
 });
+
+it.each([
+  ["onApplicationWork", "showbiz:application_work", { active: ["export"], unsaved: [], closing: false }],
+  ["onPrepareShutdown", "showbiz:prepare_shutdown", "request-1"],
+])("scopes %s subscriptions to payloads and cleans up", (method, channel, payload) => {
+  native.on.mockClear(); native.removeListener.mockClear();
+  const bridge = native.expose.mock.calls[0][1];
+  const listener = vi.fn();
+  const unsubscribe = bridge[method as string](listener);
+  const receive = native.on.mock.calls[0][1];
+  receive({ sender: "private" }, payload);
+  expect(native.on.mock.calls[0][0]).toBe(channel);
+  expect(listener).toHaveBeenCalledExactlyOnceWith(payload);
+  unsubscribe();
+  expect(native.removeListener).toHaveBeenCalledExactlyOnceWith(channel, receive);
+});

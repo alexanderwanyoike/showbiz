@@ -233,4 +233,21 @@ describe("SettingsDialog", () => {
 
     finishRefresh?.(emptyStatuses);
   });
+  it("keeps provider drafts registered across tabs and clears them after saving", async () => {
+    const { applicationWork } = await import("../lib/application-work");
+    api.getApiKeyStatusAction.mockResolvedValue(emptyStatuses);
+    api.saveApiKeyAction.mockResolvedValue({ success: true });
+    const user = userEvent.setup();
+    render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
+    await user.click(await screen.findByRole("button", { name: "Configure Google AI (Gemini)" }));
+    await user.type(screen.getByLabelText("Google AI API key"), "draft-only");
+    expect(applicationWork.snapshot().unsaved).toEqual(["credentials"]);
+    await user.click(screen.getByRole("tab", { name: "Updates" }));
+    expect(applicationWork.snapshot().unsaved).toEqual(["credentials"]);
+    await user.click(screen.getByRole("tab", { name: "Providers" }));
+    await user.click(screen.getByRole("button", { name: "Save key" }));
+    await waitFor(() => expect(applicationWork.snapshot().unsaved).toEqual([]));
+    expect(applicationWork.getStatus().active).toEqual([]);
+  });
+
 });

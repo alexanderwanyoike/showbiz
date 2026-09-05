@@ -111,3 +111,28 @@ it("reports failed requests without losing the downloaded update", async () => {
   expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Finish the active export before installing.");
   expect(screen.getByRole("status").textContent).toBe("Ready to install");
 });
+
+it.each(["export", "generation", "saving"] as const)("disables installation immediately during %s", async (kind) => {
+  const { applicationWork } = await import("../lib/application-work");
+  const { client } = fakeClient({ state: "downloaded", available_version: "1.1.0" });
+  render(createElement(UpdatesPanel, { client }));
+  const button = await screen.findByRole("button", { name: "Install and relaunch" });
+  act(() => applicationWork.receive({ active: [kind], unsaved: [], closing: false }));
+  expect((button as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText(/Finish .* before installing/)).toBeTruthy();
+  act(() => applicationWork.receive({ active: [], unsaved: [], closing: false }));
+  expect((button as HTMLButtonElement).disabled).toBe(false);
+});
+
+it("explains the discard confirmation for unsaved keys without losing the payload", async () => {
+  const { applicationWork } = await import("../lib/application-work");
+  const { client } = fakeClient({ state: "downloaded", available_version: "1.1.0" });
+  render(createElement(UpdatesPanel, { client }));
+  const button = await screen.findByRole("button", { name: "Install and relaunch" });
+  act(() => applicationWork.receive({ active: [], unsaved: ["credentials"], closing: false }));
+  expect(screen.getByText(/unsaved provider keys.*discard/i)).toBeTruthy();
+  await userEvent.setup().click(button);
+  expect(client.install).toHaveBeenCalledOnce();
+  expect(screen.getByText("Ready to install")).toBeTruthy();
+  act(() => applicationWork.receive({ active: [], unsaved: [], closing: false }));
+});

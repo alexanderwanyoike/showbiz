@@ -103,14 +103,44 @@ the Updates tab. Status changes are announced without moving focus.
 Failed or unsupported updates retain a manual download action that opens the
 release page selected by the main process. Provider drafts survive switching tabs.
 
+## Protecting active work
+
+Install and relaunch stays disabled during video export, generation, or saving.
+The main process tracks the complete native export command. Renderer generation
+operations acquire a main-process work lease before starting and release it only
+after polling and result persistence finish, including failure paths. Cancelling
+a generation's visible result does not release its lease while the underlying
+provider operation is still running.
+
+Settings and other editors report unsaved categories and revision numbers, never
+credential values or draft text. Installation asks for explicit confirmation,
+with Cancel selected by default. Unsaved input adds a Discard and relaunch choice.
+Cancellation leaves the verified download ready for later without downloading it
+again. Downloads never install automatically on ordinary quit.
+
+The same guard handles normal application quit and window close. It requests a
+fresh renderer snapshot before and after confirmation, rejects work that changed
+in between, and refuses to proceed if the window cannot answer. Once accepted,
+it blocks new commands and displays a modal closing state while the installer
+prepares the relaunch. Installer failures release that lock for manual recovery.
+These guards do not replace saving work or protect against forced process kills,
+OS shutdown, or power loss.
+
+When adding an asynchronous renderer operation, wrap its complete workflow in
+`withApplicationWork`, including result persistence. Editors use `useUnsavedWork`
+to identify unsaved drafts and clear them after save, discard, or unmount. Native
+data commands pass through the main-process guard even without renderer tracking.
+
 ## Current limitations
 
-Active-work guards are still required before shipping installation. Builds
+Builds
 currently disable signing autodiscovery and do not produce production-signed artifacts. macOS automatic updates require a signed
 application; signing, notarization, and installation verification are required
 before offering automatic updates to users.
 
 ## References
+
+- [Electron quit lifecycle and updater event ordering](https://www.electronjs.org/docs/latest/api/app#event-before-quit)
 
 - [Electron updater targets, metadata, and signing requirements](https://www.electron.build/v26/docs/features/auto-update/)
 - [Electron builder publishing configuration](https://www.electron.build/v26/docs/publish/)

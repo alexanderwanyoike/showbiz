@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, dialog } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { appDataDir, loadMigrations, openDatabase } from "./db";
@@ -16,6 +16,7 @@ import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
 import { initMediaDirs, mediaBaseDir } from "./media-files";
 import { hideDefaultApplicationMenu } from "./app-menu";
+import { createWorkRuntime } from "./work-runtime";
 import { createUpdateRuntime } from "./update-runtime";
 
 const isDev = !app.isPackaged;
@@ -35,7 +36,7 @@ function openShowbizDatabase() {
   return openDatabase(path.join(dataDir, "showbiz.db"), migrations);
 }
 
-function registerIpc(updates: ReturnType<typeof createUpdateRuntime>) {
+function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: ReturnType<typeof createWorkRuntime>) {
   const db = openShowbizDatabase();
   const mediaDir = mediaBaseDir(appDataDir());
   // Save helpers assume the media subdirectories exist, exactly like the Rust
@@ -54,16 +55,17 @@ function registerIpc(updates: ReturnType<typeof createUpdateRuntime>) {
     ...createExportCommandsForApp(db, mediaDir),
     ...updates.commands,
   });
-  ipcMain.handle("showbiz:invoke", (_event, cmd: string, args?: Record<string, unknown>) =>
-    invokeHandler(cmd, args)
-  );
+  ipcMain.handle("showbiz:invoke", (event, cmd: string, args?: Record<string, unknown>) => {
+    if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame) throw new Error("Unknown application window.");
+    return work.invoke(event.sender.id, cmd, args, invokeHandler);
+  });
 
   ipcMain.handle("showbiz:read-media-bytes", (_event, relativePath: string) =>
     fs.promises.readFile(resolveMediaPath(mediaDir, relativePath))
   );
 }
 
-function createWindow() {
+function createWindow(work: ReturnType<typeof createWorkRuntime>) {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -73,6 +75,8 @@ function createWindow() {
       contextIsolation: true,
     },
   });
+
+  work.attachWindow(win);
 
   if (isDev) {
     // Vite may still be starting; retry until it answers.
@@ -90,9 +94,18 @@ function createWindow() {
 
 app.whenReady().then(() => {
   hideDefaultApplicationMenu(Menu);
-  const updates = createUpdateRuntime();
-  registerIpc(updates);
-  createWindow();
+  const work = createWorkRuntime({
+    windows: () => BrowserWindow.getAllWindows(),
+    confirm: (options) => {
+      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+      return window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options);
+    },
+    quit: () => app.quit(),
+  });
+  app.on("before-quit", work.beforeQuit);
+  const updates = createUpdateRuntime({}, work.updateChanged);
+  registerIpc(updates, work);
+  createWindow(work);
   void updates.start();
 });
 
