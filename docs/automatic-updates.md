@@ -1,6 +1,6 @@
 # Automatic update delivery
 
-## Release artifact contract (Card 6)
+## Release artifact contract
 
 Every supported platform is built in isolation with `yarn build --publish never`.
 The public GitHub provider is explicitly configured as
@@ -74,26 +74,13 @@ Only a **published stable** release is eligible for automatic updates. The
 builder's `releaseType: draft` also preserves draft creation if its publisher is
 used explicitly in the future. It is not a client-side release filter.
 
-## Remaining delivery and release gates
+## Current limitations
 
-Card 6 supplies update-ready packaging, not an updater-enabled application.
-Cards 7-9 add the main-process updater, user controls, and protection for active
-work. Downloads and installation must remain explicit user actions; background
-checks must never force a restart.
-
-Signing and real platform installation verification remain Card 10. The current
-workflow retains disabled signing autodiscovery and does not claim signed output.
-Before publishing the updater bridge release, the owner must provision signing
-and notarization, restrict signing secrets to protected release jobs, and record
-clean-install and update-install evidence on every supported target. macOS
-automatic updates require a signed application.
-
-Card 11 is the one-time manual bridge installation for existing users, followed
-by a real automatic patch update on every supported target. It depends on Cards
-1-3 and 6-10. Credential encryption and migration (Cards 4-5) are deferred and are
-not bridge-release dependencies. Verify preservation of existing credentials,
-SQLite data, media, and projects without introducing an encryption migration.
-OpenRouter and spending reports remain outside this delivery.
+The release pipeline produces installers and update metadata. The application
+has no updater client yet. Builds currently disable signing autodiscovery and do
+not produce production-signed artifacts. macOS automatic updates require a signed
+application; signing, notarization, and installation verification are required
+before offering automatic updates to users.
 
 ## References
 
@@ -102,5 +89,3 @@ OpenRouter and spending reports remain outside this delivery.
 - Installed `app-builder-lib/out/publish/PublishManager.js` and
   `updateInfoBuilder.js` (26.15.3) confirm local metadata generation with
   `--publish never` when a provider is configured.
-- Jolt Console and Spoke release assembly scripts provided the pattern of
-  isolated platform builds followed by one complete-set validation gate.
