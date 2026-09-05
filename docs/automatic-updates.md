@@ -5,8 +5,14 @@
 Every supported platform is built in isolation with `yarn build --publish never`.
 The public GitHub provider is explicitly configured as
 `alexanderwanyoike/showbiz`. The builder generates updater metadata locally;
-platform jobs have no release-write permission. PRs run the same packaging and
-distribution validation as tags, without creating a GitHub Release.
+platform jobs have no release-write permission. Only release PRs from this
+repository's `dev` branch into `main`, and `v*` tag builds, run packaging and
+distribution assembly. Release PRs never create a GitHub Release.
+
+Feature PRs and ordinary `dev`/`main` branch builds run `yarn test` only, including
+the distribution-contract tests, without building or uploading installers. Every
+PR runs tests, including documentation-only changes, so the required `test` check
+can complete. Failed tests prevent packaging through the job dependency.
 
 The current supported architectures match the published installers and website:
 
