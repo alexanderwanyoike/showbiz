@@ -22,8 +22,11 @@ interface UpdateServiceOptions {
   createUpdater: () => Updater;
   unavailableReason?: string | null;
   now?: () => Date;
+  reportError?: (error: unknown) => void;
 }
 
+// Bound release-note payloads across IPC and the Settings view.
+const MAX_RELEASE_NOTES_LENGTH = 20_000;
 const RELEASES_URL = "https://github.com/alexanderwanyoike/showbiz/releases";
 
 function stableVersionParts(version: string): number[] | null {
@@ -45,7 +48,7 @@ function isNewer(version: string, installed: string) {
 function releaseNotes(info: UpdateInfo): string {
   const notes = typeof info.releaseNotes === "string" ? info.releaseNotes
     : (info.releaseNotes ?? []).filter((entry) => entry.note).map((entry) => `${entry.version}\n${entry.note}`).join("\n\n");
-  return notes.slice(0, 20_000);
+  return notes.slice(0, MAX_RELEASE_NOTES_LENGTH);
 }
 
 export function createUpdateService(options: UpdateServiceOptions) {
@@ -58,6 +61,17 @@ export function createUpdateService(options: UpdateServiceOptions) {
     last_checked_at: null, percent: null, error: null, unavailable_reason: options.unavailableReason ?? null,
   };
   let updater: Updater | undefined;
+  const reportedErrors = new Set<unknown>();
+  function fail(error: unknown, message: string) {
+    if (!reportedErrors.has(error)) {
+      reportedErrors.add(error);
+      (options.reportError ?? ((reason) => console.error("Application update failed:", reason)))(error);
+    }
+    if (status.state === "failed") return;
+    publish({ state: "failed", percent: null, error: message,
+      ...(status.state === "checking" ? { last_checked_at: (options.now?.() ?? new Date()).toISOString() } : {}),
+    });
+  }
 
   function getStatus(): UpdateStatus {
     return { ...status };
@@ -75,10 +89,8 @@ export function createUpdateService(options: UpdateServiceOptions) {
           publish({ percent: Math.min(100, Math.max(0, percent)) });
         }
       });
-      updater.on("error", () => {
-        publish({ state: "failed", percent: null,
-          error: "The update operation failed. Try again or use the manual download from GitHub Releases.",
-        });
+      updater.on("error", (error) => {
+        fail(error, "The update operation failed. Try again or use the manual download from GitHub Releases.");
       });
     }
     return updater;
@@ -93,6 +105,7 @@ export function createUpdateService(options: UpdateServiceOptions) {
     if (options.unavailableReason) return { ...status };
     if (operationPending) throw new Error("An update operation is already in progress.");
     if (status.state === "downloaded" || status.state === "installing") throw new Error("An update is already downloaded. Install it before checking again.");
+    reportedErrors.clear();
     operationPending = true;
     publish({ state: "checking", available_version: null, release_notes: "", release_url: RELEASES_URL, error: null });
     try {
@@ -108,10 +121,8 @@ export function createUpdateService(options: UpdateServiceOptions) {
       } else {
         publish({ state: "current", last_checked_at });
       }
-    } catch {
-      publish({ state: "failed", error: "Could not check for a stable update. Try again or download Showbiz from GitHub Releases.",
-        last_checked_at: (options.now?.() ?? new Date()).toISOString(),
-      });
+    } catch (error) {
+      fail(error, "Could not check for a stable update. Try again or download Showbiz from GitHub Releases.");
     } finally {
       operationPending = false;
     }
@@ -121,6 +132,7 @@ export function createUpdateService(options: UpdateServiceOptions) {
   async function download() {
     if (operationPending) throw new Error("An update operation is already in progress.");
     if (status.state !== "available") throw new Error("Check for an available update before downloading.");
+    reportedErrors.clear();
     operationPending = true;
     publish({ state: "downloading", percent: 0, error: null });
     try {
@@ -128,8 +140,8 @@ export function createUpdateService(options: UpdateServiceOptions) {
       if (getStatus().state !== "downloading") return getStatus();
       if (files.length === 0) throw new Error("No verified installer");
       publish({ state: "downloaded", percent: 100 });
-    } catch {
-      publish({ state: "failed", percent: null, error: "The update could not be downloaded and verified. Try again or use the manual download." });
+    } catch (error) {
+      fail(error, "The update could not be downloaded and verified. Try again or use the manual download.");
     } finally {
       operationPending = false;
     }
@@ -138,11 +150,12 @@ export function createUpdateService(options: UpdateServiceOptions) {
 
   async function install() {
     if (status.state !== "downloaded") throw new Error("A verified update must be downloaded before installation.");
+    reportedErrors.clear();
     publish({ state: "installing", error: null });
     try {
       getUpdater().quitAndInstall(false, true);
-    } catch {
-      publish({ state: "failed", error: "The update could not be installed. Download it manually from GitHub Releases." });
+    } catch (error) {
+      fail(error, "The update could not be installed. Download it manually from GitHub Releases.");
     }
     return { ...status };
   }
