@@ -92,9 +92,20 @@ Development builds never construct the updater or contact the feed. Linux
 AppImage, Windows x64, and macOS arm64 installations support the update service;
 other installations, including Linux `.deb`, use the manual download route.
 
+## Update controls
+
+Settings has Providers and Updates tabs. Updates shows the installed version,
+last check, target version, release notes, and download progress. Users explicitly
+choose Check for updates, Download update, and Install and relaunch. A header
+indicator appears only when an update is available or ready to install and opens
+the Updates tab. Status changes are announced without moving focus.
+
+Failed or unsupported updates retain a manual download action that opens the
+release page selected by the main process. Provider drafts survive switching tabs.
+
 ## Current limitations
 
-The service does not yet have in-app controls or active-work guards. Builds
+Active-work guards are still required before shipping installation. Builds
 currently disable signing autodiscovery and do not produce production-signed artifacts. macOS automatic updates require a signed
 application; signing, notarization, and installation verification are required
 before offering automatic updates to users.
