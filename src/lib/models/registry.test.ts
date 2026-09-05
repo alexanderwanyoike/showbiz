@@ -66,6 +66,15 @@ describe("video configs", () => {
     expect(provider?.modeCapabilities.imageToVideo?.requiresEndImage).toBe(true);
   });
 
+  it("MiniMax H3 fal exposes optional end frame on a single shared endpoint", () => {
+    const provider = videoProviders.get("minimax-h3-fal" as never);
+    expect(provider?.modeCapabilities.imageToVideo?.supportsStartImage).toBe(true);
+    expect(provider?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
+    expect(provider?.modeCapabilities.imageToVideo?.requiresEndImage).toBeFalsy();
+    expect(provider?.modeCapabilities.imageToVideo?.endpoint).toBe("minimax/h3/image-to-video");
+    expect(provider?.modeCapabilities.textToVideo?.endpoint).toBe("minimax/h3/text-to-video");
+  });
+
   it("Veo 3.1 fal keeps the end frame optional via a start-only base endpoint", () => {
     const provider = videoProviders.get("veo-3.1-fal" as never);
     expect(provider?.modeCapabilities.imageToVideo?.supportsEndImage).toBe(true);
