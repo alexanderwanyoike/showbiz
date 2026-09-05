@@ -49,9 +49,15 @@ it.each([
   ["unavailable", "Automatic updates unavailable"], ["failed", "Update could not be completed"],
 ] as const)("announces %s without downloading, installing, or moving focus", async (state, text) => {
   const { client } = fakeClient({ state, available_version: "1.1.0" });
-  render(createElement(UpdatesPanel, { client }));
-  await waitFor(() => expect(screen.getByRole("status").textContent).toBe(text));
-  expect(document.activeElement).toBe(document.body);
+  const focused = document.createElement("button");
+  focused.textContent = "Keep working";
+  document.body.append(focused);
+  focused.focus();
+  try {
+    render(createElement(UpdatesPanel, { client }));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe(text));
+    expect(document.activeElement).toBe(focused);
+  } finally { focused.remove(); }
   expect(client.download).not.toHaveBeenCalled();
   expect(client.install).not.toHaveBeenCalled();
 });

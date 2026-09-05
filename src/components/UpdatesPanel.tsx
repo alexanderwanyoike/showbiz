@@ -82,7 +82,6 @@ export function UpdatesPanel({ client = updateClient }: { client?: UpdateClient 
           <ExternalLink />{status?.available_version ? "View release / manual download" : "Manual download"}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">Showbiz checks quietly. You choose when to download and install updates.</p>
     </section>
   );
 }
