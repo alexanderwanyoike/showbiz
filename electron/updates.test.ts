@@ -184,3 +184,28 @@ describe("application updates", () => {
     expect(updater.quitAndInstall).toHaveBeenCalledTimes(1);
   });
 });
+
+it("logs the underlying error once while publishing one sanitized failure", async () => {
+  const updater = fakeUpdater();
+  const reportError = vi.fn();
+  const error = new Error("missing latest.yml at internal path");
+  updater.checkForUpdates.mockImplementation(async () => { updater.emit("error", error); throw error; });
+  const service = createUpdateService({ currentVersion: "1.0.2", createUpdater: () => updater, reportError });
+  const changed = vi.fn(); service.subscribe(changed);
+  await service.check();
+  expect(reportError).toHaveBeenCalledExactlyOnceWith(error);
+  expect(changed.mock.calls.filter(([status]) => status.state === "failed")).toHaveLength(1);
+  expect(service.getStatus().error).not.toContain(error.message);
+});
+
+it.each(["download", "install"] as const)("logs %s failures without exposing diagnostics", async (operation) => {
+  const updater = fakeUpdater(); const reportError = vi.fn();
+  const service = createUpdateService({ currentVersion: "1.0.2", createUpdater: () => updater, reportError });
+  await service.check();
+  const error = new Error("internal diagnostic");
+  if (operation === "download") updater.downloadUpdate.mockRejectedValue(error);
+  else { await service.download(); updater.quitAndInstall.mockImplementation(() => { throw error; }); }
+  await service[operation]();
+  expect(reportError).toHaveBeenCalledExactlyOnceWith(error);
+  expect(service.getStatus().error).not.toContain(error.message);
+});
