@@ -16,6 +16,7 @@ import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
 import { initMediaDirs, mediaBaseDir } from "./media-files";
 import { hideDefaultApplicationMenu } from "./app-menu";
+import { createUpdateRuntime } from "./update-runtime";
 
 const isDev = !app.isPackaged;
 const DEV_SERVER_URL = process.env.SHOWBIZ_DEV_SERVER_URL ?? "http://localhost:1420";
@@ -34,7 +35,7 @@ function openShowbizDatabase() {
   return openDatabase(path.join(dataDir, "showbiz.db"), migrations);
 }
 
-function registerIpc() {
+function registerIpc(updates: ReturnType<typeof createUpdateRuntime>) {
   const db = openShowbizDatabase();
   const mediaDir = mediaBaseDir(appDataDir());
   // Save helpers assume the media subdirectories exist, exactly like the Rust
@@ -51,6 +52,7 @@ function registerIpc() {
     ...createImageVersionCommands(db, mediaDir),
     ...createVideoVersionCommands(db, mediaDir),
     ...createExportCommandsForApp(db, mediaDir),
+    ...updates.commands,
   });
   ipcMain.handle("showbiz:invoke", (_event, cmd: string, args?: Record<string, unknown>) =>
     invokeHandler(cmd, args)
@@ -88,8 +90,10 @@ function createWindow() {
 
 app.whenReady().then(() => {
   hideDefaultApplicationMenu(Menu);
-  registerIpc();
+  const updates = createUpdateRuntime();
+  registerIpc(updates);
   createWindow();
+  void updates.start();
 });
 
 app.on("window-all-closed", () => app.quit());
