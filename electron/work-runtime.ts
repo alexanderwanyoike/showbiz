@@ -8,6 +8,52 @@ interface WorkWindow {
   webContents: { id: number; isDestroyed(): boolean; send(channel: string, payload: unknown): void };
   on(event: "close", listener: (event: { preventDefault(): void }) => void): unknown;
 }
+const MUTATING_COMMANDS = new Set([
+  "add_timeline_clip",
+  "clear_shot_end_frame",
+  "copy_image_from_shot",
+  "create_bible",
+  "create_bible_asset",
+  "create_bible_asset_variant",
+  "create_generation_version",
+  "create_project",
+  "create_remix_version",
+  "create_shot",
+  "create_storyboard",
+  "create_timeline_track",
+  "create_video_generation_version",
+  "delete_api_key",
+  "delete_bible",
+  "delete_bible_asset",
+  "delete_bible_asset_variant",
+  "delete_project",
+  "delete_shot",
+  "delete_storyboard",
+  "delete_timeline_track",
+  "delete_version",
+  "ensure_default_tracks",
+  "move_timeline_clip",
+  "remove_all_timeline_clips",
+  "remove_timeline_clip",
+  "reorder_shots",
+  "save_and_complete_video",
+  "save_api_key",
+  "save_shot_end_frame",
+  "save_shot_image",
+  "save_shot_video",
+  "split_timeline_clip",
+  "switch_to_version",
+  "switch_to_video_version",
+  "update_bible",
+  "update_bible_asset",
+  "update_bible_asset_variant_status",
+  "update_project",
+  "update_shot",
+  "update_storyboard",
+  "update_storyboard_models",
+  "update_timeline_clip_trims",
+]);
+
 type Dispatch = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 
 function snapshot(args?: Record<string, unknown>) {
@@ -54,7 +100,10 @@ export function createWorkRuntime(options: {
     },
   });
   work.subscribe((status) => {
-    for (const window of liveWindows()) window.webContents.send("showbiz:application_work", status);
+    for (const window of liveWindows()) {
+      try { window.webContents.send("showbiz:application_work", status); }
+      catch (error) { console.error("Could not send application work status:", error); }
+    }
   });
   function setDrafts(owner: number, args?: Record<string, unknown>) {
     const next = snapshot(args);
@@ -70,13 +119,24 @@ export function createWorkRuntime(options: {
     try {
       return await work.shutdown("quit", options.quit);
     } catch (error) {
-      await options.confirm({ type: "info", title: "Keep Showbiz open", message: error instanceof Error ? error.message : "Showbiz could not close safely. Try again.", buttons: ["Keep working"] });
-      return false;
+      const { response } = await options.confirm({
+        type: "warning", title: "Quit Showbiz anyway?",
+        message: error instanceof Error ? error.message : "Showbiz could not confirm that it is safe to close.",
+        detail: "Quitting now may interrupt exports or generation and discard unsaved edits. An unresponsive window may contain work Showbiz cannot check. This will quit without installing an update.",
+        buttons: ["Keep working", "Quit anyway"], defaultId: 0, cancelId: 0, noLink: true,
+      });
+      if (response !== 1) return false;
+      await work.quitAnyway(options.quit);
+      return true;
     } finally { quitPending = false; }
   }
   return {
     work,
     requestQuit,
+    install: (commit: () => void) => {
+      if (quitPending) return Promise.reject(new Error("A quit request is already in progress."));
+      return work.shutdown("install", commit);
+    },
     beforeQuit(event: { preventDefault(): void }) {
       if (work.getStatus().closing) return;
       event.preventDefault();
@@ -114,17 +174,7 @@ export function createWorkRuntime(options: {
         lease.end(); leases.delete(work_id);
         return;
       }
-      if (command === "install_update") {
-        if (args && Object.keys(args).length) throw new Error("Update commands do not accept arguments.");
-        const status = await dispatch("get_update_status") as { state: string };
-        if (status.state !== "downloaded") throw new Error("A verified update must be downloaded before installation.");
-        await work.shutdown("install", async () => {
-          const result = await dispatch(command) as { state: string };
-          if (result.state !== "installing") work.unlock();
-        });
-        return dispatch("get_update_status");
-      }
-      if (["get_update_status", "check_for_updates", "download_update", "open_update_release"].includes(command)) return dispatch(command, args);
+      if (!MUTATING_COMMANDS.has(command) && command !== "export_timeline_video") return dispatch(command, args);
       const end = work.begin(command === "export_timeline_video" ? "export" : "saving");
       try { return await dispatch(command, args); }
       finally { end(); }

@@ -17,19 +17,21 @@ export function createRendererWork(send: Invoke) {
     status = { active: [...new Set([...active.values(), ...remote.active])], unsaved: [...new Set([...drafts.values(), ...remote.unsaved])], closing: remote.closing, error };
     for (const listener of listeners) listener();
   }
-  function failed() { error = "Work status could not be confirmed. Reopen Showbiz before installing an update."; publish(); }
+  function recovered() { if (error !== null) { error = null; publish(); } }
+  function failed() { error = "Work status could not be confirmed. Wait for Showbiz to respond before installing an update."; publish(); }
   return {
     snapshot,
     getStatus: () => status,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    receive(next: ApplicationWorkStatus) { remote = next; publish(); },
+    receive(next: ApplicationWorkStatus) { remote = next; error = null; publish(); },
     failed,
+    recovered,
     setUnsaved(id: symbol, kind: UnsavedWork | null) {
       if (!kind && !drafts.has(id)) return;
       if (kind) drafts.set(id, kind); else drafts.delete(id);
       revision++;
       publish();
-      void send("set_unsaved_work", snapshot()).catch(failed);
+      void send("set_unsaved_work", snapshot()).then(recovered).catch(failed);
     },
     async run<T>(kind: "generation" | "saving", operation: () => Promise<T>): Promise<T> {
       if (remote.closing) throw new Error("Showbiz is closing. New work cannot start.");
@@ -57,12 +59,13 @@ export function connectApplicationWork() {
   if (!bridge) return () => {};
   const stopStatus = bridge.onApplicationWork((status) => applicationWork.receive(status));
   const stopPrepare = bridge.onPrepareShutdown((request_id) => {
-    void send("report_shutdown_state", { request_id, ...applicationWork.snapshot() }).catch(applicationWork.failed);
+    void send("report_shutdown_state", { request_id, ...applicationWork.snapshot() }).then(applicationWork.recovered).catch(applicationWork.failed);
   });
   let received = false;
   const markReceived = applicationWork.subscribe(() => { received = true; });
   void invoke<ApplicationWorkStatus>("get_application_work").then((status) => {
     if (!received) applicationWork.receive(status);
+    else applicationWork.recovered();
   }).catch(applicationWork.failed);
   return () => { stopStatus(); stopPrepare(); markReceived(); };
 }

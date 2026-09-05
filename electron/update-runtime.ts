@@ -26,9 +26,10 @@ function withoutArguments<T>(handler: () => T) {
   };
 }
 
-export function createUpdateRuntime(environment: Partial<UpdateEnvironment> = {}, onStatus?: (status: { state: string }) => void) {
+export function createUpdateRuntime(environment: Partial<UpdateEnvironment> = {}, onStatus?: (status: { state: string }) => void, installGuard?: (install: () => void) => Promise<unknown>) {
   const service = createUpdateService({
     currentVersion: app.getVersion(),
+    installGuard,
     unavailableReason: updateUnavailableReason({
       isPackaged: app.isPackaged, platform: process.platform, arch: process.arch,
       appImage: process.env.APPIMAGE, ...environment,

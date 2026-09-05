@@ -40,6 +40,13 @@ export function createApplicationWork(options: {
       publish();
     },
     unlock() { closing = false; publish(); },
+    async quitAnyway(commit: () => void | Promise<void>) {
+      if (pending || closing) throw new Error("A close or install request is already in progress.");
+      closing = true;
+      publish();
+      try { await commit(); }
+      catch (error) { closing = false; publish(); throw error; }
+    },
     async shutdown(intent: ShutdownIntent, commit: () => void | Promise<void>) {
       if (pending || closing) throw new Error("A close or install request is already in progress.");
       pending = true;
@@ -47,8 +54,10 @@ export function createApplicationWork(options: {
         await options.prepare();
         assertIdle();
         const confirmedRevision = revision;
-        if ((intent === "install" || unsaved.length > 0) && !await options.confirm(intent, [...unsaved])) return false;
-        await options.prepare();
+        if (intent === "install" || unsaved.length > 0) {
+          if (!await options.confirm(intent, [...unsaved])) return false;
+          await options.prepare();
+        }
         if (revision !== confirmedRevision) throw new Error("Your work changed while confirming. Review it and try again.");
         assertIdle();
         // Hold this lock through the installer's asynchronous staging and quit.

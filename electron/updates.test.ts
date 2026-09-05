@@ -209,3 +209,37 @@ it.each(["download", "install"] as const)("logs %s failures without exposing dia
   expect(reportError).toHaveBeenCalledExactlyOnceWith(error);
   expect(service.getStatus().error).not.toContain(error.message);
 });
+
+it("owns installation eligibility before consulting an injected work guard", async () => {
+  const updater = fakeUpdater(); const installGuard = vi.fn(async (install: () => void) => install());
+  const service = createUpdateService({ currentVersion: "1.0.2", createUpdater: () => updater, installGuard });
+  await expect(service.install()).rejects.toThrow("verified");
+  expect(installGuard).not.toHaveBeenCalled();
+  await service.check(); await service.download(); await service.install();
+  expect(installGuard).toHaveBeenCalledOnce();
+  expect(updater.quitAndInstall).toHaveBeenCalledOnce();
+});
+
+it("preserves the verified download when the work guard cancels or refuses installation", async () => {
+  const updater = fakeUpdater(); const installGuard = vi.fn(async (_install: () => void) => false);
+  const service = createUpdateService({ currentVersion: "1.0.2", createUpdater: () => updater, installGuard });
+  await service.check(); await service.download();
+  expect((await service.install()).state).toBe("downloaded");
+  installGuard.mockRejectedValueOnce(new Error("Finish generation"));
+  await expect(service.install()).rejects.toThrow("Finish generation");
+  expect(service.getStatus().state).toBe("downloaded");
+  expect(updater.quitAndInstall).not.toHaveBeenCalled();
+});
+
+it("rejects concurrent install requests and rechecks eligibility after confirmation", async () => {
+  const updater = fakeUpdater(); const pending = deferred<void>();
+  const service = createUpdateService({ currentVersion: "1.0.2", createUpdater: () => updater,
+    reportError: vi.fn(), installGuard: async (install) => { await pending.promise; install(); } });
+  await service.check(); await service.download();
+  const first = service.install();
+  await expect(service.install()).rejects.toThrow("progress");
+  updater.emit("error", new Error("installer invalidated"));
+  pending.resolve();
+  await expect(first).rejects.toThrow("verified");
+  expect(updater.quitAndInstall).not.toHaveBeenCalled();
+});

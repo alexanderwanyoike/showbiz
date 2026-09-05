@@ -265,7 +265,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setError(null);
     setBusyId(`new-${type}`);
     try {
-      await withApplicationWork("generation", async () => {
+      await withApplicationWork(!file && prompt.trim() ? "generation" : "saving", async () => {
         const asset = await createBibleAsset(bibleId, {
           asset_type: type,
           name: name.trim(),
@@ -580,6 +580,7 @@ function AssetTab({
               size="sm"
               variant="outline"
               className="text-xs"
+              aria-label={`Upload ${label} picture`}
               disabled={creating || !newName.trim()}
               onClick={() =>
                 pickImageFile(async (file) => {

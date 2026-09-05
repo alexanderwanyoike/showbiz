@@ -6,7 +6,11 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { UpdateStatus } from "../../shared/update-status";
 import { UpdatesPanel } from "./UpdatesPanel";
 
-afterEach(cleanup);
+afterEach(async () => {
+  cleanup();
+  const { applicationWork } = await import("../lib/application-work");
+  applicationWork.receive({ active: [], unsaved: [], closing: false });
+});
 
 const initial: UpdateStatus = {
   state: "idle", installed_version: "1.0.2", available_version: null, release_notes: "",

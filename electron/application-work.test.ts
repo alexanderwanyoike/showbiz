@@ -95,8 +95,9 @@ describe("guarded application shutdown", () => {
   });
 
   it("quits without confirmation only when there is no unsaved work", async () => {
-    const { work, confirm, commit } = setup();
+    const { work, confirm, prepare, commit } = setup();
     await work.shutdown("quit", commit);
+    expect(prepare).toHaveBeenCalledOnce();
     expect(confirm).not.toHaveBeenCalled();
     expect(commit).toHaveBeenCalledOnce();
   });

@@ -119,17 +119,26 @@ Cancellation leaves the verified download ready for later without downloading it
 again. Downloads never install automatically on ordinary quit.
 
 The same guard handles normal application quit and window close. It requests a
-fresh renderer snapshot before and after confirmation, rejects work that changed
-in between, and refuses to proceed if the window cannot answer. Once accepted,
-it blocks new commands and displays a modal closing state while the installer
-prepares the relaunch. Installer failures release that lock for manual recovery.
+fresh renderer snapshot, checks again after a confirmation dialog, and rejects
+installation if work changed or the window cannot answer. Normal quit offers an
+explicit Quit anyway choice when active work or an unresponsive window prevents
+a safe close. Keep working is the default; accepting may abandon work and never
+installs an update. A plain safe quit needs only one renderer snapshot.
+
+Once installation is accepted, the guard blocks new mutations and displays a
+modal closing state while the installer prepares the relaunch. Installer failures
+release that lock for manual recovery. Fresh work status or successful draft
+reports clear transient renderer communication errors.
 These guards do not replace saving work or protect against forced process kills,
 OS shutdown, or power loss.
 
 When adding an asynchronous renderer operation, wrap its complete workflow in
 `withApplicationWork`, including result persistence. Editors use `useUnsavedWork`
 to identify unsaved drafts and clear them after save, discard, or unmount. Native
-data commands pass through the main-process guard even without renderer tracking.
+mutations use the explicit command allowlist in `electron/work-runtime.ts`; add
+new persistence commands there. Reads, the HTTP proxy, and save-path selection
+do not report saving work. The updater service owns installation eligibility and
+accepts an injected guard, so the work runtime does not duplicate update commands.
 
 ## Current limitations
 

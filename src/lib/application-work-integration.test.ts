@@ -18,7 +18,11 @@ function setup() {
   });
   const confirm = vi.fn(async () => ({ response: 0 }));
   const runtime = createWorkRuntime({ windows: () => [appWindow], confirm, quit: vi.fn() });
-  const commands = vi.fn(async (_command: string) => ({ state: "downloaded" }));
+  const commit = vi.fn();
+  const commands = vi.fn(async (command: string) => {
+    if (command === "install_update") await runtime.install(commit);
+    return { state: "downloaded" };
+  });
   const subscribe = (channel: string) => (cb: (payload: any) => void) => {
     events.set(channel, cb); return () => { events.delete(channel); };
   };
@@ -29,11 +33,11 @@ function setup() {
     onUpdateStatus: () => () => {}, onExportProgress: () => () => {}, readMediaBytes: async () => new Uint8Array(),
   };
   disconnect = connectApplicationWork();
-  return { runtime, commands, confirm, events };
+  return { runtime, commands, confirm, events, commit };
 }
 
 it("blocks native installation for the entire renderer operation, including polling gaps and saving", async () => {
-  const { runtime, commands, confirm } = setup();
+  const { runtime, commands, confirm, commit } = setup();
   let finish!: () => void;
   const save = vi.fn(async () => {});
   const running = withApplicationWork("generation", async () => {
@@ -49,7 +53,7 @@ it("blocks native installation for the entire renderer operation, including poll
   expect(applicationWork.getStatus().active).toEqual([]);
   await runtime.invoke(1, "install_update", undefined, commands);
   expect(confirm).toHaveBeenCalledOnce();
-  expect(commands.mock.calls.map(([cmd]) => cmd)).not.toContain("install_update");
+  expect(commit).not.toHaveBeenCalled();
 });
 
 it("answers native shutdown requests with fresh drafts and removes bridge subscriptions", async () => {

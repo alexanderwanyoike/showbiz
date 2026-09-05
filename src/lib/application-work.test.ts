@@ -63,3 +63,21 @@ describe("renderer work tracking", () => {
     unsubscribe();
   });
 });
+
+it("recovers from a transient status failure when a fresh status arrives", () => {
+  const { work } = setup();
+  work.failed();
+  expect(work.getStatus().error).toBeTruthy();
+  work.receive({ active: [], unsaved: [], closing: false });
+  expect(work.getStatus().error).toBeNull();
+});
+
+it("clears a transient error after a successful draft report without waiting for another event", async () => {
+  const { work, invoke } = setup();
+  const editor = Symbol();
+  invoke.mockRejectedValueOnce(new Error("IPC interrupted"));
+  work.setUnsaved(editor, "credentials");
+  await vi.waitFor(() => expect(work.getStatus().error).toBeTruthy());
+  work.setUnsaved(editor, "credentials");
+  await vi.waitFor(() => expect(work.getStatus().error).toBeNull());
+});

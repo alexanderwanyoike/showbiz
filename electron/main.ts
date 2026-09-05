@@ -56,7 +56,6 @@ function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: Retu
     ...updates.commands,
   });
   ipcMain.handle("showbiz:invoke", (event, cmd: string, args?: Record<string, unknown>) => {
-    if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame) throw new Error("Unknown application window.");
     return work.invoke(event.sender.id, cmd, args, invokeHandler);
   });
 
@@ -103,7 +102,7 @@ app.whenReady().then(() => {
     quit: () => app.quit(),
   });
   app.on("before-quit", work.beforeQuit);
-  const updates = createUpdateRuntime({}, work.updateChanged);
+  const updates = createUpdateRuntime({}, work.updateChanged, work.install);
   registerIpc(updates, work);
   createWindow(work);
   void updates.start();
