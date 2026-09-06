@@ -243,3 +243,24 @@ it("rejects concurrent install requests and rechecks eligibility after confirmat
   await expect(first).rejects.toThrow("verified");
   expect(updater.quitAndInstall).not.toHaveBeenCalled();
 });
+
+it.each([
+  ["check", /check for a stable update/],
+  ["download", /downloaded and verified/],
+  ["install", /could not be installed/],
+] as const)("keeps the %s recovery message when the updater emits before rejecting", async (operation, message) => {
+  const updater = fakeUpdater(); const reportError = vi.fn();
+  const service = createUpdateService({ currentVersion: "1.0.2", createUpdater: () => updater, reportError });
+  if (operation !== "check") await service.check();
+  if (operation === "install") await service.download();
+  const changed = vi.fn(); service.subscribe(changed);
+  const error = new Error("internal failure detail");
+  const failure = () => { updater.emit("error", error); throw error; };
+  if (operation === "check") updater.checkForUpdates.mockImplementation(async () => failure());
+  else if (operation === "download") updater.downloadUpdate.mockImplementation(async () => failure());
+  else updater.quitAndInstall.mockImplementation(failure);
+  await service[operation]();
+  expect(service.getStatus().error).toMatch(message);
+  expect(changed.mock.calls.filter(([status]) => status.state === "failed")).toHaveLength(1);
+  expect(reportError).toHaveBeenCalledExactlyOnceWith(error);
+});

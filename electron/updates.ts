@@ -30,6 +30,15 @@ interface UpdateServiceOptions {
 const MAX_RELEASE_NOTES_LENGTH = 20_000;
 const RELEASES_URL = "https://github.com/alexanderwanyoike/showbiz/releases";
 
+function failureMessage(state: UpdateStatus["state"]): string {
+  switch (state) {
+    case "checking": return "Could not check for a stable update. Try again or download Showbiz from GitHub Releases.";
+    case "downloading": return "The update could not be downloaded and verified. Try again or use the manual download.";
+    case "installing": return "The update could not be installed. Download it manually from GitHub Releases.";
+    default: return "The update operation failed. Try again or use the manual download from GitHub Releases.";
+  }
+}
+
 function stableVersionParts(version: string): number[] | null {
   if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) return null;
   const parts = version.split(".").map(Number);
@@ -91,7 +100,7 @@ export function createUpdateService(options: UpdateServiceOptions) {
         }
       });
       updater.on("error", (error) => {
-        fail(error, "The update operation failed. Try again or use the manual download from GitHub Releases.");
+        fail(error, failureMessage(status.state));
       });
     }
     return updater;
@@ -123,7 +132,7 @@ export function createUpdateService(options: UpdateServiceOptions) {
         publish({ state: "current", last_checked_at });
       }
     } catch (error) {
-      fail(error, "Could not check for a stable update. Try again or download Showbiz from GitHub Releases.");
+      fail(error, failureMessage("checking"));
     } finally {
       operationPending = false;
     }
@@ -142,7 +151,7 @@ export function createUpdateService(options: UpdateServiceOptions) {
       if (files.length === 0) throw new Error("No verified installer");
       publish({ state: "downloaded", percent: 100 });
     } catch (error) {
-      fail(error, "The update could not be downloaded and verified. Try again or use the manual download.");
+      fail(error, failureMessage("downloading"));
     } finally {
       operationPending = false;
     }
@@ -162,7 +171,7 @@ export function createUpdateService(options: UpdateServiceOptions) {
       assertDownloaded();
       publish({ state: "installing", error: null });
       try { getUpdater().quitAndInstall(false, true); }
-      catch (error) { fail(error, "The update could not be installed. Download it manually from GitHub Releases."); }
+      catch (error) { fail(error, failureMessage("installing")); }
     };
     try {
       if (options.installGuard) await options.installGuard(commit);
