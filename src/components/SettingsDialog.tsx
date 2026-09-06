@@ -1,3 +1,5 @@
+import { useUnsavedWork } from "../hooks/useApplicationWork";
+import { withApplicationWork } from "../lib/application-work";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
@@ -7,6 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UpdatesPanel } from "./UpdatesPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +44,7 @@ import {
 
 interface SettingsDialogProps {
   open: boolean;
+  initialSection?: "providers" | "updates";
   onOpenChange: (open: boolean) => void;
 }
 
@@ -66,7 +71,8 @@ function modelSummary(provider: ProviderSetting): string {
     : visibleNames;
 }
 
-export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
+export function SettingsDialog({ open, onOpenChange, initialSection = "providers" }: SettingsDialogProps) {
+  const [section, setSection] = useState(initialSection);
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -95,8 +101,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   ).length;
 
   useEffect(() => {
-    if (open) void loadApiKeyStatus();
-  }, [open]);
+    if (open) {
+      setSection(initialSection);
+      void loadApiKeyStatus();
+    }
+  }, [open, initialSection]);
 
   useEffect(() => {
     if (expandedProvider) {
@@ -122,6 +131,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
       if (showLoading) setLoading(false);
     }
   }
+
+  useUnsavedWork("credentials", open && Object.values(keyValues).some(Boolean), keyValues);
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
@@ -150,13 +161,15 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
     setSavingProvider(provider);
     try {
-      const result = await saveApiKeyAction(provider, key);
-      if (!result.success) {
-        alert(result.error || "Failed to save API key");
-        return;
-      }
-      updateKey(provider, "");
-      await loadApiKeyStatus(false);
+      await withApplicationWork("saving", async () => {
+        const result = await saveApiKeyAction(provider, key);
+        if (!result.success) {
+          alert(result.error || "Failed to save API key");
+          return;
+        }
+        updateKey(provider, "");
+        await loadApiKeyStatus(false);
+      });
     } catch (error) {
       console.error("Failed to save API key:", error);
       alert("Failed to save API key");
@@ -170,12 +183,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
     setSavingProvider(provider);
     try {
-      const result = await deleteApiKeyAction(provider);
-      if (!result.success) {
-        alert(result.error || "Failed to delete API key");
-        return;
-      }
-      await loadApiKeyStatus(false);
+      await withApplicationWork("saving", async () => {
+        const result = await deleteApiKeyAction(provider);
+        if (!result.success) {
+          alert(result.error || "Failed to delete API key");
+          return;
+        }
+        await loadApiKeyStatus(false);
+      });
     } catch (error) {
       console.error("Failed to delete API key:", error);
       alert("Failed to delete API key");
@@ -256,124 +271,138 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[640px]">
-        <DialogHeader className="px-5 pt-5 pb-4 text-left sm:px-6 sm:pt-6">
-          <DialogTitle>Provider settings</DialogTitle>
-          <DialogDescription>
-            Connect the services Showbiz uses to generate images and video.
-          </DialogDescription>
-        </DialogHeader>
+        <Tabs value={section} onValueChange={(value) => setSection(value as "providers" | "updates")} className="contents">
+          <DialogHeader className="px-5 pt-5 pb-4 text-left sm:px-6 sm:pt-6">
+            <DialogTitle>Settings</DialogTitle>
+            <DialogDescription>
+              Manage your providers and application updates.
+            </DialogDescription>
+            <TabsList aria-label="Settings sections" className="mt-3 w-full">
+              <TabsTrigger value="providers">Providers</TabsTrigger>
+              <TabsTrigger value="updates">Updates</TabsTrigger>
+            </TabsList>
+          </DialogHeader>
 
-        <div
-          role="region"
-          aria-label="API key providers"
-          tabIndex={0}
-          className="min-h-0 overflow-y-auto overscroll-contain px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:px-6"
-        >
-          <div className="sticky top-0 z-10 bg-background pb-3">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="search"
-                aria-label="Search providers or models"
-                placeholder="Search providers or models…"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
+          <TabsContent value="providers" className="min-h-0 overflow-hidden">
 
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : loadError ? (
-            <div className="rounded-lg border border-dashed p-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Provider settings could not be loaded.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-3"
-                onClick={() => void loadApiKeyStatus()}
-              >
-                Try again
-              </Button>
-            </div>
-          ) : visibleProviders.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-              No providers or models match “{searchQuery.trim()}”.
-            </div>
-          ) : (
-            <ul className="overflow-hidden rounded-lg border" aria-label="Providers">
-              {visibleProviders.map((provider) => {
-                const isExpanded = expandedProvider === provider.id;
-                const editorId = `provider-${provider.id}-editor`;
+            <div
+              role="region"
+              aria-label="API key providers"
+              tabIndex={0}
+              className="h-full min-h-0 overflow-y-auto overscroll-contain px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:px-6"
+            >
+              <div className="sticky top-0 z-10 bg-background pb-3">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    aria-label="Search providers or models"
+                    placeholder="Search providers or models…"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
 
-                return (
-                  <li key={provider.id} className="border-b last:border-b-0">
-                    <button
-                      type="button"
-                      aria-label={`Configure ${provider.name}`}
-                      aria-expanded={isExpanded}
-                      aria-controls={editorId}
-                      onClick={() =>
-                        setExpandedProvider(isExpanded ? null : provider.id)
-                      }
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                    >
-                      <span
-                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                          provider.isConfigured
-                            ? "bg-emerald-500"
-                            : "bg-muted-foreground/35"
-                        }`}
-                        aria-hidden="true"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium">
-                            {provider.name}
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : loadError ? (
+                <div className="rounded-lg border border-dashed p-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Provider settings could not be loaded.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => void loadApiKeyStatus()}
+                  >
+                    Try again
+                  </Button>
+                </div>
+              ) : visibleProviders.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  No providers or models match “{searchQuery.trim()}”.
+                </div>
+              ) : (
+                <ul className="overflow-hidden rounded-lg border" aria-label="Providers">
+                  {visibleProviders.map((provider) => {
+                    const isExpanded = expandedProvider === provider.id;
+                    const editorId = `provider-${provider.id}-editor`;
+
+                    return (
+                      <li key={provider.id} className="border-b last:border-b-0">
+                        <button
+                          type="button"
+                          aria-label={`Configure ${provider.name}`}
+                          aria-expanded={isExpanded}
+                          aria-controls={editorId}
+                          onClick={() =>
+                            setExpandedProvider(isExpanded ? null : provider.id)
+                          }
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                        >
+                          <span
+                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                              provider.isConfigured
+                                ? "bg-emerald-500"
+                                : "bg-muted-foreground/35"
+                            }`}
+                            aria-hidden="true"
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-2">
+                              <span className="truncate text-sm font-medium">
+                                {provider.name}
+                              </span>
+                              {provider.isConfigured && (
+                                <Badge variant="secondary" className="shrink-0">
+                                  Connected
+                                </Badge>
+                              )}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                              {modelSummary(provider)}
+                            </span>
                           </span>
-                          {provider.isConfigured && (
-                            <Badge variant="secondary" className="shrink-0">
-                              Connected
-                            </Badge>
-                          )}
-                        </span>
-                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                          {modelSummary(provider)}
-                        </span>
-                      </span>
-                      <ChevronDown
-                        className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
-                          isExpanded ? "rotate-180" : ""
-                        }`}
-                        aria-hidden="true"
-                      />
-                    </button>
-                    {isExpanded && (
-                      <div id={editorId} ref={expandedEditorRef}>
-                        {renderProviderEditor(provider)}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <div className="h-4" />
-        </div>
+                          <ChevronDown
+                            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                              isExpanded ? "rotate-180" : ""
+                            }`}
+                            aria-hidden="true"
+                          />
+                        </button>
+                        {isExpanded && (
+                          <div id={editorId} ref={expandedEditorRef}>
+                            {renderProviderEditor(provider)}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <div className="h-4" />
+            </div>
+          </TabsContent>
+          <TabsContent value="updates" className="min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6">
+            <UpdatesPanel />
+          </TabsContent>
 
-        <DialogFooter className="flex-row items-center justify-between gap-3 border-t bg-background px-5 py-3 sm:px-6">
-          <p className="text-xs text-muted-foreground">
-            {configuredCount} of {providerSettings.length} connected
-          </p>
-          <p className="text-right text-xs text-muted-foreground">
-            Keys are stored in the local Showbiz database.
-          </p>
-        </DialogFooter>
+          <DialogFooter className="flex-row items-center justify-between gap-3 border-t bg-background px-5 py-3 sm:px-6">
+            {section === "providers" ? <>
+            <p className="text-xs text-muted-foreground">
+              {configuredCount} of {providerSettings.length} connected
+            </p>
+            <p className="text-right text-xs text-muted-foreground">
+              Keys are stored in the local Showbiz database.
+            </p>
+            </> : <p className="text-xs text-muted-foreground">Download and install updates when you are ready.</p>}
+          </DialogFooter>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

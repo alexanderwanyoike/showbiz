@@ -1,3 +1,5 @@
+import { useUnsavedWork } from "../hooks/useApplicationWork";
+import { withApplicationWork } from "../lib/application-work";
 import { useEffect, useState } from "react";
 import { Check, ImageIcon, Loader2, Maximize2, RefreshCw, Trash2, Upload, Sparkles, Wand2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -263,22 +265,24 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setError(null);
     setBusyId(`new-${type}`);
     try {
-      const asset = await createBibleAsset(bibleId, {
-        asset_type: type,
-        name: name.trim(),
-        summary: null,
-        description: null,
-        tags_json: null,
-        rules_json: null,
-        consent_confirmed: false,
+      await withApplicationWork(!file && prompt.trim() ? "generation" : "saving", async () => {
+        const asset = await createBibleAsset(bibleId, {
+          asset_type: type,
+          name: name.trim(),
+          summary: null,
+          description: null,
+          tags_json: null,
+          rules_json: null,
+          consent_confirmed: false,
+        });
+        setAssets((prev) => [asset, ...prev]);
+        setVariants((prev) => ({ ...prev, [asset.id]: [] }));
+        if (file) {
+          await addVariant(asset.id, await fileToDataUrl(file), { name: file.name, source: "uploaded" });
+        } else if (prompt.trim()) {
+          await addVariant(asset.id, await imageFromPrompt(prompt), { name: name.trim(), source: "generated", prompt });
+        }
       });
-      setAssets((prev) => [asset, ...prev]);
-      setVariants((prev) => ({ ...prev, [asset.id]: [] }));
-      if (file) {
-        await addVariant(asset.id, await fileToDataUrl(file), { name: file.name, source: "uploaded" });
-      } else if (prompt.trim()) {
-        await addVariant(asset.id, await imageFromPrompt(prompt), { name: name.trim(), source: "generated", prompt });
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -290,7 +294,9 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setError(null);
     setBusyId(asset.id);
     try {
-      await addVariant(asset.id, await fileToDataUrl(file), { name: file.name, source: "uploaded" });
+      await withApplicationWork("saving", async () => {
+        await addVariant(asset.id, await fileToDataUrl(file), { name: file.name, source: "uploaded" });
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -347,28 +353,30 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setError(null);
     setBusyId("make-frame");
     try {
-      const dataUrl = await composeFromVariantIds(recipeVariantIds(recipe, variants), recipe.prompt);
-      const asset = await createBibleAsset(bibleId, {
-        asset_type: "reference",
-        name: recipe.prompt.slice(0, 50) || "Frame",
-        summary: null,
-        description: null,
-        tags_json: null,
-        rules_json: JSON.stringify(recipe),
-        consent_confirmed: false,
+      await withApplicationWork("generation", async () => {
+        const dataUrl = await composeFromVariantIds(recipeVariantIds(recipe, variants), recipe.prompt);
+        const asset = await createBibleAsset(bibleId, {
+          asset_type: "reference",
+          name: recipe.prompt.slice(0, 50) || "Frame",
+          summary: null,
+          description: null,
+          tags_json: null,
+          rules_json: JSON.stringify(recipe),
+          consent_confirmed: false,
+        });
+        setAssets((prev) => [asset, ...prev]);
+        setVariants((prev) => ({ ...prev, [asset.id]: [] }));
+        await createBibleAssetVariant(asset.id, {
+          name: recipe.prompt.slice(0, 40),
+          image_base64: dataUrl,
+          source_kind: "generated",
+          status: "approved",
+          prompt: recipe.prompt,
+          model_id: imageModel,
+          is_primary: true,
+        });
+        await refreshAsset(asset.id);
       });
-      setAssets((prev) => [asset, ...prev]);
-      setVariants((prev) => ({ ...prev, [asset.id]: [] }));
-      await createBibleAssetVariant(asset.id, {
-        name: recipe.prompt.slice(0, 40),
-        image_base64: dataUrl,
-        source_kind: "generated",
-        status: "approved",
-        prompt: recipe.prompt,
-        model_id: imageModel,
-        is_primary: true,
-      });
-      await refreshAsset(asset.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -382,13 +390,15 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setError(null);
     setBusyId(asset.id);
     try {
-      const prompt = (promptOverride ?? assetBasePrompt(asset, variants)).trim();
-      if (!prompt) {
-        setError("Add a prompt first.");
-        return;
-      }
-      const dataUrl = await composeFromVariantIds(assetReferences(asset, variants), prompt);
-      await addPrimaryTake(asset.id, dataUrl, prompt);
+      await withApplicationWork("generation", async () => {
+        const prompt = (promptOverride ?? assetBasePrompt(asset, variants)).trim();
+        if (!prompt) {
+          setError("Add a prompt first.");
+          return;
+        }
+        const dataUrl = await composeFromVariantIds(assetReferences(asset, variants), prompt);
+        await addPrimaryTake(asset.id, dataUrl, prompt);
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -402,13 +412,15 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setError(null);
     setBusyId(asset.id);
     try {
-      const source = await getBibleVariantImageBase64(variant.id);
-      if (!source) {
-        setError("Couldn't read that picture.");
-        return;
-      }
-      const raw = await editImageAction(source, instruction, imageModel);
-      await addPrimaryTake(asset.id, await prepareBibleImageDataUrl(raw), instruction);
+      await withApplicationWork("generation", async () => {
+        const source = await getBibleVariantImageBase64(variant.id);
+        if (!source) {
+          setError("Couldn't read that picture.");
+          return;
+        }
+        const raw = await editImageAction(source, instruction, imageModel);
+        await addPrimaryTake(asset.id, await prepareBibleImageDataUrl(raw), instruction);
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -529,6 +541,7 @@ function AssetTab({
 }) {
   const [newName, setNewName] = useState("");
   const [newPrompt, setNewPrompt] = useState("");
+  useUnsavedWork("draft", !!newName || !!newPrompt, `${newName}\0${newPrompt}`);
   const creating = busyId === `new-${type}`;
 
   return (
@@ -567,6 +580,7 @@ function AssetTab({
               size="sm"
               variant="outline"
               className="text-xs"
+              aria-label={`Upload ${label} picture`}
               disabled={creating || !newName.trim()}
               onClick={() =>
                 pickImageFile(async (file) => {
@@ -645,6 +659,7 @@ function FramesTab({
   const [locationId, setLocationId] = useState<string | null>(null);
   const [locationVariantId, setLocationVariantId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
+  useUnsavedWork("draft", !!prompt, prompt);
   const making = busyId === "make-frame";
 
   function toggleChar(id: string) {
@@ -807,6 +822,9 @@ function AssetCard({
   const [pending, setPending] = useState<"retake" | "variation" | "edit" | null>(null);
   const [variation, setVariation] = useState(basePrompt);
   const [editInstruction, setEditInstruction] = useState("");
+
+  useUnsavedWork("draft", mode === "variation" && variation !== basePrompt, variation);
+  useUnsavedWork("draft", mode === "edit" && !!editInstruction, editInstruction);
 
   // Track which action is running so only that button shows the spinner.
   async function run(action: "retake" | "variation" | "edit", fn: () => Promise<void>) {

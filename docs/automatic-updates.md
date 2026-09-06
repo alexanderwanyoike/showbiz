@@ -74,15 +74,82 @@ Only a **published stable** release is eligible for automatic updates. The
 builder's `releaseType: draft` also preserves draft creation if its publisher is
 used explicitly in the future. It is not a client-side release filter.
 
+## Application update service
+
+Packaged clients check once after the application window is created. Checks do
+not download or install an update. Downloads and installation require separate
+requests, and automatic installation on quit is disabled. Only newer stable
+versions are eligible; prereleases, downgrades, and malformed versions are
+rejected.
+
+The main process owns the updater and its configured GitHub feed. The renderer
+can request status, check, download, install, or open the matching release page;
+these commands accept no feed URLs or other arguments. Update status changes
+travel through the preload bridge. Errors remain non-fatal and include a manual
+recovery route without exposing internal updater diagnostics.
+
+Development builds never construct the updater or contact the feed. Linux
+AppImage, Windows x64, and macOS arm64 installations support the update service;
+other installations, including Linux `.deb`, use the manual download route.
+
+## Update controls
+
+Settings has Providers and Updates tabs. Updates shows the installed version,
+last check, target version, release notes, and download progress. Users explicitly
+choose Check for updates, Download update, and Install and relaunch. A header
+indicator appears only when an update is available or ready to install and opens
+the Updates tab. Status changes are announced without moving focus.
+
+Failed or unsupported updates retain a manual download action that opens the
+release page selected by the main process. Provider drafts survive switching tabs.
+
+## Protecting active work
+
+Install and relaunch stays disabled during video export, generation, or saving.
+The main process tracks the complete native export command. Renderer generation
+operations acquire a main-process work lease before starting and release it only
+after polling and result persistence finish, including failure paths. Cancelling
+a generation's visible result does not release its lease while the underlying
+provider operation is still running.
+
+Settings and other editors report unsaved categories and revision numbers, never
+credential values or draft text. Installation asks for explicit confirmation,
+with Cancel selected by default. Unsaved input adds a Discard and relaunch choice.
+Cancellation leaves the verified download ready for later without downloading it
+again. Downloads never install automatically on ordinary quit.
+
+The same guard handles normal application quit and window close. It requests a
+fresh renderer snapshot, checks again after a confirmation dialog, and rejects
+installation if work changed or the window cannot answer. Normal quit offers an
+explicit Quit anyway choice when active work or an unresponsive window prevents
+a safe close. Keep working is the default; accepting may abandon work and never
+installs an update. A plain safe quit needs only one renderer snapshot.
+
+Once installation is accepted, the guard blocks new mutations and displays a
+modal closing state while the installer prepares the relaunch. Installer failures
+release that lock for manual recovery. Fresh work status or successful draft
+reports clear transient renderer communication errors.
+These guards do not replace saving work or protect against forced process kills,
+OS shutdown, or power loss.
+
+When adding an asynchronous renderer operation, wrap its complete workflow in
+`withApplicationWork`, including result persistence. Editors use `useUnsavedWork`
+to identify unsaved drafts and clear them after save, discard, or unmount. Native
+mutations use the explicit command allowlist in `electron/work-runtime.ts`; add
+new persistence commands there. Reads, the HTTP proxy, and save-path selection
+do not report saving work. The updater service owns installation eligibility and
+accepts an injected guard, so the work runtime does not duplicate update commands.
+
 ## Current limitations
 
-The release pipeline produces installers and update metadata. The application
-has no updater client yet. Builds currently disable signing autodiscovery and do
-not produce production-signed artifacts. macOS automatic updates require a signed
+Builds
+currently disable signing autodiscovery and do not produce production-signed artifacts. macOS automatic updates require a signed
 application; signing, notarization, and installation verification are required
 before offering automatic updates to users.
 
 ## References
+
+- [Electron quit lifecycle and updater event ordering](https://www.electronjs.org/docs/latest/api/app#event-before-quit)
 
 - [Electron updater targets, metadata, and signing requirements](https://www.electron.build/v26/docs/features/auto-update/)
 - [Electron builder publishing configuration](https://www.electron.build/v26/docs/publish/)
