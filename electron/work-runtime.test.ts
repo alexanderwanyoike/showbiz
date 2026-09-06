@@ -144,3 +144,25 @@ it.each(["save_api_key", "update_shot", "copy_image_from_shot", "switch_to_versi
   finish(); await pending;
   expect(runtime.work.getStatus().active).toEqual([]);
 });
+
+it("ignores quit while an install confirmation is pending and permits quit after cancellation", async () => {
+  const { runtime, confirm, commit, quit, window } = setup();
+  let respond!: (response: { response: number }) => void;
+  confirm.mockImplementationOnce(() => new Promise((resolve) => { respond = resolve; }));
+  const installing = runtime.install(commit);
+  await vi.waitFor(() => expect(confirm).toHaveBeenCalledOnce());
+  expect(await runtime.requestQuit()).toBe(false);
+  runtime.attachWindow(window);
+  const preventDefault = vi.fn();
+  runtime.beforeQuit({ preventDefault });
+  window.emit("close", { preventDefault });
+  await Promise.resolve();
+  expect(preventDefault).toHaveBeenCalledTimes(2);
+  expect(confirm).toHaveBeenCalledOnce();
+  expect(quit).not.toHaveBeenCalled();
+  respond({ response: 0 });
+  expect(await installing).toBe(false);
+  expect(commit).not.toHaveBeenCalled();
+  expect(await runtime.requestQuit()).toBe(true);
+  expect(quit).toHaveBeenCalledOnce();
+});

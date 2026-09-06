@@ -19,6 +19,7 @@ export function createApplicationWork(options: {
   }
   return {
     getStatus,
+    isShutdownPending: () => pending || closing,
     changed() { revision++; },
     subscribe(listener: (status: ApplicationWorkStatus) => void) {
       listeners.add(listener);

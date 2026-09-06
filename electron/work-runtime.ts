@@ -114,7 +114,7 @@ export function createWorkRuntime(options: {
     work.setUnsaved([...drafts.values()].flatMap((entry) => entry.unsaved));
   }
   async function requestQuit() {
-    if (quitPending) return false;
+    if (quitPending || work.isShutdownPending()) return false;
     quitPending = true;
     try {
       return await work.shutdown("quit", options.quit);

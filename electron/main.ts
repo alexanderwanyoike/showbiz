@@ -2,15 +2,7 @@ import { app, BrowserWindow, ipcMain, Menu, dialog } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { appDataDir, loadMigrations, openDatabase } from "./db";
-import { createProjectCommands } from "./commands/projects";
-import { createShotCommands } from "./commands/shots";
-import { createHttpCommands } from "./commands/http";
-import { createMediaCommands } from "./commands/media";
-import { createSettingsCommands } from "./commands/settings";
-import { createTimelineCommands } from "./commands/timeline";
-import { createBibleCommands } from "./commands/bibles";
-import { createImageVersionCommands } from "./commands/image-versions";
-import { createVideoVersionCommands } from "./commands/video-versions";
+import { createDataCommands } from "./command-map";
 import { createExportCommandsForApp } from "./export-deps";
 import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
@@ -43,16 +35,7 @@ function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: Retu
   // shell where main.rs calls media::init() at startup.
   initMediaDirs(mediaDir);
   const invokeHandler = createInvokeHandler({
-    ...createProjectCommands(db, mediaDir),
-    ...createShotCommands(db, mediaDir),
-    ...createMediaCommands(mediaDir),
-    ...createSettingsCommands(db),
-    ...createHttpCommands(),
-    ...createTimelineCommands(db),
-    ...createBibleCommands(db, mediaDir),
-    ...createImageVersionCommands(db, mediaDir),
-    ...createVideoVersionCommands(db, mediaDir),
-    ...createExportCommandsForApp(db, mediaDir),
+    ...createDataCommands(db, mediaDir, createExportCommandsForApp(db, mediaDir)),
     ...updates.commands,
   });
   ipcMain.handle("showbiz:invoke", (event, cmd: string, args?: Record<string, unknown>) => {
