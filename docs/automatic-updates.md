@@ -74,11 +74,39 @@ Only a **published stable** release is eligible for automatic updates. The
 builder's `releaseType: draft` also preserves draft creation if its publisher is
 used explicitly in the future. It is not a client-side release filter.
 
+## Application update service
+
+Packaged clients check once after the application window is created. Checks do
+not download or install an update. Downloads and installation require separate
+requests, and automatic installation on quit is disabled. Only newer stable
+versions are eligible; prereleases, downgrades, and malformed versions are
+rejected.
+
+The main process owns the updater and its configured GitHub feed. The renderer
+can request status, check, download, install, or open the matching release page;
+these commands accept no feed URLs or other arguments. Update status changes
+travel through the preload bridge. Errors remain non-fatal and include a manual
+recovery route without exposing internal updater diagnostics.
+
+Development builds never construct the updater or contact the feed. Linux
+AppImage, Windows x64, and macOS arm64 installations support the update service;
+other installations, including Linux `.deb`, use the manual download route.
+
+## Update controls
+
+Settings has Providers and Updates tabs. Updates shows the installed version,
+last check, target version, release notes, and download progress. Users explicitly
+choose Check for updates, Download update, and Install and relaunch. A header
+indicator appears only when an update is available or ready to install and opens
+the Updates tab. Status changes are announced without moving focus.
+
+Failed or unsupported updates retain a manual download action that opens the
+release page selected by the main process. Provider drafts survive switching tabs.
+
 ## Current limitations
 
-The release pipeline produces installers and update metadata. The application
-has no updater client yet. Builds currently disable signing autodiscovery and do
-not produce production-signed artifacts. macOS automatic updates require a signed
+Active-work guards are still required before shipping installation. Builds
+currently disable signing autodiscovery and do not produce production-signed artifacts. macOS automatic updates require a signed
 application; signing, notarization, and installation verification are required
 before offering automatic updates to users.
 
