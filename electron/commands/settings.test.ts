@@ -56,6 +56,29 @@ describe("save_api_key + get_api_key", () => {
     ).toThrow("API key cannot be empty");
   });
 
+  it("rejects an unknown provider", () => {
+    const commands = createSettingsCommands(openTestDb());
+    expect(() =>
+      commands.save_api_key({ provider: "unknown", apiKey: "secret" })
+    ).toThrow('Unknown API key provider: "unknown"');
+  });
+
+  it("rejects an unknown provider when reading", () => {
+    const commands = createSettingsCommands(openTestDb());
+
+    expect(() => commands.get_api_key({ provider: "unknown" })).toThrow(
+      'Unknown API key provider: "unknown"'
+    );
+  });
+
+  it("rejects an unknown provider when deleting", () => {
+    const commands = createSettingsCommands(openTestDb());
+
+    expect(() => commands.delete_api_key({ provider: "unknown" })).toThrow(
+      'Unknown API key provider: "unknown"'
+    );
+  });
+
   it("stores under the {provider}_api_key settings key", () => {
     const db = openTestDb();
     createSettingsCommands(db).save_api_key({ provider: "fal", apiKey: "fal-key" });

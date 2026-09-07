@@ -1,0 +1,169 @@
+# Automatic update delivery
+
+## Release artifact contract
+
+Every supported platform is built in isolation with `yarn build --publish never`.
+The public GitHub provider is explicitly configured as
+`alexanderwanyoike/showbiz`. The builder generates updater metadata locally;
+platform jobs have no release-write permission. Only release PRs from this
+repository's `dev` branch into `main`, and `v*` tag builds, run packaging and
+distribution assembly. Release PRs never create a GitHub Release.
+
+Feature PRs and ordinary `dev`/`main` branch builds run `yarn test` only, including
+the distribution-contract tests, without building or uploading installers. Every
+PR runs tests, including documentation-only changes, so the required `test` check
+can complete. Failed tests prevent packaging through the job dependency.
+
+The current supported architectures match the published installers and website:
+
+| Platform | Required release assets for version `X.Y.Z` |
+| --- | --- |
+| Linux x64 | `Showbiz-X.Y.Z.AppImage`, `showbiz_X.Y.Z_amd64.deb`, `latest-linux.yml` |
+| macOS arm64 | `Showbiz-X.Y.Z-arm64.dmg`, `Showbiz-X.Y.Z-arm64.dmg.blockmap`, `Showbiz-X.Y.Z-arm64-mac.zip`, `Showbiz-X.Y.Z-arm64-mac.zip.blockmap`, `latest-mac.yml` |
+| Windows x64 | `Showbiz.Setup.X.Y.Z.exe`, `Showbiz.Setup.X.Y.Z.exe.blockmap`, `latest.yml` |
+
+AppImage is the initial Linux automatic-update target. Its blockmap is embedded
+in the AppImage, with its size in the metadata and file footer. The `.deb` remains
+a manual installation/recovery option; builder also lists its checksum in Linux
+metadata. macOS needs both the DMG for manual installation and the ZIP for the
+updater. Windows uses NSIS. Do not rename assets after packaging: metadata and the
+website refer to these exact names, including dots in the Windows filename.
+
+Each `latest*.yml` carries the release version, asset-relative URLs, SHA-512
+checksums, and sizes. Relative filenames resolve within the same versioned GitHub
+Release. The validator rejects arbitrary hosts, paths, other versions, missing or
+duplicate metadata entries, missing/empty artifacts, byte/checksum or size
+mismatches, unreadable companion blockmaps, and invalid embedded AppImage maps.
+The SHA-512 values verify build consistency; they do not establish publisher
+identity or replace code signing.
+
+`scripts/prepare-release.mjs` stages only the validated contract files in a new
+directory, excluding builder diagnostics and unpacked applications. An existing
+output directory is rejected to avoid mixing assets from different builds.
+
+```bash
+yarn test:distribution
+yarn build --publish never
+yarn prepare:release --tag v1.0.2 --platform linux-x64 --source dist-package --output release-platform
+```
+
+Use the version in the build's `package.json`. CI sets it from a stable `vX.Y.Z`
+tag before packaging. To validate a merged platform set, omit `--platform` and
+point `--source` at a directory containing all eleven contract files.
+
+## Draft review and stable publication
+
+1. Platform jobs validate and upload separate workflow artifacts.
+2. One assembly job downloads all platforms, verifies the full contract again,
+   and stores the validated `release-set` workflow artifact.
+3. Only a tag run can reach the release job. It requires the tag's commit to be
+   on `main`, then creates one draft GitHub Release with that validated set.
+   Ordinary PR and branch builds never create or modify releases.
+4. The owner reviews the draft before publishing a stable release. Drafts are
+   invisible to public updater clients. Prerelease/build-suffixed tags are rejected
+   by this stable pipeline. Future updater clients must also disable prereleases
+   and downgrades explicitly.
+
+Release creation refuses to overwrite an existing release, including an existing
+draft on a workflow rerun. Inspect a failed run before retrying; never force-push
+an existing tag or replace published update assets. Bump the patch version for a
+released artifact correction. Workflow artifacts expire after one day for the
+platform sets and seven days for the complete set; GitHub Release assets persist.
+
+Only a **published stable** release is eligible for automatic updates. The
+builder's `releaseType: draft` also preserves draft creation if its publisher is
+used explicitly in the future. It is not a client-side release filter.
+
+## Application update service
+
+Supported Linux x64 AppImage clients check once after the application window is created. Checks do
+not download or install an update. Downloads and installation require separate
+requests, and automatic installation on quit is disabled. Only newer stable
+versions are eligible; prereleases, downgrades, and malformed versions are
+rejected.
+
+The main process owns the updater and its configured GitHub feed. The renderer
+can request status, check, download, install, or open the matching release page;
+these commands accept no feed URLs or other arguments. Update status changes
+travel through the preload bridge. Errors remain non-fatal and include a manual
+recovery route without exposing internal updater diagnostics.
+
+Development builds never construct the updater or contact the feed. Only packaged
+Linux x64 AppImage installations enable in-app checks, downloads, and installation.
+Windows, macOS, and Linux `.deb` installations use manual downloads from GitHub
+Releases. On those installations, startup and check requests do not construct the
+updater, and in-app download and install requests are rejected.
+
+The release pipeline still creates the complete platform artifact and metadata
+set. Publishing metadata does not enable automatic installation on a platform.
+
+## Update controls
+
+Settings has Providers and Updates tabs. Updates shows the installed version,
+last check, target version, release notes, and download progress. Users explicitly
+choose Check for updates, Download update, and Install and relaunch. A header
+indicator appears only when an update is available or ready to install and opens
+the Updates tab. Status changes are announced without moving focus.
+
+Failed or unsupported updates retain a manual download action that opens the
+release page selected by the main process. Provider drafts survive switching tabs.
+
+On macOS and Windows, Settings explains that updates are installed manually.
+Use **Manual download** to open GitHub Releases; in-app checks are disabled and
+download/install actions are not offered.
+
+## Protecting active work
+
+Install and relaunch stays disabled during video export, generation, or saving.
+The main process tracks the complete native export command. Renderer generation
+operations acquire a main-process work lease before starting and release it only
+after polling and result persistence finish, including failure paths. Cancelling
+a generation's visible result does not release its lease while the underlying
+provider operation is still running.
+
+Settings and other editors report unsaved categories and revision numbers, never
+credential values or draft text. Installation asks for explicit confirmation,
+with Cancel selected by default. Unsaved input adds a Discard and relaunch choice.
+Cancellation leaves the verified download ready for later without downloading it
+again. Downloads never install automatically on ordinary quit.
+
+The same guard handles normal application quit and window close. It requests a
+fresh renderer snapshot, checks again after a confirmation dialog, and rejects
+installation if work changed or the window cannot answer. Normal quit offers an
+explicit Quit anyway choice when active work or an unresponsive window prevents
+a safe close. Keep working is the default; accepting may abandon work and never
+installs an update. A plain safe quit needs only one renderer snapshot.
+
+Once installation is accepted, the guard blocks new mutations and displays a
+modal closing state while the installer prepares the relaunch. Installer failures
+release that lock for manual recovery. Fresh work status or successful draft
+reports clear transient renderer communication errors.
+These guards do not replace saving work or protect against forced process kills,
+OS shutdown, or power loss.
+
+When adding an asynchronous renderer operation, wrap its complete workflow in
+`withApplicationWork`, including result persistence. Editors use `useUnsavedWork`
+to identify unsaved drafts and clear them after save, discard, or unmount. Native
+mutations use the explicit command allowlist in `electron/work-runtime.ts`; add
+new persistence commands there. Reads, the HTTP proxy, and save-path selection
+do not report saving work. The updater service owns installation eligibility and
+accepts an injected guard, so the work runtime does not duplicate update commands.
+
+## Current limitations
+
+Builds
+currently disable signing autodiscovery and do not produce production-signed artifacts. macOS automatic updates require a signed
+application. macOS and Windows signing and in-app installation are deferred;
+manual releases on those platforms do not wait for signing credentials. Real
+AppImage update/relaunch testing and manual upgrade testing on macOS and Windows
+remain required before publishing.
+
+## References
+
+- [Electron quit lifecycle and updater event ordering](https://www.electronjs.org/docs/latest/api/app#event-before-quit)
+
+- [Electron updater targets, metadata, and signing requirements](https://www.electron.build/v26/docs/features/auto-update/)
+- [Electron builder publishing configuration](https://www.electron.build/v26/docs/publish/)
+- Installed `app-builder-lib/out/publish/PublishManager.js` and
+  `updateInfoBuilder.js` (26.15.3) confirm local metadata generation with
+  `--publish never` when a provider is configured.

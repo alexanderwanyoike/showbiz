@@ -53,3 +53,6 @@ next-env.d.ts
 dist-electron
 .codex/
 dist-package
+/release-platform/
+/release-input/
+/release-set/

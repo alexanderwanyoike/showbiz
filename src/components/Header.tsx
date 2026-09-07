@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Link } from "react-router"
-import { Film, Settings } from "lucide-react"
+import { Download, Film, Settings } from "lucide-react"
+import { useUpdates } from "../hooks/useUpdates"
 import { ModeToggle } from "./mode-toggle"
 import { SettingsDialog } from "./SettingsDialog"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,8 @@ interface HeaderProps {
 
 export function Header({ title, backHref, backLabel, children }: HeaderProps) {
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState<"providers" | "updates">("providers")
+  const { status: updateStatus } = useUpdates()
 
   return (
     <header className="border-b border-border bg-card">
@@ -46,13 +49,23 @@ export function Header({ title, backHref, backLabel, children }: HeaderProps) {
           {children}
         </div>
         <div className="flex items-center gap-2">
+          {(updateStatus?.state === "available" || updateStatus?.state === "downloaded") && (
+            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => {
+              setSettingsSection("updates")
+              setSettingsOpen(true)
+            }}>
+              <Download className="h-3.5 w-3.5" />
+              {updateStatus.state === "downloaded" ? "Update ready" : "Update available"}
+            </Button>
+          )}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setSettingsOpen(true)}
+                  aria-label="Settings"
+                  onClick={() => { setSettingsSection("providers"); setSettingsOpen(true) }}
                 >
                   <Settings className="h-4 w-4" />
                 </Button>
@@ -63,7 +76,7 @@ export function Header({ title, backHref, backLabel, children }: HeaderProps) {
           <ModeToggle />
         </div>
       </div>
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} initialSection={settingsSection} />
     </header>
   )
 }

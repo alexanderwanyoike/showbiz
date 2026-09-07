@@ -1,21 +1,15 @@
-import { app, BrowserWindow, ipcMain, Menu } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, dialog } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { appDataDir, loadMigrations, openDatabase } from "./db";
-import { createProjectCommands } from "./commands/projects";
-import { createShotCommands } from "./commands/shots";
-import { createHttpCommands } from "./commands/http";
-import { createMediaCommands } from "./commands/media";
-import { createSettingsCommands } from "./commands/settings";
-import { createTimelineCommands } from "./commands/timeline";
-import { createBibleCommands } from "./commands/bibles";
-import { createImageVersionCommands } from "./commands/image-versions";
-import { createVideoVersionCommands } from "./commands/video-versions";
+import { createDataCommands } from "./command-map";
 import { createExportCommandsForApp } from "./export-deps";
 import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
 import { initMediaDirs, mediaBaseDir } from "./media-files";
 import { hideDefaultApplicationMenu } from "./app-menu";
+import { createWorkRuntime } from "./work-runtime";
+import { createUpdateRuntime } from "./update-runtime";
 
 const isDev = !app.isPackaged;
 const DEV_SERVER_URL = process.env.SHOWBIZ_DEV_SERVER_URL ?? "http://localhost:1420";
@@ -34,34 +28,26 @@ function openShowbizDatabase() {
   return openDatabase(path.join(dataDir, "showbiz.db"), migrations);
 }
 
-function registerIpc() {
+function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: ReturnType<typeof createWorkRuntime>) {
   const db = openShowbizDatabase();
   const mediaDir = mediaBaseDir(appDataDir());
   // Save helpers assume the media subdirectories exist, exactly like the Rust
   // shell where main.rs calls media::init() at startup.
   initMediaDirs(mediaDir);
   const invokeHandler = createInvokeHandler({
-    ...createProjectCommands(db, mediaDir),
-    ...createShotCommands(db, mediaDir),
-    ...createMediaCommands(mediaDir),
-    ...createSettingsCommands(db),
-    ...createHttpCommands(),
-    ...createTimelineCommands(db),
-    ...createBibleCommands(db, mediaDir),
-    ...createImageVersionCommands(db, mediaDir),
-    ...createVideoVersionCommands(db, mediaDir),
-    ...createExportCommandsForApp(db, mediaDir),
+    ...createDataCommands(db, mediaDir, createExportCommandsForApp(db, mediaDir)),
+    ...updates.commands,
   });
-  ipcMain.handle("showbiz:invoke", (_event, cmd: string, args?: Record<string, unknown>) =>
-    invokeHandler(cmd, args)
-  );
+  ipcMain.handle("showbiz:invoke", (event, cmd: string, args?: Record<string, unknown>) => {
+    return work.invoke(event.sender.id, cmd, args, invokeHandler);
+  });
 
   ipcMain.handle("showbiz:read-media-bytes", (_event, relativePath: string) =>
     fs.promises.readFile(resolveMediaPath(mediaDir, relativePath))
   );
 }
 
-function createWindow() {
+function createWindow(work: ReturnType<typeof createWorkRuntime>) {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -71,6 +57,8 @@ function createWindow() {
       contextIsolation: true,
     },
   });
+
+  work.attachWindow(win);
 
   if (isDev) {
     // Vite may still be starting; retry until it answers.
@@ -88,8 +76,19 @@ function createWindow() {
 
 app.whenReady().then(() => {
   hideDefaultApplicationMenu(Menu);
-  registerIpc();
-  createWindow();
+  const work = createWorkRuntime({
+    windows: () => BrowserWindow.getAllWindows(),
+    confirm: (options) => {
+      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+      return window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options);
+    },
+    quit: () => app.quit(),
+  });
+  app.on("before-quit", work.beforeQuit);
+  const updates = createUpdateRuntime({}, work.updateChanged, work.install);
+  registerIpc(updates, work);
+  createWindow(work);
+  void updates.start();
 });
 
 app.on("window-all-closed", () => app.quit());
