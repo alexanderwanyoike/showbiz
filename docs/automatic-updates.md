@@ -108,6 +108,10 @@ the Updates tab. Status changes are announced without moving focus.
 Failed or unsupported updates retain a manual download action that opens the
 release page selected by the main process. Provider drafts survive switching tabs.
 
+On macOS and Windows, Settings explains that updates are installed manually.
+Use **Manual download** to open GitHub Releases; in-app checks are disabled and
+download/install actions are not offered.
+
 ## Current limitations
 
 Active-work guards are still required before shipping installation. Builds

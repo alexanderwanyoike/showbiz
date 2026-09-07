@@ -33,6 +33,10 @@ Grab the latest release for your platform from [**Releases**](https://github.com
 | macOS | `.dmg` |
 | Windows | `.exe` (installer) |
 
+On macOS and Windows, download and install new versions manually from Releases.
+In-app updates are available for Linux x64 AppImage installations; Linux `.deb`
+updates also use manual downloads.
+
 ## Features
 
 - **Project organization** — create projects, each containing multiple storyboards
