@@ -1,3 +1,5 @@
+import { useUnsavedWork } from "../hooks/useApplicationWork";
+import { withApplicationWork } from "../lib/application-work";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Plus, Loader2, Sparkles, ImageIcon, Video, Save } from "lucide-react";
@@ -260,6 +262,10 @@ export default function StoryboardPage() {
     if (id) loadData();
   }, [id]);
 
+  useUnsavedWork("draft", isModalOpen && !!imagePrompt, imagePrompt);
+  useUnsavedWork("draft", editModalState.isOpen && !!editPrompt, editPrompt);
+  useUnsavedWork("draft", isEditingName && editedName !== storyboard?.name, editedName);
+
   async function loadData() {
     if (!id) return;
     setIsLoading(true);
@@ -509,26 +515,28 @@ export default function StoryboardPage() {
 
     setIsGeneratingImage(true);
     try {
-      const imageDataUrl = await generateImageAction(imagePrompt, imageModel);
+      await withApplicationWork("generation", async () => {
+        const imageDataUrl = await generateImageAction(imagePrompt, imageModel);
 
-      // Get current version to use as parent (if exists)
-      const currentVersion = shotCurrentVersions[activeShotId];
+        // Get current version to use as parent (if exists)
+        const currentVersion = shotCurrentVersions[activeShotId];
 
-      // Create a new version
-      await createGenerationVersion(
-        activeShotId,
-        imagePrompt,
-        imageDataUrl,
-        currentVersion?.id || null
-      );
+        // Create a new version
+        await createGenerationVersion(
+          activeShotId,
+          imagePrompt,
+          imageDataUrl,
+          currentVersion?.id || null
+        );
 
-      // Reload shot data and version data
-      const updatedShots = await getShots(id);
-      setShots(updatedShots.map(shotFromShotWithUrls));
-      await refreshVersionData(activeShotId);
+        // Reload shot data and version data
+        const updatedShots = await getShots(id);
+        setShots(updatedShots.map(shotFromShotWithUrls));
+        await refreshVersionData(activeShotId);
 
-      setIsModalOpen(false);
-      // Reset final video since content changed
+        setIsModalOpen(false);
+        // Reset final video since content changed
+      });
     } catch (error) {
       console.error("Image generation failed", error);
       alert("Failed to generate image");
@@ -673,24 +681,26 @@ export default function StoryboardPage() {
 
     setIsEditingImage(true);
     try {
-      // Get source image as base64
-      const sourceBase64 = await getVersionImageBase64(versionId);
-      if (!sourceBase64) {
-        throw new Error("Failed to load source image");
-      }
+      await withApplicationWork("generation", async () => {
+        // Get source image as base64
+        const sourceBase64 = await getVersionImageBase64(versionId);
+        if (!sourceBase64) {
+          throw new Error("Failed to load source image");
+        }
 
-      // Call edit image action
-      const resultBase64 = await editImageAction(sourceBase64, editPrompt, imageModel);
+        // Call edit image action
+        const resultBase64 = await editImageAction(sourceBase64, editPrompt, imageModel);
 
-      // Create a new remix version
-      await createRemixVersion(shotId, versionId, editPrompt, resultBase64);
+        // Create a new remix version
+        await createRemixVersion(shotId, versionId, editPrompt, resultBase64);
 
-      // Reload data
-      const updatedShots = await getShots(id);
-      setShots(updatedShots.map(shotFromShotWithUrls));
-      await refreshVersionData(shotId);
+        // Reload data
+        const updatedShots = await getShots(id);
+        setShots(updatedShots.map(shotFromShotWithUrls));
+        await refreshVersionData(shotId);
 
-      setEditModalState({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null });
+        setEditModalState({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null });
+      });
     } catch (error) {
       console.error("Image edit failed:", error);
       alert("Failed to edit image");
@@ -728,46 +738,48 @@ export default function StoryboardPage() {
     );
 
     try {
-      const startImage = shot.image_url ? await getShotImageBase64(shotId) : null;
-      const supportsEndFrame = currentVideoModel.modeCapabilities.imageToVideo?.supportsEndImage === true;
-      const endImage =
-        supportsEndFrame && shot.end_frame_url ? await getShotEndFrameBase64(shotId) : null;
-      const mode = chooseVideoGenerationMode(currentVideoModel.modeCapabilities, {
-        hasStartImage: !!startImage,
-      });
-      const request: VideoGenerationRequest = {
-        mode,
-        prompt,
-        settings: videoSettings,
-        startImage,
-        endImage: mode === "image-to-video" ? endImage : null,
-      };
-      validateVideoGenerationRequest(currentVideoModel.modeCapabilities, request);
+      await withApplicationWork("generation", async () => {
+        const startImage = shot.image_url ? await getShotImageBase64(shotId) : null;
+        const supportsEndFrame = currentVideoModel.modeCapabilities.imageToVideo?.supportsEndImage === true;
+        const endImage =
+          supportsEndFrame && shot.end_frame_url ? await getShotEndFrameBase64(shotId) : null;
+        const mode = chooseVideoGenerationMode(currentVideoModel.modeCapabilities, {
+          hasStartImage: !!startImage,
+        });
+        const request: VideoGenerationRequest = {
+          mode,
+          prompt,
+          settings: videoSettings,
+          startImage,
+          endImage: mode === "image-to-video" ? endImage : null,
+        };
+        validateVideoGenerationRequest(currentVideoModel.modeCapabilities, request);
 
-      const result = await generateAndSaveVideoRequestAction(shotId, videoModel, request);
-      if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
+        const result = await generateAndSaveVideoRequestAction(shotId, videoModel, request);
+        if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
 
-      if (result.success && result.videoUrl) {
+        if (result.success && result.videoUrl) {
+          setShots((prev) =>
+            prev.map((s) =>
+              s.id === shotId
+                ? { ...s, status: "complete" as const, video_url: result.videoUrl }
+                : s
+            )
+          );
+          await refreshVersionData(shotId);
+          return;
+        }
+
+        const errorMessage = result.error || "Video generation failed";
+        console.error(`Video generation failed for shot ${shotId}:`, errorMessage);
         setShots((prev) =>
           prev.map((s) =>
             s.id === shotId
-              ? { ...s, status: "complete" as const, video_url: result.videoUrl }
+              ? { ...s, status: "failed" as const, error_message: errorMessage }
               : s
           )
         );
-        await refreshVersionData(shotId);
-        return;
-      }
-
-      const errorMessage = result.error || "Video generation failed";
-      console.error(`Video generation failed for shot ${shotId}:`, errorMessage);
-      setShots((prev) =>
-        prev.map((s) =>
-          s.id === shotId
-            ? { ...s, status: "failed" as const, error_message: errorMessage }
-            : s
-        )
-      );
+      });
     } catch (error) {
       if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -806,17 +818,19 @@ export default function StoryboardPage() {
     setGeneratingPromptShots((prev) => new Set(prev).add(shotId));
 
     try {
-      // Get image as base64
-      const imageBase64 = await getShotImageBase64(shotId);
-      if (!imageBase64) {
-        throw new Error("No image available for this shot");
-      }
+      await withApplicationWork("generation", async () => {
+        // Get image as base64
+        const imageBase64 = await getShotImageBase64(shotId);
+        if (!imageBase64) {
+          throw new Error("No image available for this shot");
+        }
 
-      // Generate prompt from image
-      const generatedPrompt = await generateVideoPromptFromImage(imageBase64);
+        // Generate prompt from image
+        const generatedPrompt = await generateVideoPromptFromImage(imageBase64);
 
-      // Update the shot with the generated prompt
-      await handleUpdateShot(shotId, { video_prompt: generatedPrompt });
+        // Update the shot with the generated prompt
+        await handleUpdateShot(shotId, { video_prompt: generatedPrompt });
+      });
     } catch (error) {
       console.error("Failed to generate video prompt:", error);
       alert(error instanceof Error ? error.message : "Failed to generate prompt");
@@ -832,16 +846,19 @@ export default function StoryboardPage() {
   async function handleEnhanceVideoPrompt(shotId: string) {
     const shot = shots.find((s) => s.id === shotId);
     if (!shot?.video_prompt?.trim()) return;
+    const originalPrompt = shot.video_prompt;
 
     // Add to loading set
     setEnhancingPromptShots((prev) => new Set(prev).add(shotId));
 
     try {
-      // Enhance the existing prompt
-      const enhancedPrompt = await enhanceVideoPrompt(shot.video_prompt);
+      await withApplicationWork("generation", async () => {
+        // Enhance the existing prompt
+        const enhancedPrompt = await enhanceVideoPrompt(originalPrompt);
 
-      // Update the shot with the enhanced prompt
-      await handleUpdateShot(shotId, { video_prompt: enhancedPrompt });
+        // Update the shot with the enhanced prompt
+        await handleUpdateShot(shotId, { video_prompt: enhancedPrompt });
+      });
     } catch (error) {
       console.error("Failed to enhance video prompt:", error);
       alert(error instanceof Error ? error.message : "Failed to enhance prompt");

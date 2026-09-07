@@ -1,3 +1,5 @@
+import { useApplicationWork } from "../hooks/useApplicationWork";
+import { WORK_LABELS } from "../../shared/application-work";
 import { Download, ExternalLink, Loader2, RefreshCw, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { UpdateState } from "../../shared/update-status";
@@ -12,6 +14,8 @@ const STATUS_LABEL: Record<UpdateState, string> = {
 };
 
 export function UpdatesPanel({ client = updateClient }: { client?: UpdateClient }) {
+  const work = useApplicationWork();
+  const installBlocked = work.active.length > 0 || work.closing || !!work.error;
   const { status, error, pending, run } = useUpdates(client);
   const checkingAllowed = status && ["idle", "current", "available", "failed"].includes(status.state);
   const busy = status && ["checking", "downloading", "installing"].includes(status.state);
@@ -62,9 +66,18 @@ export function UpdatesPanel({ client = updateClient }: { client?: UpdateClient 
         </div>
       )}
 
+      {status?.state === "downloaded" && (
+        <div aria-live="polite" className="text-sm text-muted-foreground">
+          {work.error ? <p role="alert">{work.error}</p> : work.active.length > 0 ? (
+            <p>Finish {work.active.map((kind) => WORK_LABELS[kind]).join(", ")} before installing. Your update is ready for later.</p>
+          ) : work.unsaved.length > 0 ? (
+            <p>You have {work.unsaved.map((kind) => WORK_LABELS[kind]).join(" and ")}. You will be asked to discard these edits or cancel before relaunching.</p>
+          ) : <p>You will be asked to confirm before Showbiz closes and relaunches.</p>}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {status?.state === "available" && <Button size="sm" disabled={pending} onClick={() => void run(client.download)}><Download />Download update</Button>}
-        {status?.state === "downloaded" && <Button size="sm" disabled={pending} onClick={() => void run(client.install)}><RotateCw />Install and relaunch</Button>}
+        {status?.state === "downloaded" && <Button size="sm" disabled={pending || installBlocked} onClick={() => void run(client.install)}><RotateCw />Install and relaunch</Button>}
         <Button size="sm" variant="outline" disabled={pending || !!busy} onClick={() => void run(client.openRelease)}>
           <ExternalLink />{status?.available_version ? "View release / manual download" : "Manual download"}
         </Button>

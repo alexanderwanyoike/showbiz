@@ -1,3 +1,4 @@
+import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Plus, Clapperboard, Loader2, Search } from "lucide-react";
@@ -30,6 +31,9 @@ export default function ProjectPage() {
   const [editedName, setEditedName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"storyboards" | "bible">("storyboards");
+
+  useUnsavedWork("draft", showNewStoryboardInput && !!newStoryboardName, newStoryboardName);
+  useUnsavedWork("draft", isEditingName && editedName !== project?.name, editedName);
 
   // Load project and storyboards on mount
   useEffect(() => {

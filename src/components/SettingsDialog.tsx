@@ -1,3 +1,5 @@
+import { useUnsavedWork } from "../hooks/useApplicationWork";
+import { withApplicationWork } from "../lib/application-work";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
@@ -130,6 +132,8 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
     }
   }
 
+  useUnsavedWork("credentials", open && Object.values(keyValues).some(Boolean), keyValues);
+
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
       setExpandedProvider(null);
@@ -157,13 +161,15 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
 
     setSavingProvider(provider);
     try {
-      const result = await saveApiKeyAction(provider, key);
-      if (!result.success) {
-        alert(result.error || "Failed to save API key");
-        return;
-      }
-      updateKey(provider, "");
-      await loadApiKeyStatus(false);
+      await withApplicationWork("saving", async () => {
+        const result = await saveApiKeyAction(provider, key);
+        if (!result.success) {
+          alert(result.error || "Failed to save API key");
+          return;
+        }
+        updateKey(provider, "");
+        await loadApiKeyStatus(false);
+      });
     } catch (error) {
       console.error("Failed to save API key:", error);
       alert("Failed to save API key");
@@ -177,12 +183,14 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
 
     setSavingProvider(provider);
     try {
-      const result = await deleteApiKeyAction(provider);
-      if (!result.success) {
-        alert(result.error || "Failed to delete API key");
-        return;
-      }
-      await loadApiKeyStatus(false);
+      await withApplicationWork("saving", async () => {
+        const result = await deleteApiKeyAction(provider);
+        if (!result.success) {
+          alert(result.error || "Failed to delete API key");
+          return;
+        }
+        await loadApiKeyStatus(false);
+      });
     } catch (error) {
       console.error("Failed to delete API key:", error);
       alert("Failed to delete API key");

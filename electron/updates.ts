@@ -23,6 +23,7 @@ interface UpdateServiceOptions {
   unavailableReason?: string | null;
   now?: () => Date;
   reportError?: (error: unknown) => void;
+  installGuard?: (install: () => void) => Promise<unknown>;
 }
 
 // Bound release-note payloads across IPC and the Settings view.
@@ -157,16 +158,26 @@ export function createUpdateService(options: UpdateServiceOptions) {
     return { ...status };
   }
 
-  async function install() {
+  function assertDownloaded() {
     if (status.state !== "downloaded") throw new Error("A verified update must be downloaded before installation.");
+  }
+
+  async function install() {
+    assertDownloaded();
+    if (operationPending) throw new Error("An update operation is already in progress.");
+    operationPending = true;
     reportedErrors.clear();
-    publish({ state: "installing", error: null });
+    const commit = () => {
+      assertDownloaded();
+      publish({ state: "installing", error: null });
+      try { getUpdater().quitAndInstall(false, true); }
+      catch (error) { fail(error, failureMessage("installing")); }
+    };
     try {
-      getUpdater().quitAndInstall(false, true);
-    } catch (error) {
-      fail(error, failureMessage("installing"));
-    }
-    return { ...status };
+      if (options.installGuard) await options.installGuard(commit);
+      else commit();
+    } finally { operationPending = false; }
+    return getStatus();
   }
 
   return {

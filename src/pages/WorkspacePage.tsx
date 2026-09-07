@@ -1,3 +1,4 @@
+import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Plus, Film, Loader2, Search } from "lucide-react";
@@ -20,6 +21,8 @@ export default function WorkspacePage() {
   const [newProjectName, setNewProjectName] = useState("");
   const [showNewProjectInput, setShowNewProjectInput] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  useUnsavedWork("draft", showNewProjectInput && !!newProjectName, newProjectName);
 
   // Load projects on mount
   useEffect(() => {
