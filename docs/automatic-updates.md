@@ -97,9 +97,24 @@ updater, and in-app download and install requests are rejected.
 The release pipeline still creates the complete platform artifact and metadata
 set. Publishing metadata does not enable automatic installation on a platform.
 
+## Update controls
+
+Settings has Providers and Updates tabs. Updates shows the installed version,
+last check, target version, release notes, and download progress. Users explicitly
+choose Check for updates, Download update, and Install and relaunch. A header
+indicator appears only when an update is available or ready to install and opens
+the Updates tab. Status changes are announced without moving focus.
+
+Failed or unsupported updates retain a manual download action that opens the
+release page selected by the main process. Provider drafts survive switching tabs.
+
+On macOS and Windows, Settings explains that updates are installed manually.
+Use **Manual download** to open GitHub Releases; in-app checks are disabled and
+download/install actions are not offered.
+
 ## Current limitations
 
-The service does not yet have in-app controls or active-work guards. Builds
+Active-work guards are still required before shipping installation. Builds
 currently disable signing autodiscovery and do not produce production-signed artifacts. macOS automatic updates require a signed
 application. macOS and Windows signing and in-app installation are deferred;
 manual releases on those platforms do not wait for signing credentials. Real

@@ -13,6 +13,11 @@ const api = vi.hoisted(() => ({
   deleteApiKeyAction: vi.fn(),
 }));
 const scrollIntoView = vi.fn();
+const updates = vi.hoisted(() => ({
+  getStatus: vi.fn().mockResolvedValue({ state: "current", installed_version: "1.0.2", last_checked_at: null }),
+  subscribe: vi.fn(() => () => {}),
+}));
+vi.mock("../lib/update-client", () => ({ updateClient: updates }));
 const originalScrollIntoView = Element.prototype.scrollIntoView;
 
 beforeEach(() => {
@@ -44,6 +49,26 @@ describe("SettingsDialog", () => {
     is_configured: false,
     source: null,
   }));
+
+  it("switches to Updates with the keyboard and preserves unsaved provider input", async () => {
+    api.getApiKeyStatusAction.mockResolvedValue(emptyStatuses);
+    const user = userEvent.setup();
+    render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
+    await user.click(await screen.findByRole("button", { name: "Configure Google AI (Gemini)" }));
+    await user.type(screen.getByLabelText("Google AI API key"), "draft-key");
+    screen.getByRole("tab", { name: "Providers" }).focus();
+    await user.keyboard("{ArrowRight}");
+    expect(await screen.findByRole("region", { name: "Application updates" })).toBeTruthy();
+    await user.keyboard("{ArrowLeft}");
+    expect(screen.getByLabelText<HTMLInputElement>("Google AI API key").value).toBe("draft-key");
+  });
+
+  it("can open directly on the Updates tab", async () => {
+    api.getApiKeyStatusAction.mockResolvedValue(emptyStatuses);
+    render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn(), initialSection: "updates" }));
+    expect(await screen.findByRole("region", { name: "Application updates" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Updates" }).getAttribute("aria-selected")).toBe("true");
+  });
 
   it("puts provider controls in a named scrollable region", async () => {
     api.getApiKeyStatusAction.mockResolvedValue(emptyStatuses);
