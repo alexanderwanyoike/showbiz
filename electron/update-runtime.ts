@@ -14,8 +14,8 @@ export function updateUnavailableReason(environment: UpdateEnvironment): string 
   if (environment.platform === "linux" && environment.arch === "x64") {
     return environment.appImage ? null : "Use the AppImage for automatic updates, or download the latest installer manually.";
   }
-  if ((environment.platform === "win32" && environment.arch === "x64") ||
-      (environment.platform === "darwin" && environment.arch === "arm64")) return null;
+  if (environment.platform === "win32") return "Showbiz updates on Windows are installed manually. Download the latest installer from GitHub Releases.";
+  if (environment.platform === "darwin") return "Showbiz updates on macOS are installed manually. Download the latest installer from GitHub Releases.";
   return "Automatic updates are unavailable for this installation. Download Showbiz manually.";
 }
 

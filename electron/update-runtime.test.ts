@@ -26,15 +26,32 @@ describe("update runtime", () => {
   });
 
   it.each([
-    ["win32", "x64", undefined, null],
-    ["darwin", "arm64", undefined, null],
+    ["win32", "x64", undefined, /Windows.*manually/],
+    ["darwin", "arm64", undefined, /macOS.*manually/],
     ["linux", "x64", "/opt/Showbiz.AppImage", null],
     ["linux", "x64", undefined, /AppImage/],
-    ["darwin", "x64", undefined, /installation/],
+    ["darwin", "x64", undefined, /macOS.*manually/],
   ] as const)("selects support for %s %s", (platform, arch, appImage, expected) => {
     const reason = updateUnavailableReason({ isPackaged: true, platform, arch, appImage });
     if (expected === null) expect(reason).toBeNull();
     else expect(reason).toMatch(expected);
+  });
+
+  it.each([
+    ["win32", "x64", "Windows"], ["darwin", "arm64", "macOS"],
+  ])("keeps %s updates manual without loading the updater", async (platform, arch, label) => {
+    const runtime = createUpdateRuntime({ isPackaged: true, platform, arch });
+    await runtime.start();
+    const status = await runtime.commands.check_for_updates();
+    expect(status).toMatchObject({ state: "unavailable", available_version: null, last_checked_at: null });
+    expect(status.unavailable_reason).toContain(label);
+    expect(status.unavailable_reason).toMatch(/manually/);
+    await expect(runtime.commands.download_update()).rejects.toThrow();
+    await expect(runtime.commands.install_update()).rejects.toThrow();
+    expect(await runtime.commands.get_update_status()).toEqual(status);
+    expect(native.getUpdater).not.toHaveBeenCalled();
+    await runtime.commands.open_update_release();
+    expect(native.openExternal).toHaveBeenCalledExactlyOnceWith("https://github.com/alexanderwanyoike/showbiz/releases");
   });
 
   it("exposes only fixed update operations and cannot accept a renderer-provided feed", async () => {
@@ -55,7 +72,7 @@ describe("update runtime", () => {
     native.getUpdater.mockReturnValue(updater);
     const send = vi.fn();
     native.getAllWindows.mockReturnValue([{ isDestroyed: () => false, webContents: { isDestroyed: () => false, send } }] as never);
-    const runtime = createUpdateRuntime({ platform: "win32", arch: "x64" });
+    const runtime = createUpdateRuntime({ platform: "linux", arch: "x64", appImage: "/opt/Showbiz.AppImage" });
     await runtime.start();
     expect(send).toHaveBeenLastCalledWith("showbiz:update_status", expect.objectContaining({ state: "available" }));
     expect(updater.checkForUpdates).toHaveBeenCalledTimes(1);

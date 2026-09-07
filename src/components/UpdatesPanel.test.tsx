@@ -93,11 +93,22 @@ it("shows failures with manual recovery and a keyboard-operable retry", async ()
   expect(client.check).toHaveBeenCalledTimes(1);
 });
 
-it("shows unavailable installation guidance and disables network checks", async () => {
-  const { client } = fakeClient({ state: "unavailable", unavailable_reason: "Use the AppImage for updates." });
+it.each([
+  "Use the AppImage for updates.",
+  "Showbiz updates on Windows are installed manually. Download the latest installer from GitHub Releases.",
+  "Showbiz updates on macOS are installed manually. Download the latest installer from GitHub Releases.",
+])("offers manual downloads without in-app update actions: %s", async (reason) => {
+  const { client } = fakeClient({ state: "unavailable", unavailable_reason: reason });
   render(createElement(UpdatesPanel, { client }));
-  expect(await screen.findByText("Use the AppImage for updates.")).toBeTruthy();
+  expect(await screen.findByText(reason)).toBeTruthy();
   expect((screen.getByRole("button", { name: "Check for updates" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryByRole("button", { name: "Download update" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Install and relaunch" })).toBeNull();
+  await userEvent.setup().click(screen.getByRole("button", { name: "Manual download" }));
+  expect(client.openRelease).toHaveBeenCalledOnce();
+  expect(client.check).not.toHaveBeenCalled();
+  expect(client.download).not.toHaveBeenCalled();
+  expect(client.install).not.toHaveBeenCalled();
 });
 
 it("does not replace a newer event with an older initial status response", async () => {
