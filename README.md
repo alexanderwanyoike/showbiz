@@ -44,7 +44,7 @@ updates also use manual downloads.
 - **Shot-based workflow** — each shot has a start frame, an optional end frame, and a prompt; the video model animates between the frames
 - **Image generation & editing** — Nano Banana family, GPT Image 2, Flux; inpainting and prompt-based edits
 - **Image & video version trees** — every generation/edit creates a version; switch non-destructively
-- **Video generation** — Veo 3.1, Seedance 2, Kling 3, LTX-2.3, Wan 2.1 with start/end-frame support where the model has it
+- **Video generation** — Veo 3.1, Seedance 2, Kling 3, LTX-2.3, Wan 2.1, MiniMax H3 with start/end-frame support where the model has it
 - **Timeline editor** — multi-track arrange, trim, split, preview playback
 - **Video export** — native ffmpeg assembles the final movie with progress reporting
 - **Dark/light theme** — system-aware with manual toggle
@@ -68,6 +68,7 @@ updates also use manual downloads.
 | Seedance 2.0 / 2.0 Fast | ByteDance (via fal.ai) | Optional |
 | Kling 3 | Kuaishou (via fal.ai) | No |
 | LTX-2.3 | Lightricks (via fal.ai) | No |
+| MiniMax H3 | MiniMax (via fal.ai) | Optional |
 | Wan 2.1 FLF | Alibaba (via fal.ai) | Required |
 
 ## API Keys
