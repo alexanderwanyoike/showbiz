@@ -74,13 +74,37 @@ Only a **published stable** release is eligible for automatic updates. The
 builder's `releaseType: draft` also preserves draft creation if its publisher is
 used explicitly in the future. It is not a client-side release filter.
 
+## Application update service
+
+Supported Linux x64 AppImage clients check once after the application window is created. Checks do
+not download or install an update. Downloads and installation require separate
+requests, and automatic installation on quit is disabled. Only newer stable
+versions are eligible; prereleases, downgrades, and malformed versions are
+rejected.
+
+The main process owns the updater and its configured GitHub feed. The renderer
+can request status, check, download, install, or open the matching release page;
+these commands accept no feed URLs or other arguments. Update status changes
+travel through the preload bridge. Errors remain non-fatal and include a manual
+recovery route without exposing internal updater diagnostics.
+
+Development builds never construct the updater or contact the feed. Only packaged
+Linux x64 AppImage installations enable in-app checks, downloads, and installation.
+Windows, macOS, and Linux `.deb` installations use manual downloads from GitHub
+Releases. On those installations, startup and check requests do not construct the
+updater, and in-app download and install requests are rejected.
+
+The release pipeline still creates the complete platform artifact and metadata
+set. Publishing metadata does not enable automatic installation on a platform.
+
 ## Current limitations
 
-The release pipeline produces installers and update metadata. The application
-has no updater client yet. Builds currently disable signing autodiscovery and do
-not produce production-signed artifacts. macOS automatic updates require a signed
-application; signing, notarization, and installation verification are required
-before offering automatic updates to users.
+The service does not yet have in-app controls or active-work guards. Builds
+currently disable signing autodiscovery and do not produce production-signed artifacts. macOS automatic updates require a signed
+application. macOS and Windows signing and in-app installation are deferred;
+manual releases on those platforms do not wait for signing credentials. Real
+AppImage update/relaunch testing and manual upgrade testing on macOS and Windows
+remain required before publishing.
 
 ## References
 

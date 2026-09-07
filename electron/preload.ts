@@ -1,8 +1,14 @@
 import { contextBridge, ipcRenderer } from "electron";
+import type { UpdateStatus } from "../shared/update-status";
 
 // The renderer-facing bridge; src/lib/bridge.ts detects this to pick the
 // Electron shell over Tauri. Sandboxed preload: keep it a pure passthrough.
 contextBridge.exposeInMainWorld("showbiz", {
+  onUpdateStatus: (cb: (status: UpdateStatus) => void) => {
+    const listener = (_event: unknown, status: UpdateStatus) => cb(status);
+    ipcRenderer.on("showbiz:update_status", listener);
+    return () => ipcRenderer.removeListener("showbiz:update_status", listener);
+  },
   invoke: (cmd: string, args?: Record<string, unknown>) =>
     ipcRenderer.invoke("showbiz:invoke", cmd, args),
   readMediaBytes: (relativePath: string) =>
