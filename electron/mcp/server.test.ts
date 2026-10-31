@@ -26,7 +26,7 @@ it("requires attachment and reaches the live app through the official SDK withou
     const listing = await client.callTool({ name: "list_sessions", arguments: {} });
     expect(JSON.stringify(listing)).toContain(bridge.session.id);
     expect(JSON.stringify(listing)).not.toContain(bridge.session.secret);
-    expect((await stat(path.join(directory, `${bridge.session.id}.json`))).mode % 0o1000).toBe(0o600);
+    if (process.getuid) expect((await stat(path.join(directory, `${bridge.session.id}.json`))).mode % 0o1000).toBe(0o600);
     expect((await client.callTool({ name: "attach_session", arguments: { instance_id: bridge.session.id } })).isError).toBe(false);
     const created = await client.callTool({ name: "create_project", arguments: { name: "From an agent", expected_revision: 0, request_id: "create" } });
     expect(created.isError).toBe(false);
