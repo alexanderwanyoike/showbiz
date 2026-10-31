@@ -38,11 +38,11 @@ export function createProjectDocuments(options: {
   }
   function activate(file: string, db: DatabaseSync): ProjectDocumentInfo {
     const commands = options.bind(db, projectMediaDirectory(file));
-    const previous = active;
-    active = { file, db, commands };
-    previous?.db.close();
-    const info = current()!;
+    const project = createProjectCommands(db, projectMediaDirectory(file)).get_projects()[0];
+    const info = { file_path: file, project_id: project.id, name: project.name };
     remember(info);
+    active?.db.close();
+    active = { file, db, commands };
     return info;
   }
   return {
@@ -50,9 +50,14 @@ export function createProjectDocuments(options: {
     recent: () => [...recent],
     async create(filePath: string): Promise<DocumentResult<ProjectDocumentInfo>> {
       let db: DatabaseSync | null = null;
+      let createdFile: string | null = null;
+      let createdMedia = false;
       try {
         const file = path.resolve(filePath);
         fs.closeSync(fs.openSync(file, "wx"));
+        createdFile = file;
+        fs.mkdirSync(projectMediaDirectory(file));
+        createdMedia = true;
         db = openDatabase(file, options.migrations);
         db.exec(`PRAGMA application_id = ${APPLICATION_ID}`);
         initMediaDirs(projectMediaDirectory(file));
@@ -60,7 +65,12 @@ export function createProjectDocuments(options: {
         const value = activate(file, db);
         db = null;
         return { ok: true, value };
-      } catch (cause) { db?.close(); return fail(cause); }
+      } catch (cause) {
+        db?.close();
+        if (createdFile) fs.rmSync(createdFile, { force: true });
+        if (createdFile && createdMedia) fs.rmSync(projectMediaDirectory(createdFile), { recursive: true, force: true });
+        return fail(cause);
+      }
     },
     async open(filePath: string): Promise<DocumentResult<ProjectDocumentInfo>> {
       let db: DatabaseSync | null = null;
