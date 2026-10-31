@@ -84,6 +84,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
   const [searchQuery, setSearchQuery] = useState("");
   const [keyValues, setKeyValues] = useState(() => createProviderRecord(""));
   const [visibleKeys, setVisibleKeys] = useState(() => createProviderRecord(false));
+  const [replacingKeys, setReplacingKeys] = useState(() => createProviderRecord(false));
   const expandedEditorRef = useRef<HTMLDivElement>(null);
 
   const providerSettings = useMemo(
@@ -211,7 +212,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
   function renderProviderEditor(provider: ProviderSetting) {
     const isSaving = savingProvider === provider.id;
 
-    if (provider.isConfigured) {
+    if (provider.isConfigured && !replacingKeys[provider.id]) {
       return (
         <div className="space-y-3 border-t bg-muted/25 px-4 py-3">
           <p className="text-xs text-muted-foreground">{provider.helpText}</p>
@@ -220,6 +221,19 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
               <KeyRound className="h-4 w-4 shrink-0" />
               <span className="truncate">Saved on this device</span>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isSaving}
+              aria-label={`Replace ${provider.name} API key`}
+              onClick={() => {
+                setReplacingKeys((current) => ({ ...current, [provider.id]: true }));
+                setVisibleKeys((current) => ({ ...current, [provider.id]: false }));
+              }}
+            >
+              Replace key…
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -238,10 +252,12 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
     return (
       <div className="space-y-3 border-t bg-muted/25 px-4 py-3">
         <p className="text-xs text-muted-foreground">{provider.helpText}</p>
+        {provider.isConfigured && <p className="text-xs text-muted-foreground">Your current key stays in use until you save a replacement.</p>}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative min-w-0 flex-1">
             <Input
               type={visibleKeys[provider.id] ? "text" : "password"}
+              disabled={isSaving}
               aria-label={provider.credentialLabel}
               placeholder={`Enter ${provider.credentialLabel.toLocaleLowerCase()}…`}
               value={keyValues[provider.id]}
@@ -255,6 +271,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
               size="icon"
               className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
               onClick={() => toggleKeyVisibility(provider.id)}
+              disabled={isSaving}
               aria-label={`${visibleKeys[provider.id] ? "Hide" : "Show"} ${provider.credentialLabel}`}
             >
               {visibleKeys[provider.id] ? (
@@ -270,8 +287,13 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
             disabled={!keyValues[provider.id].trim() || isSaving}
           >
             {isSaving ? <Loader2 className="animate-spin" /> : <Check />}
-            Save key
+            {provider.isConfigured ? "Save replacement" : "Save key"}
           </Button>
+          {provider.isConfigured && <Button type="button" variant="ghost" size="sm" disabled={isSaving} aria-label={`Cancel replacing ${provider.name} API key`} onClick={() => {
+            updateKey(provider.id, "");
+            setReplacingKeys((current) => ({ ...current, [provider.id]: false }));
+            setVisibleKeys((current) => ({ ...current, [provider.id]: false }));
+          }}>Cancel</Button>}
         </div>
       </div>
     );
