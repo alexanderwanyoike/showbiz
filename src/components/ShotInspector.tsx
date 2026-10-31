@@ -43,6 +43,7 @@ export interface ShotInspectorProps {
   frameLibraryHref?: string;
   generationCost?: ReactNode;
   generationDisabled?: boolean;
+  generationPending?: boolean;
   videoSettingsSaving?: boolean;
   videoSettingsError?: string | null;
   videoSettingsNotice?: string;
@@ -290,6 +291,7 @@ export default function ShotInspector({
   frameLibraryHref,
   generationCost,
   generationDisabled = false,
+  generationPending = false,
   videoSettingsSaving = false, videoSettingsError, videoSettingsNotice, onRetryVideoSettingsSave, onDiscardVideoSettings,
   shot,
   frameOptions,
@@ -405,6 +407,7 @@ export default function ShotInspector({
           value={shot.video_prompt ?? ""}
           onChange={(e) => onUpdateShot(shot.id, { video_prompt: e.target.value })}
         />
+        <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">Prompt assistance uses Google AI (Gemini), independently of the selected image and video models. Charges are separate from the video estimate.</p>
         <div className="flex gap-2 mt-2">
           <Button
             size="sm"
@@ -563,6 +566,7 @@ export default function ShotInspector({
             </>
           )}
         </Button>
+        {(shot.status === "generating" || generationPending) && <p className="mt-2 text-[11px] text-muted-foreground">Stops waiting locally. Provider work and charges may continue.</p>}
         {shot.status === "generating" && (
           <Button
             size="sm"

@@ -229,6 +229,8 @@ export default function StoryboardPage() {
   const [generatingPromptShots, setGeneratingPromptShots] = useState<Set<string>>(new Set());
   const [enhancingPromptShots, setEnhancingPromptShots] = useState<Set<string>>(new Set());
   const videoGenerationRuns = useRef<GenerationRunMap>({});
+  const inFlightVideoShots = useRef(new Set<string>());
+  const [pendingVideoShots, setPendingVideoShots] = useState<Set<string>>(new Set());
 
   useAgentChanges(loadData);
 
@@ -686,7 +688,7 @@ export default function StoryboardPage() {
 
   async function handleGenerateVideo(shotId: string) {
     const shot = shots.find((s) => s.id === shotId);
-    if (!shot) return;
+    if (!shot || inFlightVideoShots.current.has(shotId)) return;
     const targetModelId = resolveShotModels(shot, defaultModels).video_model as VideoModelId;
     const targetModel = videoModels.find(model => model.id === targetModelId);
     if (!targetModel) { setModelError("Choose an available video model for this shot."); return; }
@@ -705,6 +707,9 @@ export default function StoryboardPage() {
       );
       return;
     }
+
+    inFlightVideoShots.current.add(shotId);
+    setPendingVideoShots((previous)=>new Set(previous).add(shotId));
 
     setShots((prev) =>
       prev.map((s) =>
@@ -768,12 +773,19 @@ export default function StoryboardPage() {
             : s
         )
       );
+    } finally {
+      inFlightVideoShots.current.delete(shotId);
+      setPendingVideoShots((previous)=>{const next=new Set(previous);next.delete(shotId);return next;});
+      if (!isCurrentGenerationRun(videoGenerationRuns.current,shotId,runId)) {
+        try {await refreshVersionData(shotId);}
+        catch (error) {console.warn("Could not refresh the completed shot takes:",error);}
+      }
     }
   }
 
   async function handleCancelVideoGeneration(shotId: string) {
     invalidateGenerationRun(videoGenerationRuns.current, shotId);
-    const errorMessage = "Stopped waiting locally. The provider job may still finish remotely.";
+    const errorMessage = "Stopped waiting locally. The provider may still finish and charge for this request. New takes appear when it finishes.";
     setShots((prev) =>
       prev.map((s) =>
         s.id === shotId
@@ -951,7 +963,8 @@ export default function StoryboardPage() {
             <ShotInspector
               generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={videoCostRequest} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
               frameLibraryHref={`/project/${storyboard.project_id}?view=bible&bibleTab=frames`}
-              generationDisabled={modelSaving || videoSettingsSaving || !!selectedVideoDraft}
+              generationDisabled={modelSaving || videoSettingsSaving || !!selectedVideoDraft || !!(selectedShotId && pendingVideoShots.has(selectedShotId))}
+              generationPending={!!(selectedShotId && pendingVideoShots.has(selectedShotId))}
               videoSettingsSaving={videoSettingsSaving}
               videoSettingsError={selectedVideoDraft?.error ?? null}
               videoSettingsNotice={selectedVideoDraft ? (videoSettingsSaving ? "Saving settings…" : "Not saved") : storedVideoSettings.notice}
