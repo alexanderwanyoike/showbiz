@@ -91,6 +91,7 @@ it("opens usage from the project navigator and distinguishes reported charges fr
   const page = await screen.findByRole("region", { name: "Usage & billing" });
   expect(await within(page).findByText("$1.34")).toBeTruthy();
   expect(within(page).getByText("Reported charges")).toBeTruthy();
+  expect(within(page).getByText(/Local compute estimates use your saved rate/)).toBeTruthy();
   expect(within(page).getByText("1 unknown charge")).toBeTruthy();
   expect(within(page).getByText("interrupted")).toBeTruthy();
   expect(within(page).getByText("Unknown")).toBeTruthy();
