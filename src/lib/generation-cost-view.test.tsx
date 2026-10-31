@@ -14,3 +14,9 @@ it("shows a preflight estimate separately from the last provider-reported charge
   expect((await screen.findByLabelText("Estimated generation cost")).textContent).toContain("~$1.20");
   expect((await screen.findByLabelText("Last generation cost")).textContent).toContain("$1.34 reported");
 });
+it("keeps a newly generated picture's charge visible before a reference retake", async () => {
+  mocks.estimate.mockResolvedValue({kind: "unavailable", reason: "No rate"});
+  mocks.invoke.mockResolvedValue({ok: true, value: {items: [{kind: "image", model_id: "seedream-4.5-openrouter", reported_microusd: 40000, status: "completed"}], total_count: 1}});
+  render(createElement(GenerationCost, {modelId: "seedream-4.5-openrouter", request: {kind: "image_compose"}, subject: {project_id: "film", subject_id: "character"}}));
+  expect((await screen.findByLabelText("Last generation cost")).textContent).toContain("$0.04 reported");
+});
