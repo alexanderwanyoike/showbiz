@@ -411,3 +411,9 @@ describe("uploadImageToFal", () => {
     expect(uploadImageToFal("abc123")).toBe("data:image/png;base64,abc123");
   });
 });
+it("retains a direct inference request ID even when the provider's response fails", async () => {
+  mockFetch.mockResolvedValue(new Response("failed", { status: 500, headers: { "x-fal-request-id": "direct-id" } }) as unknown as Awaited<ReturnType<typeof fetch>>);
+  const receipt = vi.fn();
+  await expect(runFalInference("fal-ai/flux-pro/kontext", { prompt: "edit" }, "key", { receipt })).rejects.toThrow("fal.ai inference failed");
+  expect(receipt).toHaveBeenCalledWith({ provider_request_id: "direct-id", reported_microusd: null });
+});
