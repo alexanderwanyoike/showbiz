@@ -18,15 +18,20 @@ export async function getGenerationEstimate(modelId: string, request: Generation
     }
     let price = stored.value;
     if (price && price.provider !== config.apiKeyProvider) price = null;
-    if (!price && config.apiKeyProvider === "openrouter") {
-      if (request.kind === "video" && "imageToVideo" in config.models) {
-        const slug = config.models.imageToVideo ?? config.models.textToVideo;
-        if (slug) price = await getOpenRouterVideoPrice(modelId, slug);
-      } else if ("generate" in config.models) price = await getOpenRouterImagePrice(modelId, config.models.generate);
-      if (price) {
-        const saved = await invoke<Result<GenerationPrice>>("save_generation_price", { kind: request.kind, price });
+    const needsRefresh = !price || (price.source_kind !== "manual" && (!Number.isFinite(Date.parse(price.checked_at)) || Date.now() - Date.parse(price.checked_at) > 7 * 24 * 60 * 60 * 1000));
+    if (needsRefresh && config.apiKeyProvider === "openrouter") {
+      let fresh: GenerationPrice | null = null;
+      try {
+        if (request.kind === "video" && "imageToVideo" in config.models) {
+          const slug = config.models.imageToVideo ?? config.models.textToVideo;
+          if (slug) fresh = await getOpenRouterVideoPrice(modelId, slug);
+        } else if ("generate" in config.models) fresh = await getOpenRouterImagePrice(modelId, config.models.generate);
+      } catch { fresh = null; }
+      if (fresh) {
+        const saved = await invoke<Result<GenerationPrice>>("save_generation_price", { kind: request.kind, price: fresh });
         if (!saved.ok) return {kind: "unavailable", reason: saved.error.message};
-      }
+        price = fresh;
+      } else if (!price) return {kind: "unavailable", reason: "A live rate is not available for this provider and model."};
     }
     return estimateGenerationCost(price, quantities);
   } catch { return {kind: "unavailable", reason: "Could not load provider pricing. The final charge is unknown until the provider reports it."}; }
