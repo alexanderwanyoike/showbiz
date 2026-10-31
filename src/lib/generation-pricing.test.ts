@@ -37,3 +37,13 @@ it("updates video estimates for duration, resolution and audio, including Auto r
     expect(await getGenerationEstimate("veo-3.1-openrouter", {kind: "video", duration: "auto", resolution: "720p", audio: true})).toMatchObject({kind: "estimate", min_microusd: 1600000, max_microusd: 3200000});
   } finally { db.close(); }
 });
+it("refreshes a stale provider snapshot without reusing its old verification date", async () => {
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createGenerationPricingCommands(db);
+    native.invoke.mockImplementation(async (command, args) => commands[command]?.(args));
+    commands.save_generation_price({kind: "image", price: {provider: "openrouter", model_id: "seedream-4.5-openrouter", currency: "USD", source_url: "https://openrouter.ai", checked_at: "2020-01-01T00:00:00Z", rates: [{unit: "image", microusd: 40000}]}});
+    native.fetch.mockResolvedValue(new Response(JSON.stringify({endpoints: [{pricing: [{billable: "output_image", unit: "image", cost_usd: 0.05}]}]})));
+    expect(await getGenerationEstimate("seedream-4.5-openrouter", {kind: "image"})).toMatchObject({kind: "estimate", min_microusd: 50000, stale: false});
+  } finally { db.close(); }
+});
