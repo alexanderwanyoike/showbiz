@@ -48,14 +48,20 @@ export function ModelPicker<T extends ModelItem>({
             {groups.map((group) => (
               <CommandGroup
                 key={group.family}
-                heading={group.models.length > 1 ? group.displayName : undefined}
+                heading={
+                  group.models.length > 1 ? group.displayName : undefined
+                }
               >
                 {group.models.map((model) => (
                   <CommandItem
                     key={model.id}
                     value={model.id}
                     aria-current={value === model.id ? "true" : undefined}
-                    keywords={[model.name, model.provider ?? "", group.displayName]}
+                    keywords={[
+                      model.name,
+                      model.provider ?? "",
+                      group.displayName,
+                    ]}
                     onSelect={(id) => {
                       if (id !== value) onSelect(id);
                       setOpen(false);
@@ -68,7 +74,10 @@ export function ModelPicker<T extends ModelItem>({
                     />
                     <span className="flex-1 truncate">{model.name}</span>
                     {model.provider && (
-                      <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0">
+                      <Badge
+                        variant="outline"
+                        className="ml-auto text-[10px] px-1.5 py-0"
+                      >
                         {model.provider}
                       </Badge>
                     )}

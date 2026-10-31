@@ -11,15 +11,43 @@ const settingsSchema = z.strictObject({
 });
 export function createStoryboardSettingsCommands(db: DatabaseSync) {
   return {
-    update_storyboard_settings(args?: Record<string, unknown>): Result<Storyboard> {
+    update_storyboard_settings(
+      args?: Record<string, unknown>,
+    ): Result<Storyboard> {
       const parsed = settingsSchema.safeParse(args);
-      if (!parsed.success) return {ok:false,error:{code:"INVALID_INPUT",message:"Enter a storyboard name and choose both default models."}};
+      if (!parsed.success)
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_INPUT",
+            message: "Enter a storyboard name and choose both default models.",
+          },
+        };
       try {
         const value = parsed.data;
-        const updated = db.prepare("UPDATE storyboards SET name = ?, image_model = ?, video_model = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *").get(value.name,value.image_model,value.video_model,value.id);
-        if (!updated) return {ok:false,error:{code:"NOT_FOUND",message:"The storyboard no longer exists."}};
-        return {ok:true,value:updated as unknown as Storyboard};
-      } catch {return {ok:false,error:{code:"IO_ERROR",message:"Could not save storyboard settings. Try again."}};}
+        const updated = db
+          .prepare(
+            "UPDATE storyboards SET name = ?, image_model = ?, video_model = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *",
+          )
+          .get(value.name, value.image_model, value.video_model, value.id);
+        if (!updated)
+          return {
+            ok: false,
+            error: {
+              code: "NOT_FOUND",
+              message: "The storyboard no longer exists.",
+            },
+          };
+        return { ok: true, value: updated as unknown as Storyboard };
+      } catch {
+        return {
+          ok: false,
+          error: {
+            code: "IO_ERROR",
+            message: "Could not save storyboard settings. Try again.",
+          },
+        };
+      }
     },
   };
 }

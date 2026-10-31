@@ -5,7 +5,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ShotList from "../components/ShotList";
 import { thumbnailGenerator } from "./thumbnail-generator";
-afterEach(()=>{cleanup();vi.restoreAllMocks();});
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 it("selects shots with a native button and describes media readiness instead of invented timeline timecodes", async () => {
   const select = vi.fn();
   render(
@@ -32,12 +35,42 @@ it("selects shots with a native button and describes media readiness instead of 
   expect(select).toHaveBeenCalledWith("2");
   expect(screen.getAllByText("Frame ready")).toHaveLength(2);
   expect(screen.queryByText("00:00:08:00")).toBeNull();
-  expect(screen.getByRole("button",{name:"Move shot 2 earlier"})).toHaveProperty("disabled",false);
-  expect(screen.getByRole("button",{name:"Move shot 2 later"})).toHaveProperty("disabled",true);
+  expect(
+    screen.getByRole("button", { name: "Move shot 2 earlier" }),
+  ).toHaveProperty("disabled", false);
+  expect(
+    screen.getByRole("button", { name: "Move shot 2 later" }),
+  ).toHaveProperty("disabled", true);
 });
 
 it("shows a generated poster for a video-only shot", async () => {
-  vi.spyOn(thumbnailGenerator,"extractFrame").mockResolvedValue("/poster.png");
-  render(createElement(ShotList,{shots:[{id:"shot",order:1,image_prompt:null,video_prompt:"Motion",image_url:null,video_url:"/video.mp4",status:"complete"}],selectedShotId:"shot",onSelectShot:vi.fn(),onAddShot:vi.fn(),onMoveShot:vi.fn(),onDeleteShot:vi.fn()}));
-  await waitFor(()=>expect(screen.getByRole("button",{name:"Select shot 1"}).querySelector("img")?.getAttribute("src")).toBe("/poster.png"));
+  vi.spyOn(thumbnailGenerator, "extractFrame").mockResolvedValue("/poster.png");
+  render(
+    createElement(ShotList, {
+      shots: [
+        {
+          id: "shot",
+          order: 1,
+          image_prompt: null,
+          video_prompt: "Motion",
+          image_url: null,
+          video_url: "/video.mp4",
+          status: "complete",
+        },
+      ],
+      selectedShotId: "shot",
+      onSelectShot: vi.fn(),
+      onAddShot: vi.fn(),
+      onMoveShot: vi.fn(),
+      onDeleteShot: vi.fn(),
+    }),
+  );
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("button", { name: "Select shot 1" })
+        .querySelector("img")
+        ?.getAttribute("src"),
+    ).toBe("/poster.png"),
+  );
 });
