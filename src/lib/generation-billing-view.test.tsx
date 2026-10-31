@@ -24,3 +24,8 @@ it("refreshes provider receipts before displaying totals and explains pending ch
   expect(screen.getByText("FAL billing access denied. This cost remains unconfirmed.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Refresh charges" })).toBeTruthy();
 });
+it("shows charge refresh progress and prevents duplicate refresh requests", () => {
+  native.invoke.mockImplementation(() => new Promise(() => {}));
+  render(createElement(MemoryRouter, { initialEntries: ["/usage/film"] }, createElement(Routes, null, createElement(Route, { path: "/usage/:id", element: createElement(UsagePage) }))));
+  expect(screen.getByRole("button", { name: "Checking charges…" }).hasAttribute("disabled")).toBe(true);
+});
