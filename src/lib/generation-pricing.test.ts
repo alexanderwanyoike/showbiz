@@ -47,3 +47,13 @@ it("refreshes a stale provider snapshot without reusing its old verification dat
     expect(await getGenerationEstimate("seedream-4.5-openrouter", {kind: "image"})).toMatchObject({kind: "estimate", min_microusd: 50000, stale: false});
   } finally { db.close(); }
 });
+it("shares a provider rate lookup across simultaneous generation controls", async () => {
+ const db=openTestDb();try{
+ const commands:Record<string,(args?:Record<string,unknown>)=>unknown>=createGenerationPricingCommands(db);
+ native.invoke.mockImplementation(async(command,args)=>commands[command]?.(args));
+ native.fetch.mockClear();native.fetch.mockImplementation(async()=>new Response(JSON.stringify({endpoints:[{pricing:[{billable:"output_image",unit:"image",cost_usd:0.04}]}]})));
+ const results=await Promise.all([getGenerationEstimate("seedream-4.5-openrouter",{kind:"image"}),getGenerationEstimate("seedream-4.5-openrouter",{kind:"image"})]);
+ expect(results.every(result=>result.kind==="estimate")).toBe(true);
+ expect(native.fetch).toHaveBeenCalledTimes(1);
+ }finally{db.close();}
+});
