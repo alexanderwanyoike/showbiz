@@ -209,3 +209,19 @@ it("opens a real keyboard reference from Help and returns focus on Escape", asyn
   ).toBeNull();
   expect(document.activeElement).toBe(help);
 });
+
+it("does not advertise an unregistered Windows Quit accelerator", async () => {
+  Object.defineProperty(window, "showbiz", {
+    configurable: true,
+    value: {
+      desktop: { platform: "win32", customTitlebar: true, titleBarHeight: 48 },
+      runMenuCommand: nativeCommand,
+    },
+  });
+  start();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("menuitem", { name: "File" }));
+  expect(
+    screen.getByRole("menuitem", { name: "Quit Showbiz" }).textContent,
+  ).toBe("Quit Showbiz");
+});
