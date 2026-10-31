@@ -4,7 +4,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ProjectBibleView from "../components/ProjectBibleView";
-import { updateBibleAssetVariantStatus } from "./backend-api";
+import { deleteBibleAssetVariant, updateBibleAssetVariantStatus } from "./backend-api";
 import { applicationWork } from "./application-work";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: () => null }));
 vi.mock("./backend-api", async (original) => ({
@@ -17,6 +17,7 @@ vi.mock("./backend-api", async (original) => ({
   ],
   getBibleVariantImageBase64: async () => "data:image/png;base64,aW1hZ2U=",
   updateBibleAssetVariantStatus: vi.fn(async () => undefined),
+  deleteBibleAssetVariant: vi.fn(async () => false),
 }));
 vi.mock("../actions/generation-actions", async (original) => ({
   ...(await original<typeof import("../actions/generation-actions")>()),
@@ -76,4 +77,19 @@ it("tracks a selected frame reference as draft work and clears it explicitly", a
   await user.click(screen.getByRole("button", { name: "Clear frame draft" }));
   expect(character.getAttribute("aria-pressed")).toBe("false");
   expect(applicationWork.getStatus().unsaved).not.toContain("draft");
+});
+
+it("confirms a picture deletion and keeps an unsuccessful deletion available to retry", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Delete take 2 for Ada" }));
+  const dialog = await screen.findByRole("alertdialog", { name: "Delete picture" });
+  expect(deleteBibleAssetVariant).not.toHaveBeenCalled();
+  await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(deleteBibleAssetVariant).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Delete take 2 for Ada" }));
+  const reopened = await screen.findByRole("alertdialog", { name: "Delete picture" });
+  await user.click(within(reopened).getByRole("button", { name: "Delete picture" }));
+  expect(await within(reopened).findByRole("alert")).toBeTruthy();
+  expect(screen.getByRole("alertdialog", { name: "Delete picture" })).toBeTruthy();
 });
