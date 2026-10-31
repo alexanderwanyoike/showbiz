@@ -62,7 +62,7 @@ vi.mock("./generation-pricing", () => ({
 }));
 it("shows an image estimate before creating a bible picture", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
-  await screen.findByRole("button", { name: "Edit…" });
+  await screen.findByRole("button", { name: "Picture actions for Morning" });
   expect(
     (await screen.findAllByLabelText("Estimated generation cost"))[0]
       .textContent,
@@ -71,7 +71,7 @@ it("shows an image estimate before creating a bible picture", async () => {
 
 it("retains the frame draft and its usage identity when generation fails", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
-  await screen.findByRole("button", { name: "Edit…" });
+  await screen.findByRole("button", { name: "Picture actions for Morning" });
   const user = userEvent.setup();
   await user.click(screen.getByRole("tab", { name: /^frames$/i }));
   await user.type(

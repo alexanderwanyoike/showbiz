@@ -222,33 +222,62 @@
 .bible-entry-info > :first-child > span {
   font-size: 12px;
 }
-.bible-entry-info .flex.flex-wrap.gap-1\.5 > .relative > button {
+.bible-picture-actions .flex.flex-wrap.gap-1\.5 > .relative > button {
   width: 64px;
   height: 44px;
 }
-.bible-entry-actions {
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
+.bible-picture-actions[data-slot="popover-content"] {
+  width: min(340px, calc(100vw - 24px));
+  max-height: min(560px, calc(100vh - 80px));
+  overflow-y: auto;
+  padding: 12px;
+  scrollbar-width: thin;
 }
-.bible-entry-actions > summary {
-  cursor: pointer;
-  font-size: 11px;
-  color: var(--muted-foreground);
-  padding: 2px 0;
+.bible-more-action {
+  position: relative;
+  height: 26px;
+  width: 26px;
 }
-.bible-entry-actions[open] > summary {
-  color: var(--foreground);
+.bible-draft-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.bible-picture-actions-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.bible-picture-actions-heading h3 {
+  font-size: 12px;
+  font-weight: 600;
+}
+.bible-picture-actions-heading button {
+  width: 24px;
+  height: 24px;
+}
+.bible-picture-actions > .flex,
+.bible-picture-actions > div:has(> .flex) {
+  margin-block: 10px;
+}
+.bible-picture-actions .bible-delete-entry {
+  margin-top: 12px;
+  color: var(--destructive);
+}
+.bible-picture-actions > .bible-cost {
   margin-bottom: 8px;
 }
-.bible-entry-actions > .bible-cost {
-  margin-bottom: 8px;
-}
-.bible-entry-actions button {
+.bible-picture-actions button {
   height: 28px;
   font-size: 10px;
   padding-inline: 8px;
 }
-.bible-entry-actions textarea {
+.bible-picture-actions textarea {
   flex-basis: 100%;
 }
 .bible-reference-heading {

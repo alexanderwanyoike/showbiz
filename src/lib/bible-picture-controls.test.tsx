@@ -52,6 +52,14 @@ vi.mock("../actions/generation-actions", async (original) => ({
     throw new Error("Provider unavailable");
   }),
 }));
+vi.stubGlobal(
+  "ResizeObserver",
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+);
 afterEach(cleanup);
 it("opens a named picture dialog, returns keyboard focus on Escape, and exposes which take is selected", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
@@ -67,6 +75,9 @@ it("opens a named picture dialog, returns keyboard focus on Escape, and exposes 
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog", { name: "Picture preview" })).toBeNull();
   expect(document.activeElement).toBe(preview);
+  await user.click(
+    screen.getByRole("button", { name: "Picture actions for Ada" }),
+  );
   expect(
     screen
       .getByRole("button", { name: "Use take 1 for Ada" })
@@ -89,7 +100,9 @@ it("opens a named picture dialog, returns keyboard focus on Escape, and exposes 
 it("keeps an edit instruction open after a failed generation so it can be corrected or retried", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.click(await screen.findByText("Picture actions"));
+  await user.click(
+    await screen.findByRole("button", { name: "Picture actions for Ada" }),
+  );
   await user.click(screen.getByRole("button", { name: "Edit…" }));
   const field = screen.getByPlaceholderText(
     "Edit the current picture (e.g. make it night, add rain)...",
@@ -109,7 +122,9 @@ it("keeps an edit instruction open after a failed generation so it can be correc
 it("keeps an adjusted retake prompt after generation fails", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.click(await screen.findByText("Picture actions"));
+  await user.click(
+    await screen.findByRole("button", { name: "Picture actions for Ada" }),
+  );
   await user.click(screen.getByRole("button", { name: "Variation…" }));
   const field = screen.getByPlaceholderText(
     "Tweak the prompt for a variation...",
@@ -148,6 +163,9 @@ it("confirms a picture deletion and keeps an unsuccessful deletion available to 
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
   await user.click(
+    await screen.findByRole("button", { name: "Picture actions for Ada" }),
+  );
+  await user.click(
     await screen.findByRole("button", { name: "Delete take 2 for Ada" }),
   );
   const dialog = await screen.findByRole("alertdialog", {
@@ -173,7 +191,9 @@ it("confirms a picture deletion and keeps an unsuccessful deletion available to 
 it("keeps separate edit and variation drafts visible and lets each be cancelled", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.click(await screen.findByText("Picture actions"));
+  await user.click(
+    await screen.findByRole("button", { name: "Picture actions for Ada" }),
+  );
   await user.click(screen.getByRole("button", { name: "Edit…" }));
   await user.type(
     screen.getByRole("textbox", { name: "Edit instruction for Ada" }),
@@ -230,4 +250,57 @@ it("keeps frame references fixed while their generation request is running", asy
   await screen.findByText("Provider unavailable");
   expect(character.hasAttribute("disabled")).toBe(false);
   expect(character.getAttribute("aria-pressed")).toBe("true");
+});
+
+it("opens picture commands from More, keeps edit drafts across Escape and returns focus", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  const more = await screen.findByRole("button", {
+    name: "Picture actions for Ada",
+  });
+  expect(screen.queryByRole("button", { name: "Retake" })).toBeNull();
+  await user.click(more);
+  const commands = await screen.findByRole("dialog", {
+    name: "Picture actions for Ada",
+  });
+  expect(within(commands).getByRole("button", { name: "Retake" })).toBeTruthy();
+  await user.click(within(commands).getByRole("button", { name: "Edit…" }));
+  await user.type(
+    within(commands).getByRole("textbox", { name: "Edit instruction for Ada" }),
+    "Warm light",
+  );
+  await user.keyboard("{Escape}");
+  expect(
+    screen.queryByRole("dialog", { name: "Picture actions for Ada" }),
+  ).toBeNull();
+  expect(document.activeElement).toBe(more);
+  await user.click(more);
+  expect(
+    (
+      screen.getByRole("textbox", {
+        name: "Edit instruction for Ada",
+      }) as HTMLTextAreaElement
+    ).value,
+  ).toBe("Warm light");
+});
+
+it("returns to the picture command when a take preview closes without changing its selection", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Picture actions for Ada" }),
+  );
+  const preview = screen.getByRole("button", { name: "View take 2 for Ada" });
+  await user.click(preview);
+  await screen.findByRole("dialog", { name: "Picture preview" });
+  await user.keyboard("{Escape}");
+  expect(
+    screen.getByRole("dialog", { name: "Picture actions for Ada" }),
+  ).toBeTruthy();
+  expect(document.activeElement).toBe(preview);
+  expect(
+    screen
+      .getByRole("button", { name: "Use take 1 for Ada" })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
 });
