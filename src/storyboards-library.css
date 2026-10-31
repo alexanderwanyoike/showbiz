@@ -194,3 +194,6 @@
     width: clamp(120px, 20vw, 200px);
   }
 }
+.storyboards-create-dialog[data-slot="dialog-content"] {
+  max-width: 420px;
+}
