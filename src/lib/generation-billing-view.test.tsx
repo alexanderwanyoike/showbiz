@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import UsagePage from "../pages/UsagePage";
 const native = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -92,11 +92,13 @@ it("refreshes provider receipts before displaying totals and explains pending ch
   );
   expect(await screen.findByText("$0.023 reported")).toBeTruthy();
   expect(screen.getByText("Charge unconfirmed")).toBeTruthy();
-  expect(
-    screen.getByText(
-      "FAL billing access denied. This cost remains unconfirmed.",
-    ),
-  ).toBeTruthy();
+  const pendingRow = screen.getByText("Charge unconfirmed").closest("tr");
+  expect(pendingRow).not.toBeNull();
+  fireEvent.click(within(pendingRow!).getByRole("button", { name: "View request details" }));
+  expect(within(await screen.findByRole("dialog", { name: "Request details" })).getByText(
+    "FAL billing access denied. This cost remains unconfirmed.",
+  )).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   expect(screen.getByRole("button", { name: "Refresh charges" })).toBeTruthy();
 });
 it("shows charge refresh progress and prevents duplicate refresh requests", () => {
