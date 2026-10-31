@@ -938,10 +938,11 @@ function AssetCard({
   const [mode, setMode] = useState<"variation" | "edit" | null>(null);
   const [pending, setPending] = useState<"retake" | "variation" | "edit" | null>(null);
   const [variation, setVariation] = useState(basePrompt);
+  const [variationEdited, setVariationEdited] = useState(false);
   const [editInstruction, setEditInstruction] = useState("");
 
-  useUnsavedWork("draft", mode === "variation" && variation !== basePrompt, variation);
-  useUnsavedWork("draft", mode === "edit" && !!editInstruction, editInstruction);
+  useUnsavedWork("draft", variationEdited, variation);
+  useUnsavedWork("draft", !!editInstruction, editInstruction);
 
   // Track which action is running so only that button shows the spinner.
   async function run(action: "retake" | "variation" | "edit", fn: () => Promise<unknown>) {
@@ -1002,23 +1003,29 @@ function AssetCard({
               size="sm"
               variant={mode === "variation" ? "default" : "outline"}
               className="text-xs"
-              disabled={busy || (!!primary && !imageCapabilities.composition)}
+              disabled={busy || (!!primary && !imageCapabilities.composition && !variationEdited && mode !== "variation")}
+              aria-label="Variation…"
+              aria-expanded={mode === "variation"}
+              aria-controls={`variation-${asset.id}`}
               title={!imageCapabilities.composition && primary ? "Choose a model that accepts reference images." : undefined}
-              onClick={() => setMode((m) => (m === "variation" ? null : "variation"))}
+              onClick={() => { if (!variationEdited) setVariation(basePrompt); setMode((m) => (m === "variation" ? null : "variation")); }}
             >
               <Sparkles className="h-3 w-3 mr-1" />
-              Variation…
+              Variation…{variationEdited && <span className="text-[10px] text-muted-foreground">Draft</span>}
             </Button>
             <Button
               size="sm"
               variant={mode === "edit" ? "default" : "outline"}
               className="text-xs"
-              disabled={busy || !primary || !imageCapabilities.editing}
+              disabled={busy || !primary || (!imageCapabilities.editing && !editInstruction && mode !== "edit")}
+              aria-label="Edit…"
+              aria-expanded={mode === "edit"}
+              aria-controls={`edit-${asset.id}`}
               title={!imageCapabilities.editing ? "Choose a model that supports image editing." : undefined}
               onClick={() => setMode((m) => (m === "edit" ? null : "edit"))}
             >
               <Wand2 className="h-3 w-3 mr-1" />
-              Edit…
+              Edit…{editInstruction && <span className="text-[10px] text-muted-foreground">Draft</span>}
             </Button>
             {onUpload && (
               <Button
@@ -1035,7 +1042,7 @@ function AssetCard({
           </div>
 
           {mode === "variation" && (
-            <div className="flex items-end gap-2">
+            <div id={`variation-${asset.id}`} className="flex flex-wrap items-end gap-2">
               <Textarea
                 autoFocus
                 className="min-h-[40px] flex-1 text-xs resize-none"
@@ -1043,7 +1050,7 @@ function AssetCard({
                 aria-label={`Variation prompt for ${asset.name}`}
                 placeholder="Tweak the prompt for a variation..."
                 value={variation}
-                onChange={(e) => setVariation(e.target.value)}
+                onChange={(e) => { setVariation(e.target.value); setVariationEdited(e.target.value !== basePrompt); }}
               />
               <Button
                 size="sm"
@@ -1051,17 +1058,18 @@ function AssetCard({
                 disabled={busy || !variation.trim() || (!!primary && !imageCapabilities.composition)}
                 onClick={() => run("variation", async () => {
                   const result = await onRetake(asset, variation);
-                  if (result.ok) setMode(null);
+                  if (result.ok) { setVariationEdited(false); setMode(null); }
                 })}
               >
                 {pending === "variation" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
                 Generate variation
               </Button>
+              <Button type="button" variant="ghost" size="sm" disabled={busy} aria-label={`Cancel variation for ${asset.name}`} onClick={() => { setVariation(basePrompt); setVariationEdited(false); setMode(null); }}>Cancel</Button>
             </div>
           )}
 
           {mode === "edit" && primary && (
-            <div className="flex items-end gap-2">
+            <div id={`edit-${asset.id}`} className="flex flex-wrap items-end gap-2">
               <Textarea
                 autoFocus
                 className="min-h-[40px] flex-1 text-xs resize-none"
@@ -1083,6 +1091,7 @@ function AssetCard({
                 {pending === "edit" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
                 Generate edit
               </Button>
+              <Button type="button" variant="ghost" size="sm" disabled={busy} aria-label={`Cancel edit for ${asset.name}`} onClick={() => { setEditInstruction(""); setMode(null); }}>Cancel</Button>
             </div>
           )}
         </div>
