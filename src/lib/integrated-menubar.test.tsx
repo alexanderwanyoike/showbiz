@@ -65,3 +65,16 @@ it("reports native command failures and lets the user dismiss and retry", async 
   expect(screen.queryByRole("alert")).toBeNull();
 });
 it("uses platform-correct document shortcut labels", () => { expect(menuShortcut("N", true)).toBe("⌘N"); expect(menuShortcut("Shift+S", true)).toBe("⇧⌘S"); expect(menuShortcut("Shift+W", false)).toBe("Ctrl+Shift+W"); });
+
+it("opens a real keyboard reference from Help and returns focus on Escape", async () => {
+  start(); const user = userEvent.setup();
+  const help = await screen.findByRole("menuitem", { name: "Help" });
+  await user.click(help);
+  await user.click(screen.getByRole("menuitem", { name: "Keyboard Shortcuts…" }));
+  const reference = await screen.findByRole("dialog", { name: "Keyboard shortcuts" });
+  expect(within(reference).getByText("New project")).toBeTruthy();
+  expect(within(reference).getByText("Focus application menu")).toBeTruthy();
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+  expect(document.activeElement).toBe(help);
+});
