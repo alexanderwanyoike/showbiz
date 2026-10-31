@@ -56,6 +56,7 @@ function useDocumentController() {
         setError(result.error.message);
         return;
       }
+      if (result.value.warning) setError(result.value.warning);
       accept(result.value);
     } catch (cause) {
       setError(String(cause));
