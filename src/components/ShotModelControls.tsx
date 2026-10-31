@@ -43,6 +43,8 @@ export function ShotModelControls({
         : (groups[kind]
             .flatMap((group) => group.models)
             .find((model) => model.id === value)?.name ?? value);
+    const selectedModel = groups[kind].flatMap(group => group.models).find(model => model.id === (value === inherit ? defaults[kind] : value));
+    const provider = selectedModel?.provider;
     const options = isDefault
       ? groups[kind]
       : [
@@ -79,15 +81,15 @@ export function ShotModelControls({
               variant="outline"
               size="sm"
               disabled={disabled}
-              className="w-full min-w-0 justify-between gap-2"
-              title={name}
+              className="w-full min-w-0 h-auto min-h-9 justify-between gap-2 py-1.5"
+              title={provider ? `${name} · ${provider}` : name}
               aria-label={
                 isDefault
                   ? `Storyboard ${label.toLowerCase()} default`
                   : `${label} model for shot ${shot?.order}`
               }
             >
-              <span className="truncate">{name}</span>
+              <span className="min-w-0 text-left"><span className="block truncate">{name}</span>{provider && <span className="block truncate text-[10px] font-normal text-muted-foreground">{provider}</span>}</span>
               <ChevronDown className="h-3 w-3 shrink-0" />
             </Button>
           }

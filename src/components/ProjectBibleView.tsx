@@ -453,13 +453,13 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
           ))}
         </div>
         <Select value={imageModel} onValueChange={(v) => setImageModel(v as ImageModelId)}>
-          <SelectTrigger className="h-8 w-44 text-xs">
+          <SelectTrigger className="h-8 w-60 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {imageModels.map((m) => (
               <SelectItem key={m.id} value={m.id} className="text-xs">
-                {m.name}
+                {m.name}{m.provider ? ` · ${m.provider}` : ""}
               </SelectItem>
             ))}
           </SelectContent>
