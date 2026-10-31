@@ -79,11 +79,23 @@ export function ModelPricingDialog({
           <DialogTitle>Model pricing</DialogTitle>
           <DialogDescription>
             {modelName} · {provider}. A custom rate applies to this model on
-            this device across all projects. It changes future estimates,
-            including the selected resolution and audio settings. Past records
-            stay unchanged.
+            this device across all projects. It changes future estimates, for
+            the selected generation type and, for video, resolution and audio
+            settings. Past records stay unchanged.
           </DialogDescription>
         </DialogHeader>
+        <p className="text-sm font-medium">
+          {request.kind === "video"
+            ? "Video"
+            : request.kind === "image_edit"
+              ? "Image edit"
+              : request.kind === "image_compose"
+                ? "Image composition"
+                : "Image generation"}
+          {request.kind === "video"
+            ? ` · ${request.resolution ?? "Any resolution"} · Audio ${request.audio === undefined ? "not priced separately" : request.audio ? "on" : "off"}`
+            : ""}
+        </p>
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}
