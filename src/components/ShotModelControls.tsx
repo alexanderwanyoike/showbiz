@@ -56,7 +56,7 @@ export function ShotModelControls({
           ...groups[kind],
         ];
     return (
-      <div className="space-y-1" key={kind}>
+      <div className="space-y-1 min-w-0" key={kind}>
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           <span>{label} model</span>
           {!isDefault && (
@@ -79,7 +79,8 @@ export function ShotModelControls({
               variant="outline"
               size="sm"
               disabled={disabled}
-              className="w-full justify-between gap-2"
+              className="w-full min-w-0 justify-between gap-2"
+              title={name}
               aria-label={
                 isDefault
                   ? `Storyboard ${label.toLowerCase()} default`
@@ -118,7 +119,7 @@ export function ShotModelControls({
       )}
       {shot ? (
         <>
-          <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
             {picker("image_model", false)}
             {picker("video_model", false)}
           </div>

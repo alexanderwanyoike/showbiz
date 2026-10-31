@@ -97,7 +97,6 @@ it("generates with the selected shot override and leaves another shot on the sto
   await screen.findByText("Opening");
   const openControls = screen.queryByRole("button", {
     name: "Shot controls",
-    exact: true,
   });
   if (openControls) await user.click(openControls);
   const controls = await screen.findByRole("region", {
@@ -115,8 +114,7 @@ it("generates with the selected shot override and leaves another shot on the sto
   await user.click(
     screen.getByRole("button", {
       name: "Generate video for shot 1",
-      exact: true,
-    }),
+      }),
   );
   await waitFor(() =>
     expect(generateAndSaveVideoRequestAction).toHaveBeenCalledWith(
@@ -128,15 +126,14 @@ it("generates with the selected shot override and leaves another shot on the sto
   const shotTwo = screen.queryByLabelText("Select shot 2");
   if (shotTwo) await user.click(shotTwo);
   else
-    await user.click(screen.getByRole("img", { name: "Shot 2", exact: true }));
+    await user.click(screen.getByRole("img", { name: "Shot 2" }));
   expect(
     await screen.findByRole("button", { name: "Video model for shot 2" }),
   ).toHaveProperty("textContent", expect.stringContaining("Seedance 2.0"));
   await user.click(
     screen.getByRole("button", {
       name: "Generate video for shot 2",
-      exact: true,
-    }),
+      }),
   );
   await waitFor(() =>
     expect(generateAndSaveVideoRequestAction).toHaveBeenLastCalledWith(
@@ -173,7 +170,6 @@ it("waits for a model save before allowing generation and preserves the prior ch
   await screen.findByText("Opening");
   const openControls = screen.queryByRole("button", {
     name: "Shot controls",
-    exact: true,
   });
   if (openControls) await user.click(openControls);
   const controls = await screen.findByRole("region", {
