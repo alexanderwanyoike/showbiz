@@ -11,6 +11,9 @@ const identifier = (value: unknown): value is string => typeof value === "string
 const kinds = new Set(["image", "image_edit", "image_compose", "video"]);
 
 export function createGenerationUsageCommands(db: DatabaseSync) {
+  if (db.prepare("SELECT name FROM sqlite_master WHERE name = 'generation_usage'").get()) {
+    db.prepare("UPDATE generation_usage SET status = 'interrupted', finished_at = ? WHERE status = 'running'").run(new Date().toISOString());
+  }
   function execute<T>(action: () => Result<T>): Result<T> {
     try { return action(); }
     catch (cause) { return { ok: false, error: { code: "IO_ERROR", message: cause instanceof Error ? cause.message : "Could not update generation usage." } }; }
