@@ -102,8 +102,8 @@ export default function UsagePage() {
             <p className="usage-explanation">
               USD. Reported charges are the amounts returned by the provider.
               Unconfirmed estimates are separate and may differ from your
-              invoice. Unknown charges are not counted as free. Local hardware
-              and electricity costs are not included.
+              invoice. Unknown charges are not counted as free. Local compute estimates use your saved rate; hardware and
+              electricity costs are otherwise unknown.
             </p>
             {data.items.length ? (
               <div className="usage-table-scroll">
