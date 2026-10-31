@@ -16,7 +16,11 @@ export function Header({
 }: {
   caption?: string;
   children?: ReactNode;
-  menu?: (actions: { openSettings: (section: MenuSettingsSection) => void; reportError: (message: string) => void; openShortcuts: () => void }) => ReactNode;
+  menu?: (actions: {
+    openSettings: (section: MenuSettingsSection) => void;
+    reportError: (message: string) => void;
+    openShortcuts: () => void;
+  }) => ReactNode;
 }) {
   const settingsOrigin = useRef<HTMLElement | null>(null);
   const chrome = useRef<HTMLElement>(null);
@@ -29,18 +33,35 @@ export function Header({
   >("providers");
   const { status: updateStatus } = useUpdates();
   function openSettings(section: MenuSettingsSection) {
-    settingsOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    settingsOrigin.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     setSettingsSection(section);
     setSettingsOpen(true);
   }
-  useEffect(() => { if (!settingsOpen && settingsOrigin.current?.isConnected) settingsOrigin.current.focus(); }, [settingsOpen]);
+  useEffect(() => {
+    if (!settingsOpen && settingsOrigin.current?.isConnected)
+      settingsOrigin.current.focus();
+  }, [settingsOpen]);
   return (
-    <header ref={chrome} className="desktop-chrome integrated-titlebar" data-native-titlebar={window.showbiz?.desktop?.customTitlebar ? "true" : "false"} data-desktop-platform={window.showbiz?.desktop?.platform}>
+    <header
+      ref={chrome}
+      className="desktop-chrome integrated-titlebar"
+      data-native-titlebar={
+        window.showbiz?.desktop?.customTitlebar ? "true" : "false"
+      }
+      data-desktop-platform={window.showbiz?.desktop?.platform}
+    >
       <div className="desktop-wordmark" aria-label="Showbiz">
         <Clapperboard size={20} />
         <span>Showbiz</span>
       </div>
-      {menu?.({ openSettings, reportError: setMenuError, openShortcuts: () => setShortcutsOpen(true) })}
+      {menu?.({
+        openSettings,
+        reportError: setMenuError,
+        openShortcuts: () => setShortcutsOpen(true),
+      })}
       {children}
       <span className="desktop-chrome-caption">{caption}</span>
       <div className="desktop-chrome-actions">
@@ -52,9 +73,11 @@ export function Header({
             onClick={() => openSettings("updates")}
           >
             <Download size={13} />
-            <span className="desktop-update-label">{updateStatus.state === "downloaded"
-              ? "Update ready"
-              : "Update available"}</span>
+            <span className="desktop-update-label">
+              {updateStatus.state === "downloaded"
+                ? "Update ready"
+                : "Update available"}
+            </span>
           </Button>
         )}
         <WorkspaceCommand
@@ -70,8 +93,30 @@ export function Header({
           <Settings size={17} />
         </WorkspaceCommand>
       </div>
-      {(menuError || titlebar.error) && <div role="alert" className="app-menu-error"><span>{menuError ?? titlebar.error}</span>{!menuError && <Button variant="ghost" size="sm" onClick={titlebar.retry}>Retry</Button>}<Button variant="ghost" size="sm" onClick={() => { setMenuError(null); titlebar.dismiss(); }}>Dismiss</Button></div>}
-      <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      {(menuError || titlebar.error) && (
+        <div role="alert" className="app-menu-error">
+          <span>{menuError ?? titlebar.error}</span>
+          {!menuError && (
+            <Button variant="ghost" size="sm" onClick={titlebar.retry}>
+              Retry
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setMenuError(null);
+              titlebar.dismiss();
+            }}
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+      <KeyboardShortcutsDialog
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+      />
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
