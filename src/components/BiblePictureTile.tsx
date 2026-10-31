@@ -1,9 +1,11 @@
+import { useId } from "react";
 import { Check, ImageIcon, Maximize2, Trash2 } from "lucide-react";
 
 export function BiblePictureTile({
   url,
   label,
   actionLabel,
+  hint,
   active,
   disabled = false,
   size = "sm",
@@ -14,6 +16,7 @@ export function BiblePictureTile({
   url: string | null;
   label?: string;
   actionLabel?: string;
+  hint?: string;
   active?: boolean;
   disabled?: boolean;
   size?: "sm" | "lg";
@@ -21,6 +24,7 @@ export function BiblePictureTile({
   onDelete?: () => void;
   onExpand?: () => void;
 }) {
+  const hintId = useId();
   const dims = size === "lg" ? "h-44 w-72" : "h-20 w-28";
   return (
     <div className="relative">
@@ -29,6 +33,7 @@ export function BiblePictureTile({
         onClick={onClick ?? onExpand}
         disabled={disabled || (!onClick && !url)}
         aria-label={actionLabel ?? label}
+        aria-describedby={hint ? hintId : undefined}
         aria-pressed={active}
         title={actionLabel ?? label}
         className={`relative block ${dims} overflow-hidden rounded border bg-muted text-[10px] transition-colors ${active ? "border-primary ring-2 ring-primary" : "border-border hover:border-foreground/40"}`}
@@ -55,6 +60,7 @@ export function BiblePictureTile({
           </span>
         )}
       </button>
+      {hint && <p id={hintId} className="mt-1 max-w-28 text-[10px] text-muted-foreground">{hint}</p>}
       {onExpand && onClick && url && (
         <button
           type="button"
