@@ -708,7 +708,7 @@ function FramesTab({
   const [locationId, setLocationId] = useState<string | null>(null);
   const [locationVariantId, setLocationVariantId] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
-  useUnsavedWork("draft", !!prompt, prompt);
+  useUnsavedWork("draft", !!prompt || selectedChars.size > 0 || !!locationId, JSON.stringify({ prompt, characters: [...selectedChars], locationId, locationVariantId }));
   const making = busyId === "make-frame";
 
   function toggleChar(id: string) {
@@ -739,7 +739,7 @@ function FramesTab({
       locationVariantId,
       prompt,
     });
-    if (result.ok) setPrompt("");
+    if (result.ok) { setPrompt(""); setSelectedChars(new Set()); setLocationId(null); setLocationVariantId(null); }
   }
 
   return (
