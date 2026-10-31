@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AppMark } from "./AppMark";
-import { Download, Palette, Settings } from "lucide-react";
+import { Download, Settings } from "lucide-react";
 import { useUpdates } from "../hooks/useUpdates";
 import { SettingsDialog } from "./SettingsDialog";
 import { WorkspaceCommand } from "./WorkspaceCommand";
@@ -81,12 +81,6 @@ export function Header({
             </span>
           </Button>
         )}
-        <WorkspaceCommand
-          label="Appearance"
-          onClick={() => openSettings("appearance")}
-        >
-          <Palette size={17} />
-        </WorkspaceCommand>
         <WorkspaceCommand
           label="Settings"
           onClick={() => openSettings("providers")}
