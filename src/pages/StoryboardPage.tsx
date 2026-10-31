@@ -231,6 +231,7 @@ export default function StoryboardPage() {
   const [editPrompt, setEditPrompt] = useState("");
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [imageEditError, setImageEditError] = useState<string | null>(null);
+  const imageEditOpener = useRef<HTMLElement | null>(null);
 
   // Prompt Generation State - track per shot
   const [generatingPromptShots, setGeneratingPromptShots] = useState<Set<string>>(new Set());
@@ -644,6 +645,7 @@ export default function StoryboardPage() {
   async function handleOpenEditModal(shotId: string, versionId: string) {
     const version = shotCurrentVersions[shotId];
     if (!version) return;
+    imageEditOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     setEditModalState({
       isOpen: true,
@@ -1089,7 +1091,12 @@ export default function StoryboardPage() {
           }
         }}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" onCloseAutoFocus={(event) => {
+          if (imageEditOpener.current?.isConnected) {
+            event.preventDefault();
+            imageEditOpener.current.focus();
+          }
+        }}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
