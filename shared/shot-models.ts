@@ -4,4 +4,7 @@ export interface ShotModelOverrides {
 }
 export type ShotModelsResult =
   | { ok: true; value: ShotModelOverrides }
-  | { ok: false; error: { code: "INVALID_INPUT" | "NOT_FOUND"; message: string } };
+  | {
+      ok: false;
+      error: { code: "INVALID_INPUT" | "NOT_FOUND"; message: string };
+    };
