@@ -16,9 +16,9 @@ it("reuses the app icon's inline monochrome symbol without external resource req
   expect(mark?.getAttribute("height")).toBe("20");
   expect(mark?.getAttribute("aria-hidden")).toBe("true");
   expect(mark?.getAttribute("focusable")).toBe("false");
-  expect(mark?.querySelector(":scope > use")?.getAttribute("href")).toBe("#showbiz-mark");
+  expect(mark?.lastElementChild?.getAttribute("href")).toBe("#showbiz-mark");
   expect(mark?.querySelector("defs symbol#showbiz-mark")?.getAttribute("viewBox")).toBe("0 0 64 64");
   expect(mark?.querySelector("defs #video-frame")).toBeTruthy();
   expect(mark?.querySelector('use[href*=".svg"]')).toBeNull();
-  expect(wordmark.textContent).toBe("Showbiz");
+  expect(wordmark.querySelector("span")?.textContent).toBe("Showbiz");
 });
