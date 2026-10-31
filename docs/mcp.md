@@ -38,9 +38,13 @@ In the document workspace from PR #100, first create or open a `.showbiz` file t
 
 Writes are blocked while the UI has unsaved drafts or other active work. Selecting a take verifies it belongs to the requested shot. Reordering requires every shot exactly once. Switching project files expires the replay cache and invalidates stale edit revisions. The app retains a bounded 128-request replay window for the current running instance; do not replay old requests after that window or across an application restart.
 
+`get_generation_models` reads the installed model IDs, provider identities, capabilities and defaults. `get_generation_price` reads the device's saved, cached or bundled rate and source; a missing rate remains unknown. OpenRouter metadata refresh happens through the app's generation controls.
+
+Use `update_storyboard_models` with both `image_model` and `video_model` to change defaults. `set_shot_models` changes either shot override independently: omit a field to preserve it, or pass null to inherit the storyboard default. These writes use the same revision, request replay and unsaved-work safeguards as other edits. Model configuration JSON is packaged with the app and discovery omits transport credentials and endpoints.
+
 Tools cover project naming, storyboard creation/naming, bible guidance, characters/locations/other bible entries, shot prompts and duration, ordering, take inspection/selection and storyboard package export. Reads that return lists accept `offset` and `limit` (up to 100). `export_storyboard_package` requires the package feature from PR #99, uses the native save dialog and exports media only. It never places clips on an editor timeline.
 
-This initial MCP boundary does not expose credentials, arbitrary HTTP requests, filesystem access, shell commands or destructive delete operations. Generation continues through the app's existing controls; automated generation and provider billing are separate capabilities.
+This initial MCP boundary does not expose credentials, arbitrary HTTP requests, filesystem access, shell commands or destructive delete operations. Generation continues through the app controls; agent tools do not submit paid requests or write receipts. Agents can read usage and saved pricing.
 
 ## Local connection
 
