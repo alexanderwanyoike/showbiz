@@ -13,3 +13,19 @@ it("retains the preflight estimate and reported cost as distinct values across c
   expect(commands.get_generation_cost_summary({project_id:"film"})).toMatchObject({ok:true,value:{reported_microusd:1340000,estimated_min_microusd:0,unknown_count:0,total_count:1}});
  }finally{db.close();}
 });
+
+it("keeps known charges after failure, treats absent charges as unknown and survives reopening", () => {
+ const db=openTestDb();try {
+ db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+ const commands=createGenerationUsageCommands(db);
+ const begin=(request_id:string)=>commands.begin_generation_usage({request_id,project_id:"film",kind:"image",provider:"local",model_id:"sdxl"});
+ expect(begin("failed")).toMatchObject({ok:true});
+ expect(commands.record_generation_receipt({request_id:"failed",reported_microusd:0})).toMatchObject({ok:true});
+ expect(commands.finish_generation_usage({request_id:"failed",status:"failed"})).toMatchObject({ok:true});
+ expect(begin("abandoned")).toMatchObject({ok:true});
+ const reopened=createGenerationUsageCommands(db);
+ expect(reopened.get_generation_usage({project_id:"film"})).toMatchObject({ok:true,value:{items:expect.arrayContaining([expect.objectContaining({request_id:"abandoned",status:"interrupted",reported_microusd:null})])}});
+ expect(reopened.get_generation_cost_summary({project_id:"film"})).toMatchObject({ok:true,value:{reported_microusd:0,unknown_count:1,total_count:2}});
+ expect(reopened.record_generation_receipt({request_id:"failed",reported_microusd:-1})).toMatchObject({ok:false});
+ }finally{db.close();}
+});
