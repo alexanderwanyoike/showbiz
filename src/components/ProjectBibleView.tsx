@@ -113,6 +113,8 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   const [composerOpen, setComposerOpen] = useState(true);
   const [activeAssetId, setActiveAssetId] = useState<string | null>(null);
   const newAction = useRef<HTMLButtonElement>(null);
+  const workspace = useRef<HTMLElement>(null);
+  const deletionOrigin = useRef<HTMLElement | null>(null);
   const [bibleId, setBibleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const loadRequest = useRef(0);
@@ -264,10 +266,12 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   }
 
   function handleDeletePicture(variant: BibleAssetVariant) {
+    deletionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setDeletion({ kind: "picture", variant });
   }
 
   function handleDeleteAsset(asset: BibleAsset) {
+    deletionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setDeletion({ kind: "asset", asset });
   }
 
@@ -450,7 +454,7 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
 
   return (
     <Tabs value={tab} onValueChange={(value) => { setTab(value as Tab); setActiveAssetId(null); }} className="gap-0" asChild>
-    <section role="region" aria-label="Project bible" className="bible-workspace flex h-full flex-col">
+    <section ref={workspace} role="region" aria-label="Project bible" className="bible-workspace flex h-full flex-col">
       {/* Tabs + model */}
       <div className="bible-toolbar flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2">
         <TabsList aria-label="Bible sections">
@@ -533,7 +537,10 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
       </div>
 
       {lightbox && <BiblePicturePreview url={lightbox} onClose={() => setLightbox(null)} />}
-      <ConfirmDeletion open={!!deletion} onOpenChange={(open) => { if (!open) setDeletion(null); }} title={deletion?.kind === "asset" ? "Delete Bible entry" : "Delete picture"} description={deletion?.kind === "asset" ? `Delete “${deletion.asset.name}” and all its pictures? This cannot be undone.` : "Delete this picture from the Bible? This cannot be undone."} actionLabel={deletion?.kind === "asset" ? "Delete entry" : "Delete picture"} onConfirm={confirmDeletion} />
+      <ConfirmDeletion restoreFocus={() => {
+        if (deletionOrigin.current?.isConnected) deletionOrigin.current.focus();
+        else (workspace.current?.querySelector<HTMLButtonElement>('button[data-current-picture]:not(:disabled)') ?? workspace.current?.querySelector<HTMLButtonElement>('button[aria-label="Back to library"]') ?? newAction.current)?.focus();
+      }} open={!!deletion} onOpenChange={(open) => { if (!open) setDeletion(null); }} title={deletion?.kind === "asset" ? "Delete Bible entry" : "Delete picture"} description={deletion?.kind === "asset" ? `Delete “${deletion.asset.name}” and all its pictures? This cannot be undone.` : "Delete this picture from the Bible? This cannot be undone."} actionLabel={deletion?.kind === "asset" ? "Delete entry" : "Delete picture"} onConfirm={confirmDeletion} />
     </section>
     </Tabs>
   );

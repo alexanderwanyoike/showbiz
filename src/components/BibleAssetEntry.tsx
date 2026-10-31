@@ -66,7 +66,7 @@ export function BibleAssetEntry({ asset, takes, busy, builtFrom, basePrompt,
     </header>
     <div className="bible-asset-body">
       <div className="bible-asset-media">
-        <button type="button" className="bible-asset-preview" aria-label={`View ${asset.name} picture`} disabled={!primary?.media_url} onClick={() => primary?.media_url && onExpand(primary.media_url)}>
+        <button type="button" className="bible-asset-preview" data-current-picture aria-label={`View ${asset.name} picture`} disabled={!primary?.media_url} onClick={() => primary?.media_url && onExpand(primary.media_url)}>
           {primary?.media_url ? <><img src={primary.media_url} alt={`${asset.name} current take`} /><span><Maximize2 size={14} />View full image</span></> : <span>No picture yet</span>}
         </button>
         <section className="bible-asset-takes" aria-label={`Takes for ${asset.name}`}>
