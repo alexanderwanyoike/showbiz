@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "@fontsource-variable/manrope/latin.css";
+@import "@fontsource-variable/manrope";
 @import "./appearance.css";
 @import "./desktop.css";
 
