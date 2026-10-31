@@ -2,6 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelPicker } from "./ModelPicker";
 import { getGroupedImageModels, getGroupedVideoModels } from "../lib/models";
+import type { ModelGroup } from "../lib/models/registry";
 import type { ShotModelOverrides } from "../../shared/shot-models";
 
 type Defaults = { image_model: string; video_model: string };
@@ -15,7 +16,7 @@ interface Props {
 }
 const inherit = "__storyboard_default__";
 export function ShotModelControls({shot,defaults,onShotChange,onDefaultsChange,disabled,error}:Props) {
-  const groups = {image_model:getGroupedImageModels(),video_model:getGroupedVideoModels()};
+  const groups: Record<keyof ShotModelOverrides, ModelGroup<{id:string;name:string;provider?:string}>[]> = {image_model:getGroupedImageModels(),video_model:getGroupedVideoModels()};
   function picker(kind:"image_model"|"video_model", isDefault:boolean) {
     const label=kind==="image_model"?"Image":"Video";
     const defaultName=groups[kind].flatMap(group=>group.models).find(model=>model.id===defaults[kind])?.name??defaults[kind];
