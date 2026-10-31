@@ -1,3 +1,4 @@
+import { connectAgentChanges } from "./lib/agent-changes";
 import { createRoot } from "react-dom/client";
 import { HashRouter } from "react-router";
 import { ThemeProvider } from "./components/theme-provider";
@@ -7,6 +8,7 @@ import "./globals.css";
 import { connectApplicationWork } from "./lib/application-work";
 
 connectApplicationWork();
+connectAgentChanges();
 
 // HashRouter, not BrowserRouter: packaged Electron loads the app from a
 // file:// asar path that no path-based route can match.
