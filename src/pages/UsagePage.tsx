@@ -10,7 +10,6 @@ import {
 } from "../lib/generation-usage";
 import type {
   GenerationUsage,
-  GenerationCostSummary,
 } from "../../shared/generation-usage";
 import "../usage.css";
 
@@ -55,9 +54,10 @@ export default function UsagePage() {
         <Button
           variant="outline"
           size="sm"
+          disabled={!data && !error}
           onClick={() => setRefresh((value) => value + 1)}
         >
-          Refresh charges
+          {!data && !error ? "Checking charges…" : "Refresh charges"}
         </Button>
       </WorkspaceToolbar>
       <div className="usage-content">
@@ -93,8 +93,7 @@ export default function UsagePage() {
             <p className="usage-explanation">
               USD. Reported charges are the amounts returned by the provider.
               Unconfirmed estimates are separate and may differ from your
-              invoice. Unknown charges are not counted as free. Local compute estimates use your saved rate; hardware and
-              electricity costs are otherwise unknown.
+              invoice. Unknown charges are not counted as free. Gemini estimates use published rates; its generation API does not return a monetary receipt. Local compute estimates use your saved rate; hardware and electricity costs are otherwise unknown.
             </p>
             {data.items.length ? (
               <div className="usage-table-scroll">
