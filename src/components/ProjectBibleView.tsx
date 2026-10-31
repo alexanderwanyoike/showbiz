@@ -3,12 +3,13 @@ import { GenerationCost } from "./GenerationCost";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, ImageIcon, Loader2, Maximize2, RefreshCw, Trash2, Upload, Sparkles, Wand2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -102,23 +103,14 @@ interface ProjectBibleViewProps {
 
 // A full-screen view of one picture.
 function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
+  const origin = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-6" onClick={onClose}>
-      <img
-        src={url}
-        alt=""
-        className="max-h-full max-w-full rounded object-contain shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      />
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute right-4 top-4 rounded-full bg-white/15 p-2 text-white hover:bg-white/25"
-        title="Close"
-      >
-        <X className="h-5 w-5" />
-      </button>
-    </div>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-[95vw] border-0 bg-black/95 p-4 sm:max-w-[95vw]" aria-describedby={undefined} onCloseAutoFocus={(event) => { event.preventDefault(); origin.current?.focus(); }}>
+        <DialogTitle className="sr-only">Picture preview</DialogTitle>
+        <img src={url} alt="Bible picture" className="max-h-[88vh] w-full object-contain" />
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -126,6 +118,7 @@ function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
 function Tile({
   url,
   label,
+  actionLabel,
   active,
   size = "sm",
   onClick,
@@ -134,6 +127,7 @@ function Tile({
 }: {
   url: string | null;
   label?: string;
+  actionLabel?: string;
   active?: boolean;
   size?: "sm" | "lg";
   onClick?: () => void;
@@ -145,8 +139,11 @@ function Tile({
     <div className="relative">
       <button
         type="button"
-        onClick={onClick}
-        title={label}
+        onClick={onClick ?? onExpand}
+        disabled={!onClick && !url}
+        aria-label={actionLabel ?? label}
+        aria-pressed={active}
+        title={actionLabel ?? label}
         className={`relative block ${dims} overflow-hidden rounded border bg-muted text-[10px] transition-colors ${active ? "border-primary ring-2 ring-primary" : "border-border hover:border-foreground/40"}`}
       >
         {url ? (
@@ -165,12 +162,13 @@ function Tile({
           </span>
         )}
       </button>
-      {onExpand && url && (
+      {onExpand && onClick && url && (
         <button
           type="button"
           onClick={onExpand}
           className="absolute bottom-1 right-1 rounded bg-black/60 p-1 text-white hover:bg-black/80"
-          title="View full"
+          aria-label={`View ${label ?? "picture"}`}
+          title={`View ${label ?? "picture"}`}
         >
           <Maximize2 className="h-3.5 w-3.5" />
         </button>
@@ -180,7 +178,8 @@ function Tile({
           type="button"
           onClick={onDelete}
           className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground opacity-80 hover:opacity-100"
-          title="Delete"
+          aria-label={`Delete ${label ?? "picture"}`}
+          title={`Delete ${label ?? "picture"}`}
         >
           <Trash2 className="h-3 w-3" />
         </button>
@@ -891,13 +890,14 @@ function AssetCard({
       <div className="flex gap-3">
         <Tile
           url={primary?.media_url ?? null}
+          actionLabel={`View ${asset.name} picture`}
           size="lg"
           onExpand={() => primary?.media_url && onExpand(primary.media_url)}
         />
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-start justify-between gap-2">
             <span className="truncate text-sm font-medium">{asset.name}</span>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDeleteAsset(asset)} title="Delete">
+            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDeleteAsset(asset)} aria-label={`Delete ${asset.name}`} title={`Delete ${asset.name}`}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -908,10 +908,12 @@ function AssetCard({
             <div>
               <p className="mb-1 text-[10px] text-muted-foreground">Takes (click to use)</p>
               <div className="flex flex-wrap gap-1.5">
-                {takes.map((t) => (
+                {takes.map((t, index) => (
                   <Tile
                     key={t.id}
                     url={t.media_url}
+                    label={`take ${index + 1} for ${asset.name}`}
+                    actionLabel={`Use take ${index + 1} for ${asset.name}`}
                     active={t.is_primary}
                     onClick={() => onSetPrimary(t)}
                     onDelete={() => onDeleteTake(t)}
