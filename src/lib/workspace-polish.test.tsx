@@ -13,7 +13,7 @@ vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect()
 afterEach(cleanup);
 
 it("identifies compact storyboard commands with a real focus tooltip and preserves dialog activation", async () => {
-  render(createElement(StoryboardSettingsDialog, {name:"Opening",defaults:{image_model:"nano-banana-2",video_model:"seedance-2-fal"},onSave:async()=>({ok:true,value:null})}));
+  render(createElement(StoryboardSettingsDialog, {name:"Opening",defaults:{image_model:"nano-banana-2",video_model:"seedance-2-fal"},onSave:async()=>({ok:true as const,value:null})}));
   const user=userEvent.setup();
   await user.tab();
   expect(document.activeElement).toBe(screen.getByRole("button",{name:"Storyboard settings"}));

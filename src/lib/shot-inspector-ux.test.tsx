@@ -9,6 +9,8 @@ import ShotInspector, {
 } from "../components/ShotInspector";
 import { getAvailableImageModels, getAvailableVideoModels } from "./models";
 
+vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+
 afterEach(cleanup);
 function inspectorProps(modelId = "wan-flf2v-fal"): ShotInspectorProps {
   const videoModel = getAvailableVideoModels().find(
