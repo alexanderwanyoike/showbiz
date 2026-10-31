@@ -16,6 +16,7 @@ const MUTATING_COMMANDS = new Set([
   "record_generation_receipt",
   "finish_generation_usage",
   "clear_shot_end_frame",
+  "clear_shot_start_frame",
   "copy_image_from_shot",
   "create_bible",
   "create_bible_asset",
