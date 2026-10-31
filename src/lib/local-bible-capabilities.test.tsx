@@ -26,10 +26,10 @@ it("allows a text-only local frame while preventing unsupported reference compos
   const user = userEvent.setup();
   await user.click(screen.getByRole("combobox"));
   await user.click(screen.getByRole("option", {name: /Local image.*LocalAI/}));
-  await user.click(screen.getByRole("button", {name: "Frames"}));
+  await user.click(screen.getByRole("button", {name: /^frames$/i}));
   await user.type(screen.getByPlaceholderText("What's happening (and the look, e.g. 90s anime)..."), "Morning in a quiet room");
   const generate = screen.getByRole("button", {name: "Make frame"});
   expect(generate.hasAttribute("disabled")).toBe(false);
-  await user.click(screen.getByRole("button", {name: "Morning"}));
+  await user.click(screen.getByRole("button", {name: /^Morning/}));
   expect(generate.hasAttribute("disabled")).toBe(true);
 });
