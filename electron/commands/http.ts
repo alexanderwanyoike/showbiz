@@ -86,8 +86,12 @@ export function createHttpCommands(fetchFn: FetchFn = fetch as unknown as FetchF
       }
 
       const encoded = encodeResponse(response.status, new Uint8Array(buffer));
-      const contentType = response.headers?.get("content-type");
-      return contentType ? { ...encoded, headers: [["content-type", contentType] as Header] } : encoded;
+      const headers: Header[] = [];
+      for (const name of ["content-type", "x-fal-request-id"]) {
+        const value = response.headers?.get(name);
+        if (value) headers.push([name, value]);
+      }
+      return headers.length ? { ...encoded, headers } : encoded;
     },
   };
 }
