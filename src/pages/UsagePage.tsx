@@ -66,7 +66,7 @@ export default function UsagePage() {
                 <td><time dateTime={item.started_at}>{new Date(item.started_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} <span>{new Date(item.started_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span></time></td>
                 <td>{usageKindName[item.kind]}</td><td>{identity.provider}</td><td>{identity.model}</td>
                 <td><span className="usage-outcome" data-outcome={item.status}>{usageOutcomeName[item.status]}</span></td>
-                <td className="usage-charge"><span>{usageCharge(item)}</span>{hasNote && <span className="usage-unconfirmed">Charge unconfirmed</span>}</td>
+                <td className="usage-charge"><span>{usageCharge(item)}</span>{" "}{hasNote && <span className="usage-unconfirmed">Charge unconfirmed</span>}</td>
                 <td><Button variant="ghost" size="sm" aria-label="View request details" onClick={() => setSelected(item)}>Details</Button></td>
               </tr>;
             })}</tbody>
