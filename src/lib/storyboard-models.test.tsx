@@ -36,3 +36,19 @@ it("generates with the selected shot override and leaves another shot on the sto
  await user.click(screen.getByRole("button",{name:"Generate video for shot 2",exact:true}));
  await waitFor(()=>expect(generateAndSaveVideoRequestAction).toHaveBeenLastCalledWith("shot-2","seedance-2-fal",expect.objectContaining({mode:"image-to-video"})));
 });
+
+it("waits for a model save before allowing generation and preserves the prior choice on failure",async()=>{
+ let finish!: (result:Awaited<ReturnType<typeof setShotModels>>)=>void;
+ vi.mocked(setShotModels).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ render(createElement(MemoryRouter,{initialEntries:["/storyboard/board"]},createElement(Routes,null,createElement(Route,{path:"/storyboard/:id",element:createElement(StoryboardPage)}))));
+ const user=userEvent.setup();await screen.findByRole("img",{name:"Shot 2",exact:true});
+ const openControls=screen.queryByRole("button",{name:"Shot controls",exact:true});if(openControls)await user.click(openControls);
+ const controls=await screen.findByRole("region",{name:"Shot model controls"});
+ await user.click(within(controls).getByRole("button",{name:"Video model for shot 1"}));
+ await user.click(screen.getByRole("option",{name:/Seedance 2.0 Fast/}));
+ expect(screen.getByRole("button",{name:"Generate video for shot 1"})).toHaveProperty("disabled",true);
+ finish({ok:false,error:{code:"NOT_FOUND",message:"The shot no longer exists."}});
+ expect(await screen.findByRole("alert")).toHaveProperty("textContent","The shot no longer exists.");
+ expect(screen.getByRole("button",{name:"Video model for shot 1"})).toHaveProperty("textContent",expect.stringContaining("Seedance 2.0"));
+ expect(generateAndSaveVideoRequestAction).not.toHaveBeenCalled();
+});
