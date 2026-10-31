@@ -1,3 +1,4 @@
+import { createGenerationUsageCommands } from "./commands/generation-usage";
 import type { DatabaseSync } from "node:sqlite";
 import type { CommandMap } from "./ipc";
 import { createProjectCommands } from "./commands/projects";
@@ -16,6 +17,7 @@ export function createDataCommands(
 ) {
   return {
     ...createProjectCommands(db, mediaDir),
+    ...createGenerationUsageCommands(db),
     ...createShotCommands(db, mediaDir),
     ...createMediaCommands(mediaDir),
     ...createSettingsCommands(db),

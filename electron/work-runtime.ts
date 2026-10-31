@@ -9,6 +9,9 @@ interface WorkWindow {
   on(event: "close", listener: (event: { preventDefault(): void }) => void): unknown;
 }
 const MUTATING_COMMANDS = new Set([
+  "begin_generation_usage",
+  "record_generation_receipt",
+  "finish_generation_usage",
   "clear_shot_end_frame",
   "copy_image_from_shot",
   "create_bible",

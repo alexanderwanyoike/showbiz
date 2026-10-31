@@ -25,7 +25,7 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
     return (db.prepare("SELECT * FROM generation_usage WHERE project_id = ? ORDER BY started_at DESC, request_id").all(projectId) as UsageRow[]).map(({ settings_json, ...row }) => ({ ...row, settings: JSON.parse(settings_json) as GenerationUsage["settings"] }));
   }
   return {
-    begin_generation_usage: (args: Args): Result<GenerationUsage> => execute(() => {
+    begin_generation_usage: (args: Args = {}): Result<GenerationUsage> => execute(() => {
       if (![args.request_id, args.project_id, args.provider, args.model_id].every(identifier) || typeof args.kind !== "string" || !kinds.has(args.kind)) return invalid("Choose a project, provider, model and generation kind.");
       if (!db.prepare("SELECT id FROM projects WHERE id = ?").get(args.project_id as string)) return invalid("The project does not exist.");
       if (usage(args.request_id)) return invalid("This generation request has already started.");
@@ -41,7 +41,7 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
       const { settings_json, ...value } = row;
       return success({ ...value, settings: JSON.parse(settings_json) as GenerationUsage["settings"] });
     }),
-    record_generation_receipt: (args: Args): Result<null> => execute(() => {
+    record_generation_receipt: (args: Args = {}): Result<null> => execute(() => {
       if (!money(args.reported_microusd) || (args.provider_request_id != null && !identifier(args.provider_request_id))) return invalid("The reported provider charge is invalid.");
       const row = usage(args.request_id);
       if (!row) return invalid("The generation request does not exist.");
@@ -49,7 +49,7 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
       db.prepare("UPDATE generation_usage SET reported_microusd = ?, provider_request_id = ? WHERE request_id = ?").run(args.reported_microusd, args.provider_request_id as string ?? null, row.request_id);
       return success(null);
     }),
-    finish_generation_usage: (args: Args): Result<null> => execute(() => {
+    finish_generation_usage: (args: Args = {}): Result<null> => execute(() => {
       if (typeof args.status !== "string" || !["completed", "failed", "cancelled", "interrupted"].includes(args.status)) return invalid("The generation outcome is invalid.");
       const row = usage(args.request_id);
       if (!row) return invalid("The generation request does not exist.");
@@ -57,8 +57,8 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
       db.prepare("UPDATE generation_usage SET status = ?, finished_at = COALESCE(finished_at, ?) WHERE request_id = ?").run(args.status, new Date().toISOString(), row.request_id);
       return success(null);
     }),
-    get_generation_usage: (args: Args): Result<{ items: GenerationUsage[] }> => execute(() => identifier(args.project_id) ? success({ items: items(args.project_id) }) : invalid("Choose a project to view usage.")),
-    get_generation_cost_summary: (args: Args): Result<GenerationCostSummary> => execute(() => {
+    get_generation_usage: (args: Args = {}): Result<{ items: GenerationUsage[] }> => execute(() => identifier(args.project_id) ? success({ items: items(args.project_id) }) : invalid("Choose a project to view usage.")),
+    get_generation_cost_summary: (args: Args = {}): Result<GenerationCostSummary> => execute(() => {
       if (!identifier(args.project_id)) return invalid("Choose a project to view costs.");
       const rows = items(args.project_id);
       const summary: GenerationCostSummary = { reported_microusd: 0, estimated_min_microusd: 0, estimated_max_microusd: 0, unknown_count: 0, total_count: rows.length };
