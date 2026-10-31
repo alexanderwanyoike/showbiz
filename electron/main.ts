@@ -1,3 +1,4 @@
+import { desktopAppIconPath } from "./app-icon";
 import { createMcpSession } from "./mcp/session";
 import { startLocalBridge } from "./mcp/local-bridge";
 import { createDesktopShell, desktopWindowOptions, rendererMenuGesture } from "./desktop-shell";
@@ -90,6 +91,7 @@ function createWindow(work: ReturnType<typeof createWorkRuntime>, shell: ReturnT
     width: 1440,
     height: 900,
     title: "Showbiz",
+    icon: desktopAppIconPath(app.getAppPath(), app.isPackaged),
     ...desktopWindowOptions(process.platform, nativeTheme.shouldUseDarkColors),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -119,6 +121,7 @@ function createWindow(work: ReturnType<typeof createWorkRuntime>, shell: ReturnT
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === "darwin") app.dock?.setIcon(desktopAppIconPath(app.getAppPath(), app.isPackaged));
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     ...(process.platform === "darwin" ? [{ role: "appMenu" as const }] : []),
     ...projectApplicationMenu((action) => {
