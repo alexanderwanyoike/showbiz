@@ -184,6 +184,16 @@ export default function StoryboardPage() {
     [videoModel, videoModels]
   );
 
+  const videoCostRequest = {
+    kind: "video" as const,
+    duration: videoSettings.duration,
+    resolution: videoSettings.resolution,
+    audio: videoSettings.audio,
+    aspect_ratio: videoSettings.aspectRatio,
+    mode: currentVideoModel ? chooseVideoGenerationMode(currentVideoModel.modeCapabilities, { hasStartImage: !!selectedShot?.image_url }) : undefined,
+    has_end_frame: !!(selectedShot?.end_frame_url && currentVideoModel?.modeCapabilities.imageToVideo?.supportsEndImage),
+  };
+
   useEffect(() => {
     const model = getAvailableVideoModels().find(item => item.id === videoModel);
     if (model) setVideoSettings({...model.defaults});
@@ -942,7 +952,7 @@ export default function StoryboardPage() {
           }
           inspectorSlot={
             <ShotInspector
-              generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={{kind: "video", duration: videoSettings.duration, resolution: videoSettings.resolution, audio: videoSettings.audio}} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
+              generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={videoCostRequest} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
               frameLibraryHref={`/project/${storyboard.project_id}?view=bible&bibleTab=frames`}
               generationDisabled={modelSaving}
               modelControls={<ShotModelControls shot={selectedShot} defaults={defaultModels} onShotChange={handleShotModels} disabled={modelSaving} error={modelError}/>}
