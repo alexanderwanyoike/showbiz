@@ -294,7 +294,7 @@ it("selects a material and accent while retaining Showbiz's native appearance", 
   await user.click(
     screen.getByRole("radio", { name: "Aluminium", exact: true }),
   );
-  await user.click(screen.getByRole("radio", { name: "Sage", exact: true }));
+  await user.click(screen.getByRole("radio", { name: "Emerald", exact: true }));
   expect(document.documentElement.dataset.material).toBe("aluminium");
   expect(document.documentElement.dataset.accent).toBe("sage");
   expect(
