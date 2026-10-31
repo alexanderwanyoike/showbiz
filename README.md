@@ -137,3 +137,7 @@ See the [PR template](.github/pull_request_template.md) and [issue templates](.g
 ## License
 
 [MIT](LICENSE)
+
+## Work with agents
+
+Showbiz includes an MCP adapter for the running application. Agents can work with project bibles, draft and reorder storyboard shots, inspect and select takes, and request media package exports. Changes appear in the same workspace and respect unsaved UI work. See the [MCP guide](docs/mcp.md) for setup, supported tools and limits.
