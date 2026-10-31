@@ -2,8 +2,9 @@ import { expect, it, vi } from "vitest";
 import { openTestDb } from "../../electron/db.test";
 import { createGenerationUsageCommands } from "../../electron/commands/generation-usage";
 import { createGenerationPricingCommands } from "../../electron/commands/generation-pricing";
-import { generateImageAction } from "../actions/generation-actions";
+import { generateImageAction, generateAndSaveVideoRequestAction } from "../actions/generation-actions";
 const mocks = vi.hoisted(() => ({invoke: vi.fn(), fetch: vi.fn()}));
+vi.mock("./backend-api", async original => ({...await original<typeof import("./backend-api")>(), getCurrentVideoVersion: async () => null, createVideoGenerationVersion: async () => ({video_url: "blob:fixture"})}));
 vi.mock("./bridge", () => ({invoke: mocks.invoke}));
 vi.mock("./models/http", () => ({fetch: mocks.fetch}));
 it("records the estimate and provider receipt for an actual image generation action", async () => {
@@ -17,4 +18,16 @@ it("records the estimate and provider receipt for an actual image generation act
     expect(await generateImageAction("Morning", "seedream-4.5-openrouter", {project_id: "film", subject_id: "character"})).toBe("data:image/png;base64,aA==");
     expect(commands.get_generation_usage({project_id: "film"})).toMatchObject({ok: true, value: {items: [{kind: "image", subject_id: "character", status: "completed", estimated_min_microusd: 50000, reported_microusd: 40000}]}});
   } finally { db.close(); }
+});
+
+it("records the shot video estimate and final charge through the generation action", async () => {
+ const db=openTestDb();try{
+ db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+ const commands:Record<string,(args?:Record<string,unknown>)=>unknown>={...createGenerationUsageCommands(db),...createGenerationPricingCommands(db)};
+ commands.save_generation_price({kind:"video",price:{provider:"openrouter",model_id:"veo-3.1-openrouter",currency:"USD",source_kind:"manual",source_url:"https://openrouter.ai",checked_at:"2026-10-31T12:00:00Z",rates:[{unit:"second",microusd:200000}]}});
+ mocks.invoke.mockImplementation(async(command,args)=>command==="get_api_key"?"fixture-key":command==="get_project_document_state"?{ok:true,value:{current:{project_id:"film"}}}:commands[command]?.(args));
+ mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({id:"job",status:"pending"}))).mockResolvedValueOnce(new Response(JSON.stringify({id:"job",status:"completed",usage:{cost:0.25}}))).mockResolvedValueOnce(new Response("video",{headers:{"content-type":"video/mp4"}}));
+ expect(await generateAndSaveVideoRequestAction("shot","veo-3.1-openrouter",{mode:"text-to-video",prompt:"Morning",settings:{duration:"8s",resolution:"720p",audio:false}})).toMatchObject({success:true,videoUrl:"blob:fixture"});
+ expect(commands.get_generation_usage({project_id:"film"})).toMatchObject({ok:true,value:{items:[{kind:"video",subject_id:"shot",status:"completed",estimated_min_microusd:1600000,reported_microusd:250000}]}});
+ }finally{db.close();}
 });
