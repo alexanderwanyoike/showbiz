@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ProjectBibleView from "../components/ProjectBibleView";
 import { updateBibleAssetVariantStatus } from "./backend-api";
+import { applicationWork } from "./application-work";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: () => null }));
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
@@ -63,4 +64,16 @@ it("keeps an adjusted retake prompt after generation fails", async () => {
   await user.click(screen.getByRole("button", { name: "Make" }));
   await screen.findByText("Provider unavailable");
   expect((screen.getByPlaceholderText("Tweak the prompt for a variation...") as HTMLTextAreaElement).value).toBe("A warmer portrait");
+});
+
+it("tracks a selected frame reference as draft work and clears it explicitly", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film", initialTab: "frames" }));
+  const user = userEvent.setup();
+  const character = await screen.findByRole("button", { name: "Ada" });
+  await user.click(character);
+  expect(character.getAttribute("aria-pressed")).toBe("true");
+  expect(applicationWork.getStatus().unsaved).toContain("draft");
+  await user.click(screen.getByRole("button", { name: "Clear frame draft" }));
+  expect(character.getAttribute("aria-pressed")).toBe("false");
+  expect(applicationWork.getStatus().unsaved).not.toContain("draft");
 });
