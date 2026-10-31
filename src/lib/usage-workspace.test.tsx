@@ -54,6 +54,7 @@ it('keeps human request rows compact and exposes exact receipt identity in reque
   expect(within(details).getByText('~$0.025')).toBeTruthy();
   await user.keyboard('{Escape}');
   expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(within(row!).getByRole('button', { name: 'View request details' }));
 });
 
 
