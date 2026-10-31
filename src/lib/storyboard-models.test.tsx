@@ -29,10 +29,10 @@ it("generates with the selected shot override and leaves another shot on the sto
  await user.click(within(controls).getByRole("button",{name:"Video model for shot 1"}));
  await user.click(screen.getByRole("option",{name:/Seedance 2.0 Fast/}));
  await waitFor(()=>expect(setShotModels).toHaveBeenCalledWith("shot-1",{video_model:"seedance-2-fast-fal"}));
- await user.click(screen.getByRole("button",{name:"Generate Video",exact:true}));
+ await user.click(screen.getByRole("button",{name:"Generate video for shot 1",exact:true}));
  await waitFor(()=>expect(generateAndSaveVideoRequestAction).toHaveBeenCalledWith("shot-1","seedance-2-fast-fal",expect.objectContaining({mode:"image-to-video"})));
  await user.click(screen.getByRole("img",{name:"Shot 2",exact:true}));
  expect(await screen.findByRole("button",{name:"Video model for shot 2"})).toHaveProperty("textContent",expect.stringContaining("Seedance 2.0"));
- await user.click(screen.getByRole("button",{name:"Generate Video",exact:true}));
+ await user.click(screen.getByRole("button",{name:"Generate video for shot 2",exact:true}));
  await waitFor(()=>expect(generateAndSaveVideoRequestAction).toHaveBeenLastCalledWith("shot-2","seedance-2-fal",expect.objectContaining({mode:"image-to-video"})));
 });
