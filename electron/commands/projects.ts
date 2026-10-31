@@ -1,3 +1,4 @@
+import { DEFAULT_STORYBOARD_MODELS } from "../../shared/model-defaults";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { generateId } from "../db";
@@ -185,9 +186,8 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
     create_storyboard(args?: Record<string, unknown>): Storyboard {
       const id = generateId("sb");
       db.prepare(
-        "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)"
-      ).run(id, args!.projectId as string, args!.name as string);
-      // Re-select so defaults + timestamps come from SQLite, matching the Rust command.
+        "INSERT INTO storyboards (id, project_id, name, image_model, video_model) VALUES (?, ?, ?, ?, ?)"
+      ).run(id, args!.projectId as string, args!.name as string, DEFAULT_STORYBOARD_MODELS.image_model, DEFAULT_STORYBOARD_MODELS.video_model);
       return getStoryboard(id)!;
     },
 
