@@ -246,8 +246,8 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   // every database, whereas "scene" only exists in the newer schema.
   const frames = assets.filter((a) => a.asset_type === "reference");
 
-  async function imageFromPrompt(prompt: string): Promise<string> {
-    const raw = await generateImageAction(prompt, imageModel);
+  async function imageFromPrompt(prompt: string, subjectId: string): Promise<string> {
+    const raw = await generateImageAction(prompt, imageModel, {project_id: projectId, subject_id: subjectId});
     return prepareBibleImageDataUrl(raw);
   }
 
@@ -291,7 +291,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
         if (file) {
           await addVariant(asset.id, await fileToDataUrl(file), { name: file.name, source: "uploaded" });
         } else if (prompt.trim()) {
-          await addVariant(asset.id, await imageFromPrompt(prompt), { name: name.trim(), source: "generated", prompt });
+          await addVariant(asset.id, await imageFromPrompt(prompt, asset.id), { name: name.trim(), source: "generated", prompt });
         }
       });
     } catch (e) {
@@ -333,14 +333,14 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
 
   // Compose from reference pictures + a prompt (falls back to text-to-image when
   // there are no references). Returns a prepared data URL.
-  async function composeFromVariantIds(variantIds: string[], prompt: string): Promise<string> {
+  async function composeFromVariantIds(variantIds: string[], prompt: string, subjectId: string): Promise<string> {
     const images = (
       await Promise.all(variantIds.map((vid) => getBibleVariantImageBase64(vid)))
     ).filter((x): x is string => !!x);
     const raw =
       images.length > 0
-        ? await composeFrameAction(prompt, images, imageModel)
-        : await generateImageAction(prompt, imageModel);
+        ? await composeFrameAction(prompt, images, imageModel, {project_id: projectId, subject_id: subjectId})
+        : await generateImageAction(prompt, imageModel, {project_id: projectId, subject_id: subjectId});
     return prepareBibleImageDataUrl(raw);
   }
 
@@ -365,7 +365,6 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
     setBusyId("make-frame");
     try {
       await withApplicationWork("generation", async () => {
-        const dataUrl = await composeFromVariantIds(recipeVariantIds(recipe, variants), recipe.prompt);
         const asset = await createBibleAsset(bibleId, {
           asset_type: "reference",
           name: recipe.prompt.slice(0, 50) || "Frame",
@@ -377,6 +376,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
         });
         setAssets((prev) => [asset, ...prev]);
         setVariants((prev) => ({ ...prev, [asset.id]: [] }));
+        const dataUrl = await composeFromVariantIds(recipeVariantIds(recipe, variants), recipe.prompt, asset.id);
         await createBibleAssetVariant(asset.id, {
           name: recipe.prompt.slice(0, 40),
           image_base64: dataUrl,
@@ -407,7 +407,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
           setError("Add a prompt first.");
           return;
         }
-        const dataUrl = await composeFromVariantIds(assetReferences(asset, variants), prompt);
+        const dataUrl = await composeFromVariantIds(assetReferences(asset, variants), prompt, asset.id);
         await addPrimaryTake(asset.id, dataUrl, prompt);
       });
     } catch (e) {
@@ -429,7 +429,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
           setError("Couldn't read that picture.");
           return;
         }
-        const raw = await editImageAction(source, instruction, imageModel);
+        const raw = await editImageAction(source, instruction, imageModel, {project_id: projectId, subject_id: asset.id});
         await addPrimaryTake(asset.id, await prepareBibleImageDataUrl(raw), instruction);
       });
     } catch (e) {
