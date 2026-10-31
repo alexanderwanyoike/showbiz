@@ -14,6 +14,12 @@ vi.mock("./backend-api", async (original) => ({
   ensureDefaultTracks: async () => [],
   getTimelineClips: async () => [],
   getBibles: async () => [],
+  getImageVersions: async () => [],
+  getVideoVersions: async () => [],
+  getCurrentImageVersion: async () => null,
+  getCurrentVideoVersion: async () => null,
+  getVersionCount: async () => 0,
+  getVideoVersionCount: async () => 0,
 }));
 afterEach(cleanup);
 it("offers storyboard packages without an editor or movie assembly workspace", async () => {

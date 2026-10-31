@@ -1,3 +1,4 @@
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -890,12 +891,13 @@ export default function StoryboardPage() {
           <Badge variant="secondary" className="text-sm">
             {shots.length} Shots • {totalDuration}s Total
           </Badge>
-          <Button variant="outline" size="sm" onClick={() => void handleExport("zip")} disabled={isExporting || !hasMedia}>
-            <Save className="h-4 w-4" />Export ZIP
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => void handleExport("sbz")} disabled={isExporting || !hasMedia}>
-            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Export for Forgecut
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={isExporting || !hasMedia}>{isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Export…</Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => void handleExport("zip")}>Media ZIP (.zip)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleExport("sbz")}>Forgecut media (.sbz)</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </Header>
 
