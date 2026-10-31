@@ -14,7 +14,10 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { modelProviderName, type ModelProviderIdentity } from "../lib/model-provider";
+import {
+  modelProviderName,
+  type ModelProviderIdentity,
+} from "../lib/model-provider";
 import type { ModelGroup } from "../lib/models/registry";
 
 interface ModelItem extends ModelProviderIdentity {

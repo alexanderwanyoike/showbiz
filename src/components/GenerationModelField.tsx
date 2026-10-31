@@ -1,14 +1,19 @@
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelPicker } from "./ModelPicker";
-import { modelProviderName, type ModelProviderIdentity } from "../lib/model-provider";
+import {
+  modelProviderName,
+  type ModelProviderIdentity,
+} from "../lib/model-provider";
 import type { ModelGroup } from "../lib/models/registry";
 
-export type GenerationModelGroups = ModelGroup<ModelProviderIdentity & {
-  id: string;
-  name: string;
-  provider?: string;
-}>[];
+export type GenerationModelGroups = ModelGroup<
+  ModelProviderIdentity & {
+    id: string;
+    name: string;
+    provider?: string;
+  }
+>[];
 export type StoryboardModelDefaults = {
   image_model: string;
   video_model: string;

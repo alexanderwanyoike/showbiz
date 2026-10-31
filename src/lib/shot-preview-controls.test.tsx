@@ -65,8 +65,27 @@ it("names media controls and leaves Space to focused dialogs instead of starting
 it("leaves Space to focused rate-detail disclosure controls", async () => {
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-  render(createElement("div",null,createElement(ShotPreview,{shot:{id:"shot",order:1,image_url:"frame.png",video_url:"video.mp4",status:"complete"}}),createElement("details",null,createElement("summary",null,"Rate details"))));
+  render(
+    createElement(
+      "div",
+      null,
+      createElement(ShotPreview, {
+        shot: {
+          id: "shot",
+          order: 1,
+          image_url: "frame.png",
+          video_url: "video.mp4",
+          status: "complete",
+        },
+      }),
+      createElement(
+        "details",
+        null,
+        createElement("summary", null, "Rate details"),
+      ),
+    ),
+  );
   screen.getByText("Rate details").focus();
   await userEvent.setup().keyboard(" ");
-  expect(screen.queryByRole("button",{name:"Stop preview"})).toBeNull();
+  expect(screen.queryByRole("button", { name: "Stop preview" })).toBeNull();
 });

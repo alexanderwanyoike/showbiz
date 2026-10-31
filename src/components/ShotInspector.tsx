@@ -428,10 +428,31 @@ export default function ShotInspector({
             />
             {shot.image_url && (
               <div className="mt-2 space-y-1.5">
-                <Button type="button" variant="outline" size="sm" className="w-full" aria-label={`Edit frame for shot ${shot.order}`} disabled={frameSaving || !currentVersion || !imageModel?.supportsImageEditing} onClick={() => { if (currentVersion) onEditImage(shot.id, currentVersion.id); }}>
-                  <Sparkles className="h-3.5 w-3.5 mr-1.5" />Edit frame
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  aria-label={`Edit frame for shot ${shot.order}`}
+                  disabled={
+                    frameSaving ||
+                    !currentVersion ||
+                    !imageModel?.supportsImageEditing
+                  }
+                  onClick={() => {
+                    if (currentVersion) onEditImage(shot.id, currentVersion.id);
+                  }}
+                >
+                  <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                  Edit frame
                 </Button>
-                {(!currentVersion || !imageModel?.supportsImageEditing) && <p className="text-[11px] text-muted-foreground">{!currentVersion ? "Choose or upload a frame to create an editable take." : `${imageModel?.name ?? "The image model"} does not support editing. Choose an editing model in Models for this shot.`}</p>}
+                {(!currentVersion || !imageModel?.supportsImageEditing) && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {!currentVersion
+                      ? "Choose or upload a frame to create an editable take."
+                      : `${imageModel?.name ?? "The image model"} does not support editing. Choose an editing model in Models for this shot.`}
+                  </p>
+                )}
               </div>
             )}
           </InspectorSection>
