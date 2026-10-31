@@ -45,13 +45,17 @@ export default function ShotList({
   useEffect(() => {
     let cancelled = false;
     for (const shot of shots) {
-      if (shot.image_url || !shot.video_url || posters[shot.id]) continue;
+      if (shot.image_url || !shot.video_url || Object.hasOwn(posters, shot.video_url)) continue;
+      const videoUrl = shot.video_url;
       thumbnailGenerator
-        .extractFrame(shot.video_url, 0)
+        .extractFrame(videoUrl, 0)
         .then((frame) => {
-          if (!cancelled) setPosters((prev) => ({ ...prev, [shot.id]: frame }));
+          if (!cancelled) setPosters((prev) => ({ ...prev, [videoUrl]: frame }));
         })
-        .catch(() => {});
+        .catch((error: unknown) => {
+          console.warn("Could not prepare a shot preview:", error);
+          if (!cancelled) setPosters((prev) => ({ ...prev, [videoUrl]: "" }));
+        });
     }
     return () => {
       cancelled = true;
