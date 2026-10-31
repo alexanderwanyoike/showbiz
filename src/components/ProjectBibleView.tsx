@@ -251,8 +251,16 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   }
 
   async function handleSetPrimary(variant: BibleAssetVariant) {
-    await updateBibleAssetVariantStatus(variant.id, "approved", true);
-    await refreshAsset(variant.asset_id);
+    setBusyId(variant.asset_id);
+    setError(null);
+    try {
+      await withApplicationWork("saving", async () => {
+        await updateBibleAssetVariantStatus(variant.id, "approved", true);
+        await refreshAsset(variant.asset_id);
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The current take could not be changed. Try again.");
+    } finally { setBusyId(null); }
   }
 
   function handleDeletePicture(variant: BibleAssetVariant) {
