@@ -35,10 +35,10 @@ export default function StoryboardCard({
   });
 
   return (
-    <div className="group relative">
+    <div className="storyboard-card group">
       <Link to={`/storyboard/${id}`} className="block">
         {/* 16:9 Thumbnail */}
-        <div className="aspect-video relative rounded-md overflow-hidden bg-muted/50 group-hover:brightness-125 transition-all duration-200">
+        <div className="storyboard-card-preview aspect-video relative overflow-hidden bg-muted/50">
           {previewImageUrl ? (
             <img
               src={previewImageUrl}
@@ -53,12 +53,12 @@ export default function StoryboardCard({
         </div>
 
         {/* Text below thumbnail */}
-        <div className="mt-2 px-0.5">
+        <div className="storyboard-card-caption">
           <h3 className="text-sm font-medium text-foreground truncate">
             {name}
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Last modified: {formattedDate}
+            {formattedDate}
           </p>
         </div>
       </Link>
@@ -70,7 +70,8 @@ export default function StoryboardCard({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 bg-black/60 hover:bg-black/80 text-white hover:text-white rounded-sm"
+              className="h-7 w-7 bg-card text-foreground"
+              aria-label={`Delete ${name}`}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -79,8 +80,9 @@ export default function StoryboardCard({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Storyboard</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete &quot;{name}&quot;? This will also delete all
-                shots within this storyboard. This action cannot be undone.
+                Are you sure you want to delete &quot;{name}&quot;? This will
+                also delete all shots within this storyboard. This action cannot
+                be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

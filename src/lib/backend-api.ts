@@ -1,3 +1,4 @@
+import type { ShotModelOverrides, ShotModelsResult } from "../../shared/shot-models";
 import { invoke } from "./bridge";
 import { electronMediaUrlResolver } from "./electron-media-url";
 export type {
@@ -39,6 +40,8 @@ export interface StoryboardWithPreview extends Storyboard {
 }
 
 export interface ShotWithUrls {
+  image_model: string | null;
+  video_model: string | null;
   id: string;
   storyboard_id: string;
   order: number;
@@ -101,30 +104,6 @@ export interface VideoVersionWithUrl extends VideoVersion {
 export interface VideoVersionNode {
   version: VideoVersionWithUrl;
   children: VideoVersionNode[];
-}
-
-export interface TimelineTrack {
-  id: string;
-  storyboard_id: string;
-  track_id: string;
-  name: string;
-  track_type: "video" | "audio";
-  position: number;
-  created_at: string;
-}
-
-export interface TimelineClipRow {
-  id: string;
-  storyboard_id: string;
-  shot_id: string;
-  track_id: string;
-  start_time: number;
-  /** Trim window in source-file seconds; null = untrimmed (full clip) */
-  trim_in: number | null;
-  trim_out: number | null;
-  /** Pinned video version; null = follow the shot's current version */
-  video_version_id: string | null;
-  created_at: string;
 }
 
 export type BibleAssetType = "character" | "location" | "prop" | "style" | "reference" | "note" | "scene";
@@ -521,62 +500,6 @@ export async function createVideoGenerationVersion(
   return { ...ver, video_url: (await mediaUrl(ver.video_url, true)) || ver.video_url };
 }
 
-// --- Timeline Tracks ---
-export async function getTimelineTracks(storyboardId: string): Promise<TimelineTrack[]> {
-  return invoke("get_timeline_tracks", { storyboardId });
-}
-
-export async function createTimelineTrack(storyboardId: string, trackType: string): Promise<TimelineTrack> {
-  return invoke("create_timeline_track", { storyboardId, trackType });
-}
-
-export async function deleteTimelineTrack(id: string): Promise<boolean> {
-  return invoke("delete_timeline_track", { id });
-}
-
-export async function ensureDefaultTracks(storyboardId: string): Promise<TimelineTrack[]> {
-  return invoke("ensure_default_tracks", { storyboardId });
-}
-
-// --- Timeline Clips ---
-export async function getTimelineClips(storyboardId: string): Promise<TimelineClipRow[]> {
-  return invoke("get_timeline_clips", { storyboardId });
-}
-
-export async function addTimelineClip(
-  storyboardId: string,
-  shotId: string,
-  trackId: string,
-  startTime: number,
-  videoVersionId: string | null = null
-): Promise<TimelineClipRow> {
-  return invoke("add_timeline_clip", { storyboardId, shotId, trackId, startTime, videoVersionId });
-}
-
-export async function updateTimelineClipTrims(clipId: string, trimIn: number, trimOut: number): Promise<TimelineClipRow> {
-  return invoke("update_timeline_clip_trims", { clipId, trimIn, trimOut });
-}
-
-export async function splitTimelineClip(
-  clipId: string,
-  splitLocalTime: number,
-  secondStartTime: number
-): Promise<[TimelineClipRow, TimelineClipRow]> {
-  return invoke("split_timeline_clip", { clipId, splitLocalTime, secondStartTime });
-}
-
-export async function removeTimelineClip(id: string): Promise<boolean> {
-  return invoke("remove_timeline_clip", { id });
-}
-
-export async function removeAllTimelineClips(storyboardId: string): Promise<boolean> {
-  return invoke("remove_all_timeline_clips", { storyboardId });
-}
-
-export async function moveTimelineClip(clipId: string, targetTrackId: string, startTime: number): Promise<void> {
-  return invoke("move_timeline_clip", { clipId, targetTrackId, startTime });
-}
-
 // --- Media Helper ---
 export async function getMediaBasePath(): Promise<string> {
   return invoke("get_media_path");
@@ -586,4 +509,8 @@ export async function getMediaBasePath(): Promise<string> {
 export async function saveAndCompleteVideo(shotId: string, videoData: number[], mimeType: string): Promise<ShotWithUrls> {
   const shot: ShotWithUrls = await invoke("save_and_complete_video", { shotId, videoData, mimeType });
   return convertShotUrls(shot, true);
+}
+
+export function setShotModels(shotId: string, models: Partial<ShotModelOverrides>): Promise<ShotModelsResult> {
+  return invoke("set_shot_models", {shot_id:shotId, ...models});
 }

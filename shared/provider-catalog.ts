@@ -41,6 +41,13 @@ export const API_KEY_PROVIDERS = [
     helpText: "Use an API token from your Replicate account.",
     order: 60,
   },
+  {
+    id: "openrouter",
+    name: "OpenRouter",
+    credentialLabel: "OpenRouter API key",
+    helpText: "Use an API key from your OpenRouter account.",
+    order: 70,
+  },
 ] as const;
 
 export type ApiKeyProvider = (typeof API_KEY_PROVIDERS)[number]["id"];
@@ -64,7 +71,7 @@ export interface ApiKeyStatus {
 }
 
 const API_KEY_PROVIDER_IDS = new Set<string>(
-  API_KEY_PROVIDERS.map((provider) => provider.id)
+  API_KEY_PROVIDERS.map((provider) => provider.id),
 );
 
 export function isApiKeyProvider(value: string): value is ApiKeyProvider {
