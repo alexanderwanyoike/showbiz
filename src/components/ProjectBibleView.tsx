@@ -1,3 +1,4 @@
+import { modelProviderName } from "../lib/model-provider";
 import { ConfirmDeletion } from "./ConfirmDeletion";
 import type { Result } from "../../shared/result";
 import { GenerationCost } from "./GenerationCost";
@@ -450,7 +451,7 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
           <SelectContent>
             {imageModels.map((m) => (
               <SelectItem key={m.id} value={m.id} className="text-xs">
-                {m.name}{m.provider ? ` · ${m.provider}` : ""}
+                {m.name}{modelProviderName(m) ? ` · ${modelProviderName(m)}` : ""}
               </SelectItem>
             ))}
           </SelectContent>

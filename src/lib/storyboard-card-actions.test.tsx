@@ -53,3 +53,14 @@ it("keeps storyboard actions discoverable and leaves a failed deletion available
       .hasAttribute("disabled"),
   ).toBe(false);
 });
+it("returns keyboard focus to storyboard actions after cancelling deletion", async () => {
+  const remove = vi.fn(async () => ({ ok: true as const, value: null }));
+  render(createElement(MemoryRouter, null, createElement(StoryboardCard, { id: "opening", name: "Opening", updatedAt: "2026-10-31", onDelete: remove })));
+  const user = userEvent.setup();
+  const actions = screen.getByRole("button", { name: "Storyboard actions for Opening" });
+  await user.click(actions);
+  await user.click(screen.getByRole("menuitem", { name: "Delete storyboard…" }));
+  await user.click(within(await screen.findByRole("alertdialog", { name: "Delete storyboard" })).getByRole("button", { name: "Cancel" }));
+  expect(document.activeElement).toBe(actions);
+  expect(remove).not.toHaveBeenCalled();
+});
