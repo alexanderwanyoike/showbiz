@@ -233,14 +233,42 @@
   padding: 12px;
   scrollbar-width: thin;
 }
-.bible-more-action { position: relative; height: 26px; width: 26px; }
-.bible-draft-dot { position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--primary); }
-.bible-picture-actions-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.bible-picture-actions-heading h3 { font-size: 12px; font-weight: 600; }
-.bible-picture-actions-heading button { width: 24px; height: 24px; }
+.bible-more-action {
+  position: relative;
+  height: 26px;
+  width: 26px;
+}
+.bible-draft-dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.bible-picture-actions-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.bible-picture-actions-heading h3 {
+  font-size: 12px;
+  font-weight: 600;
+}
+.bible-picture-actions-heading button {
+  width: 24px;
+  height: 24px;
+}
 .bible-picture-actions > .flex,
-.bible-picture-actions > div:has(> .flex) { margin-block: 10px; }
-.bible-picture-actions .bible-delete-entry { margin-top: 12px; color: var(--destructive); }
+.bible-picture-actions > div:has(> .flex) {
+  margin-block: 10px;
+}
+.bible-picture-actions .bible-delete-entry {
+  margin-top: 12px;
+  color: var(--destructive);
+}
 .bible-picture-actions > .bible-cost {
   margin-bottom: 8px;
 }
