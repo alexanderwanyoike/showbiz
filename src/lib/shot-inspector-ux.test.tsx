@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
@@ -254,4 +254,52 @@ it("keeps prompt tool routing visible and offers keyboard access to charge detai
       "Prompt assistance uses Google AI (Gemini). Add its key in Settings. Any charges are outside the video estimate.",
     ),
   ).toBeTruthy();
+});
+async function openPopulatedFramePicker() {
+  const props = inspectorProps("seedance-2-fal");
+  props.frameOptions = [
+    {
+      variantId: "window",
+      label: "Window light",
+      prompt: "Window light",
+      url: "window.png",
+    },
+    {
+      variantId: "hallway",
+      label: "Hallway",
+      prompt: "Quiet interior",
+      url: "hallway.png",
+    },
+  ];
+  render(
+    createElement(MemoryRouter, null, createElement(ShotInspector, props)),
+  );
+  const user = userEvent.setup();
+  const opener = screen.getByRole("button", { name: "Choose start frame" });
+  await user.click(opener);
+  return { user, opener };
+}
+it("labels frame search and filters the available choices", async () => {
+  const { user } = await openPopulatedFramePicker();
+  await user.type(
+    screen.getByRole("textbox", { name: "Search frames" }),
+    "Hallway",
+  );
+  expect(
+    screen.getByRole("button", { name: "Choose frame Hallway" }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Choose frame Window light" }),
+  ).toBeNull();
+});
+it("names each frame choice once rather than repeating its thumbnail and prompt", async () => {
+  await openPopulatedFramePicker();
+  expect(
+    screen.getByRole("button", { name: "Choose frame Window light" }),
+  ).toBeTruthy();
+});
+it("returns focus to Choose frame after dismissing the frame picker", async () => {
+  const { user, opener } = await openPopulatedFramePicker();
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(document.activeElement).toBe(opener));
 });

@@ -1,7 +1,7 @@
 import { InspectorHelp } from "./InspectorHelp";
 import { ShotVideoSettings } from "./ShotVideoSettings";
 import { Link } from "react-router";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   ChevronDown,
   Loader2,
@@ -173,12 +173,14 @@ function FramePickerDialog({
   open,
   onOpenChange,
   onPick,
+  openerRef,
 }: {
   label: string;
   frameOptions: FrameOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPick: (variantId: string) => void;
+  openerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const [query, setQuery] = useState("");
   const filtered = filterFrameOptions(frameOptions, query);
@@ -190,7 +192,15 @@ function FramePickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent
+        className="max-w-3xl"
+        onCloseAutoFocus={(event) => {
+          if (openerRef.current?.isConnected) {
+            event.preventDefault();
+            openerRef.current.focus();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Choose {label.toLowerCase()}</DialogTitle>
         </DialogHeader>
@@ -198,6 +208,7 @@ function FramePickerDialog({
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             autoFocus
+            aria-label="Search frames"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name or prompt..."
@@ -210,6 +221,7 @@ function FramePickerDialog({
               <button
                 key={f.variantId}
                 type="button"
+                aria-label={`Choose frame ${f.label}`}
                 onClick={() => {
                   onPick(f.variantId);
                   close(false);
@@ -221,7 +233,7 @@ function FramePickerDialog({
                   {f.url ? (
                     <img
                       src={f.url}
-                      alt={f.label}
+                      alt=""
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -273,6 +285,7 @@ function FramePicker({
   disabled?: boolean;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerOpener = useRef<HTMLButtonElement | null>(null);
   return (
     <>
       <FramePreview url={previewUrl} label={label} />
@@ -282,7 +295,10 @@ function FramePicker({
           variant="ghost"
           className="min-w-0 flex-1 basis-32 text-xs"
           aria-label={`Choose ${label.toLowerCase()}`}
-          onClick={() => setPickerOpen(true)}
+          onClick={(event) => {
+            pickerOpener.current = event.currentTarget;
+            setPickerOpen(true);
+          }}
           disabled={disabled || frameOptions.length === 0}
           title={
             frameOptions.length === 0
@@ -330,6 +346,7 @@ function FramePicker({
         </p>
       )}
       <FramePickerDialog
+        openerRef={pickerOpener}
         label={label}
         frameOptions={frameOptions}
         open={pickerOpen}
