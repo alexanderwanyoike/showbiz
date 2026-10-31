@@ -178,6 +178,8 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
           return;
         }
         updateKey(provider, "");
+        setReplacingKeys((current) => ({ ...current, [provider]: false }));
+        setVisibleKeys((current) => ({ ...current, [provider]: false }));
         window.dispatchEvent(new Event("showbiz:pricing-changed"));
         await loadApiKeyStatus(false);
       });
