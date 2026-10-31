@@ -15,6 +15,7 @@ export const generationPriceSchema = z.strictObject({
       z.strictObject({
         unit: z.enum(["image", "second", "megapixel"]),
         microusd: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+        max_microusd: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
         resolution: z.string().max(128).optional(),
         audio: z.boolean().optional(),
         kind: z
