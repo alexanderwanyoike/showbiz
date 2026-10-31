@@ -10,14 +10,14 @@ export interface VideoTransport {
     imageBase64: string | null,
     apiKey: string,
     settings: VideoGenerationSettings,
-    observer?: GenerationObserver
+    observer?: GenerationObserver,
   ): Promise<Blob>;
 
   generateVideoRequest?(
     config: VideoModelConfig,
     request: VideoGenerationRequest,
     apiKey: string,
-    observer?: GenerationObserver
+    observer?: GenerationObserver,
   ): Promise<Blob>;
 }
 
@@ -26,7 +26,7 @@ export interface ImageTransport {
     config: ImageModelConfig,
     prompt: string,
     apiKey: string,
-    observer?: GenerationObserver
+    observer?: GenerationObserver,
   ): Promise<string>;
 
   editImage?(
@@ -34,7 +34,7 @@ export interface ImageTransport {
     editPrompt: string,
     sourceImageBase64: string,
     apiKey: string,
-    observer?: GenerationObserver
+    observer?: GenerationObserver,
   ): Promise<string>;
 
   // Generate a single image from a prompt plus one or more reference images
@@ -44,6 +44,6 @@ export interface ImageTransport {
     prompt: string,
     referenceImages: string[],
     apiKey: string,
-    observer?: GenerationObserver
+    observer?: GenerationObserver,
   ): Promise<string>;
 }
