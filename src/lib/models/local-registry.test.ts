@@ -14,12 +14,12 @@ it("uses the configured local model through the existing generation action witho
             video_model: "wan",
           },
         }
-      : null,
+      : command === "get_api_key" ? null : {ok: true, value: null},
   );
   mocks.fetch.mockResolvedValue(
     new Response(JSON.stringify({ data: [{ b64_json: "aA==" }] })),
   );
-  expect(await generateImageAction("Morning", "local-image")).toBe(
+  expect(await generateImageAction("Morning", "local-image", {project_id: "film"})).toBe(
     "data:image/png;base64,aA==",
   );
   expect(JSON.parse(mocks.fetch.mock.calls[0][1].body).model).toBe("my-sdxl");

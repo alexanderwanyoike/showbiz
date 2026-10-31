@@ -1,15 +1,18 @@
+import { accountModelGeneration, type GenerationSubject } from "../lib/model-generation-accounting";
 import { getApiKey, getShotImageBase64, getShotEndFrameBase64, createVideoGenerationVersion, getCurrentVideoVersion } from "../lib/backend-api";
 import { getImageModel, getVideoModel, ImageModelId, VideoModelId } from "../lib/models";
 import { generateText } from "../lib/models/gemini-text";
 import type { VideoGenerationSettings } from "../lib/models/types";
 import type { VideoGenerationRequest } from "../lib/generation/types";
 
-export async function generateImageAction(prompt: string, modelId: ImageModelId = "imagen4"): Promise<string> {
+export async function generateImageAction(prompt: string, modelId: ImageModelId = "imagen4", subject?: GenerationSubject): Promise<string> {
   const model = getImageModel(modelId);
   const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
   if (!apiKey && model.apiKeyProvider !== "local") throw new Error(`${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`);
   try {
-    return await model.generateImage(prompt, apiKey);
+    const result = await accountModelGeneration(modelId, {kind: "image", count: 1}, subject, observer => model.generateImage(prompt, apiKey, observer));
+    if (!result.ok) throw new Error(result.error.message);
+    return result.value;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(`Image generation failed: ${errorMessage}`);
