@@ -14,7 +14,8 @@ import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useState, useEffect, useMemo, useRef, useId } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Plus, Loader2, Sparkles, ImageIcon, Save, PanelRight } from "lucide-react";
+import { Loader2, Sparkles, ImageIcon, Share, PanelRight } from "lucide-react";
+import { WorkspaceCommand } from "../components/WorkspaceCommand";
 import { WorkspaceToolbar as Header } from "../components/WorkspaceToolbar";
 import ShotList from "../components/ShotList";
 import ShotPreview from "../components/ShotPreview";
@@ -914,15 +915,14 @@ export default function StoryboardPage() {
         title={storyboard.name}
       >
         {/* Inline controls in header */}
-        <div className="flex items-center gap-4">
-
-          <Badge variant="secondary" className="text-sm">
-            {shots.length} {shots.length === 1 ? "shot" : "shots"}
-          </Badge>
+        <div className="storyboard-workspace-actions">
+          <span className="workspace-item-count">{shots.length} {shots.length === 1 ? "shot" : "shots"}</span>
+          <div role="group" aria-label="Storyboard view" className="storyboard-command-group">
           <StoryboardSettingsDialog name={storyboard.name} defaults={defaultModels} onSave={handleStoryboardSettingsSave} disabled={Object.keys(videoSettingsDrafts).length > 0} />
-          <Button ref={shotControlsToggle} variant="outline" size="sm" aria-label="Shot controls" aria-expanded={shotControlsOpen} aria-controls={shotControlsId} disabled={!selectedShot} onClick={() => setShotControlsOpen(!shotControlsOpen)}><PanelRight className="h-4 w-4" />Shot controls</Button>
+          <WorkspaceCommand ref={shotControlsToggle} label="Shot controls" aria-pressed={shotControlsOpen} aria-expanded={shotControlsOpen} aria-controls={shotControlsId} disabled={!selectedShot} onClick={() => setShotControlsOpen(!shotControlsOpen)}><PanelRight size={17} /></WorkspaceCommand>
+          </div>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={isExporting || !hasMedia}>{isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Export…</Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><WorkspaceCommand label="Export…" disabled={isExporting || !hasMedia}>{isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share size={17} />}</WorkspaceCommand></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => void handleExport("zip")}>Media ZIP (.zip)</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void handleExport("sbz")}>Forgecut media (.sbz)</DropdownMenuItem>
@@ -937,7 +937,7 @@ export default function StoryboardPage() {
       {inactiveVideoDraft && <div role="status" className="border-b border-border px-4 py-2 text-xs">Shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order} has unsaved video settings. <Button variant="link" size="sm" onClick={()=>setSelectedShotId(inactiveVideoDraft)}>Return to shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order}</Button></div>}
       {exportMessage && <p role="status" className="border-b border-border px-4 py-2 text-sm">{exportMessage}</p>}
       {(
-        <StoryboardModeView controlsOpen={shotControlsOpen} controlsId={shotControlsId} onCloseControls={() => { setShotControlsOpen(false); shotControlsToggle.current?.focus(); }}
+        <StoryboardModeView inspectorTitle={selectedShot ? <><span>Shot {selectedShot.order}</span><Badge variant="secondary" className="inspector-take-status">{selectedShot.status}</Badge></> : "Shot controls"} controlsOpen={shotControlsOpen} controlsId={shotControlsId} onCloseControls={() => { setShotControlsOpen(false); shotControlsToggle.current?.focus(); }}
           shotListSlot={
             <ShotList
               shots={shots.map(shot => ({

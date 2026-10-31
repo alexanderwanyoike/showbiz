@@ -1,3 +1,4 @@
+import { InspectorHelp } from "./InspectorHelp";
 import { ShotVideoSettings } from "./ShotVideoSettings";
 import { Link } from "react-router";
 import { useId, useState, type ReactNode } from "react";
@@ -21,7 +22,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import ImageVersionTimeline from "./ImageVersionTimeline";
 import VideoVersionTimeline from "./VideoVersionTimeline";
 import type {
@@ -123,7 +123,7 @@ function InspectorSection({
         aria-expanded={open}
         aria-controls={sectionId}
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground"
+        className="inspector-section-heading"
       >
         {title}
         <ChevronDown
@@ -147,7 +147,7 @@ function FramePreview({ url, label }: { url: string | null; label: string }) {
       ) : (
         <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground/50">
           <ImageIcon className="h-5 w-5" />
-          <span className="text-[10px]">No {label.toLowerCase()}</span>
+          <span className="text-xs">No {label.toLowerCase()}</span>
         </div>
       )}
     </div>
@@ -232,7 +232,7 @@ function FramePickerDialog({
                 </div>
                 <p className="mt-1 truncate text-xs font-medium">{f.label}</p>
                 {f.prompt && (
-                  <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+                  <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">
                     {f.prompt}
                   </p>
                 )}
@@ -276,10 +276,10 @@ function FramePicker({
   return (
     <>
       <FramePreview url={previewUrl} label={label} />
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="frame-actions mt-2 flex flex-wrap gap-2">
         <Button
           size="sm"
-          variant="outline"
+          variant="ghost"
           className="min-w-0 flex-1 basis-32 text-xs"
           aria-label={`Choose ${label.toLowerCase()}`}
           onClick={() => setPickerOpen(true)}
@@ -291,11 +291,11 @@ function FramePicker({
           }
         >
           <ImageIcon className="h-3 w-3 mr-1" />
-          Choose Frame
+          Choose
         </Button>
         <Button
           size="sm"
-          variant="outline"
+          variant="ghost"
           className="text-xs"
           disabled={disabled}
           aria-label={`Upload ${label.toLowerCase()}`}
@@ -307,7 +307,7 @@ function FramePicker({
         {onClear && previewUrl && (
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             className="text-xs"
             disabled={disabled}
             aria-label={`Remove ${label.toLowerCase()}`}
@@ -319,7 +319,7 @@ function FramePicker({
         )}
       </div>
       {frameOptions.length === 0 && libraryHref && (
-        <p className="mt-2 text-[11px] text-muted-foreground">
+        <p className="mt-2 text-xs text-muted-foreground">
           <Link
             to={libraryHref}
             className="text-primary underline underline-offset-2"
@@ -399,16 +399,8 @@ export default function ShotInspector({
     videoModel?.modeCapabilities.imageToVideo?.supportsEndImage === true;
 
   return (
-    <div className="h-full min-h-0 flex flex-col overflow-hidden">
+    <div className="shot-inspector h-full min-h-0 flex flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* Shot header */}
-        <div className="px-3 py-2 border-b border-border/50 flex items-center justify-between">
-          <span className="text-sm font-medium">Shot {shot.order}</span>
-          <Badge variant="secondary" className="text-xs">
-            {shot.status}
-          </Badge>
-        </div>
-
         {modelControls}
 
         {/* Start Frame Section */}
@@ -430,9 +422,9 @@ export default function ShotInspector({
               <div className="mt-2 space-y-1.5">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="w-full"
+                  className="w-full justify-start"
                   aria-label={`Edit frame for shot ${shot.order}`}
                   disabled={
                     frameSaving ||
@@ -447,7 +439,7 @@ export default function ShotInspector({
                   Edit frame
                 </Button>
                 {(!currentVersion || !imageModel?.supportsImageEditing) && (
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {!currentVersion
                       ? "Choose or upload a frame to create an editable take."
                       : `${imageModel?.name ?? "The image model"} does not support editing. Choose an editing model in Models for this shot.`}
@@ -457,7 +449,7 @@ export default function ShotInspector({
             )}
           </InspectorSection>
         ) : (
-          <p className="border-b border-border/50 px-3 py-3 text-[11px] text-muted-foreground">
+          <p className="border-b border-border/50 px-3 py-3 text-xs text-muted-foreground">
             {videoModel?.name ?? "This model"} uses the video prompt; frames are
             not sent.
           </p>
@@ -501,13 +493,13 @@ export default function ShotInspector({
                   url={shot.end_frame_url}
                   label="Saved end frame"
                 />
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {videoModel?.name ?? "This model"} does not use this saved end
                   frame.
                 </p>
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="ghost"
                   disabled={frameSaving}
                   onClick={() => onClearEndFrame(shot.id)}
                 >
@@ -517,7 +509,7 @@ export default function ShotInspector({
             ) : (
               <>
                 {!shot.image_url && (
-                  <p className="mb-2 text-[11px] text-muted-foreground">
+                  <p className="mb-2 text-xs text-muted-foreground">
                     An end frame is used only with a start frame.
                   </p>
                 )}
@@ -539,21 +531,18 @@ export default function ShotInspector({
         <InspectorSection title="Video prompt">
           <Textarea
             aria-label="Video prompt"
-            className="min-h-[88px] text-sm resize-y"
+            className="min-h-[72px] text-sm resize-y"
             placeholder="Describe the motion between the frames..."
             value={shot.video_prompt ?? ""}
             onChange={(e) =>
               onUpdateShot(shot.id, { video_prompt: e.target.value })
             }
           />
-          <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-            Prompt assistance uses Google AI (Gemini). Add its key in Settings.
-            Any charges are outside the video estimate.
-          </p>
+          <div className="inspector-assistance"><span>Google AI prompt tools</span><InspectorHelp label="About prompt assistance">Prompt assistance uses Google AI (Gemini). Add its key in Settings. Any charges are outside the video estimate.</InspectorHelp></div>
           <div className="flex gap-2 mt-2">
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               className="flex-1 text-xs"
               onClick={() => onGenerateVideoPrompt(shot.id)}
               disabled={isGeneratingPrompt || !shot.image_url}
@@ -567,7 +556,7 @@ export default function ShotInspector({
             </Button>
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               className="flex-1 text-xs"
               onClick={() => onEnhanceVideoPrompt(shot.id)}
               disabled={isEnhancingPrompt || !shot.video_prompt}
@@ -585,7 +574,7 @@ export default function ShotInspector({
         {/* Generate Video Section */}
         <InspectorSection title="Video settings">
           {videoSettingsNotice && (
-            <p role="status" className="mb-2 text-[11px] text-muted-foreground">
+            <p role="status" className="mb-2 text-xs text-muted-foreground">
               {videoSettingsNotice}
             </p>
           )}
@@ -626,7 +615,7 @@ export default function ShotInspector({
               {frameError.role === "start" ? "Start frame" : "End frame"}:{" "}
               {frameError.message}
             </p>
-            <Button size="sm" variant="outline" onClick={onDismissFrameError}>
+            <Button size="sm" variant="ghost" onClick={onDismissFrameError}>
               Keep current frames
             </Button>
           </div>
@@ -639,7 +628,7 @@ export default function ShotInspector({
             <div className="flex gap-2">
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 onClick={onRetryVideoSettingsSave}
                 disabled={videoSettingsSaving}
               >
@@ -647,7 +636,7 @@ export default function ShotInspector({
               </Button>
               <Button
                 size="sm"
-                variant="outline"
+                variant="ghost"
                 onClick={onDiscardVideoSettings}
                 disabled={videoSettingsSaving}
               >
@@ -658,7 +647,7 @@ export default function ShotInspector({
         )}
         <div className="max-h-[28vh] overflow-y-auto">{generationCost}</div>
         {!readiness.ok && (
-          <p role="status" className="mb-2 text-[11px] text-muted-foreground">
+          <p role="status" className="mb-2 text-xs text-muted-foreground">
             {readiness.error.message}
           </p>
         )}
@@ -684,14 +673,14 @@ export default function ShotInspector({
           )}
         </Button>
         {(shot.status === "generating" || generationPending) && (
-          <p className="mt-2 text-[11px] text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground">
             Stops waiting locally. Provider work and charges may continue.
           </p>
         )}
         {shot.status === "generating" && (
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             className="mt-2 w-full text-xs"
             onClick={() => onCancelVideoGeneration(shot.id)}
           >

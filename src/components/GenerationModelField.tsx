@@ -62,11 +62,11 @@ export function GenerationModelField({
   const providerName = modelProviderName(selected);
   const name = selected?.name ?? (inherited ? defaultValue : value);
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+    <div className="generation-model-field">
+      <div className="generation-model-label">
         <span>{label}</span>
         {defaultValue && (
-          <span>{inherited ? "Uses storyboard default" : "Shot override"}</span>
+          <span className="generation-model-scope"><span aria-hidden="true">{inherited ? "Default" : "Override"}</span><span className="sr-only">{inherited ? "Uses storyboard default" : "Shot override"}</span></span>
         )}
       </div>
       <ModelPicker
@@ -76,17 +76,17 @@ export function GenerationModelField({
         trigger={
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
             disabled={disabled}
-            className="w-full min-w-0 h-auto min-h-9 justify-between gap-2 py-1.5"
+            className="generation-model-choice"
             title={providerName ? `${name} · ${providerName}` : name}
             aria-label={accessibleName}
           >
             <span className="min-w-0 text-left">
               <span className="block truncate">{name}</span>
               {providerName && (
-                <span className="block truncate text-[10px] font-normal text-muted-foreground">
+                <span className="generation-model-provider">
                   {providerName}
                 </span>
               )}

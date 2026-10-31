@@ -1,9 +1,11 @@
+import { WorkspaceCommand } from "../WorkspaceCommand";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 interface StoryboardLayoutProps {
   shotListSlot: ReactNode;
   previewSlot: ReactNode;
   inspectorSlot: ReactNode;
+  inspectorTitle?: React.ReactNode;
   controlsOpen: boolean;
   controlsId: string;
   onCloseControls: () => void;
@@ -12,6 +14,7 @@ export function StoryboardLayout({
   shotListSlot,
   previewSlot,
   inspectorSlot,
+  inspectorTitle,
   controlsOpen,
   controlsId,
   onCloseControls,
@@ -33,10 +36,10 @@ export function StoryboardLayout({
         hidden={!controlsOpen}
       >
         <div className="canvas-inspector-heading">
-          <span>Shot controls</span>
-          <button aria-label="Close shot controls" onClick={onCloseControls}>
-            <X size={14} />
-          </button>
+          <div className="canvas-inspector-title">{inspectorTitle ?? "Shot controls"}</div>
+          <WorkspaceCommand label="Close shot controls" onClick={onCloseControls}>
+            <X size={15} />
+          </WorkspaceCommand>
         </div>
         <div className="canvas-inspector-body">{inspectorSlot}</div>
       </aside>
