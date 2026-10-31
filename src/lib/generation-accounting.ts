@@ -49,6 +49,7 @@ export async function runAccountedGeneration<T>(
     if (!begun.ok) return begun;
     notify(request);
     let result: Result<T>;
+    let pendingReceipt = false;
     try {
       const value = await operation({
         receipt: async (receipt) => {
@@ -57,6 +58,7 @@ export async function runAccountedGeneration<T>(
             receipt.provider_request_id === null
           )
             return;
+          pendingReceipt = receipt.provider_request_id !== null && receipt.reported_microusd === null;
           const recorded = await invoke<Result<null>>(
             "record_generation_receipt",
             { request_id, ...receipt },
@@ -76,6 +78,12 @@ export async function runAccountedGeneration<T>(
       request_id,
       status: result.ok ? "completed" : "failed",
     });
+    if (finished.ok && pendingReceipt && ["fal", "openrouter"].includes(request.provider)) {
+      try {
+        const reconciled = await invoke<Result<unknown>>("sync_generation_charges", { project_id: request.project_id, request_ids: [request_id] });
+        if (!reconciled.ok) console.warn("Provider billing remains unconfirmed:", reconciled.error.message);
+      } catch { console.warn("Provider billing could not be checked. The charge remains unconfirmed."); }
+    }
     notify(request);
     return finished.ok
       ? result
