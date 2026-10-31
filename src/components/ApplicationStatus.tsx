@@ -23,7 +23,9 @@ export function ApplicationStatus() {
       <span>
         Showbiz <span className="status-version">{version}</span>
       </span>
-      <span title={current?.file_path}>{current?.file_path ?? "No project open"}</span>
+      <span title={current?.file_path}>
+        {current?.file_path ?? "No project open"}
+      </span>
     </footer>
   );
 }

@@ -5,7 +5,20 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "../App";
-vi.mock("./bridge", () => ({ invoke: async () => ({ ok: true, value: { current: { file_path: "/Films/Morning.showbiz", project_id: "p", name: "A quiet morning" }, recent: [], legacy: [] } }) }));
+vi.mock("./bridge", () => ({
+  invoke: async () => ({
+    ok: true,
+    value: {
+      current: {
+        file_path: "/Films/Morning.showbiz",
+        project_id: "p",
+        name: "A quiet morning",
+      },
+      recent: [],
+      legacy: [],
+    },
+  }),
+}));
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
   getProjects: async () => [
@@ -79,12 +92,24 @@ it("renames a project from its desktop toolbar and lets Escape keep the saved na
 it("refreshes the project navigator when the application reports a project change", async () => {
   const api = await import("./backend-api");
   const projects = vi.spyOn(api, "getProject");
-  projects.mockResolvedValue({ id: "p", name: "A quiet morning", updated_at: "2026-10-31", created_at: "2026-10-31" });
+  projects.mockResolvedValue({
+    id: "p",
+    name: "A quiet morning",
+    updated_at: "2026-10-31",
+    created_at: "2026-10-31",
+  });
   render(createElement(MemoryRouter, null, createElement(App)));
   await screen.findByRole("navigation", { name: "Project navigator" });
   await screen.findByRole("button", { name: "Rename project", exact: true });
-  projects.mockResolvedValue({ id: "p", name: "Renamed project", updated_at: "2026-10-31", created_at: "2026-10-31" });
+  projects.mockResolvedValue({
+    id: "p",
+    name: "Renamed project",
+    updated_at: "2026-10-31",
+    created_at: "2026-10-31",
+  });
   window.dispatchEvent(new Event("showbiz:project-changed"));
-  expect(await screen.findByText("Renamed project", { exact: true })).toBeTruthy();
+  expect(
+    await screen.findByText("Renamed project", { exact: true }),
+  ).toBeTruthy();
   projects.mockRestore();
 });

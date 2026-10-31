@@ -4,7 +4,13 @@ import { useUpdates } from "../hooks/useUpdates";
 import { SettingsDialog } from "./SettingsDialog";
 import { Button } from "@/components/ui/button";
 
-export function Header({ caption = "Bible & storyboard", children }: { caption?: string; children?: ReactNode }) {
+export function Header({
+  caption = "Bible & storyboard",
+  children,
+}: {
+  caption?: string;
+  children?: ReactNode;
+}) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
     "providers" | "updates" | "appearance"
