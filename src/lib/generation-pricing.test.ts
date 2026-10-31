@@ -268,3 +268,15 @@ it("fetches the separate FAL first-last-frame endpoint for a video with an end f
     expect(String(native.fetch.mock.calls[0][0])).toContain("first-last-frame-to-video");
   } finally { db.close(); }
 });
+it("shares an authenticated FAL price lookup across simultaneous controls", async () => {
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createGenerationPricingCommands(db);
+    native.invoke.mockImplementation(async (command, args) => command === "get_api_key" ? "test-fal-key" : commands[command]?.(args));
+    native.fetch.mockClear();
+    native.fetch.mockImplementation(async (_url: string, init?: RequestInit) => new Response(JSON.stringify(init?.method === "POST" ? { estimate_type: "historical_api_price", total_cost: 0.18, currency: "USD" } : { prices: [{ endpoint_id: "openai/gpt-image-2", unit_price: 0.1, unit: "image", currency: "USD" }] })));
+    const results = await Promise.all([getGenerationEstimate("gpt-image-2", { kind: "image" }), getGenerationEstimate("gpt-image-2", { kind: "image" })]);
+    expect(results.every((result) => result.kind === "estimate")).toBe(true);
+    expect(native.fetch).toHaveBeenCalledTimes(2);
+  } finally { db.close(); }
+});
