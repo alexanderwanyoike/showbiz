@@ -151,3 +151,9 @@ describe("http_request", () => {
     expect(typeof commands.http_request).toBe("function");
   });
 });
+it("retains the FAL request identity header without forwarding unrelated response headers", async () => {
+  const upstream = new Response("{}", { headers: { "content-type": "application/json", "x-fal-request-id": "fal-direct-job", "set-cookie": "private", "authorization": "private" } });
+  const commands = createHttpCommands(async () => upstream);
+  const response = await commands.http_request({ url: "https://fal.run/fal-ai/flux-pro/kontext", method: "POST", headers: [], body: "{}" });
+  expect(response.headers).toEqual([["content-type", "application/json"], ["x-fal-request-id", "fal-direct-job"]]);
+});

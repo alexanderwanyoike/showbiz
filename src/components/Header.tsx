@@ -1,82 +1,127 @@
-import { useState } from "react"
-import { Link } from "react-router"
-import { Download, Film, Settings } from "lucide-react"
-import { useUpdates } from "../hooks/useUpdates"
-import { ModeToggle } from "./mode-toggle"
-import { SettingsDialog } from "./SettingsDialog"
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Clapperboard, Download, Palette, Settings } from "lucide-react";
+import { useUpdates } from "../hooks/useUpdates";
+import { SettingsDialog } from "./SettingsDialog";
+import { WorkspaceCommand } from "./WorkspaceCommand";
+import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
+import { useTitlebarAppearance } from "../hooks/useTitlebarAppearance";
+import type { MenuSettingsSection } from "./ApplicationMenu";
+import "../application-menu.css";
+import { Button } from "@/components/ui/button";
 
-interface HeaderProps {
-  title?: string
-  backHref?: string
-  backLabel?: string
-  children?: React.ReactNode
-}
-
-export function Header({ title, backHref, backLabel, children }: HeaderProps) {
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settingsSection, setSettingsSection] = useState<"providers" | "updates">("providers")
-  const { status: updateStatus } = useUpdates()
-
+export function Header({
+  caption = "Bible & storyboard",
+  children,
+  menu,
+}: {
+  caption?: string;
+  children?: ReactNode;
+  menu?: (actions: {
+    openSettings: (section: MenuSettingsSection) => void;
+    reportError: (message: string) => void;
+    openShortcuts: () => void;
+  }) => ReactNode;
+}) {
+  const settingsOrigin = useRef<HTMLElement | null>(null);
+  const chrome = useRef<HTMLElement>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const titlebar = useTitlebarAppearance(chrome);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<
+    "providers" | "updates" | "appearance"
+  >("providers");
+  const { status: updateStatus } = useUpdates();
+  function openSettings(section: MenuSettingsSection) {
+    settingsOrigin.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setSettingsSection(section);
+    setSettingsOpen(true);
+  }
+  useEffect(() => {
+    if (!settingsOpen && settingsOrigin.current?.isConnected)
+      settingsOrigin.current.focus();
+  }, [settingsOpen]);
   return (
-    <header className="border-b border-border bg-card">
-      <div className="px-3 h-10 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-1.5 text-primary hover:opacity-80 transition-opacity">
-            <Film className="h-5 w-5" />
-            <span className="font-bold text-sm">Showbiz</span>
-          </Link>
-          {backHref && backLabel && (
-            <>
-              <span className="text-muted-foreground text-xs">/</span>
-              <Link to={backHref} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                {backLabel}
-              </Link>
-            </>
-          )}
-          {title && (
-            <>
-              <span className="text-muted-foreground text-xs">/</span>
-              <span className="text-sm font-medium text-foreground truncate max-w-[200px]">{title}</span>
-            </>
-          )}
-          {children}
-        </div>
-        <div className="flex items-center gap-2">
-          {(updateStatus?.state === "available" || updateStatus?.state === "downloaded") && (
-            <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => {
-              setSettingsSection("updates")
-              setSettingsOpen(true)
-            }}>
-              <Download className="h-3.5 w-3.5" />
-              {updateStatus.state === "downloaded" ? "Update ready" : "Update available"}
+    <header
+      ref={chrome}
+      className="desktop-chrome integrated-titlebar"
+      data-native-titlebar={
+        window.showbiz?.desktop?.customTitlebar ? "true" : "false"
+      }
+      data-desktop-platform={window.showbiz?.desktop?.platform}
+    >
+      <div className="desktop-wordmark" aria-label="Showbiz">
+        <Clapperboard size={20} />
+        <span>Showbiz</span>
+      </div>
+      {menu?.({
+        openSettings,
+        reportError: setMenuError,
+        openShortcuts: () => setShortcutsOpen(true),
+      })}
+      {children}
+      <span className="desktop-chrome-caption">{caption}</span>
+      <div className="desktop-chrome-actions">
+        {(updateStatus?.state === "available" ||
+          updateStatus?.state === "downloaded") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => openSettings("updates")}
+          >
+            <Download size={13} />
+            <span className="desktop-update-label">
+              {updateStatus.state === "downloaded"
+                ? "Update ready"
+                : "Update available"}
+            </span>
+          </Button>
+        )}
+        <WorkspaceCommand
+          label="Appearance"
+          onClick={() => openSettings("appearance")}
+        >
+          <Palette size={17} />
+        </WorkspaceCommand>
+        <WorkspaceCommand
+          label="Settings"
+          onClick={() => openSettings("providers")}
+        >
+          <Settings size={17} />
+        </WorkspaceCommand>
+      </div>
+      {(menuError || titlebar.error) && (
+        <div role="alert" className="app-menu-error">
+          <span>{menuError ?? titlebar.error}</span>
+          {!menuError && (
+            <Button variant="ghost" size="sm" onClick={titlebar.retry}>
+              Retry
             </Button>
           )}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Settings"
-                  onClick={() => { setSettingsSection("providers"); setSettingsOpen(true) }}
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Settings</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <ModeToggle />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setMenuError(null);
+              titlebar.dismiss();
+            }}
+          >
+            Dismiss
+          </Button>
         </div>
-      </div>
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} initialSection={settingsSection} />
+      )}
+      <KeyboardShortcutsDialog
+        open={shortcutsOpen}
+        onOpenChange={setShortcutsOpen}
+      />
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        initialSection={settingsSection}
+      />
     </header>
-  )
+  );
 }

@@ -1,205 +1,107 @@
-import { useUnsavedWork } from "../hooks/useApplicationWork";
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
-import { Plus, Film, Loader2, Search } from "lucide-react";
-import { Header } from "../components/Header";
-import ProjectCard from "../components/ProjectCard";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
-  getProjects,
-  createProject,
-  deleteProject,
-} from "../lib/backend-api";
-import type { Project } from "../lib/backend-api";
-
+  Clapperboard,
+  FilePlus2,
+  FolderOpen,
+  File,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
+import { useProjectDocument } from "../contexts/ProjectDocumentContext";
 export default function WorkspacePage() {
-  const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [showNewProjectInput, setShowNewProjectInput] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  useUnsavedWork("draft", showNewProjectInput && !!newProjectName, newProjectName);
-
-  // Load projects on mount
-  useEffect(() => {
-    loadProjects();
-  }, []);
-
-  async function loadProjects() {
-    setIsLoading(true);
-    try {
-      const data = await getProjects();
-      setProjects(data);
-    } catch (error) {
-      console.error("Failed to load projects:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function handleCreateProject() {
-    if (!newProjectName.trim()) return;
-
-    setIsCreating(true);
-    try {
-      const project = await createProject(newProjectName.trim());
-      setProjects((prev) => [project, ...prev]);
-      setNewProjectName("");
-      setShowNewProjectInput(false);
-      // Navigate to the new project
-      navigate(`/project/${project.id}`);
-    } catch (error) {
-      console.error("Failed to create project:", error);
-      alert("Failed to create project");
-    } finally {
-      setIsCreating(false);
-    }
-  }
-
-  async function handleDeleteProject(id: string) {
-    try {
-      await deleteProject(id);
-      setProjects((prev) => prev.filter((p) => p.id !== id));
-    } catch (error) {
-      console.error("Failed to delete project:", error);
-      alert("Failed to delete project");
-    }
-  }
-
-  const filteredProjects = projects.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
+  const document = useProjectDocument();
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      {/* Main Content */}
-      <main className="px-6 py-6">
-        {/* Top bar: search + new project */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search projects..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9"
-            />
-          </div>
-          <div className="flex-1" />
-          {showNewProjectInput ? (
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                placeholder="Project name..."
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreateProject();
-                  if (e.key === "Escape") {
-                    setShowNewProjectInput(false);
-                    setNewProjectName("");
-                  }
-                }}
-                className="h-9 w-56"
-                autoFocus
-              />
-              <Button
-                size="sm"
-                onClick={handleCreateProject}
-                disabled={isCreating || !newProjectName.trim()}
-              >
-                {isCreating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Create"
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowNewProjectInput(false);
-                  setNewProjectName("");
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          ) : (
-            <Button size="sm" onClick={() => setShowNewProjectInput(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              New Project
-            </Button>
-          )}
-        </div>
-
-        {/* Loading State */}
-        {isLoading ? (
-          <div className="text-center py-24 text-muted-foreground flex items-center justify-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Loading projects...
-          </div>
-        ) : filteredProjects.length === 0 && projects.length === 0 ? (
-          /* Empty State */
-          <div className="text-center py-24">
-            <Film className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <h3 className="text-base font-medium text-foreground mb-1">
-              No projects yet
-            </h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              Create your first project to get started
-            </p>
-            {!showNewProjectInput && (
-              <Button size="sm" onClick={() => setShowNewProjectInput(true)}>
-                <Plus className="h-4 w-4 mr-1.5" />
-                Create Project
-              </Button>
-            )}
-          </div>
-        ) : filteredProjects.length === 0 ? (
-          /* No search results */
-          <div className="text-center py-24">
-            <Search className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="text-sm text-muted-foreground">
-              No projects matching &quot;{searchQuery}&quot;
-            </p>
-          </div>
-        ) : (
-          /* Projects Grid */
-          <div
-            className="grid gap-6"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    <main className="document-start" aria-label="Open a project">
+      <div className="document-start-panel">
+        <section className="document-start-actions">
+          <Clapperboard size={42} strokeWidth={1.2} />
+          <h1>Showbiz</h1>
+          <p>Bible & storyboard</p>
+          <button
+            aria-label="New Project"
+            disabled={document.busy || document.loading}
+            onClick={() => {
+              void document.action("new");
             }}
           >
-            {filteredProjects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                id={project.id}
-                name={project.name}
-                updatedAt={project.updated_at}
-                onDelete={handleDeleteProject}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Bottom status bar */}
-        {!isLoading && projects.length > 0 && (
-          <div className="mt-8 text-xs text-muted-foreground">
-            {filteredProjects.length === projects.length
-              ? `${projects.length} project${projects.length === 1 ? "" : "s"}`
-              : `${filteredProjects.length} of ${projects.length} project${projects.length === 1 ? "" : "s"}`}
-          </div>
-        )}
-      </main>
-    </div>
+            <FilePlus2 size={18} />
+            <span>
+              New Project<small>Create a project file</small>
+            </span>
+          </button>
+          <button
+            aria-label="Open Project"
+            disabled={document.busy || document.loading}
+            onClick={() => {
+              void document.action("open");
+            }}
+          >
+            <FolderOpen size={18} />
+            <span>
+              Open Project<small>Choose a .showbiz file</small>
+            </span>
+          </button>
+        </section>
+        <section className="document-start-recent" aria-label="Recent projects">
+          <h2>Recent</h2>
+          {document.loading ? (
+            <p>
+              <Loader2 size={14} className="animate-spin" /> Reading recent
+              files…
+            </p>
+          ) : document.recent.length ? (
+            <ul>
+              {document.recent.map((item) => (
+                <li key={item.file_path}>
+                  <button
+                    disabled={document.busy}
+                    aria-label={`Open ${item.name}`}
+                    onClick={() => {
+                      void document.openRecent(item.file_path);
+                    }}
+                  >
+                    <File size={18} />
+                    <span>
+                      <strong>{item.name}</strong>
+                      <small>{item.file_path}</small>
+                    </span>
+                    <ChevronRight size={13} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>
+              No recent projects.
+              <br />
+              Open a file or create a new one.
+            </p>
+          )}
+          {document.legacy.length > 0 && (
+            <details className="document-legacy">
+              <summary>
+                Convert an existing library project ({document.legacy.length})
+              </summary>
+              <p>
+                Save an independent project file with its media. Your existing
+                library stays available.
+              </p>
+              {document.legacy.map((item) => (
+                <button
+                  key={item.id}
+                  disabled={document.busy}
+                  onClick={() => {
+                    void document.importLegacy(item.id);
+                  }}
+                >
+                  <File size={15} />
+                  <span>{item.name}</span>
+                  <ChevronRight size={13} />
+                </button>
+              ))}
+            </details>
+          )}
+        </section>
+      </div>
+    </main>
   );
 }
