@@ -108,9 +108,24 @@ it("keeps a completed edit successful if a window closes before its refresh noti
 });
 
 it("expires edit retries when the UI switches project files", async () => {
-  const session = createMcpSession(async (command) => command === "open_project_document" ? { ok: true, value: { file_path: "/Films/Second.showbiz" } } : { id: "first", name: "First" });
-  const request = { tool: "update_project", args: { id: "first", name: "First", expected_revision: 0, request_id: "old-file-edit" } };
+  const session = createMcpSession(async (command) =>
+    command === "open_project_document"
+      ? { ok: true, value: { file_path: "/Films/Second.showbiz" } }
+      : { id: "first", name: "First" },
+  );
+  const request = {
+    tool: "update_project",
+    args: {
+      id: "first",
+      name: "First",
+      expected_revision: 0,
+      request_id: "old-file-edit",
+    },
+  };
   expect((await session.call(request)).ok).toBe(true);
   await session.invoke("open_project_document");
-  expect(await session.call(request)).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+  expect(await session.call(request)).toMatchObject({
+    ok: false,
+    error: { code: "CONFLICT" },
+  });
 });

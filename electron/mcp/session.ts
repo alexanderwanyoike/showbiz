@@ -61,7 +61,20 @@ export function createMcpSession(
   const invoke: Invoke = async (command, args) => {
     const result = await dispatch(command, args);
     if (isMutation(command)) revision++;
-    if (["create_project_document", "open_project_document", "close_project_document", "save_project_document_as", "import_legacy_project"].includes(command) && typeof result === "object" && result !== null && "ok" in result && result.ok === true) cache.clear();
+    if (
+      [
+        "create_project_document",
+        "open_project_document",
+        "close_project_document",
+        "save_project_document_as",
+        "import_legacy_project",
+      ].includes(command) &&
+      typeof result === "object" &&
+      result !== null &&
+      "ok" in result &&
+      result.ok === true
+    )
+      cache.clear();
     return result;
   };
   async function execute(input: unknown): Promise<McpResult> {
@@ -107,13 +120,11 @@ export function createMcpSession(
         delete nativeArgs.updates;
       }
       if (definition.command === "reorder_shots") {
-        const shots = z
-          .array(z.object({ id: z.string() }))
-          .parse(
-            await dispatch("get_shots", {
-              storyboardId: nativeArgs.storyboardId,
-            }),
-          );
+        const shots = z.array(z.object({ id: z.string() })).parse(
+          await dispatch("get_shots", {
+            storyboardId: nativeArgs.storyboardId,
+          }),
+        );
         const ids = z.array(z.string()).parse(nativeArgs.shotIds);
         if (
           ids.length !== shots.length ||
