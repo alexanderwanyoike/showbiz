@@ -26,3 +26,10 @@ it("shares live project operations with the UI and guards remote retries and sta
     expect(await session.call({ tool: "get_api_key", args: { provider: "gemini" } })).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
   } finally { db.close(); }
 });
+
+it("does not overwrite a user's unsaved work when an agent requests a mutation", async () => {
+  const dispatch = vi.fn(async () => ({ id: "p", name: "Agent project" }));
+  const session = createMcpSession(dispatch, () => {}, () => false);
+  expect(await session.call({ tool: "create_project", args: { name: "Agent project", expected_revision: 0, request_id: "blocked" } })).toMatchObject({ ok: false, error: { code: "BUSY" } });
+  expect(dispatch).not.toHaveBeenCalled();
+});
