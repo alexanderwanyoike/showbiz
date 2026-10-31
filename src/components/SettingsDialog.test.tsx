@@ -251,3 +251,17 @@ describe("SettingsDialog", () => {
   });
 
 });
+
+it("selects a material and accent while retaining Showbiz's native appearance", async () => {
+  api.getApiKeyStatusAction.mockResolvedValue(API_KEY_PROVIDERS.map((provider) => ({ provider: provider.id, name: provider.name, is_configured: false, source: null })));
+  const user = userEvent.setup();
+  render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
+  await user.click(await screen.findByRole("tab", { name: "Appearance" }));
+  await user.click(screen.getByRole("radio", { name: "Aluminium", exact: true }));
+  await user.click(screen.getByRole("radio", { name: "Sage", exact: true }));
+  expect(document.documentElement.dataset.material).toBe("aluminium");
+  expect(document.documentElement.dataset.accent).toBe("sage");
+  expect(JSON.parse(localStorage.getItem("showbiz-appearance") ?? "{}") as unknown).toEqual({ material: "aluminium", accent: "sage" });
+  await user.click(screen.getByRole("radio", { name: "Showbiz native", exact: true }));
+  expect(document.documentElement.dataset.material).toBe("native");
+});
