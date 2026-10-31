@@ -3,10 +3,11 @@ import { createElement } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import { generateImageAction } from "../actions/generation-actions";
 import ProjectBibleView from "../components/ProjectBibleView";
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
-  getBibles: async () => [{ id: "bible" }],
+  createBibleAsset: async (_id:string,input:Record<string,unknown>) => ({...input,id:"new-frame"}), getBibles: async () => [{ id: "bible" }],
   getBibleAssets: async () => [
     { id: "character", asset_type: "character", name: "Morning" },
   ],
@@ -39,4 +40,16 @@ it("shows an image estimate before creating a bible picture",async()=>{
  render(createElement(ProjectBibleView,{projectId:"film"}));
  await screen.findByRole("button",{name:"Edit"});
  expect((await screen.findAllByLabelText("Estimated generation cost"))[0].textContent).toContain("~$0.0672");
+});
+
+it("retains the frame draft and its usage identity when generation fails",async()=>{
+ render(createElement(ProjectBibleView,{projectId:"film"}));
+ await screen.findByRole("button",{name:"Edit"});
+ const user=userEvent.setup();
+ await user.click(screen.getByRole("button",{name:/^frames$/i}));
+ await user.type(screen.getByPlaceholderText("What's happening (and the look, e.g. 90s anime)..."),"Saved frame draft");
+ await user.click(screen.getByRole("button",{name:"Make frame"}));
+ expect(await screen.findByText("Provider unavailable")).toBeTruthy();
+ expect(await screen.findByText("Saved frame draft")).toBeTruthy();
+ expect(generateImageAction).toHaveBeenCalledWith("Saved frame draft","nano-banana",{project_id:"film",subject_id:"new-frame"});
 });
