@@ -6,11 +6,7 @@ import { WorkspaceToolbar as Header } from "../components/WorkspaceToolbar";
 import ProjectRow from "../components/ProjectRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  getProjects,
-  createProject,
-  deleteProject,
-} from "../lib/backend-api";
+import { getProjects, createProject, deleteProject } from "../lib/backend-api";
 import type { Project } from "../lib/backend-api";
 
 export default function WorkspacePage() {
@@ -22,7 +18,11 @@ export default function WorkspacePage() {
   const [showNewProjectInput, setShowNewProjectInput] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useUnsavedWork("draft", showNewProjectInput && !!newProjectName, newProjectName);
+  useUnsavedWork(
+    "draft",
+    showNewProjectInput && !!newProjectName,
+    newProjectName,
+  );
 
   // Load projects on mount
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function WorkspacePage() {
   }
 
   const filteredProjects = projects.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -174,8 +174,26 @@ export default function WorkspacePage() {
         ) : (
           <div className="library-table-scroll">
             <table className="library-table" aria-label="Projects">
-              <thead><tr><th scope="col">Name</th><th scope="col">Date modified</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
-              <tbody>{filteredProjects.map((project) => <ProjectRow key={project.id} id={project.id} name={project.name} updatedAt={project.updated_at} onDelete={handleDeleteProject} />)}</tbody>
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Date modified</th>
+                  <th scope="col">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProjects.map((project) => (
+                  <ProjectRow
+                    key={project.id}
+                    id={project.id}
+                    name={project.name}
+                    updatedAt={project.updated_at}
+                    onDelete={handleDeleteProject}
+                  />
+                ))}
+              </tbody>
             </table>
           </div>
         )}

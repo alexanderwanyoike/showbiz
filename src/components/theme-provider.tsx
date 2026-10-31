@@ -1,6 +1,10 @@
-import * as React from "react"
-import { ThemeProvider as NextThemesProvider } from "next-themes"
-import { applyAppearance, readAppearance, DEFAULT_APPEARANCE } from "../lib/appearance"
+import * as React from "react";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
+import {
+  applyAppearance,
+  readAppearance,
+  DEFAULT_APPEARANCE,
+} from "../lib/appearance";
 
 export function ThemeProvider({
   children,
@@ -11,5 +15,5 @@ export function ThemeProvider({
     applyAppearance(saved.ok ? saved.value : DEFAULT_APPEARANCE);
     if (!saved.ok) console.warn(saved.error);
   }, []);
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
+  return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
 }

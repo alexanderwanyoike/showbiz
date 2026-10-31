@@ -12,11 +12,11 @@ export default function App() {
       <Header />
       <ProjectNavigator />
       <section className="desktop-content" aria-label="Project workspace">
-    <Routes>
-      <Route path="/" element={<WorkspacePage />} />
-      <Route path="/project/:id" element={<ProjectPage />} />
-      <Route path="/storyboard/:id" element={<StoryboardPage />} />
-    </Routes>
+        <Routes>
+          <Route path="/" element={<WorkspacePage />} />
+          <Route path="/project/:id" element={<ProjectPage />} />
+          <Route path="/storyboard/:id" element={<StoryboardPage />} />
+        </Routes>
       </section>
       <ApplicationStatus />
     </div>

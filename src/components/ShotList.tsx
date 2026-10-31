@@ -60,25 +60,88 @@ export default function ShotList({
 
   return (
     <section aria-label="Shots" className="shot-browser">
-      <div className="shot-browser-heading"><span>Shots</span><span>{shots.length}</span></div>
+      <div className="shot-browser-heading">
+        <span>Shots</span>
+        <span>{shots.length}</span>
+      </div>
       <ol className="shot-browser-list">
         {shots.map((shot, index) => {
-          const previewStill = resolvePreviewStill(shot.image_url, posters[shot.video_url ?? ""]);
-          const status = shot.status === "generating" ? "Generating" : shot.status === "failed" ? "Failed" : shot.video_url ? "Video ready" : shot.image_url ? "Frame ready" : "No media";
-          return <li key={shot.id} className={`shot-browser-row group ${selectedShotId === shot.id ? "is-selected" : ""}`}>
-            <button className="shot-browser-select" aria-label={`Select shot ${shot.order}`} aria-pressed={selectedShotId === shot.id} onClick={() => onSelectShot(shot.id)}>
-              <span className="shot-browser-thumbnail">{previewStill ? <img src={previewStill} alt="" /> : <span>{String(shot.order).padStart(2, "0")}</span>}</span>
-              <span className="shot-browser-copy"><strong>Shot {String(shot.order).padStart(2, "0")}</strong><span>{truncatePrompt(shotListPrompt(shot))}</span><small>{shot.status === "generating" && <Loader2 size={10} className="animate-spin" />}{status}</small></span>
-            </button>
-            <div className="shot-browser-actions">
-              <button aria-label={`Move shot ${shot.order} up`} title="Move up" disabled={index === 0} onClick={() => onMoveShot(index, "up")}><ChevronUp size={12} /></button>
-              <button aria-label={`Move shot ${shot.order} down`} title="Move down" disabled={index === shots.length - 1} onClick={() => onMoveShot(index, "down")}><ChevronDown size={12} /></button>
-              <button aria-label={`Delete shot ${shot.order}`} title="Delete shot" onClick={() => onDeleteShot(shot.id)}><Trash2 size={12} /></button>
-            </div>
-          </li>;
+          const previewStill = resolvePreviewStill(
+            shot.image_url,
+            posters[shot.video_url ?? ""],
+          );
+          const status =
+            shot.status === "generating"
+              ? "Generating"
+              : shot.status === "failed"
+                ? "Failed"
+                : shot.video_url
+                  ? "Video ready"
+                  : shot.image_url
+                    ? "Frame ready"
+                    : "No media";
+          return (
+            <li
+              key={shot.id}
+              className={`shot-browser-row group ${selectedShotId === shot.id ? "is-selected" : ""}`}
+            >
+              <button
+                className="shot-browser-select"
+                aria-label={`Select shot ${shot.order}`}
+                aria-pressed={selectedShotId === shot.id}
+                onClick={() => onSelectShot(shot.id)}
+              >
+                <span className="shot-browser-thumbnail">
+                  {previewStill ? (
+                    <img src={previewStill} alt="" />
+                  ) : (
+                    <span>{String(shot.order).padStart(2, "0")}</span>
+                  )}
+                </span>
+                <span className="shot-browser-copy">
+                  <strong>Shot {String(shot.order).padStart(2, "0")}</strong>
+                  <span>{truncatePrompt(shotListPrompt(shot))}</span>
+                  <small>
+                    {shot.status === "generating" && (
+                      <Loader2 size={10} className="animate-spin" />
+                    )}
+                    {status}
+                  </small>
+                </span>
+              </button>
+              <div className="shot-browser-actions">
+                <button
+                  aria-label={`Move shot ${shot.order} up`}
+                  title="Move up"
+                  disabled={index === 0}
+                  onClick={() => onMoveShot(index, "up")}
+                >
+                  <ChevronUp size={12} />
+                </button>
+                <button
+                  aria-label={`Move shot ${shot.order} down`}
+                  title="Move down"
+                  disabled={index === shots.length - 1}
+                  onClick={() => onMoveShot(index, "down")}
+                >
+                  <ChevronDown size={12} />
+                </button>
+                <button
+                  aria-label={`Delete shot ${shot.order}`}
+                  title="Delete shot"
+                  onClick={() => onDeleteShot(shot.id)}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </li>
+          );
         })}
       </ol>
-      <button onClick={onAddShot} className="shot-browser-add"><Plus size={13} />Add shot</button>
+      <button onClick={onAddShot} className="shot-browser-add">
+        <Plus size={13} />
+        Add shot
+      </button>
     </section>
   );
 }

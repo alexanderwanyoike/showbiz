@@ -80,8 +80,9 @@ export default function StoryboardCard({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Storyboard</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete &quot;{name}&quot;? This will also delete all
-                shots within this storyboard. This action cannot be undone.
+                Are you sure you want to delete &quot;{name}&quot;? This will
+                also delete all shots within this storyboard. This action cannot
+                be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
