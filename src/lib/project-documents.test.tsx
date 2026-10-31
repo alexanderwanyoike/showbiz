@@ -101,3 +101,11 @@ it("opens recent files by their saved path and keeps the current project when a 
     screen.getByRole("navigation", { name: "Project navigator" }),
   ).toBeTruthy();
 });
+
+
+it("keeps New and Open available while reporting a damaged recent-file list", async () => {
+  native.invoke.mockResolvedValue({ ok: true, value: { current: null, recent: [], legacy: [], warning: "The recent project list could not be read." } });
+  render(createElement(MemoryRouter, null, createElement(App)));
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("recent project list"));
+  expect(screen.getByRole("button", { name: "Open Project", exact: true }).hasAttribute("disabled")).toBe(false);
+});
