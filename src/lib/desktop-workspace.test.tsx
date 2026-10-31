@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "../App";
+vi.mock("./bridge", () => ({ invoke: async () => ({ ok: true, value: { current: { file_path: "/Films/Morning.showbiz", project_id: "p", name: "A quiet morning" }, recent: [], legacy: [] } }) }));
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
   getProjects: async () => [
@@ -27,22 +28,16 @@ vi.mock("./update-client", () => ({
   },
 }));
 afterEach(cleanup);
-it("keeps desktop navigation and status visible while moving from the project library to its bible", async () => {
+it("keeps desktop navigation and status visible while moving from the open document to its bible", async () => {
   const user = userEvent.setup();
   render(createElement(MemoryRouter, null, createElement(App)));
   const navigator = await screen.findByRole("navigation", {
     name: "Project navigator",
   });
-  expect(await screen.findByRole("table", { name: "Projects" })).toBeTruthy();
+  expect(screen.queryByText("All projects")).toBeNull();
   expect(
     screen.getByRole("contentinfo", { name: "Application status" }),
   ).toBeTruthy();
-  await user.click(
-    await within(navigator).findByRole("link", {
-      name: "A quiet morning",
-      exact: true,
-    }),
-  );
   await user.click(
     await within(navigator).findByRole("link", { name: "Bible", exact: true }),
   );
@@ -83,13 +78,13 @@ it("renames a project from its desktop toolbar and lets Escape keep the saved na
 
 it("refreshes the project navigator when the application reports a project change", async () => {
   const api = await import("./backend-api");
-  const projects = vi.spyOn(api, "getProjects");
-  projects.mockResolvedValue([{ id: "p", name: "A quiet morning", updated_at: "2026-10-31", created_at: "2026-10-31" }]);
+  const projects = vi.spyOn(api, "getProject");
+  projects.mockResolvedValue({ id: "p", name: "A quiet morning", updated_at: "2026-10-31", created_at: "2026-10-31" });
   render(createElement(MemoryRouter, null, createElement(App)));
-  const navigator = await screen.findByRole("navigation", { name: "Project navigator" });
-  await within(navigator).findByRole("link", { name: "A quiet morning", exact: true });
-  projects.mockResolvedValue([{ id: "p", name: "Renamed project", updated_at: "2026-10-31", created_at: "2026-10-31" }]);
+  await screen.findByRole("navigation", { name: "Project navigator" });
+  await screen.findByRole("button", { name: "Rename project", exact: true });
+  projects.mockResolvedValue({ id: "p", name: "Renamed project", updated_at: "2026-10-31", created_at: "2026-10-31" });
   window.dispatchEvent(new Event("showbiz:project-changed"));
-  expect(await within(navigator).findByRole("link", { name: "Renamed project", exact: true })).toBeTruthy();
+  expect(await screen.findByText("Renamed project", { exact: true })).toBeTruthy();
   projects.mockRestore();
 });
