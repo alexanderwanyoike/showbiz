@@ -49,3 +49,8 @@ it("offers a shot override and a way back to the storyboard default", async () =
   );
   expect(onShotChange).toHaveBeenLastCalledWith("shot", { image_model: null });
 });
+it("keeps the provider visible after selecting a model available through several providers", () => {
+  render(createElement(ShotModelControls, {shot: {id: "shot", order: 1, image_model: "nano-banana-2-openrouter", video_model: "veo-3.1-openrouter"}, defaults: {image_model: "nano-banana-2", video_model: "seedance-2-fal"}, onShotChange: vi.fn(), onDefaultsChange: vi.fn(), disabled: false, error: null}));
+  expect(screen.getByRole("button", {name: "Image model for shot 1"}).textContent).toContain("OpenRouter");
+  expect(screen.getByRole("button", {name: "Video model for shot 1"}).textContent).toContain("OpenRouter");
+});
