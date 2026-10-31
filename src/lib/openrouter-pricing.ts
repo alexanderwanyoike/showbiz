@@ -10,8 +10,8 @@ export async function getOpenRouterImagePrice(modelId: string, slug: string): Pr
   const parsed = imageEndpoints.safeParse(await response.json());
   if (!parsed.success) return null;
   const outputs = parsed.data.endpoints.flatMap(endpoint => endpoint.pricing.filter(price => price.billable === "output_image"));
-  if (!outputs.length || outputs.some(price => price.unit !== "image" || price.variant)) return null;
-  const amounts = outputs.map(price => Math.round(price.cost_usd * 1000000));
+  if (!outputs.length || outputs.some(price => (price.unit !== "image" && !(price.unit === "token" && slug === "google/gemini-3.1-flash-image")) || price.variant)) return null;
+  const amounts = outputs.map(price => Math.round(price.cost_usd * (price.unit === "token" ? 1120 : 1) * 1000000));
   if (amounts.some(value => !Number.isSafeInteger(value))) return null;
   return { provider: "openrouter", model_id: modelId, currency: "USD", source_kind: "provider", source_url: url, checked_at: new Date().toISOString(), excludes_input_cost: true, rates: [{ unit: "image", microusd: Math.min(...amounts), max_microusd: Math.max(...amounts) }] };
 }
