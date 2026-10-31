@@ -378,11 +378,13 @@ export default function ShotInspector({
       )}
 
       {/* End Frame Section */}
-      {(supportsEndFrame || shot.end_frame_url) && <InspectorSection key={`end:${shot.id}:${videoModel?.id}`} title={videoModel?.modeCapabilities.imageToVideo?.requiresEndImage ? "End frame (required)" : "End frame (optional)"} defaultOpen={!!shot.end_frame_url || videoModel?.modeCapabilities.imageToVideo?.requiresEndImage}>
+      {(supportsEndFrame || shot.end_frame_url) && <InspectorSection key={`end:${shot.id}:${videoModel?.id}`} title={!supportsEndFrame ? "Saved end frame" : videoModel?.modeCapabilities.imageToVideo?.requiresEndImage ? "End frame (required)" : "End frame (optional)"} defaultOpen={!!shot.end_frame_url || videoModel?.modeCapabilities.imageToVideo?.requiresEndImage}>
         {!supportsEndFrame ? (
-          <p className="text-[11px] text-muted-foreground">
-            {videoModel?.name ?? "This model"} doesn't support an end frame. The start frame and prompt drive the shot.
-          </p>
+          <div className="space-y-2">
+            <FramePreview url={shot.end_frame_url} label="Saved end frame" />
+            <p className="text-[11px] text-muted-foreground">{videoModel?.name ?? "This model"} does not use this saved end frame.</p>
+            <Button size="sm" variant="outline" onClick={()=>onClearEndFrame(shot.id)}>Remove saved end frame</Button>
+          </div>
         ) : (
           <>
           {!shot.image_url && <p className="mb-2 text-[11px] text-muted-foreground">An end frame is used only with a start frame.</p>}
@@ -407,7 +409,7 @@ export default function ShotInspector({
           value={shot.video_prompt ?? ""}
           onChange={(e) => onUpdateShot(shot.id, { video_prompt: e.target.value })}
         />
-        <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">Prompt assistance uses Google AI (Gemini), independently of the selected image and video models. Charges are separate from the video estimate.</p>
+        <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">Prompt assistance uses Google AI (Gemini). Add its key in Settings. Any charges are outside the video estimate.</p>
         <div className="flex gap-2 mt-2">
           <Button
             size="sm"
