@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useBlocker, type Location } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ function workspace(location: Pick<Location, "pathname" | "search">) {
     : location.pathname;
 }
 export function NavigationGuard() {
+  const origin = useRef<HTMLElement | null>(null);
   const dirty = useApplicationWork().unsaved.includes("draft");
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -34,7 +35,10 @@ export function NavigationGuard() {
         if (!open && blocker.state === "blocked") blocker.reset();
       }}
     >
-      <AlertDialogContent>
+      <AlertDialogContent
+        onOpenAutoFocus={() => { origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
+        onCloseAutoFocus={(event) => { event.preventDefault(); if (origin.current?.isConnected) origin.current.focus(); }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
           <AlertDialogDescription>
