@@ -80,3 +80,16 @@ it("renames a project from its desktop toolbar and lets Escape keep the saved na
     screen.getByRole("button", { name: "Rename project", exact: true }),
   ).toBeTruthy();
 });
+
+it("refreshes the project navigator when the application reports a project change", async () => {
+  const api = await import("./backend-api");
+  const projects = vi.spyOn(api, "getProjects");
+  projects.mockResolvedValue([{ id: "p", name: "A quiet morning", updated_at: "2026-10-31", created_at: "2026-10-31" }]);
+  render(createElement(MemoryRouter, null, createElement(App)));
+  const navigator = await screen.findByRole("navigation", { name: "Project navigator" });
+  await within(navigator).findByRole("link", { name: "A quiet morning", exact: true });
+  projects.mockResolvedValue([{ id: "p", name: "Renamed project", updated_at: "2026-10-31", created_at: "2026-10-31" }]);
+  window.dispatchEvent(new Event("showbiz:project-changed"));
+  expect(await within(navigator).findByRole("link", { name: "Renamed project", exact: true })).toBeTruthy();
+  projects.mockRestore();
+});
