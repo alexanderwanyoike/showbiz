@@ -231,3 +231,20 @@ it("keeps frame references fixed while their generation request is running", asy
   expect(character.hasAttribute("disabled")).toBe(false);
   expect(character.getAttribute("aria-pressed")).toBe("true");
 });
+
+it("opens picture commands from More, keeps edit drafts across Escape and returns focus", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  const more = await screen.findByRole("button", { name: "Picture actions for Ada" });
+  expect(screen.queryByRole("button", { name: "Retake" })).toBeNull();
+  await user.click(more);
+  const commands = await screen.findByRole("dialog", { name: "Picture actions for Ada" });
+  expect(within(commands).getByRole("button", { name: "Retake" })).toBeTruthy();
+  await user.click(within(commands).getByRole("button", { name: "Edit…" }));
+  await user.type(within(commands).getByRole("textbox", { name: "Edit instruction for Ada" }), "Warm light");
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog", { name: "Picture actions for Ada" })).toBeNull();
+  expect(document.activeElement).toBe(more);
+  await user.click(more);
+  expect((screen.getByRole("textbox", { name: "Edit instruction for Ada" }) as HTMLTextAreaElement).value).toBe("Warm light");
+});
