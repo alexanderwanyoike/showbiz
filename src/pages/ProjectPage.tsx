@@ -31,10 +31,20 @@ export default function ProjectPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"storyboards" | "bible">("storyboards");
+  const [activeTab, setActiveTab] = useState<"storyboards" | "bible">(
+    "storyboards",
+  );
 
-  useUnsavedWork("draft", showNewStoryboardInput && !!newStoryboardName, newStoryboardName);
-  useUnsavedWork("draft", isEditingName && editedName !== project?.name, editedName);
+  useUnsavedWork(
+    "draft",
+    showNewStoryboardInput && !!newStoryboardName,
+    newStoryboardName,
+  );
+  useUnsavedWork(
+    "draft",
+    isEditingName && editedName !== project?.name,
+    editedName,
+  );
 
   useAgentChanges(loadData);
 
@@ -74,7 +84,10 @@ export default function ProjectPage() {
     setIsCreating(true);
     try {
       const storyboard = await createStoryboard(id, newStoryboardName.trim());
-      setStoryboards((prev) => [{ ...storyboard, preview_image_path: null }, ...prev]);
+      setStoryboards((prev) => [
+        { ...storyboard, preview_image_path: null },
+        ...prev,
+      ]);
       setNewStoryboardName("");
       setShowNewStoryboardInput(false);
       // Navigate to the new storyboard
@@ -117,7 +130,7 @@ export default function ProjectPage() {
   }
 
   const filteredStoryboards = storyboards.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   if (isLoading) {
@@ -173,7 +186,13 @@ export default function ProjectPage() {
           )}
         </div>
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "storyboards" | "bible")} className="mb-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) =>
+            setActiveTab(value as "storyboards" | "bible")
+          }
+          className="mb-6"
+        >
           <TabsList>
             <TabsTrigger value="storyboards">Storyboards</TabsTrigger>
             <TabsTrigger value="bible">Bible</TabsTrigger>
@@ -184,118 +203,124 @@ export default function ProjectPage() {
           <ProjectBibleView projectId={project.id} />
         ) : (
           <>
-        {/* Top bar: search + new storyboard */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search storyboards..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9"
-            />
-          </div>
-          <div className="flex-1" />
-          {showNewStoryboardInput ? (
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                placeholder="Storyboard name..."
-                value={newStoryboardName}
-                onChange={(e) => setNewStoryboardName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreateStoryboard();
-                  if (e.key === "Escape") {
-                    setShowNewStoryboardInput(false);
-                    setNewStoryboardName("");
-                  }
-                }}
-                className="h-9 w-56"
-                autoFocus
-              />
-              <Button
-                size="sm"
-                onClick={handleCreateStoryboard}
-                disabled={isCreating || !newStoryboardName.trim()}
-              >
-                {isCreating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Create"
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowNewStoryboardInput(false);
-                  setNewStoryboardName("");
-                }}
-              >
-                Cancel
-              </Button>
+            {/* Top bar: search + new storyboard */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search storyboards..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
+              <div className="flex-1" />
+              {showNewStoryboardInput ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Storyboard name..."
+                    value={newStoryboardName}
+                    onChange={(e) => setNewStoryboardName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleCreateStoryboard();
+                      if (e.key === "Escape") {
+                        setShowNewStoryboardInput(false);
+                        setNewStoryboardName("");
+                      }
+                    }}
+                    className="h-9 w-56"
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleCreateStoryboard}
+                    disabled={isCreating || !newStoryboardName.trim()}
+                  >
+                    {isCreating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Create"
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowNewStoryboardInput(false);
+                      setNewStoryboardName("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => setShowNewStoryboardInput(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  New Storyboard
+                </Button>
+              )}
             </div>
-          ) : (
-            <Button size="sm" onClick={() => setShowNewStoryboardInput(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              New Storyboard
-            </Button>
-          )}
-        </div>
 
-        {/* Storyboards */}
-        {filteredStoryboards.length === 0 && storyboards.length === 0 ? (
-          <div className="text-center py-24">
-            <Clapperboard className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <h3 className="text-base font-medium text-foreground mb-1">
-              No storyboards yet
-            </h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              Create a storyboard to start building your video
-            </p>
-            {!showNewStoryboardInput && (
-              <Button size="sm" onClick={() => setShowNewStoryboardInput(true)}>
-                <Plus className="h-4 w-4 mr-1.5" />
-                Create Storyboard
-              </Button>
+            {/* Storyboards */}
+            {filteredStoryboards.length === 0 && storyboards.length === 0 ? (
+              <div className="text-center py-24">
+                <Clapperboard className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
+                <h3 className="text-base font-medium text-foreground mb-1">
+                  No storyboards yet
+                </h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Create a storyboard to start building your video
+                </p>
+                {!showNewStoryboardInput && (
+                  <Button
+                    size="sm"
+                    onClick={() => setShowNewStoryboardInput(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Create Storyboard
+                  </Button>
+                )}
+              </div>
+            ) : filteredStoryboards.length === 0 ? (
+              <div className="text-center py-24">
+                <Search className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  No storyboards matching &quot;{searchQuery}&quot;
+                </p>
+              </div>
+            ) : (
+              <div
+                className="grid gap-6"
+                style={{
+                  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                }}
+              >
+                {filteredStoryboards.map((storyboard) => (
+                  <StoryboardCard
+                    key={storyboard.id}
+                    id={storyboard.id}
+                    name={storyboard.name}
+                    updatedAt={storyboard.updated_at}
+                    previewImageUrl={storyboard.preview_image_path}
+                    onDelete={handleDeleteStoryboard}
+                  />
+                ))}
+              </div>
             )}
-          </div>
-        ) : filteredStoryboards.length === 0 ? (
-          <div className="text-center py-24">
-            <Search className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="text-sm text-muted-foreground">
-              No storyboards matching &quot;{searchQuery}&quot;
-            </p>
-          </div>
-        ) : (
-          <div
-            className="grid gap-6"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            }}
-          >
-            {filteredStoryboards.map((storyboard) => (
-              <StoryboardCard
-                key={storyboard.id}
-                id={storyboard.id}
-                name={storyboard.name}
-                updatedAt={storyboard.updated_at}
-                previewImageUrl={storyboard.preview_image_path}
-                onDelete={handleDeleteStoryboard}
-              />
-            ))}
-          </div>
-        )}
 
-        {/* Bottom status bar */}
-        {!isLoading && storyboards.length > 0 && (
-          <div className="mt-8 text-xs text-muted-foreground">
-            {filteredStoryboards.length === storyboards.length
-              ? `${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`
-              : `${filteredStoryboards.length} of ${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`}
-          </div>
-        )}
+            {/* Bottom status bar */}
+            {!isLoading && storyboards.length > 0 && (
+              <div className="mt-8 text-xs text-muted-foreground">
+                {filteredStoryboards.length === storyboards.length
+                  ? `${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`
+                  : `${filteredStoryboards.length} of ${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`}
+              </div>
+            )}
           </>
         )}
       </main>

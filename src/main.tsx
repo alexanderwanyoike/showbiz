@@ -14,9 +14,14 @@ connectAgentChanges();
 // file:// asar path that no path-based route can match.
 createRoot(document.getElementById("root")!).render(
   <HashRouter>
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
       <App />
       <ApplicationClosingDialog />
     </ThemeProvider>
-  </HashRouter>
+  </HashRouter>,
 );

@@ -13,9 +13,7 @@ import {
 
 export function sessionDirectory(): string {
   const config = process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-  return (
-    process.env.SHOWBIZ_MCP_DIR ?? join(config, "showbiz", "mcp-sessions")
-  );
+  return process.env.SHOWBIZ_MCP_DIR ?? join(config, "showbiz", "mcp-sessions");
 }
 
 export async function listSessions(

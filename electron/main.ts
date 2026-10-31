@@ -14,7 +14,8 @@ import { createWorkRuntime } from "./work-runtime";
 import { createUpdateRuntime } from "./update-runtime";
 
 const isDev = !app.isPackaged;
-const DEV_SERVER_URL = process.env.SHOWBIZ_DEV_SERVER_URL ?? "http://localhost:1420";
+const DEV_SERVER_URL =
+  process.env.SHOWBIZ_DEV_SERVER_URL ?? "http://localhost:1420";
 
 if (isDev) {
   // First-class verification: agents drive the app over CDP in dev.
@@ -25,38 +26,64 @@ function openShowbizDatabase() {
   const dataDir = path.join(appDataDir(), "data");
   fs.mkdirSync(dataDir, { recursive: true });
   const migrations = loadMigrations(
-    path.join(app.getAppPath(), "electron/migrations")
+    path.join(app.getAppPath(), "electron/migrations"),
   );
   return openDatabase(path.join(dataDir, "showbiz.db"), migrations);
 }
 
-async function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: ReturnType<typeof createWorkRuntime>) {
+async function registerIpc(
+  updates: ReturnType<typeof createUpdateRuntime>,
+  work: ReturnType<typeof createWorkRuntime>,
+) {
   const db = openShowbizDatabase();
   const mediaDir = mediaBaseDir(appDataDir());
   // Save helpers assume the media subdirectories exist, exactly like the Rust
   // shell where main.rs calls media::init() at startup.
   initMediaDirs(mediaDir);
   const invokeHandler = createInvokeHandler({
-    ...createDataCommands(db, mediaDir, createExportCommandsForApp(db, mediaDir)),
+    ...createDataCommands(
+      db,
+      mediaDir,
+      createExportCommandsForApp(db, mediaDir),
+    ),
     ...updates.commands,
   });
   const session = createMcpSession(
     (command, args) => work.invoke(-1, command, args, invokeHandler),
-    () => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send("showbiz:data_changed"); },
-    () => { const status = work.work.getStatus(); return status.unsaved.length === 0 && status.active.length === 0 && !status.closing; },
+    () => {
+      for (const window of BrowserWindow.getAllWindows())
+        window.webContents.send("showbiz:data_changed");
+    },
+    () => {
+      const status = work.work.getStatus();
+      return (
+        status.unsaved.length === 0 &&
+        status.active.length === 0 &&
+        !status.closing
+      );
+    },
   );
-  ipcMain.handle("showbiz:invoke", (event, cmd: string, args?: Record<string, unknown>) => {
-    return work.invoke(event.sender.id, cmd, args, session.invoke);
-  });
+  ipcMain.handle(
+    "showbiz:invoke",
+    (event, cmd: string, args?: Record<string, unknown>) => {
+      return work.invoke(event.sender.id, cmd, args, session.invoke);
+    },
+  );
   try {
     const bridge = await startLocalBridge(session.call);
-    app.once("will-quit", () => { void bridge.close().catch((cause: unknown) => console.error("Could not close the agent connection:", cause)); });
+    app.once("will-quit", () => {
+      void bridge
+        .close()
+        .catch((cause: unknown) =>
+          console.error("Could not close the agent connection:", cause),
+        );
+    });
   } catch (cause) {
     console.error("The Showbiz agent connection is unavailable:", cause);
   }
 
   ipcMain.handle("showbiz:read-media-bytes", (_event, relativePath: string) =>
-    fs.promises.readFile(resolveMediaPath(mediaDir, relativePath))
+    fs.promises.readFile(resolveMediaPath(mediaDir, relativePath)),
   );
 }
 
@@ -92,8 +119,11 @@ app.whenReady().then(async () => {
   const work = createWorkRuntime({
     windows: () => BrowserWindow.getAllWindows(),
     confirm: (options) => {
-      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-      return window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options);
+      const window =
+        BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+      return window
+        ? dialog.showMessageBox(window, options)
+        : dialog.showMessageBox(options);
     },
     quit: () => app.quit(),
   });
