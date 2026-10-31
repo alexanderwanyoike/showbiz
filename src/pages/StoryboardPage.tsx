@@ -943,6 +943,7 @@ export default function StoryboardPage() {
           inspectorSlot={
             <ShotInspector
               generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={{kind: "video", duration: videoSettings.duration, resolution: videoSettings.resolution, audio: videoSettings.audio}} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
+              frameLibraryHref={`/project/${storyboard.project_id}?view=bible&bibleTab=frames`}
               generationDisabled={modelSaving}
               modelControls={<ShotModelControls shot={selectedShot} defaults={defaultModels} onShotChange={handleShotModels} disabled={modelSaving} error={modelError}/>}
               shot={selectedShotId ? (() => {
