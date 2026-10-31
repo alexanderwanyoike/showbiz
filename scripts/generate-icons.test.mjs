@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 const script=fileURLToPath(new URL("./generate-icons.mjs",import.meta.url));
-const outputs=["build/icons/icon.png","build/icons/icon.ico","build/icons/icon.icns","public/icon.png"];
+const outputs=["build/icons/icon.png","build/icons/icon.ico","build/icons/icon.icns","public/icon.png","site/favicon.png","site/apple-touch-icon.png"];
 function fixture(t){
   const root=mkdtempSync(path.join(tmpdir(),"showbiz-icons-"));
   t.after(()=>rmSync(root,{recursive:true,force:true}));
@@ -24,6 +24,9 @@ test("generates a 1024px runtime PNG and native multi-size ICO/ICNS containers",
   assert.equal(png.subarray(1,4).toString(),"PNG");
   assert.equal(png.readUInt32BE(16),1024);assert.equal(png.readUInt32BE(20),1024);
   assert.deepEqual(readFileSync(file("public/icon.png")),png);
+  for (const [name,size] of [["site/favicon.png",256],["site/apple-touch-icon.png",180]]) {
+    const image=readFileSync(file(name));assert.equal(image.readUInt32BE(16),size);assert.equal(image.readUInt32BE(20),size);
+  }
   const ico=readFileSync(file("build/icons/icon.ico"));
   assert.equal(ico.readUInt16LE(2),1);assert.ok(ico.readUInt16LE(4)>1);
   const icns=readFileSync(file("build/icons/icon.icns"));
