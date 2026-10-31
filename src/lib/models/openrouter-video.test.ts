@@ -107,3 +107,11 @@ it("rejects an image-to-video request without its required starting frame before
   ).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
   expect(http.fetch.mock.calls.length).toBe(calls);
 });
+it("records the submitted OpenRouter job before its first status request fails", async () => {
+  const receipt = vi.fn();
+  http.fetch.mockReset();
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: "job-first-poll", status: "pending" })) ).mockRejectedValueOnce(new Error("Network unavailable"));
+  const result = await generateOpenRouterVideo("google/veo-3.1", { mode: "text-to-video", prompt: "morning", settings: { duration: "8s" } }, "key", { receipt });
+  expect(receipt).toHaveBeenCalledWith({ provider_request_id: "job-first-poll", reported_microusd: null });
+  expect(result).toMatchObject({ ok: false, receipt: { provider_request_id: "job-first-poll", reported_microusd: null } });
+});
