@@ -125,7 +125,7 @@ export default function ProjectPage() {
   if (isLoading) {
     return (
       <div className="desktop-page">
-        <Header />
+        {activeTab === "storyboards" && <Header />}
         <div className="flex items-center justify-center py-24">
           <div className="text-muted-foreground flex items-center gap-2">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -142,10 +142,13 @@ export default function ProjectPage() {
 
   return (
     <div className="desktop-page">
-      <Header title={activeTab === "bible" ? "Project bible" : "Storyboards"} />
+      {activeTab === "storyboards" && <Header title="Storyboards" />}
       <main className="workspace-body">
         {activeTab === "bible" ? (
+          <>
+          <h1 className="sr-only">Project bible</h1>
           <ProjectBibleView projectId={project.id} generationModel={bibleGenerationModel && setBibleGenerationModel ? { value: bibleGenerationModel, onChange: setBibleGenerationModel } : undefined} initialTab={searchParams.get("bibleTab") === "frames" ? "frames" : undefined} />
+          </>
         ) : (
           <>
             {/* Top bar: search + new storyboard */}

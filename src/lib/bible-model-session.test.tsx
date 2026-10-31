@@ -72,3 +72,16 @@ it("remembers the Bible generation model while moving between workspaces in the 
       .textContent,
   ).toContain("Local image");
 });
+
+it("keeps Bible orientation accessible without adding a second visible view header above its controls", async () => {
+  render(createElement(MemoryRouter, null, createElement(App)));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("link", { name: "Bible" }));
+  await screen.findByRole("region", { name: "Project bible" });
+  expect(screen.queryByText("Project bible", { selector: "header *" })).toBeNull();
+  expect(screen.getByRole("heading", { name: "Project bible", level: 1 })).toBeTruthy();
+  expect(screen.getByRole("tablist", { name: "Bible sections" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "New character" })).toBeTruthy();
+  await user.click(screen.getByRole("link", { name: "Storyboards" }));
+  expect(await screen.findByText("Storyboards", { selector: "header *" })).toBeTruthy();
+});
