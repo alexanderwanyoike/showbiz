@@ -37,7 +37,7 @@ export function projectApplicationMenu(
       ],
     },
     { role: "editMenu" as const },
-    { role: "viewMenu" as const },
+    { label: "&View", submenu: [{ role: "resetZoom" as const }, { role: "zoomIn" as const }, { role: "zoomOut" as const }, { type: "separator" as const }, { role: "togglefullscreen" as const }] },
     { role: "windowMenu" as const },
   ];
 }
