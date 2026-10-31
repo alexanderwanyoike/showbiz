@@ -9,7 +9,7 @@ import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Loader2, RefreshCw, Trash2, Upload, Sparkles, Wand2, Plus, X, ImageIcon } from "lucide-react";
+import { Loader2, Upload, Sparkles, Plus, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";

@@ -7,7 +7,6 @@ import { BiblePictureTile } from "./BiblePictureTile";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { primaryPicture } from "../lib/bible-compose";
 import { getAvailableImageModels } from "../lib/models";
-import { modelProviderName } from "../lib/model-provider";
 import type { BibleAsset, BibleAssetVariant } from "../lib/backend-api";
 import type { Result } from "../../shared/result";
 
@@ -28,7 +27,6 @@ export function BibleAssetEntry({ asset, takes, busy, builtFrom, basePrompt,
   onUpload?: () => void; onExpand: (url: string) => void;
 }) {
   const primary = primaryPicture(takes);
-  const actionModel = getAvailableImageModels().find((model) => model.id === generationContext.modelId);
   const pictureModel = getAvailableImageModels().find((model) => model.id === primary?.model_id);
   const [mode, setMode] = useState<"variation" | "edit" | null>(null);
   const [pending, setPending] = useState<"retake" | "variation" | "edit" | null>(null);
