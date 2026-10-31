@@ -1,16 +1,17 @@
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
+import { Button } from "@/components/ui/button";
 import type { GenerationUsage } from '../../shared/generation-usage';
 import { formatGenerationEstimate } from '../lib/generation-usage';
 import { usageCharge, usageIdentity, usageKindName, usageOutcomeName } from '../lib/usage-presentation';
 
-export function UsageRequestDetails({ item, notes, onClose }: {
-  item: GenerationUsage | null; notes: string[]; onClose: () => void;
+export function UsageRequestDetails({ item, notes }: {
+  item: GenerationUsage; notes: string[];
 }) {
-  if (!item) return null;
   const identity = usageIdentity(item);
-  return <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+  return <Dialog>
+    <DialogTrigger asChild><Button variant="ghost" size="sm" aria-label="View request details">Details</Button></DialogTrigger>
     <DialogContent className="usage-request-details">
       <DialogHeader>
         <DialogTitle>Request details</DialogTitle>
@@ -35,7 +36,7 @@ export function UsageRequestDetails({ item, notes, onClose }: {
           <dt>Provider ID</dt><dd><code>{item.provider}</code></dd>
           <dt>Model ID</dt><dd><code>{item.model_id}</code></dd>
           {item.subject_id && <><dt>Shot / asset ID</dt><dd><code>{item.subject_id}</code></dd></>}
-          <dt>Price basis</dt><dd>{item.price_basis?.source_kind === 'manual' ? 'Custom device rate' : item.price_basis?.source_kind === 'published' ? 'Published price snapshot' : item.price_source ? 'Provider pricing' : 'Unavailable'}</dd>
+          <dt>Price basis</dt><dd>{item.price_basis?.source_kind === 'manual' ? 'Custom device rate' : item.price_basis?.source_kind === 'published' ? 'Published price snapshot' : item.price_basis?.source_kind === 'provider' ? 'Provider API pricing' : item.price_source ? 'Recorded price source' : 'Unavailable'}</dd>
           {item.price_basis?.estimate_basis === 'historical_request' && <><dt>Estimate basis</dt><dd>Provider request history, not adjusted to this request's settings.</dd></>}
           {item.price_source && <><dt>Price source</dt><dd className="select-text">{item.price_source}</dd></>}
           {item.price_checked_at && <><dt>Rate checked</dt><dd>{new Date(item.price_checked_at).toLocaleString()}</dd></>}

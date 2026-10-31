@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
-import { CircleHelp, ListChecks, RefreshCw } from 'lucide-react';
+import { ListChecks, RefreshCw } from 'lucide-react';
 import { WorkspaceToolbar } from '../components/WorkspaceToolbar';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useAgentChanges } from '../hooks/useAgentChanges';
 import { loadUsageWithBilling, type UsageWithBilling } from '../lib/generation-billing';
 import { formatGenerationCost, formatGenerationEstimate } from '../lib/generation-usage';
 import { usageCharge, usageIdentity, usageKindName, usageOutcomeName } from '../lib/usage-presentation';
-import type { GenerationUsage } from '../../shared/generation-usage';
 import { UsageRequestDetails } from './UsageRequestDetails';
+import { UsageCostHelp } from './UsageCostHelp';
 import '../usage.css';
 
 export default function UsagePage() {
@@ -19,14 +18,11 @@ export default function UsagePage() {
   const [refresh, setRefresh] = useState(0);
   const [data, setData] = useState<UsageWithBilling | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<GenerationUsage | null>(null);
-  const [helpOpen, setHelpOpen] = useState(false);
   useAgentChanges(() => setRefresh((value) => value + 1));
   useEffect(() => {
     let stopped = false;
     setData(null);
     setError(null);
-    setSelected(null);
     if (id) loadUsageWithBilling(id, offset).then((result) => {
       if (stopped) return;
       if (!result.ok) setError(result.error.message);
@@ -39,7 +35,7 @@ export default function UsagePage() {
   return <section className="usage-workspace" aria-label="Usage & billing">
     <WorkspaceToolbar title="Usage & billing">
       <span className="usage-toolbar-scope">This project · USD</span>
-      <Button variant="ghost" size="sm" onClick={() => setHelpOpen(true)}><CircleHelp size={15} />How costs are recorded</Button>
+      <UsageCostHelp />
       <Button variant="ghost" size="sm" disabled={loading} onClick={() => setRefresh((value) => value + 1)}>
         <RefreshCw size={15} className={loading ? 'usage-refreshing' : undefined} />
         {loading ? 'Checking charges…' : 'Refresh charges'}
@@ -67,7 +63,7 @@ export default function UsagePage() {
                 <td>{usageKindName[item.kind]}</td><td>{identity.provider}</td><td>{identity.model}</td>
                 <td><span className="usage-outcome" data-outcome={item.status}>{usageOutcomeName[item.status]}</span></td>
                 <td className="usage-charge"><span>{usageCharge(item)}</span>{" "}{hasNote && <span className="usage-unconfirmed">Charge unconfirmed</span>}</td>
-                <td><Button variant="ghost" size="sm" aria-label="View request details" onClick={() => setSelected(item)}>Details</Button></td>
+                <td><UsageRequestDetails item={item} notes={data.billing_notes.filter((note) => note.request_id === item.request_id).map((note) => note.message)} /></td>
               </tr>;
             })}</tbody>
           </table> : <div className="usage-state"><ListChecks size={30} /><h3>No generations recorded yet.</h3><p>Image and video requests will appear here after you generate in this project.</p></div>)}
@@ -79,11 +75,5 @@ export default function UsagePage() {
         </footer>
       </div>
     </div>
-    <UsageRequestDetails item={selected} notes={data?.billing_notes.filter((note) => note.request_id === selected?.request_id).map((note) => note.message) ?? []} onClose={() => setSelected(null)} />
-    <Dialog open={helpOpen} onOpenChange={setHelpOpen}><DialogContent className="usage-help"><DialogHeader><DialogTitle>How costs are recorded</DialogTitle><DialogDescription>Only generations recorded in this project are included. Amounts are in USD.</DialogDescription></DialogHeader>
-      <dl><dt>Reported charges</dt><dd>Charges returned by provider receipts, including a genuine reported zero.</dd><dt>Estimated, unconfirmed</dt><dd>Recorded preflight estimates for requests without confirmed charges. These may differ from invoices.</dd><dt>Unknown charges</dt><dd>Requests with neither a price estimate nor a reported charge. Unknown charges are not counted as free.</dd><dt>Refresh charges</dt><dd>Checks requests on the current page without generating media. Totals cover this project's recorded requests, not your provider account balance or all account activity.</dd></dl>
-      <p>Gemini estimates use published rates; its generation API does not return a monetary receipt. Local compute estimates use your saved rate; hardware and electricity costs are otherwise unknown.</p>
-      <p>Open a request's Details to inspect receipt IDs, price sources and any reason a charge remains unconfirmed.</p>
-    </DialogContent></Dialog>
   </section>;
 }
