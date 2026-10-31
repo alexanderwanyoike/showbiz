@@ -38,3 +38,9 @@ it("reports native Result failures as MCP errors instead of a successful export"
   const session = createMcpSession(async () => ({ ok: false, error: { code: "IO_ERROR", message: "Missing shot media" } }));
   expect(await session.call({ tool: "export_storyboard_package", args: { storyboard_id: "sb", format: "sbz", expected_revision: 0, request_id: "export" } })).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
 });
+
+it("keeps a completed edit successful if a window closes before its refresh notification", async () => {
+  const changed = vi.fn(() => { throw new Error("Window already closed"); });
+  const session = createMcpSession(async () => ({ id: "p", name: "Saved" }), changed);
+  expect(await session.call({ tool: "create_project", args: { name: "Saved", expected_revision: 0, request_id: "saved" } })).toMatchObject({ ok: true, value: { revision: 1 } });
+});
