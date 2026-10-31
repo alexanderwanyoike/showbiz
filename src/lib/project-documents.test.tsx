@@ -18,6 +18,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 it("starts with New and Open, then works inside one file and returns to the start window on Close", async () => {
   let current: { file_path: string; project_id: string; name: string } | null = null;
   native.invoke.mockImplementation(async (command: string) => {
+    if (command === "get_projects") return [];
     if (command === "get_project_document_state") return { ok: true, value: { current, recent: [], legacy: [] } };
     if (command === "create_project_document") current = { file_path: "/Films/Morning.showbiz", project_id: "film", name: "Morning" };
     if (command === "close_project_document") current = null;
@@ -39,6 +40,7 @@ it("opens recent files by their saved path and keeps the current project when a 
   const file = { file_path: "/Films/Morning.showbiz", project_id: "film", name: "Morning" };
   let current: typeof file | null = null;
   native.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+    if (command === "get_projects") return [];
     if (command === "get_project_document_state") return { ok: true, value: { current, recent: [file], legacy: [] } };
     if (command === "open_project_document" && args?.file_path) { current = file; return { ok: true, value: file }; }
     return { ok: true, value: null };
