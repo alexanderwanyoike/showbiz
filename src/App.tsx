@@ -1,3 +1,4 @@
+import { WorkspaceCommand } from "./components/WorkspaceCommand";
 import { useState } from "react";
 import { PanelLeft } from "lucide-react";
 import { Routes, Route, useLocation } from "react-router";
@@ -32,10 +33,9 @@ function DocumentWorkspace() {
       <Header caption={document.current?.name ?? ""}>
         {!window.showbiz?.onDocumentAction && <DocumentMenu />}
         {document.current && (
-          <button
-            type="button"
-            className="desktop-navigator-toggle"
-            aria-label="Project navigator"
+          <WorkspaceCommand
+            label="Project navigator"
+            aria-pressed={navigatorOpen}
             aria-expanded={navigatorOpen}
             aria-controls="project-navigation-panel"
             onClick={() =>
@@ -46,8 +46,7 @@ function DocumentWorkspace() {
             }
           >
             <PanelLeft size={15} />
-            <span>Project</span>
-          </button>
+          </WorkspaceCommand>
         )}
       </Header>
       {navigatorOpen && <ProjectNavigator />}

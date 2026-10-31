@@ -9,6 +9,15 @@ import ShotInspector, {
 } from "../components/ShotInspector";
 import { getAvailableImageModels, getAvailableVideoModels } from "./models";
 
+vi.stubGlobal(
+  "ResizeObserver",
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+);
+
 afterEach(cleanup);
 function inspectorProps(modelId = "wan-flf2v-fal"): ShotInspectorProps {
   const videoModel = getAvailableVideoModels().find(
@@ -225,4 +234,24 @@ it("allows frame actions to wrap in a narrow inspector without hiding Remove", (
   expect(choose.parentElement).toBe(remove.parentElement);
   expect(choose.parentElement?.classList.contains("flex-wrap")).toBe(true);
   expect(choose.classList.contains("min-w-0")).toBe(true);
+});
+
+it("keeps prompt tool routing visible and offers keyboard access to charge details", async () => {
+  render(
+    createElement(
+      MemoryRouter,
+      null,
+      createElement(ShotInspector, inspectorProps("seedance-2-fal")),
+    ),
+  );
+  expect(screen.getByText("Google AI prompt tools")).toBeTruthy();
+  const help = screen.getByRole("button", { name: "About prompt assistance" });
+  help.focus();
+  await userEvent.setup().keyboard("{Enter}");
+  expect(help.getAttribute("aria-expanded")).toBe("true");
+  expect(
+    screen.getByText(
+      "Prompt assistance uses Google AI (Gemini). Add its key in Settings. Any charges are outside the video estimate.",
+    ),
+  ).toBeTruthy();
 });

@@ -1,3 +1,4 @@
+import { WorkspaceCommand } from "./WorkspaceCommand";
 import { useEffect, useState } from "react";
 import { Plus, ChevronLeft, ChevronRight, Trash2, Loader2 } from "lucide-react";
 import { thumbnailGenerator } from "../lib/thumbnail-generator";
@@ -121,24 +122,22 @@ export default function ShotList({
                 </span>
               </button>
               <div className="shot-browser-actions">
-                <button
-                  aria-label={`Move shot ${shot.order} earlier`}
-                  title="Move earlier"
+                <WorkspaceCommand
+                  label={`Move shot ${shot.order} earlier`}
                   disabled={index === 0}
                   onClick={() => onMoveShot(index, "up")}
                 >
-                  <ChevronLeft size={12} />
-                </button>
-                <button
-                  aria-label={`Move shot ${shot.order} later`}
-                  title="Move later"
+                  <ChevronLeft size={14} />
+                </WorkspaceCommand>
+                <WorkspaceCommand
+                  label={`Move shot ${shot.order} later`}
                   disabled={index === shots.length - 1}
                   onClick={() => onMoveShot(index, "down")}
                 >
-                  <ChevronRight size={12} />
-                </button>
-                <button
-                  aria-label={`Delete shot ${shot.order}`}
+                  <ChevronRight size={14} />
+                </WorkspaceCommand>
+                <WorkspaceCommand
+                  label={`Delete shot ${shot.order}`}
                   title={
                     shot.status === "generating" || shot.generationPending
                       ? "Wait for this shot's current request to finish."
@@ -149,15 +148,15 @@ export default function ShotList({
                   }
                   onClick={() => onDeleteShot(shot.id)}
                 >
-                  <Trash2 size={12} />
-                </button>
+                  <Trash2 size={14} />
+                </WorkspaceCommand>
               </div>
             </li>
           );
         })}
       </ol>
       <button onClick={onAddShot} className="shot-browser-add">
-        <Plus size={13} />
+        <Plus size={16} />
         Add shot
       </button>
     </section>

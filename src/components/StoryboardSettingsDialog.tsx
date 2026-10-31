@@ -1,3 +1,5 @@
+import { SlidersHorizontal } from "lucide-react";
+import { WorkspaceCommand } from "./WorkspaceCommand";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,9 +72,8 @@ export function StoryboardSettingsDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
+        <WorkspaceCommand
+          label="Storyboard settings"
           disabled={disabled}
           title={
             disabled
@@ -80,8 +81,8 @@ export function StoryboardSettingsDialog({
               : undefined
           }
         >
-          Storyboard settings
-        </Button>
+          <SlidersHorizontal size={17} />
+        </WorkspaceCommand>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md max-h-[calc(100dvh-4rem)] overflow-y-auto">
         <DialogHeader>
@@ -91,7 +92,7 @@ export function StoryboardSettingsDialog({
           </DialogDescription>
         </DialogHeader>
         <form
-          className="space-y-5"
+          className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
             void save();
@@ -112,7 +113,7 @@ export function StoryboardSettingsDialog({
           </div>
           <section
             aria-label="Storyboard model defaults"
-            className="space-y-3 border-t border-border pt-4"
+            className="space-y-2 border-t border-border pt-3"
           >
             <div className="space-y-1">
               <h3 className="text-sm font-medium">Model defaults</h3>
@@ -144,7 +145,7 @@ export function StoryboardSettingsDialog({
           )}
           <div className="flex justify-end gap-2">
             <Button
-              variant="outline"
+              variant="ghost"
               type="button"
               onClick={() => setOpen(false)}
               disabled={saving}

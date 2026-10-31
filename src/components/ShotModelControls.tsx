@@ -1,3 +1,4 @@
+import { InspectorHelp } from "./InspectorHelp";
 import { getGroupedImageModels, getGroupedVideoModels } from "../lib/models";
 import {
   GenerationModelField,
@@ -22,14 +23,13 @@ export function ShotModelControls({
 }: Props) {
   if (!shot) return null;
   return (
-    <section
-      aria-label="Shot model controls"
-      className="border-b border-border/60 px-3 py-3 space-y-3"
-    >
-      <h3 className="text-xs font-medium">Models for this shot</h3>
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Used for new takes. Existing media stays unchanged.
-      </p>
+    <section aria-label="Shot model controls" className="shot-model-controls">
+      <div className="inspector-section-label">
+        <h3>Models</h3>
+        <InspectorHelp label="About shot models">
+          Used for new takes. Existing media stays unchanged.
+        </InspectorHelp>
+      </div>
       {error && (
         <p role="alert" className="text-xs text-destructive">
           {error}

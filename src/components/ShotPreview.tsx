@@ -1,3 +1,4 @@
+import { WorkspaceCommand } from "./WorkspaceCommand";
 import {
   useRef,
   useState,
@@ -363,40 +364,37 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
 
       <div className="space-y-1.5 bg-background/80 border-t border-border px-3 py-2 text-xs text-muted-foreground">
         <div className="flex items-center justify-between gap-3">
-          <span className="font-mono">Shot #{shot.order}</span>
+          <span>Shot {shot.order}</span>
           {hasVideo && (
-            <div className="flex items-center gap-1">
-              <button
+            <div className="shot-preview-transport">
+              <WorkspaceCommand
                 onClick={() => seekTo(position - 0.1)}
-                className="p-1 rounded hover:bg-muted hover:text-foreground transition-colors"
-                title="Step back 0.1s (Left, Shift for 1s)"
+                label="Step back 0.1s (Left, Shift for 1s)"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              <button
+              </WorkspaceCommand>
+              <WorkspaceCommand
                 onClick={togglePlayback}
-                className="p-1 rounded hover:bg-muted hover:text-foreground transition-colors"
-                title={status === "playing" ? "Pause (Space)" : "Play (Space)"}
+                label={status === "playing" ? "Pause (Space)" : "Play (Space)"}
               >
                 {status === "playing" ? (
                   <Pause className="h-3.5 w-3.5" />
                 ) : (
                   <Play className="h-3.5 w-3.5" />
                 )}
-              </button>
-              <button
+              </WorkspaceCommand>
+              <WorkspaceCommand
                 onClick={() => seekTo(position + 0.1)}
-                className="p-1 rounded hover:bg-muted hover:text-foreground transition-colors"
-                title="Step forward 0.1s (Right, Shift for 1s)"
+                label="Step forward 0.1s (Right, Shift for 1s)"
               >
                 <ChevronRight className="h-3.5 w-3.5" />
-              </button>
+              </WorkspaceCommand>
             </div>
           )}
-          <span className="font-mono">
+          <span className="tabular-nums">
             {formatPlaybackTime(position)} / {formatPlaybackTime(duration)}
           </span>
-          <span className="font-mono uppercase">{shot.status}</span>
+          <span className="capitalize">{shot.status}</span>
         </div>
         {hasVideo && (
           <input

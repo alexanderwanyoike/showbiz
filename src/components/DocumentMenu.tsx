@@ -12,7 +12,7 @@ export function DocumentMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="document-file-menu"
+        className="document-file-menu workspace-file-menu"
         disabled={document.busy}
       >
         File
