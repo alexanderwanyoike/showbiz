@@ -1,6 +1,8 @@
 import { createMcpSession } from "./mcp/session";
 import { startLocalBridge } from "./mcp/local-bridge";
-import { app, BrowserWindow, ipcMain, Menu, dialog } from "electron";
+import { createDesktopShell, desktopWindowOptions, rendererMenuGesture } from "./desktop-shell";
+import { pathToFileURL } from "node:url";
+import { app, BrowserWindow, ipcMain, Menu, dialog, nativeTheme } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { appDataDir, loadMigrations, openDatabase } from "./db";
@@ -83,11 +85,12 @@ async function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work
   );
 }
 
-function createWindow(work: ReturnType<typeof createWorkRuntime>) {
+function createWindow(work: ReturnType<typeof createWorkRuntime>, shell: ReturnType<typeof createDesktopShell>) {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
     title: "Showbiz",
+    ...desktopWindowOptions(process.platform, nativeTheme.shouldUseDarkColors),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -95,6 +98,11 @@ function createWindow(work: ReturnType<typeof createWorkRuntime>) {
   });
 
   work.attachWindow(win);
+  const detachShell = shell.attachWindow(win);
+  win.once("closed", detachShell);
+  win.webContents.on("before-input-event", (_event, input) => {
+    win.webContents.setIgnoreMenuShortcuts(rendererMenuGesture(input));
+  });
 
   if (isDev) {
     // Vite may still be starting; retry until it answers.
@@ -129,7 +137,10 @@ app.whenReady().then(async () => {
   app.on("before-quit", work.beforeQuit);
   const updates = createUpdateRuntime({}, work.updateChanged, work.install);
   await registerIpc(updates, work);
-  createWindow(work);
+  const shell = createDesktopShell({platform:process.platform, rendererUrl:isDev ? DEV_SERVER_URL : pathToFileURL(path.join(app.getAppPath(), "dist/index.html")).href, quit:()=>app.quit()});
+  ipcMain.handle("showbiz:menu-command", (event, command: unknown) => shell.runMenuCommand(event, command));
+  ipcMain.handle("showbiz:titlebar-appearance", (event, appearance: unknown) => shell.setTitleBarAppearance(event, appearance));
+  createWindow(work, shell);
   void updates.start();
 });
 

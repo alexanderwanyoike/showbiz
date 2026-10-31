@@ -1,3 +1,6 @@
+import { desktopShellMetadata } from "./desktop-shell";
+import type { DesktopMenuCommand, DesktopTitleBarAppearance } from "../shared/desktop-shell";
+import type { Result } from "../shared/result";
 import { contextBridge, ipcRenderer } from "electron";
 import type { ApplicationWorkStatus } from "../shared/application-work";
 import type { UpdateStatus } from "../shared/update-status";
@@ -5,6 +8,9 @@ import type { UpdateStatus } from "../shared/update-status";
 // The renderer-facing bridge; src/lib/bridge.ts detects this to pick the
 // Electron shell over Tauri. Sandboxed preload: keep it a pure passthrough.
 contextBridge.exposeInMainWorld("showbiz", {
+  desktop: desktopShellMetadata(process.platform),
+  runMenuCommand: (command: DesktopMenuCommand): Promise<Result<null>> => ipcRenderer.invoke("showbiz:menu-command", command),
+  setTitleBarAppearance: (appearance: DesktopTitleBarAppearance): Promise<Result<null>> => ipcRenderer.invoke("showbiz:titlebar-appearance", appearance),
   onDataChanged: (callback: () => void) => {
     ipcRenderer.on("showbiz:data_changed", callback);
     return () => ipcRenderer.removeListener("showbiz:data_changed", callback);
