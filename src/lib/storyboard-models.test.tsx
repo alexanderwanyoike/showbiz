@@ -605,7 +605,7 @@ it("keeps a saved take viewable while a new request runs and after it fails", as
       video_path: `videos/${shot.id}.mp4`,
     })),
   );
-  let finish: (result: { success: false; error: string }) => void = () => {};
+  let finish: (result: Awaited<ReturnType<typeof generateAndSaveVideoRequestAction>>) => void = () => {};
   vi.mocked(generateAndSaveVideoRequestAction).mockImplementationOnce(
     () =>
       new Promise((resolve) => {
@@ -639,7 +639,7 @@ it("keeps a saved take viewable while a new request runs and after it fails", as
   expect(container.querySelector("video")?.getAttribute("src")).toBe(
     "saved-shot-1.mp4",
   );
-  finish({ success: false, error: "Missing provider credentials" });
+  finish({ success: false, videoUrl: null, error: "Missing provider credentials" });
   expect(await screen.findByText("Missing provider credentials")).toBeTruthy();
   expect(
     screen.getByRole("button", { name: "Play video for shot 1" }),
