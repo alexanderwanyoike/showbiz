@@ -5,7 +5,12 @@ import { ThemeProvider } from "./components/theme-provider";
 
 export default function Application() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
       <NavigationGuard />
       <App />
       <ApplicationClosingDialog />

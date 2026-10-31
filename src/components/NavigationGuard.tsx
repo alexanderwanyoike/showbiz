@@ -20,20 +20,42 @@ function workspace(location: Pick<Location, "pathname" | "search">) {
 }
 export function NavigationGuard() {
   const dirty = useApplicationWork().unsaved.includes("draft");
-  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && workspace(currentLocation) !== workspace(nextLocation));
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      dirty && workspace(currentLocation) !== workspace(nextLocation),
+  );
   useEffect(() => {
     if (!dirty && blocker.state === "blocked") blocker.proceed();
   }, [dirty, blocker]);
   return (
-    <AlertDialog open={dirty && blocker.state === "blocked"} onOpenChange={(open) => { if (!open && blocker.state === "blocked") blocker.reset(); }}>
+    <AlertDialog
+      open={dirty && blocker.state === "blocked"}
+      onOpenChange={(open) => {
+        if (!open && blocker.state === "blocked") blocker.reset();
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
-          <AlertDialogDescription>Leaving this workspace will discard its unsaved input.</AlertDialogDescription>
+          <AlertDialogDescription>
+            Leaving this workspace will discard its unsaved input.
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Stay</AlertDialogCancel>
-          <Button variant="destructive" onClick={() => { if (blocker.state === "blocked") { window.dispatchEvent(new Event("showbiz:discard-workspace-drafts")); blocker.proceed(); } }}>Discard and continue</Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              if (blocker.state === "blocked") {
+                window.dispatchEvent(
+                  new Event("showbiz:discard-workspace-drafts"),
+                );
+                blocker.proceed();
+              }
+            }}
+          >
+            Discard and continue
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -16,7 +16,11 @@ import { withApplicationWork } from "../lib/application-work";
 import { updateProject, type Project } from "../lib/backend-api";
 import type { Result } from "../../shared/result";
 
-export function ProjectSettings({ projectId, name, onRenamed }: {
+export function ProjectSettings({
+  projectId,
+  name,
+  onRenamed,
+}: {
   projectId: string;
   name: string;
   onRenamed: (name: string) => void;
@@ -27,9 +31,14 @@ export function ProjectSettings({ projectId, name, onRenamed }: {
   const [error, setError] = useState<string | null>(null);
   useUnsavedWork("draft", open && !saving && draft !== name, draft);
   useEffect(() => {
-    const discard = () => { setDraft(name); setOpen(false); setError(null); };
+    const discard = () => {
+      setDraft(name);
+      setOpen(false);
+      setError(null);
+    };
     window.addEventListener("showbiz:discard-workspace-drafts", discard);
-    return () => window.removeEventListener("showbiz:discard-workspace-drafts", discard);
+    return () =>
+      window.removeEventListener("showbiz:discard-workspace-drafts", discard);
   }, [name]);
 
   function changeOpen(next: boolean) {
@@ -40,9 +49,23 @@ export function ProjectSettings({ projectId, name, onRenamed }: {
   }
   async function rename(): Promise<Result<Project>> {
     try {
-      return { ok: true, value: await withApplicationWork("saving", () => updateProject(projectId, draft.trim())) };
+      return {
+        ok: true,
+        value: await withApplicationWork("saving", () =>
+          updateProject(projectId, draft.trim()),
+        ),
+      };
     } catch (cause) {
-      return { ok: false, error: { code: "IO_ERROR", message: cause instanceof Error ? cause.message : "Could not rename the project." } };
+      return {
+        ok: false,
+        error: {
+          code: "IO_ERROR",
+          message:
+            cause instanceof Error
+              ? cause.message
+              : "Could not rename the project.",
+        },
+      };
     }
   }
   async function save() {
@@ -60,22 +83,67 @@ export function ProjectSettings({ projectId, name, onRenamed }: {
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Project settings" title="Project settings" className="sidebar-project-settings">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Project settings"
+          title="Project settings"
+          className="sidebar-project-settings"
+        >
           <Settings2 size={14} />
         </Button>
       </DialogTrigger>
-      <DialogContent onEscapeKeyDown={(event) => { if (saving) event.preventDefault(); }}>
+      <DialogContent
+        onEscapeKeyDown={(event) => {
+          if (saving) event.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Project settings</DialogTitle>
-          <DialogDescription>Settings for this project. Use File &gt; Save As to change its file name or location.</DialogDescription>
+          <DialogDescription>
+            Settings for this project. Use File &gt; Save As to change its file
+            name or location.
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
-          <label htmlFor="project-settings-name" className="mb-2 block text-xs font-medium">Project name</label>
-          <Input id="project-settings-name" value={draft} onChange={(event) => setDraft(event.target.value)} disabled={saving} autoFocus />
-          {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
+          <label
+            htmlFor="project-settings-name"
+            className="mb-2 block text-xs font-medium"
+          >
+            Project name
+          </label>
+          <Input
+            id="project-settings-name"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            disabled={saving}
+            autoFocus
+          />
+          {error && (
+            <p role="alert" className="mt-2 text-xs text-destructive">
+              {error}
+            </p>
+          )}
           <DialogFooter className="mt-5">
-            <Button type="button" variant="outline" onClick={() => changeOpen(false)} disabled={saving}>Cancel</Button>
-            <Button type="submit" disabled={saving || !draft.trim() || draft.trim() === name}>{saving ? "Saving…" : "Save changes"}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => changeOpen(false)}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={saving || !draft.trim() || draft.trim() === name}
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
