@@ -238,7 +238,7 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
       if (!(target instanceof HTMLElement) || e.defaultPrevented) return;
       if (
         target.closest(
-          "button, a, select, [role=dialog], [role=alertdialog], [role=combobox], [role=listbox], [role=menu], [role=switch]",
+          "button, a, select, summary, [role=dialog], [role=alertdialog], [role=combobox], [role=listbox], [role=menu], [role=switch]",
         ) ||
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
