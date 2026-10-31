@@ -38,6 +38,14 @@ it("restores the editable selection before dispatching a native Cut command", as
   await user.click(screen.getByRole("menuitem", { name: "Cut" }));
   await waitFor(() => expect(nativeCommand).toHaveBeenCalledWith("cut"));
   expect(focus).toBe(prompt); expect(start).toBe(1); expect(end).toBe(4);
+  const edit = screen.getByRole("menuitem", { name: "Edit" });
+  await user.click(edit);
+  await user.keyboard("{Escape}");
+  expect(document.activeElement).toBe(edit);
+  await user.keyboard("{Escape}");
+  expect(document.activeElement).toBe(prompt);
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
 it("focuses the menu with F10 and opens real Appearance and Updates destinations", async () => {
   start(); const user = userEvent.setup();
