@@ -7,7 +7,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import ShotInspector, {
   type ShotInspectorProps,
 } from "../components/ShotInspector";
-import { getAvailableVideoModels } from "./models";
+import { getAvailableImageModels, getAvailableVideoModels } from "./models";
 
 afterEach(cleanup);
 function inspectorProps(modelId = "wan-flf2v-fal"): ShotInspectorProps {
@@ -143,4 +143,20 @@ it("offers removal of a selected start frame so a shot can return to prompt-base
     .setup()
     .click(screen.getByRole("button", { name: "Remove start frame" }));
   expect(props.onClearStartFrame).toHaveBeenCalledWith("shot");
+});
+it("edits the selected image take and explains unavailable editing", async () => {
+  const props = inspectorProps("seedance-2-fal");
+  const imageModel = { ...getAvailableImageModels()[0]!, name: "Frame editor", supportsImageEditing: true };
+  const currentVersion = { id:"take-3", shot_id:"shot", parent_version_id:null, version_number:3, edit_type:"generate", image_path:"images/3.png", prompt:null, edit_prompt:null, mask_path:null, is_current:true, created_at:"now", image_url:"frame.png", mask_url:null };
+  render(createElement(MemoryRouter,null,createElement(ShotInspector,{...props,imageModel,currentVersion})));
+  await userEvent.setup().click(screen.getByRole("button",{name:"Edit frame for shot 1"}));
+  expect(props.onEditImage).toHaveBeenCalledWith("shot","take-3");
+  cleanup();
+  render(createElement(MemoryRouter,null,createElement(ShotInspector,{...props,imageModel:{...imageModel,supportsImageEditing:false},currentVersion})));
+  expect(screen.getByRole("button",{name:"Edit frame for shot 1"})).toHaveProperty("disabled",true);
+  expect(screen.getByText("Frame editor does not support editing. Choose an editing model in Models for this shot.")).toBeTruthy();
+  cleanup();
+  render(createElement(MemoryRouter,null,createElement(ShotInspector,{...props,imageModel})));
+  expect(screen.getByRole("button",{name:"Edit frame for shot 1"})).toHaveProperty("disabled",true);
+  expect(screen.getByText("Choose or upload a frame to create an editable take.")).toBeTruthy();
 });
