@@ -39,6 +39,7 @@ export interface FrameOption {
 
 export interface ShotInspectorProps {
   modelControls?: ReactNode;
+  generationCost?: ReactNode;
   generationDisabled?: boolean;
   shot: {
     id: string;
@@ -272,6 +273,7 @@ function FramePicker({
 
 export default function ShotInspector({
   modelControls,
+  generationCost,
   generationDisabled = false,
   shot,
   frameOptions,
@@ -504,6 +506,7 @@ export default function ShotInspector({
             )}
           </div>
         )}
+        {generationCost}
         <Button
           size="sm"
           className="w-full text-xs"

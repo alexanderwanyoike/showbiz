@@ -1,3 +1,4 @@
+import { GenerationCost } from "../components/GenerationCost";
 import { ShotModelControls } from "../components/ShotModelControls";
 import { resolveShotModels } from "../lib/shot-models";
 import { DEFAULT_STORYBOARD_MODELS } from "../../shared/model-defaults";
@@ -478,7 +479,7 @@ export default function StoryboardPage() {
     try {
       await withApplicationWork("generation", async () => {
         const targetModel = resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model as ImageModelId;
-        const imageDataUrl = await generateImageAction(imagePrompt, targetModel);
+        const imageDataUrl = await generateImageAction(imagePrompt, targetModel, {project_id: storyboard?.project_id, subject_id: activeShotId});
 
         // Get current version to use as parent (if exists)
         const currentVersion = shotCurrentVersions[activeShotId];
@@ -652,7 +653,7 @@ export default function StoryboardPage() {
 
         // Call edit image action
         const targetModel = resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model as ImageModelId;
-        const resultBase64 = await editImageAction(sourceBase64, editPrompt, targetModel);
+        const resultBase64 = await editImageAction(sourceBase64, editPrompt, targetModel, {project_id: storyboard?.project_id, subject_id: shotId});
 
         // Create a new remix version
         await createRemixVersion(shotId, versionId, editPrompt, resultBase64);
@@ -934,6 +935,7 @@ export default function StoryboardPage() {
           }
           inspectorSlot={
             <ShotInspector
+              generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={{kind: "video", duration: videoSettings.duration, resolution: videoSettings.resolution, audio: videoSettings.audio}} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
               generationDisabled={modelSaving}
               modelControls={<ShotModelControls shot={selectedShot} defaults={defaultModels} onShotChange={handleShotModels} onDefaultsChange={handleDefaultModels} disabled={modelSaving} error={modelError}/>}
               shot={selectedShotId ? (() => {
@@ -1005,6 +1007,7 @@ export default function StoryboardPage() {
               autoFocus
             />
           </div>
+          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model} request={{kind: "image"}} subject={{project_id: storyboard?.project_id, subject_id: activeShotId ?? undefined}} />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
               Cancel
@@ -1071,6 +1074,7 @@ export default function StoryboardPage() {
               />
             </div>
           </div>
+          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model} request={{kind: "image_edit"}} subject={{project_id: storyboard?.project_id, subject_id: editModalState.shotId ?? undefined}} />
           <DialogFooter>
             <Button
               variant="ghost"
