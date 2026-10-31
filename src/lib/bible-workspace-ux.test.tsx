@@ -36,6 +36,14 @@ it("opens a linked Bible section and preserves independent drafts when switching
   await user.click(screen.getByRole("tab", { name: "Frames" }));
   expect((screen.getByRole("textbox", { name: "Frame prompt" }) as HTMLTextAreaElement).value).toBe("At the window");
   expect(screen.getByRole("combobox", { name: "Bible generation model" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Clear frame draft" }));
+  expect((screen.getByRole("textbox", { name: "Frame prompt" }) as HTMLTextAreaElement).value).toBe("");
+  await user.click(screen.getByRole("tab", { name: "Characters" }));
+  expect((screen.getByRole("textbox", { name: "Character name" }) as HTMLInputElement).value).toBe("Ada");
+  await user.click(screen.getByRole("button", { name: "Clear character draft" }));
+  expect((screen.getByRole("textbox", { name: "Character name" }) as HTMLInputElement).value).toBe("");
+  await user.click(screen.getByRole("tab", { name: "Locations" }));
+  expect((screen.getByRole("textbox", { name: "Location name" }) as HTMLInputElement).value).toBe("Kitchen");
 });
 
 it("keeps a new character's name and prompt after generation fails", async () => {
