@@ -38,7 +38,7 @@ async function runFalImageRequest(
 ): Promise<string> {
   const opts = (config.transportOptions ?? {}) as Record<string, unknown>;
   const result = opts.directInference
-    ? await runFalInference<{ images: Array<{ url: string }> }>(endpointId, input, apiKey)
+    ? await runFalInference<{ images: Array<{ url: string }> }>(endpointId, input, apiKey, ...(observer ? [observer] as const : []))
     : await (async () => {
         const queueRequest = await submitFalQueueRequest(endpointId, input, apiKey);
         await observer?.receipt({ provider_request_id: queueRequest.requestId, reported_microusd: null });
