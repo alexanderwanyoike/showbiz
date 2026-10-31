@@ -19,7 +19,16 @@ function DocumentWorkspace() {
     >
       <Header caption={document.current?.name ?? ""}>
         {!window.showbiz?.onDocumentAction && <DocumentMenu />}
-        {document.current && shotWorkspace && <nav className="shot-project-navigation" aria-label="Project views"><Link to={`/project/${document.current.project_id}`}>Storyboards</Link><Link to={`/project/${document.current.project_id}?view=bible`}>Bible</Link></nav>}
+        {document.current && shotWorkspace && (
+          <nav className="shot-project-navigation" aria-label="Project views">
+            <Link to={`/project/${document.current.project_id}`}>
+              Storyboards
+            </Link>
+            <Link to={`/project/${document.current.project_id}?view=bible`}>
+              Bible
+            </Link>
+          </nav>
+        )}
       </Header>
       {document.current && !shotWorkspace && <ProjectNavigator />}
       <section className="desktop-content" aria-label="Project workspace">
