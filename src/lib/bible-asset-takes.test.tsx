@@ -19,6 +19,7 @@ vi.mock("./backend-api", async (original) => ({
   getBibleAssetVariants: async () =>
     ["take-1", "take-2"]
       .filter((id) => !state.removed.has(id))
+      .sort((a, b) => Number(b === state.primary) - Number(a === state.primary))
       .map((id) => ({
         id,
         asset_id: "ada",
@@ -28,6 +29,7 @@ vi.mock("./backend-api", async (original) => ({
         model_id: "nano-banana",
         source_kind: "generated",
         status: "approved",
+        created_at: id === "take-1" ? "2026-10-30T10:00:00Z" : "2026-10-31T10:00:00Z",
       })),
   updateBibleAssetVariantStatus: state.update,
   deleteBibleAssetVariant: state.remove,
@@ -185,4 +187,22 @@ it("returns to the library after deleting its selected entry", async () => {
   expect(document.activeElement).toBe(
     screen.getByRole("button", { name: "New character" }),
   );
+});
+
+
+it("keeps take identities and keyboard focus stable when the native refresh returns the primary first", async () => {
+  let finish: (() => void) | undefined;
+  state.update.mockImplementationOnce((id) => new Promise<void>((resolve) => { finish = resolve; }).then(() => { state.primary = id; }));
+  render(<ProjectBibleView projectId="film" />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Open Ada details" }));
+  const selected = screen.getByRole("button", { name: "Use take 2 for Ada" });
+  try {
+    await user.click(selected);
+    selected.blur();
+  } finally { await act(async () => { finish?.(); }); }
+  const refreshed = screen.getByRole("button", { name: "Use take 2 for Ada" });
+  expect(within(refreshed).getByRole("img").getAttribute("src")).toBe("/take-2.png");
+  expect(refreshed.getAttribute("aria-pressed")).toBe("true");
+  expect(document.activeElement).toBe(refreshed);
 });
