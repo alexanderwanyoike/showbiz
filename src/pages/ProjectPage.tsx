@@ -1,6 +1,6 @@
 import { useProjectDocument } from "../contexts/ProjectDocumentContext";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { Plus, Clapperboard, Loader2, Search, Pencil } from "lucide-react";
 import { WorkspaceToolbar as Header } from "../components/WorkspaceToolbar";
@@ -47,19 +47,24 @@ export default function ProjectPage() {
     editedName,
   );
 
+  const loadRequest = useRef(0);
   // Load project and storyboards on mount
   useEffect(() => {
     if (id) loadData();
+    return () => { loadRequest.current++; };
   }, [id]);
 
   async function loadData() {
     if (!id) return;
+    const request = ++loadRequest.current;
     setIsLoading(true);
     try {
       const [projectData, storyboardsData] = await Promise.all([
         getProject(id),
         getStoryboardsWithPreview(id),
       ]);
+
+      if (request !== loadRequest.current) return;
 
       if (!projectData) {
         navigate("/");
@@ -70,10 +75,11 @@ export default function ProjectPage() {
       setStoryboards(storyboardsData);
       setEditedName(projectData.name);
     } catch (error) {
+      if (request !== loadRequest.current) return;
       console.error("Failed to load project:", error);
       navigate("/");
     } finally {
-      setIsLoading(false);
+      if (request === loadRequest.current) setIsLoading(false);
     }
   }
 

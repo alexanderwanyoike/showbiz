@@ -257,9 +257,11 @@ export default function StoryboardPage() {
   const [enhancingPromptShots, setEnhancingPromptShots] = useState<Set<string>>(new Set());
   const videoGenerationRuns = useRef<GenerationRunMap>({});
 
+  const loadRequest = useRef(0);
   // Load storyboard and shots on mount
   useEffect(() => {
     if (id) loadData();
+    return () => { loadRequest.current++; };
   }, [id]);
 
   useUnsavedWork("draft", isModalOpen && !!imagePrompt, imagePrompt);
@@ -268,6 +270,7 @@ export default function StoryboardPage() {
 
   async function loadData() {
     if (!id) return;
+    const request = ++loadRequest.current;
     setIsLoading(true);
     try {
       const [storyboardData, shotsData, tracksData, clipsData] = await Promise.all([
@@ -276,6 +279,8 @@ export default function StoryboardPage() {
         ensureDefaultTracks(id),
         getTimelineClips(id),
       ]);
+
+      if (request !== loadRequest.current) return;
 
       if (!storyboardData) {
         navigate("/");
@@ -306,10 +311,11 @@ export default function StoryboardPage() {
       // Load version data for each shot
       await loadVersionDataForShots(mappedShots);
     } catch (error) {
+      if (request !== loadRequest.current) return;
       console.error("Failed to load storyboard:", error);
       navigate("/");
     } finally {
-      setIsLoading(false);
+      if (request === loadRequest.current) setIsLoading(false);
     }
   }
 
