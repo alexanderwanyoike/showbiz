@@ -85,3 +85,20 @@ it("starts accounting before generation and preserves a charge when media delive
     db.close();
   }
 });
+it("checks the actual provider charge after generation ends without hiding saved media when billing is denied", async () => {
+  const db = openTestDb();
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const usage = createGenerationUsageCommands(db);
+    const sync = vi.fn(async () => ({ ok: true, value: { checked: 1, reported: 0, notes: [{ request_id: "request", message: "Billing access denied" }] } }));
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = { ...usage, sync_generation_charges: sync };
+    native.invoke.mockImplementation(async (command, args) => commands[command](args));
+    const result = await runAccountedGeneration({ project_id: "film", provider: "fal", model_id: "flux-dev-fal", kind: "image", settings: {} }, { kind: "unavailable", reason: "No quote" }, async (observer) => {
+      await observer.receipt({ provider_request_id: "provider-job", reported_microusd: null });
+      return "saved-media";
+    });
+    expect(result).toEqual({ ok: true, value: "saved-media" });
+    expect(sync).toHaveBeenCalledOnce();
+    expect(usage.get_generation_usage({ project_id: "film" })).toMatchObject({ ok: true, value: { items: [{ status: "completed", provider_request_id: "provider-job", reported_microusd: null }] } });
+  } finally { db.close(); }
+});
