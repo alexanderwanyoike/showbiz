@@ -67,7 +67,7 @@ describe("generateId (parity with Rust generate_id)", () => {
 describe("loadMigrations", () => {
   it("loads the shipped migrations in numeric order", () => {
     const migrations = loadMigrations(MIGRATIONS_DIR);
-    expect(migrations.length).toBe(2);
+    expect(migrations.length).toBe(4);
     expect(migrations[0]).toContain("CREATE TABLE IF NOT EXISTS projects");
     expect(migrations[1]).toContain("trim_in");
   });
@@ -79,7 +79,7 @@ describe("migrate", () => {
     const row = db.prepare("PRAGMA user_version").get() as {
       user_version: number;
     };
-    expect(row.user_version).toBe(2);
+    expect(row.user_version).toBe(4);
   });
 
   it("is idempotent for an already-migrated database", () => {
@@ -88,7 +88,7 @@ describe("migrate", () => {
     const row = db.prepare("PRAGMA user_version").get() as {
       user_version: number;
     };
-    expect(row.user_version).toBe(2);
+    expect(row.user_version).toBe(4);
   });
 
   it("refuses a database that is ahead of the known migrations", () => {

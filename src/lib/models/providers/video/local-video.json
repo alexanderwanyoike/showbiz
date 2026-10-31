@@ -1,0 +1,24 @@
+{
+  "id": "local-video",
+  "name": "Local video",
+  "description": "Generate text or start-frame video with the installed LocalAI model configured on this device.",
+  "transport": "local-video",
+  "enabled": true,
+  "apiKeyProvider": "local",
+  "provider": "LocalAI",
+  "models": {
+    "textToVideo": "local-video",
+    "imageToVideo": "local-video"
+  },
+  "capabilities": {
+    "durations": [
+      "auto",
+      "4s",
+      "6s",
+      "8s"
+    ]
+  },
+  "defaults": {
+    "duration": "auto"
+  }
+}

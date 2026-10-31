@@ -104,7 +104,7 @@ describe("delete_api_key", () => {
 });
 
 describe("get_api_key_status", () => {
-  it("lists the six providers with their display names in order", () => {
+  it("lists the configured provider catalog with their display names in order", () => {
     const commands = createSettingsCommands(openTestDb());
     const statuses = commands.get_api_key_status();
     expect(statuses).toEqual([
@@ -114,6 +114,8 @@ describe("get_api_key_status", () => {
       { provider: "kie", name: "Kie AI", is_configured: false, source: null },
       { provider: "fal", name: "fal.ai", is_configured: false, source: null },
       { provider: "replicate", name: "Replicate", is_configured: false, source: null },
+      { provider: "openrouter", name: "OpenRouter", is_configured: false, source: null },
+      { provider: "local", name: "LocalAI", is_configured: false, source: null },
     ]);
   });
 

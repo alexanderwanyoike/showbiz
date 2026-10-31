@@ -1,3 +1,4 @@
+import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useEffect, useState } from "react";
@@ -35,7 +36,9 @@ import {
   recipeVariantIds,
   type FrameRecipe,
 } from "../lib/bible-compose";
-import { getAvailableImageModels, type ImageModelId } from "../lib/models";
+import { getAvailableImageModels, getImageModel, type ImageModelId } from "../lib/models";
+
+type ImageCapabilities = { editing: boolean; composition: boolean };
 
 const MAX_BIBLE_IMAGE_SIDE = 1600;
 const BIBLE_IMAGE_QUALITY = 0.9;
@@ -201,7 +204,11 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  useAgentChanges(load);
+
   const imageModels = getAvailableImageModels();
+  const selectedModel = getImageModel(imageModel);
+  const imageCapabilities = { editing: !!selectedModel.editImage, composition: !!selectedModel.composeImage };
 
   useEffect(() => {
     void load();
@@ -433,7 +440,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <section role="region" aria-label="Project bible" className="bible-workspace flex h-full flex-col">
       {/* Tabs + model */}
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
         <div className="flex gap-1">
@@ -450,13 +457,13 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
           ))}
         </div>
         <Select value={imageModel} onValueChange={(v) => setImageModel(v as ImageModelId)}>
-          <SelectTrigger className="h-8 w-44 text-xs">
+          <SelectTrigger className="h-8 w-60 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {imageModels.map((m) => (
               <SelectItem key={m.id} value={m.id} className="text-xs">
-                {m.name}
+                {m.name}{m.provider ? ` · ${m.provider}` : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -478,6 +485,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             onNew={handleNewAsset}
             onRetake={handleRetake}
             onEdit={handleEdit}
+            imageCapabilities={imageCapabilities}
             onUpload={handleAddPictureFromFile}
             onSetPrimary={handleSetPrimary}
             onDeleteTake={handleDeletePicture}
@@ -496,6 +504,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             onMakeFrame={handleMakeFrame}
             onRetake={handleRetake}
             onEdit={handleEdit}
+            imageCapabilities={imageCapabilities}
             onSetPrimary={handleSetPrimary}
             onDeleteTake={handleDeletePicture}
             onDeleteFrame={handleDeleteAsset}
@@ -505,7 +514,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
       </div>
 
       {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
-    </div>
+    </section>
   );
 }
 
@@ -519,6 +528,7 @@ function AssetTab({
   onNew,
   onRetake,
   onEdit,
+  imageCapabilities,
   onUpload,
   onSetPrimary,
   onDeleteTake,
@@ -532,6 +542,7 @@ function AssetTab({
   busyId: string | null;
   onNew: (type: "character" | "location", name: string, prompt: string, file: File | null) => Promise<void>;
   onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<void>;
+  imageCapabilities: ImageCapabilities;
   onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
   onUpload: (asset: BibleAsset, file: File) => void;
   onSetPrimary: (variant: BibleAssetVariant) => void;
@@ -613,6 +624,7 @@ function AssetTab({
                 basePrompt={primaryPicture(takes)?.prompt ?? ""}
                 onRetake={onRetake}
                 onEdit={onEdit}
+                imageCapabilities={imageCapabilities}
                 onSetPrimary={onSetPrimary}
                 onDeleteTake={onDeleteTake}
                 onDeleteAsset={onDeleteAsset}
@@ -637,6 +649,7 @@ function FramesTab({
   onMakeFrame,
   onRetake,
   onEdit,
+  imageCapabilities,
   onSetPrimary,
   onDeleteTake,
   onDeleteFrame,
@@ -649,6 +662,7 @@ function FramesTab({
   busyId: string | null;
   onMakeFrame: (recipe: FrameRecipe) => Promise<void>;
   onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<void>;
+  imageCapabilities: ImageCapabilities;
   onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
   onSetPrimary: (variant: BibleAssetVariant) => void;
   onDeleteTake: (variant: BibleAssetVariant) => void;
@@ -756,10 +770,11 @@ function FramesTab({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
-        <Button size="sm" className="text-xs" disabled={making || !prompt.trim()} onClick={makeFrame}>
+        <Button size="sm" className="text-xs" disabled={making || !prompt.trim() || (!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId))} onClick={makeFrame}>
           {making ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
           Make frame
         </Button>
+        {!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId) && <p className="mt-2 text-xs text-muted-foreground">Choose a model that accepts reference images to include these characters or locations.</p>}
       </div>
 
       {frames.length === 0 ? (
@@ -776,6 +791,7 @@ function FramesTab({
               basePrompt={parseRecipe(f.rules_json).prompt}
               onRetake={onRetake}
               onEdit={onEdit}
+                imageCapabilities={imageCapabilities}
               onSetPrimary={onSetPrimary}
               onDeleteTake={onDeleteTake}
               onDeleteAsset={onDeleteFrame}
@@ -798,6 +814,7 @@ function AssetCard({
   basePrompt,
   onRetake,
   onEdit,
+  imageCapabilities,
   onSetPrimary,
   onDeleteTake,
   onDeleteAsset,
@@ -810,6 +827,7 @@ function AssetCard({
   builtFrom: string | null;
   basePrompt: string;
   onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<void>;
+  imageCapabilities: ImageCapabilities;
   onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
   onSetPrimary: (variant: BibleAssetVariant) => void;
   onDeleteTake: (variant: BibleAssetVariant) => void;
@@ -873,7 +891,7 @@ function AssetCard({
           )}
 
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" className="text-xs" disabled={busy} onClick={() => run("retake", () => onRetake(asset))}>
+            <Button size="sm" variant="outline" className="text-xs" disabled={busy || (!!primary && !imageCapabilities.composition)} title={!imageCapabilities.composition && primary ? "Choose a model that accepts reference images." : undefined} onClick={() => run("retake", () => onRetake(asset))}>
               {pending === "retake" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
               Retake
             </Button>
@@ -881,7 +899,8 @@ function AssetCard({
               size="sm"
               variant={mode === "variation" ? "default" : "outline"}
               className="text-xs"
-              disabled={busy}
+              disabled={busy || (!!primary && !imageCapabilities.composition)}
+              title={!imageCapabilities.composition && primary ? "Choose a model that accepts reference images." : undefined}
               onClick={() => setMode((m) => (m === "variation" ? null : "variation"))}
             >
               <Sparkles className="h-3 w-3 mr-1" />
@@ -891,7 +910,8 @@ function AssetCard({
               size="sm"
               variant={mode === "edit" ? "default" : "outline"}
               className="text-xs"
-              disabled={busy || !primary}
+              disabled={busy || !primary || !imageCapabilities.editing}
+              title={!imageCapabilities.editing ? "Choose a model that supports image editing." : undefined}
               onClick={() => setMode((m) => (m === "edit" ? null : "edit"))}
             >
               <Wand2 className="h-3 w-3 mr-1" />
@@ -923,7 +943,7 @@ function AssetCard({
               <Button
                 size="sm"
                 className="text-xs"
-                disabled={busy || !variation.trim()}
+                disabled={busy || !variation.trim() || (!!primary && !imageCapabilities.composition)}
                 onClick={() => run("variation", async () => {
                   await onRetake(asset, variation);
                   setMode(null);
@@ -947,7 +967,7 @@ function AssetCard({
               <Button
                 size="sm"
                 className="text-xs"
-                disabled={busy || !editInstruction.trim()}
+                disabled={busy || !editInstruction.trim() || !imageCapabilities.editing}
                 onClick={() => run("edit", async () => {
                   await onEdit(asset, primary, editInstruction);
                   setEditInstruction("");

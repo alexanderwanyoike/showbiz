@@ -245,7 +245,7 @@ describe("pollFalResult", () => {
     const error = await promise.catch((e: Error) => e);
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toBe("fal.ai generation failed");
+    expect((error instanceof Error ? error.message : String(error))).toBe("fal.ai generation failed");
   });
 
   it("throws immediately on a definitive 4xx status check error", async () => {
@@ -257,7 +257,7 @@ describe("pollFalResult", () => {
     const error = await promise.catch((e: Error) => e);
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toBe(
+    expect((error instanceof Error ? error.message : String(error))).toBe(
       "fal.ai queue status failed for fal-ai/flux/schnell request req-123: Not found"
     );
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -350,7 +350,7 @@ describe("pollFalResult", () => {
     const error = await promise.catch((e: Error) => e);
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toBe(
+    expect((error instanceof Error ? error.message : String(error))).toBe(
       "fal.ai queue result failed for fal-ai/flux/schnell request req-123: fal.ai error (405)"
     );
   });

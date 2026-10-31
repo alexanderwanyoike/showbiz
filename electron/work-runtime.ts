@@ -9,7 +9,10 @@ interface WorkWindow {
   on(event: "close", listener: (event: { preventDefault(): void }) => void): unknown;
 }
 const MUTATING_COMMANDS = new Set([
-  "add_timeline_clip",
+  "set_local_generation_config",
+  "begin_generation_usage",
+  "record_generation_receipt",
+  "finish_generation_usage",
   "clear_shot_end_frame",
   "copy_image_from_shot",
   "create_bible",
@@ -20,7 +23,6 @@ const MUTATING_COMMANDS = new Set([
   "create_remix_version",
   "create_shot",
   "create_storyboard",
-  "create_timeline_track",
   "create_video_generation_version",
   "delete_api_key",
   "delete_bible",
@@ -29,19 +31,14 @@ const MUTATING_COMMANDS = new Set([
   "delete_project",
   "delete_shot",
   "delete_storyboard",
-  "delete_timeline_track",
   "delete_version",
-  "ensure_default_tracks",
-  "move_timeline_clip",
-  "remove_all_timeline_clips",
-  "remove_timeline_clip",
   "reorder_shots",
+  "set_shot_models",
   "save_and_complete_video",
   "save_api_key",
   "save_shot_end_frame",
   "save_shot_image",
   "save_shot_video",
-  "split_timeline_clip",
   "switch_to_version",
   "switch_to_video_version",
   "update_bible",
@@ -51,7 +48,6 @@ const MUTATING_COMMANDS = new Set([
   "update_shot",
   "update_storyboard",
   "update_storyboard_models",
-  "update_timeline_clip_trims",
 ]);
 
 type Dispatch = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
@@ -174,8 +170,8 @@ export function createWorkRuntime(options: {
         lease.end(); leases.delete(work_id);
         return;
       }
-      if (!MUTATING_COMMANDS.has(command) && command !== "export_timeline_video") return dispatch(command, args);
-      const end = work.begin(command === "export_timeline_video" ? "export" : "saving");
+      if (!MUTATING_COMMANDS.has(command) && command !== "export_storyboard_package") return dispatch(command, args);
+      const end = work.begin(command === "export_storyboard_package" ? "export" : "saving");
       try { return await dispatch(command, args); }
       finally { end(); }
     },

@@ -1,15 +1,18 @@
+import { ShotModelControls } from "../components/ShotModelControls";
+import { resolveShotModels } from "../lib/shot-models";
+import { DEFAULT_STORYBOARD_MODELS } from "../../shared/model-defaults";
+import type { ShotModelOverrides } from "../../shared/shot-models";
+import { useAgentChanges } from "../hooks/useAgentChanges";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Plus, Loader2, Sparkles, ImageIcon, Video, Save } from "lucide-react";
-import { Header } from "../components/Header";
+import { Plus, Loader2, Sparkles, ImageIcon, Save } from "lucide-react";
+import { WorkspaceToolbar as Header } from "../components/WorkspaceToolbar";
 import ShotList from "../components/ShotList";
 import ShotPreview from "../components/ShotPreview";
 import ShotInspector from "../components/ShotInspector";
-import MediaPool from "../components/MediaPool";
-import TabNavigation from "../components/TabNavigation";
-import TimelineEditor from "../components/timeline/TimelineEditor";
 import StoryboardModeView from "../components/StoryboardModeView";
 
 import { Button } from "@/components/ui/button";
@@ -24,11 +27,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ModelPicker } from "../components/ModelPicker";
 import {
   getStoryboard,
   updateStoryboard,
   updateStoryboardModels,
+  setShotModels,
   getShots,
   createShot,
   updateShot,
@@ -36,8 +39,6 @@ import {
   reorderShots,
   getShotImageBase64,
   copyImageFromShot,
-  ensureDefaultTracks,
-  getTimelineClips,
   getImageVersions,
   getCurrentImageVersion,
   getVersionCount,
@@ -60,8 +61,6 @@ import {
 import type {
   Storyboard,
   ShotWithUrls,
-  TimelineTrack,
-  TimelineClipRow,
   ImageVersionNode,
   ImageVersionWithUrl,
   VideoVersionNode,
@@ -76,23 +75,19 @@ import {
   enhanceVideoPrompt,
   generateAndSaveVideoRequestAction,
 } from "../actions/generation-actions";
-import { buildShotConcatClips } from "../lib/export-payload";
-import { videoDurationCache } from "../lib/video-duration";
 import { invoke } from "../lib/bridge";
 import {
   ImageModelId,
   VideoModelId,
   getAvailableImageModels,
   getAvailableVideoModels,
-  getGroupedVideoModels,
-  getGroupedImageModels,
 } from "../lib/models";
 import type { VideoGenerationSettings } from "../lib/models/types";
 import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
 import type { VideoGenerationRequest } from "../lib/generation/types";
 import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
 import { buildFrameOptions } from "../lib/bible-compose";
-import { versionsForShot, valueForShot, flattenVersionTree } from "../lib/shot-versions";
+import { versionsForShot, valueForShot } from "../lib/shot-versions";
 import {
   invalidateGenerationRun,
   isCurrentGenerationRun,
@@ -100,7 +95,7 @@ import {
   type GenerationRunMap,
 } from "../lib/generation/run-guard";
 
-interface Shot {
+interface Shot extends ShotModelOverrides {
   id: string;
   storyboard_id: string;
   order: number;
@@ -124,6 +119,8 @@ function shotFromShotWithUrls(s: ShotWithUrls): Shot {
     storyboard_id: s.storyboard_id,
     order: s.order,
     duration: s.duration,
+    image_model: s.image_model ?? null,
+    video_model: s.video_model ?? null,
     image_prompt: s.image_prompt,
     image_url: s.image_url,
     end_frame_url: s.end_frame_url,
@@ -148,17 +145,11 @@ export default function StoryboardPage() {
   // Selection State
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
 
-  // Tab State
-  const [activeTab, setActiveTab] = useState<"storyboard" | "editor">("storyboard");
-
-  // Timeline Edit State
-  const [timelineTracks, setTimelineTracks] = useState<TimelineTrack[]>([]);
-  const [timelineClipRows, setTimelineClipRows] = useState<TimelineClipRow[]>([]);
   const [bibleAssets, setBibleAssets] = useState<BibleAsset[]>([]);
   const [bibleVariants, setBibleVariants] = useState<Record<string, BibleAssetVariant[]>>({});
 
-  // Assembly State
-  const [isAssembling, setIsAssembling] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -167,12 +158,17 @@ export default function StoryboardPage() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   // Model Selection
-  const [imageModel, setImageModel] = useState<ImageModelId>("imagen4");
-  const [videoModel, setVideoModel] = useState<VideoModelId>("seedance-2-fal");
+  const [defaultImageModel, setDefaultImageModel] = useState<ImageModelId>(DEFAULT_STORYBOARD_MODELS.image_model);
+  const [defaultVideoModel, setDefaultVideoModel] = useState<VideoModelId>(DEFAULT_STORYBOARD_MODELS.video_model);
   const imageModels = getAvailableImageModels();
   const videoModels = getAvailableVideoModels();
-  const videoGroups = getGroupedVideoModels();
-  const imageGroups = getGroupedImageModels();
+  const [modelSaving, setModelSaving] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
+  const defaultModels = {image_model:defaultImageModel, video_model:defaultVideoModel};
+  const selectedShot = shots.find(shot => shot.id === selectedShotId) ?? null;
+  const selectedModels = resolveShotModels(selectedShot, defaultModels);
+  const imageModel = selectedModels.image_model as ImageModelId;
+  const videoModel = selectedModels.video_model as VideoModelId;
 
   // Video Settings
   const [videoSettings, setVideoSettings] = useState<VideoGenerationSettings>(() => {
@@ -184,6 +180,11 @@ export default function StoryboardPage() {
     () => videoModels.find((m) => m.id === videoModel),
     [videoModel, videoModels]
   );
+
+  useEffect(() => {
+    const model = getAvailableVideoModels().find(item => item.id === videoModel);
+    if (model) setVideoSettings({...model.defaults});
+  }, [videoModel]);
 
   // Frames composed in the Bible (scene assets) that a shot can pick as start/end.
   const frameOptions: FrameOption[] = useMemo(
@@ -202,46 +203,6 @@ export default function StoryboardPage() {
   const [shotCurrentVideoVersions, setShotCurrentVideoVersions] = useState<Record<string, VideoVersionWithUrl | null>>({});
   const [shotVideoVersionCounts, setShotVideoVersionCounts] = useState<Record<string, number>>({});
 
-  // Flat video version lists for the editor: media pool chips + clip pins
-  const videoVersionsFlat = useMemo(() => {
-    const map: Record<string, VideoVersionWithUrl[]> = {};
-    for (const [shotId, nodes] of Object.entries(shotVideoVersions)) {
-      map[shotId] = flattenVersionTree(nodes).sort(
-        (a, b) => a.version_number - b.version_number
-      );
-    }
-    return map;
-  }, [shotVideoVersions]);
-
-  const versionUrls = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const versions of Object.values(videoVersionsFlat)) {
-      for (const version of versions) map[version.id] = version.video_url;
-    }
-    return map;
-  }, [videoVersionsFlat]);
-
-  const versionNumbers = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const versions of Object.values(videoVersionsFlat)) {
-      for (const version of versions) map[version.id] = version.version_number;
-    }
-    return map;
-  }, [videoVersionsFlat]);
-
-  const mediaPoolVersions = useMemo(() => {
-    const map: Record<string, { id: string; version_number: number; video_url: string; is_current: boolean }[]> = {};
-    for (const [shotId, versions] of Object.entries(videoVersionsFlat)) {
-      map[shotId] = versions.map((v) => ({
-        id: v.id,
-        version_number: v.version_number,
-        video_url: v.video_url,
-        is_current: !!v.is_current,
-      }));
-    }
-    return map;
-  }, [videoVersionsFlat]);
-
   // Edit Modal State
   const [editModalState, setEditModalState] = useState<{
     isOpen: boolean;
@@ -257,9 +218,13 @@ export default function StoryboardPage() {
   const [enhancingPromptShots, setEnhancingPromptShots] = useState<Set<string>>(new Set());
   const videoGenerationRuns = useRef<GenerationRunMap>({});
 
+  useAgentChanges(loadData);
+
+  const loadRequest = useRef(0);
   // Load storyboard and shots on mount
   useEffect(() => {
     if (id) loadData();
+    return () => { loadRequest.current++; };
   }, [id]);
 
   useUnsavedWork("draft", isModalOpen && !!imagePrompt, imagePrompt);
@@ -268,14 +233,15 @@ export default function StoryboardPage() {
 
   async function loadData() {
     if (!id) return;
+    const request = ++loadRequest.current;
     setIsLoading(true);
     try {
-      const [storyboardData, shotsData, tracksData, clipsData] = await Promise.all([
+      const [storyboardData, shotsData] = await Promise.all([
         getStoryboard(id),
         getShots(id),
-        ensureDefaultTracks(id),
-        getTimelineClips(id),
       ]);
+
+      if (request !== loadRequest.current) return;
 
       if (!storyboardData) {
         navigate("/");
@@ -285,17 +251,13 @@ export default function StoryboardPage() {
       setStoryboard(storyboardData);
       const mappedShots = shotsData.map(shotFromShotWithUrls);
       setShots(mappedShots);
-      if (mappedShots.length > 0) {
-        setSelectedShotId(mappedShots[0].id);
-      }
-      setTimelineTracks(tracksData);
-      setTimelineClipRows(clipsData);
+      setSelectedShotId((current) => mappedShots.some((shot) => shot.id === current) ? current : mappedShots[0]?.id ?? null);
       setEditedName(storyboardData.name);
-      setImageModel((storyboardData.image_model as ImageModelId) || "imagen4");
+      setDefaultImageModel((storyboardData.image_model as ImageModelId) || DEFAULT_STORYBOARD_MODELS.image_model);
       const loadedVideoModel: VideoModelId = videoModels.some((m) => m.id === storyboardData.video_model)
         ? (storyboardData.video_model as VideoModelId)
         : "seedance-2-fal";
-      setVideoModel(loadedVideoModel);
+      setDefaultVideoModel(loadedVideoModel);
       const loadedModel = videoModels.find((m) => m.id === loadedVideoModel);
       if (loadedModel) {
         setVideoSettings({ ...loadedModel.defaults });
@@ -306,10 +268,11 @@ export default function StoryboardPage() {
       // Load version data for each shot
       await loadVersionDataForShots(mappedShots);
     } catch (error) {
+      if (request !== loadRequest.current) return;
       console.error("Failed to load storyboard:", error);
       navigate("/");
     } finally {
-      setIsLoading(false);
+      if (request === loadRequest.current) setIsLoading(false);
     }
   }
 
@@ -386,6 +349,7 @@ export default function StoryboardPage() {
       const updated = await updateStoryboard(id, editedName.trim());
       if (updated) {
         setStoryboard(updated);
+        window.dispatchEvent(new Event("showbiz:project-changed"));
       }
       setIsEditingName(false);
     } catch (error) {
@@ -394,29 +358,26 @@ export default function StoryboardPage() {
     }
   }
 
-  async function handleChangeImageModel(newModel: ImageModelId) {
-    if (!id) return;
-    setImageModel(newModel);
+  async function handleShotModels(shotId: string, models: Partial<ShotModelOverrides>) {
+    setModelSaving(true); setModelError(null);
     try {
-      await updateStoryboardModels(id, newModel, videoModel);
-    } catch (error) {
-      console.error("Failed to update model selection:", error);
-    }
+      const result = await setShotModels(shotId, models);
+      if (!result.ok) { setModelError(result.error.message); return; }
+      setShots(previous => previous.map(shot => shot.id === shotId ? {...shot,...result.value} : shot));
+    } catch (cause) { setModelError(String(cause)); }
+    finally { setModelSaving(false); }
   }
 
-  async function handleChangeVideoModel(newModel: VideoModelId) {
+  async function handleDefaultModels(models: {image_model:string;video_model:string}) {
     if (!id) return;
-    setVideoModel(newModel);
-    // Reset settings to new model's defaults
-    const model = videoModels.find((m) => m.id === newModel);
-    if (model) {
-      setVideoSettings({ ...model.defaults });
-    }
+    setModelSaving(true); setModelError(null);
     try {
-      await updateStoryboardModels(id, imageModel, newModel);
-    } catch (error) {
-      console.error("Failed to update model selection:", error);
-    }
+      const updated = await updateStoryboardModels(id, models.image_model, models.video_model);
+      setStoryboard(updated);
+      setDefaultImageModel(models.image_model as ImageModelId);
+      setDefaultVideoModel(models.video_model as VideoModelId);
+    } catch (cause) { setModelError(String(cause)); }
+    finally { setModelSaving(false); }
   }
 
   // --- Shot Actions ---
@@ -516,7 +477,8 @@ export default function StoryboardPage() {
     setIsGeneratingImage(true);
     try {
       await withApplicationWork("generation", async () => {
-        const imageDataUrl = await generateImageAction(imagePrompt, imageModel);
+        const targetModel = resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model as ImageModelId;
+        const imageDataUrl = await generateImageAction(imagePrompt, targetModel);
 
         // Get current version to use as parent (if exists)
         const currentVersion = shotCurrentVersions[activeShotId];
@@ -689,7 +651,8 @@ export default function StoryboardPage() {
         }
 
         // Call edit image action
-        const resultBase64 = await editImageAction(sourceBase64, editPrompt, imageModel);
+        const targetModel = resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model as ImageModelId;
+        const resultBase64 = await editImageAction(sourceBase64, editPrompt, targetModel);
 
         // Create a new remix version
         await createRemixVersion(shotId, versionId, editPrompt, resultBase64);
@@ -714,7 +677,10 @@ export default function StoryboardPage() {
   async function handleGenerateVideo(shotId: string) {
     const shot = shots.find((s) => s.id === shotId);
     if (!shot) return;
-    if (!currentVideoModel) return;
+    const targetModelId = resolveShotModels(shot, defaultModels).video_model as VideoModelId;
+    const targetModel = videoModels.find(model => model.id === targetModelId);
+    if (!targetModel) { setModelError("Choose an available video model for this shot."); return; }
+    const targetSettings = selectedShotId === shotId ? videoSettings : {...targetModel.defaults};
     const runId = startGenerationRun(videoGenerationRuns.current, shotId);
 
     const prompt = shot.video_prompt?.trim() ?? "";
@@ -740,22 +706,22 @@ export default function StoryboardPage() {
     try {
       await withApplicationWork("generation", async () => {
         const startImage = shot.image_url ? await getShotImageBase64(shotId) : null;
-        const supportsEndFrame = currentVideoModel.modeCapabilities.imageToVideo?.supportsEndImage === true;
+        const supportsEndFrame = targetModel.modeCapabilities.imageToVideo?.supportsEndImage === true;
         const endImage =
           supportsEndFrame && shot.end_frame_url ? await getShotEndFrameBase64(shotId) : null;
-        const mode = chooseVideoGenerationMode(currentVideoModel.modeCapabilities, {
+        const mode = chooseVideoGenerationMode(targetModel.modeCapabilities, {
           hasStartImage: !!startImage,
         });
         const request: VideoGenerationRequest = {
           mode,
           prompt,
-          settings: videoSettings,
+          settings: targetSettings,
           startImage,
           endImage: mode === "image-to-video" ? endImage : null,
         };
-        validateVideoGenerationRequest(currentVideoModel.modeCapabilities, request);
+        validateVideoGenerationRequest(targetModel.modeCapabilities, request);
 
-        const result = await generateAndSaveVideoRequestAction(shotId, videoModel, request);
+        const result = await generateAndSaveVideoRequestAction(shotId, targetModelId, request);
         if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
 
         if (result.success && result.videoUrl) {
@@ -871,59 +837,27 @@ export default function StoryboardPage() {
     }
   }
 
-  // --- Video Assembly ---
-
-  async function handleExport() {
-    const completedShots = shots.filter(
-      (s) => s.status === "complete" && s.video_url
-    );
-
-    if (completedShots.length === 0) {
-      alert("No videos generated yet!");
-      return;
-    }
-
-    setIsAssembling(true);
+  async function handleExport(format: "zip" | "sbz") {
+    if (!id) return;
+    setIsExporting(true);
+    setExportMessage("");
     try {
-      // Native ffmpeg concat: probe real durations, lay the shots end to end,
-      // and let the main process resolve file paths from the DB.
-      const durations: Record<string, number | null> = {};
-      await Promise.all(
-        completedShots.map(async (s) => {
-          durations[s.video_url!] = await videoDurationCache.get(s.video_url!);
-        })
-      );
-      const clips = buildShotConcatClips(completedShots, durations);
-      if (clips.length === 0) {
-        alert("Could not read any shot video durations. Try again.");
-        return;
-      }
-
-      const savePath = await invoke<string | null>("show_export_save_dialog");
-      if (!savePath) return;
-
-      await invoke("export_timeline_video", {
-        clips,
-        settings: { preset: "medium" },
-        savePath,
-      });
-      alert("Video exported successfully!");
-    } catch (error) {
-      console.error("Assembly failed:", error);
-      alert("Failed to assemble videos. Check console for details.");
+      const result = await invoke<import("../../shared/result").Result<import("../../shared/storyboard-package").StoryboardPackageExport | null>>("export_storyboard_package", { storyboard_id: id, format });
+      if (!result.ok) setExportMessage(result.error.message);
+      else if (result.value) setExportMessage(`Exported ${result.value.media_count} media files from ${result.value.shot_count} shots.`);
+    } catch (cause) {
+      setExportMessage(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      setIsAssembling(false);
+      setIsExporting(false);
     }
   }
 
-  const allShotsComplete =
-    shots.length > 0 && shots.every((s) => s.status === "complete");
-
-  const totalDuration = shots.length * 8; // Veo 3 generates 8s videos
+  const hasMedia = shots.some((shot) => shot.image_url || shot.end_frame_url || shot.video_url);
+  const totalDuration = shots.reduce((total, shot) => total + shot.duration, 0);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="desktop-page">
         <Header />
         <div className="flex items-center justify-center py-24">
           <div className="text-muted-foreground flex items-center gap-2">
@@ -940,7 +874,7 @@ export default function StoryboardPage() {
   }
 
   return (
-    <div className="bg-background flex flex-col h-dvh overflow-hidden">
+    <div className="desktop-page storyboard-page">
       {/* Main App Header */}
       <Header
         backHref={`/project/${storyboard.project_id}`}
@@ -949,64 +883,22 @@ export default function StoryboardPage() {
       >
         {/* Inline controls in header */}
         <div className="flex items-center gap-4">
-          <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
-
-          {/* Model Selectors — storyboard tab only */}
-          {activeTab === "storyboard" && <div className="flex items-center gap-2">
-            <ModelPicker
-              groups={imageGroups}
-              value={imageModel}
-              onSelect={(id) => handleChangeImageModel(id as ImageModelId)}
-              trigger={
-                <Button variant="outline" size="sm" className="gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  {imageModels.find((m) => m.id === imageModel)?.name || "Image"}
-                </Button>
-              }
-            />
-
-            <ModelPicker
-              groups={videoGroups}
-              value={videoModel}
-              onSelect={(id) => handleChangeVideoModel(id as VideoModelId)}
-              trigger={
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Video className="h-4 w-4" />
-                  {videoModels.find((m) => m.id === videoModel)?.name || "Video"}
-                </Button>
-              }
-            />
-
-          </div>}
 
           <Badge variant="secondary" className="text-sm">
             {shots.length} Shots • {totalDuration}s Total
           </Badge>
-          {activeTab === "storyboard" && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-primary"
-              onClick={handleExport}
-              disabled={isAssembling || !allShotsComplete}
-            >
-              {isAssembling ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Assembling...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Movie
-                </>
-              )}
-            </Button>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={isExporting || !hasMedia}>{isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Export…</Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => void handleExport("zip")}>Media ZIP (.zip)</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void handleExport("sbz")}>Forgecut media (.sbz)</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </Header>
 
-      {activeTab === "storyboard" && (
+      {exportMessage && <p role="status" className="border-b border-border px-4 py-2 text-sm">{exportMessage}</p>}
+      {(
         <StoryboardModeView
           shotListSlot={
             <ShotList
@@ -1042,12 +934,16 @@ export default function StoryboardPage() {
           }
           inspectorSlot={
             <ShotInspector
+              generationDisabled={modelSaving}
+              modelControls={<ShotModelControls shot={selectedShot} defaults={defaultModels} onShotChange={handleShotModels} onDefaultsChange={handleDefaultModels} disabled={modelSaving} error={modelError}/>}
               shot={selectedShotId ? (() => {
                 const s = shots.find(s => s.id === selectedShotId);
                 return s ? {
                   id: s.id,
                   order: s.order,
-                  image_prompt: s.image_prompt,
+                  image_model: s.image_model ?? null,
+    video_model: s.video_model ?? null,
+    image_prompt: s.image_prompt,
                   image_url: s.image_url,
                   end_frame_url: s.end_frame_url,
                   video_prompt: s.video_prompt,
@@ -1084,37 +980,6 @@ export default function StoryboardPage() {
           }
         />
       )}
-
-      {activeTab === "editor" && (
-        <div className="flex-1 flex min-h-0 overflow-hidden">
-          {/* Media Pool — left sidebar */}
-          <div className="w-56 flex-shrink-0 border-r border-border overflow-hidden">
-            <MediaPool
-              shots={shots.map(s => ({
-                id: s.id,
-                order: s.order,
-                image_url: s.image_url,
-                video_url: s.video_url,
-                status: s.status,
-                duration: s.duration,
-              }))}
-              versionsByShot={mediaPoolVersions}
-            />
-          </div>
-          {/* Timeline Editor — fills remaining space (has its own preview + transport) */}
-          <TimelineEditor
-            storyboardId={id!}
-            shots={shots}
-            tracks={timelineTracks}
-            clipRows={timelineClipRows}
-            versionUrls={versionUrls}
-            versionNumbers={versionNumbers}
-            onTracksChange={setTimelineTracks}
-            onClipsChange={setTimelineClipRows}
-          />
-        </div>
-      )}
-
 
       {/* Image Generation Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
