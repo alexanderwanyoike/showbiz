@@ -305,3 +305,11 @@ it("selects a material and accent while retaining Showbiz's native appearance", 
   );
   expect(document.documentElement.dataset.material).toBe("native");
 });
+it("labels the optional FAL billing credential separately from generation models", async () => {
+  api.getApiKeyStatusAction.mockResolvedValue(API_KEY_PROVIDERS.map((provider) => ({ provider: provider.id, name: provider.name, is_configured: false, source: null })));
+  render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Configure fal.ai billing" }));
+  expect(screen.getByText("Actual charges only; generation uses your fal.ai key.")).toBeTruthy();
+  expect(screen.getByLabelText("fal.ai billing key (optional)")).toBeTruthy();
+});
