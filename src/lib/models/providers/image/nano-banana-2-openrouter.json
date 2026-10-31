@@ -1,0 +1,17 @@
+{
+  "id": "nano-banana-2-openrouter",
+  "name": "Nano Banana 2",
+  "description": "Nano Banana 2 generation and reference editing through OpenRouter.",
+  "transport": "openrouter-image",
+  "enabled": true,
+  "apiKeyProvider": "openrouter",
+  "provider": "OpenRouter",
+  "modelFamily": "nano-banana-2",
+  "models": {
+    "generate": "google/gemini-3.1-flash-image",
+    "edit": "google/gemini-3.1-flash-image"
+  },
+  "supportsEditing": true,
+  "supportsInpainting": false,
+  "supportsComposition": true
+}

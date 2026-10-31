@@ -3,16 +3,19 @@ import { invoke } from "../bridge";
 interface TauriHttpResponse {
   status: number;
   body_b64: string;
+  headers?: [string, string][];
 }
 
 class TauriResponse {
   readonly ok: boolean;
   readonly status: number;
+  readonly headers: Headers;
   private readonly _b64: string;
   private _bytes: Uint8Array | null = null;
 
-  constructor(status: number, b64: string) {
+  constructor(status: number, b64: string, headers: [string, string][] = []) {
     this.status = status;
+    this.headers = new Headers(headers);
     this.ok = status >= 200 && status < 300;
     this._b64 = b64;
   }
@@ -37,7 +40,7 @@ class TauriResponse {
   }
 
   async blob(): Promise<Blob> {
-    return new Blob([this.getBytes()]);
+    return new Blob([new Uint8Array(this.getBytes()).buffer], { type: this.headers.get("content-type") ?? "" });
   }
 }
 
@@ -74,5 +77,5 @@ export async function fetch(
     body,
   });
 
-  return new TauriResponse(result.status, result.body_b64);
+  return new TauriResponse(result.status, result.body_b64, result.headers);
 }
