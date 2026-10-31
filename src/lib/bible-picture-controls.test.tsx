@@ -117,6 +117,9 @@ it("keeps an edit instruction open after a failed generation so it can be correc
       ) as HTMLTextAreaElement
     ).value,
   ).toBe("Make the light warmer");
+  await user.click(screen.getByRole("button", { name: "Cancel edit for Ada" }));
+  expect(screen.queryByRole("textbox", { name: "Edit instruction for Ada" })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit…" }));
 });
 
 it("keeps an adjusted retake prompt after generation fails", async () => {
@@ -140,6 +143,9 @@ it("keeps an adjusted retake prompt after generation fails", async () => {
       ) as HTMLTextAreaElement
     ).value,
   ).toBe("A warmer portrait");
+  await user.click(screen.getByRole("button", { name: "Cancel variation for Ada" }));
+  expect(screen.queryByRole("textbox", { name: "Variation prompt for Ada" })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Variation…" }));
 });
 
 it("tracks a selected frame reference as draft work and clears it explicitly", async () => {

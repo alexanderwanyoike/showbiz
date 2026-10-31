@@ -87,6 +87,8 @@ export function BibleAssetEntry({
   const [editInstruction, setEditInstruction] = useState("");
   const opener = useRef<HTMLButtonElement>(null);
   const back = useRef<HTMLButtonElement>(null);
+  const variationAction = useRef<HTMLButtonElement>(null);
+  const editAction = useRef<HTMLButtonElement>(null);
   const wasActive = useRef(false);
   const takeFocus = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -327,6 +329,7 @@ export function BibleAssetEntry({
                     !variationEdited &&
                     mode !== "variation")
                 }
+                ref={variationAction}
                 aria-label="Variation…"
                 aria-expanded={mode === "variation"}
                 aria-controls={`variation-${asset.id}`}
@@ -359,6 +362,7 @@ export function BibleAssetEntry({
                     !editInstruction &&
                     mode !== "edit")
                 }
+                ref={editAction}
                 aria-label="Edit…"
                 aria-expanded={mode === "edit"}
                 aria-controls={`edit-${asset.id}`}
@@ -443,6 +447,7 @@ export function BibleAssetEntry({
                     setVariation(basePrompt);
                     setVariationEdited(false);
                     setMode(null);
+                    variationAction.current?.focus();
                   }}
                 >
                   Cancel
@@ -502,6 +507,7 @@ export function BibleAssetEntry({
                   onClick={() => {
                     setEditInstruction("");
                     setMode(null);
+                    editAction.current?.focus();
                   }}
                 >
                   Cancel
