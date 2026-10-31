@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { appDataDir, loadMigrations, openDatabase } from "./db";
 import { createDataCommands } from "./command-map";
-import { createExportCommandsForApp } from "./export-deps";
+import { createStoryboardPackageCommands } from "./commands/storyboard-package";
 import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
 import { initMediaDirs, mediaBaseDir } from "./media-files";
@@ -35,7 +35,7 @@ function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: Retu
   // shell where main.rs calls media::init() at startup.
   initMediaDirs(mediaDir);
   const invokeHandler = createInvokeHandler({
-    ...createDataCommands(db, mediaDir, createExportCommandsForApp(db, mediaDir)),
+    ...createDataCommands(db, mediaDir, createStoryboardPackageCommands(db, mediaDir, (options) => dialog.showSaveDialog(options))),
     ...updates.commands,
   });
   ipcMain.handle("showbiz:invoke", (event, cmd: string, args?: Record<string, unknown>) => {
