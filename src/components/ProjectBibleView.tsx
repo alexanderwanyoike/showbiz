@@ -4,7 +4,7 @@ import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useEffect, useRef, useState } from "react";
-import { Check, ImageIcon, Loader2, Maximize2, RefreshCw, Trash2, Upload, Sparkles, Wand2, X } from "lucide-react";
+import { Check, ImageIcon, Loader2, Maximize2, RefreshCw, Trash2, Upload, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -467,7 +467,7 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
     <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="gap-0" asChild>
     <section role="region" aria-label="Project bible" className="bible-workspace flex h-full flex-col">
       {/* Tabs + model */}
-      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
+      <div className="bible-toolbar flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2">
         <TabsList aria-label="Bible sections">
           {(["characters", "locations", "frames"] as Tab[]).map((t) => (
             <TabsTrigger
@@ -479,10 +479,13 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
             </TabsTrigger>
           ))}
         </TabsList>
-        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
-        Generation model
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <div>
+          <label htmlFor="bible-generation-model" className="font-medium text-foreground">Generation model</label>
+          <p className="text-[10px]">Used for new pictures and retakes in this Bible view.</p>
+        </div>
         <Select value={imageModel} onValueChange={(v) => setImageModel(v as ImageModelId)}>
-          <SelectTrigger aria-label="Bible generation model" disabled={!!busyId} className="h-8 w-60 text-xs">
+          <SelectTrigger id="bible-generation-model" aria-label="Bible generation model" disabled={!!busyId} className="h-8 w-60 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -493,11 +496,11 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
             ))}
           </SelectContent>
         </Select>
-        </label>
+        </div>
       </div>
 
       {error && (
-        <div className="mx-4 mt-2 rounded border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">{error}</div>
+        <div role="alert" className="mx-4 mt-2 rounded border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">{error}</div>
       )}
 
       <div className="flex-1 overflow-y-auto p-4">
@@ -595,39 +598,47 @@ function AssetTab({
         <p className="mb-2 text-xs font-medium capitalize text-muted-foreground">New {label}</p>
         <GenerationCost modelId={generationContext.modelId} request={{kind: "image"}} subject={{project_id: generationContext.projectId}} />
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <label className="grid gap-1 text-[11px] text-muted-foreground">
+          <span>Name</span>
           <Input
+            disabled={busyId !== null}
             className="h-9 text-sm sm:w-44"
             aria-label={`${type === "character" ? "Character" : "Location"} name`}
             placeholder={`${label} name`}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
           />
+          </label>
+          <label className="grid flex-1 gap-1 text-[11px] text-muted-foreground">
+          <span>Prompt for generation</span>
           <Textarea
+            disabled={busyId !== null}
             className="min-h-[40px] flex-1 text-xs resize-none"
             aria-label={`${type === "character" ? "Character" : "Location"} prompt`}
             placeholder="Describe it (or just upload a picture)..."
             value={newPrompt}
             onChange={(e) => setNewPrompt(e.target.value)}
           />
-          <div className="flex gap-2">
+          </label>
+          <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
               className="text-xs"
-              disabled={creating || !newName.trim() || !newPrompt.trim()}
+              disabled={busyId !== null || !newName.trim() || !newPrompt.trim()}
               onClick={async () => {
                 const result = await onNew(type, newName, newPrompt, null);
                 if (result.ok) { setNewName(""); setNewPrompt(""); }
               }}
             >
               {creating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
-              Create
+              Generate {label}
             </Button>
             <Button
               size="sm"
               variant="outline"
               className="text-xs"
               aria-label={`Upload ${label} picture`}
-              disabled={creating || !newName.trim()}
+              disabled={busyId !== null || !newName.trim()}
               onClick={() =>
                 pickImageFile(async (file) => {
                   const result = await onNew(type, newName, "", file);
@@ -635,9 +646,10 @@ function AssetTab({
                 })
               }
             >
-              <Upload className="h-3 w-3" />
+              <Upload className="h-3 w-3 mr-1" />
+              Upload picture
             </Button>
-            <Button type="button" variant="ghost" size="sm" className="text-xs" aria-label={`Clear ${label} draft`} disabled={creating || (!newName && !newPrompt)} onClick={() => { setNewName(""); setNewPrompt(""); }}>Clear draft</Button>
+            <Button type="button" variant="ghost" size="sm" className="text-xs" aria-label={`Clear ${label} draft`} disabled={busyId !== null || (!newName && !newPrompt)} onClick={() => { setNewName(""); setNewPrompt(""); }}>Clear draft</Button>
           </div>
         </div>
       </div>
@@ -654,7 +666,7 @@ function AssetTab({
                 key={asset.id}
                 asset={asset}
                 takes={takes}
-                busy={busyId === asset.id}
+                busy={busyId !== null}
                 builtFrom={null}
                 basePrompt={primaryPicture(takes)?.prompt ?? ""}
                 onRetake={onRetake}
@@ -750,9 +762,9 @@ function FramesTab({
       <div className="rounded border border-border p-3">
         <p className="mb-2 text-xs font-medium text-muted-foreground">Make a frame</p>
 
-        <p className="mb-1 text-[11px] font-medium text-muted-foreground">Who?</p>
+        <p className="mb-1 text-[11px] font-medium text-muted-foreground">Characters (optional)</p>
         <div className="mb-3 flex flex-wrap gap-2">
-          {characters.length === 0 && <span className="text-xs text-muted-foreground">Make a character first</span>}
+          {characters.length === 0 && <span className="text-xs text-muted-foreground">No characters yet. You can generate a frame from a prompt.</span>}
           {characters.map((c) => {
             const url = primaryPicture(variants[c.id] ?? [])?.media_url ?? null;
             return (
@@ -768,7 +780,7 @@ function FramesTab({
           })}
         </div>
 
-        <p className="mb-1 text-[11px] font-medium text-muted-foreground">Where?</p>
+        <p className="mb-1 text-[11px] font-medium text-muted-foreground">Location (optional)</p>
         <div className="mb-2 flex flex-wrap gap-2">
           {locations.length === 0 && <span className="text-xs text-muted-foreground">Optional</span>}
           {locations.map((l) => {
@@ -803,6 +815,7 @@ function FramesTab({
         )}
 
         <Textarea
+          disabled={busyId !== null}
           className="mb-2 min-h-[60px] text-sm resize-y"
           aria-label="Frame prompt"
           placeholder="What's happening (and the look, e.g. 90s anime)..."
@@ -810,11 +823,11 @@ function FramesTab({
           onChange={(e) => setPrompt(e.target.value)}
         />
         <GenerationCost modelId={generationContext.modelId} request={{kind: selectedChars.size > 0 || locationId ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId}} />
-        <Button size="sm" className="text-xs" disabled={making || !prompt.trim() || (!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId))} onClick={makeFrame}>
+        <Button size="sm" className="text-xs" disabled={busyId !== null || !prompt.trim() || (!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId))} onClick={makeFrame}>
           {making ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
-          Make frame
+          Generate frame
         </Button>
-        <Button type="button" variant="ghost" size="sm" className="ml-2 text-xs" aria-label="Clear frame draft" disabled={making || (!prompt && !selectedChars.size && !locationId)} onClick={() => { setPrompt(""); setSelectedChars(new Set()); setLocationId(null); setLocationVariantId(null); }}>Clear draft</Button>
+        <Button type="button" variant="ghost" size="sm" className="ml-2 text-xs" aria-label="Clear frame draft" disabled={busyId !== null || (!prompt && !selectedChars.size && !locationId)} onClick={() => { setPrompt(""); setSelectedChars(new Set()); setLocationId(null); setLocationVariantId(null); }}>Clear draft</Button>
         {!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId) && <p className="mt-2 text-xs text-muted-foreground">Choose a model that accepts reference images to include these characters or locations.</p>}
       </div>
 
@@ -827,7 +840,7 @@ function FramesTab({
               key={f.id}
               asset={f}
               takes={(variants[f.id] ?? []).filter((v) => v.media_url)}
-              busy={busyId === f.id}
+              busy={busyId !== null}
               builtFrom={builtFromLabel(f, characters, locations)}
               basePrompt={parseRecipe(f.rules_json).prompt}
               onRetake={onRetake}
@@ -952,7 +965,7 @@ function AssetCard({
               onClick={() => setMode((m) => (m === "variation" ? null : "variation"))}
             >
               <Sparkles className="h-3 w-3 mr-1" />
-              Variation
+              Variation…
             </Button>
             <Button
               size="sm"
@@ -963,7 +976,7 @@ function AssetCard({
               onClick={() => setMode((m) => (m === "edit" ? null : "edit"))}
             >
               <Wand2 className="h-3 w-3 mr-1" />
-              Edit
+              Edit…
             </Button>
             {onUpload && (
               <Button
@@ -984,6 +997,8 @@ function AssetCard({
               <Textarea
                 autoFocus
                 className="min-h-[40px] flex-1 text-xs resize-none"
+                disabled={busy}
+                aria-label={`Variation prompt for ${asset.name}`}
                 placeholder="Tweak the prompt for a variation..."
                 value={variation}
                 onChange={(e) => setVariation(e.target.value)}
@@ -998,7 +1013,7 @@ function AssetCard({
                 })}
               >
                 {pending === "variation" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                Make
+                Generate variation
               </Button>
             </div>
           )}
@@ -1008,6 +1023,8 @@ function AssetCard({
               <Textarea
                 autoFocus
                 className="min-h-[40px] flex-1 text-xs resize-none"
+                disabled={busy}
+                aria-label={`Edit instruction for ${asset.name}`}
                 placeholder="Edit the current picture (e.g. make it night, add rain)..."
                 value={editInstruction}
                 onChange={(e) => setEditInstruction(e.target.value)}
@@ -1022,7 +1039,7 @@ function AssetCard({
                 })}
               >
                 {pending === "edit" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
-                Apply
+                Generate edit
               </Button>
             </div>
           )}

@@ -61,7 +61,7 @@ vi.mock("./generation-pricing", () => ({
 }));
 it("shows an image estimate before creating a bible picture", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
-  await screen.findByRole("button", { name: "Edit" });
+  await screen.findByRole("button", { name: "Edit…" });
   expect(
     (await screen.findAllByLabelText("Estimated generation cost"))[0]
       .textContent,
@@ -70,7 +70,7 @@ it("shows an image estimate before creating a bible picture", async () => {
 
 it("retains the frame draft and its usage identity when generation fails", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
-  await screen.findByRole("button", { name: "Edit" });
+  await screen.findByRole("button", { name: "Edit…" });
   const user = userEvent.setup();
   await user.click(screen.getByRole("tab", { name: /^frames$/i }));
   await user.type(
@@ -79,7 +79,7 @@ it("retains the frame draft and its usage identity when generation fails", async
     ),
     "Saved frame draft",
   );
-  await user.click(screen.getByRole("button", { name: "Make frame" }));
+  await user.click(screen.getByRole("button", { name: "Generate frame" }));
   expect(await screen.findByText("Provider unavailable")).toBeTruthy();
   expect((screen.getByRole("textbox", { name: "Frame prompt" }) as HTMLTextAreaElement).value).toBe("Saved frame draft");
   expect(generateImageAction).toHaveBeenCalledWith(

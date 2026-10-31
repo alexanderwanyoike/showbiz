@@ -46,10 +46,10 @@ it("opens a named picture dialog, returns keyboard focus on Escape, and exposes 
 it("keeps an edit instruction open after a failed generation so it can be corrected or retried", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Edit" }));
+  await user.click(await screen.findByRole("button", { name: "Edit…" }));
   const field = screen.getByPlaceholderText("Edit the current picture (e.g. make it night, add rain)...");
   await user.type(field, "Make the light warmer");
-  await user.click(screen.getByRole("button", { name: "Apply" }));
+  await user.click(screen.getByRole("button", { name: "Generate edit" }));
   await screen.findByText("Provider unavailable");
   expect((screen.getByPlaceholderText("Edit the current picture (e.g. make it night, add rain)...") as HTMLTextAreaElement).value).toBe("Make the light warmer");
 });
@@ -57,11 +57,11 @@ it("keeps an edit instruction open after a failed generation so it can be correc
 it("keeps an adjusted retake prompt after generation fails", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Variation" }));
+  await user.click(await screen.findByRole("button", { name: "Variation…" }));
   const field = screen.getByPlaceholderText("Tweak the prompt for a variation...");
   await user.clear(field);
   await user.type(field, "A warmer portrait");
-  await user.click(screen.getByRole("button", { name: "Make" }));
+  await user.click(screen.getByRole("button", { name: "Generate variation" }));
   await screen.findByText("Provider unavailable");
   expect((screen.getByPlaceholderText("Tweak the prompt for a variation...") as HTMLTextAreaElement).value).toBe("A warmer portrait");
 });

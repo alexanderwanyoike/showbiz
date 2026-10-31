@@ -52,7 +52,7 @@ it("keeps a new character's name and prompt after generation fails", async () =>
   const user = userEvent.setup();
   await user.type(await screen.findByRole("textbox", { name: "Character name" }), "Ada");
   await user.type(screen.getByRole("textbox", { name: "Character prompt" }), "A quiet portrait");
-  await user.click(screen.getByRole("button", { name: "Create" }));
+  await user.click(screen.getByRole("button", { name: "Generate character" }));
   await screen.findByText("Provider unavailable");
   expect((screen.getByRole("textbox", { name: "Character name" }) as HTMLInputElement).value).toBe("Ada");
   expect((screen.getByRole("textbox", { name: "Character prompt" }) as HTMLTextAreaElement).value).toBe("A quiet portrait");
