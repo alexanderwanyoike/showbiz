@@ -72,5 +72,9 @@ it("reconciles an open document with the device provider key rather than a porta
     await runtime.invoke("finish_generation_usage", { request_id: "ours", status: "completed" });
     expect(await runtime.invoke("sync_generation_charges", { project_id })).toMatchObject({ ok: true, value: { reported: 1 } });
     expect(new Headers(http.mock.calls[0][1]?.headers).get("authorization")).toBe("Key device-only-key");
+    const state = await runtime.invoke("get_project_document_state") as { ok: true; value: { current: { file_path: string } } };
+    await runtime.invoke("close_project_document");
+    await runtime.invoke("open_project_document", { file_path: state.value.current.file_path });
+    expect(await runtime.invoke("get_generation_cost_summary", { project_id })).toMatchObject({ ok: true, value: { reported_microusd: 20000 } });
   } finally { await runtime.dispose(); db.close(); fs.rmSync(directory, {recursive:true,force:true}); vi.unstubAllGlobals(); }
 });
