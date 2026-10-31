@@ -52,6 +52,7 @@ vi.mock("../actions/generation-actions", async (original) => ({
     throw new Error("Provider unavailable");
   }),
 }));
+vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 afterEach(cleanup);
 it("opens a named picture dialog, returns keyboard focus on Escape, and exposes which take is selected", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
@@ -67,6 +68,7 @@ it("opens a named picture dialog, returns keyboard focus on Escape, and exposes 
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog", { name: "Picture preview" })).toBeNull();
   expect(document.activeElement).toBe(preview);
+  await user.click(screen.getByRole("button", { name: "Picture actions for Ada" }));
   expect(
     screen
       .getByRole("button", { name: "Use take 1 for Ada" })
@@ -89,7 +91,7 @@ it("opens a named picture dialog, returns keyboard focus on Escape, and exposes 
 it("keeps an edit instruction open after a failed generation so it can be corrected or retried", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.click(await screen.findByText("Picture actions"));
+  await user.click(await screen.findByRole("button", { name: "Picture actions for Ada" }));
   await user.click(screen.getByRole("button", { name: "Edit…" }));
   const field = screen.getByPlaceholderText(
     "Edit the current picture (e.g. make it night, add rain)...",
@@ -109,7 +111,7 @@ it("keeps an edit instruction open after a failed generation so it can be correc
 it("keeps an adjusted retake prompt after generation fails", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.click(await screen.findByText("Picture actions"));
+  await user.click(await screen.findByRole("button", { name: "Picture actions for Ada" }));
   await user.click(screen.getByRole("button", { name: "Variation…" }));
   const field = screen.getByPlaceholderText(
     "Tweak the prompt for a variation...",
@@ -147,6 +149,7 @@ it("tracks a selected frame reference as draft work and clears it explicitly", a
 it("confirms a picture deletion and keeps an unsuccessful deletion available to retry", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Picture actions for Ada" }));
   await user.click(
     await screen.findByRole("button", { name: "Delete take 2 for Ada" }),
   );
@@ -173,7 +176,7 @@ it("confirms a picture deletion and keeps an unsuccessful deletion available to 
 it("keeps separate edit and variation drafts visible and lets each be cancelled", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.click(await screen.findByText("Picture actions"));
+  await user.click(await screen.findByRole("button", { name: "Picture actions for Ada" }));
   await user.click(screen.getByRole("button", { name: "Edit…" }));
   await user.type(
     screen.getByRole("textbox", { name: "Edit instruction for Ada" }),

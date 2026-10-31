@@ -36,12 +36,13 @@ Element.prototype.releasePointerCapture = vi.fn();
 afterEach(cleanup);
 it("keeps text generation available but disables image editing for a local model without that capability", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
-  await screen.findByRole("button", { name: "Edit…" });
+  await screen.findByRole("button", { name: "Picture actions for Morning" });
   const user = userEvent.setup();
   await user.click(screen.getByRole("combobox"));
   await user.click(
     screen.getByRole("option", { name: /Local image.*LocalAI/ }),
   );
+  await user.click(screen.getByRole("button", { name: "Picture actions for Morning" }));
   expect(
     screen.getByRole("button", { name: "Edit…" }).hasAttribute("disabled"),
   ).toBe(true);
@@ -51,7 +52,7 @@ it("keeps text generation available but disables image editing for a local model
 });
 it("allows a text-only local frame while preventing unsupported reference composition", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
-  await screen.findByRole("button", { name: "Edit…" });
+  await screen.findByRole("button", { name: "Picture actions for Morning" });
   const user = userEvent.setup();
   await user.click(screen.getByRole("combobox"));
   await user.click(
