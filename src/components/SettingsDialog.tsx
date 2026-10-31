@@ -56,7 +56,7 @@ const MODEL_CREDENTIAL_REQUIREMENTS = [
 
 function createProviderRecord<T>(initialValue: T): Record<ApiKeyProvider, T> {
   return Object.fromEntries(
-    API_KEY_PROVIDERS.map((provider) => [provider.id, initialValue]),
+    API_KEY_PROVIDERS.map((provider) => [provider.id, initialValue])
   ) as Record<ApiKeyProvider, T>;
 }
 
@@ -72,25 +72,16 @@ function modelSummary(provider: ProviderSetting): string {
     : visibleNames;
 }
 
-export function SettingsDialog({
-  open,
-  onOpenChange,
-  initialSection = "providers",
-}: SettingsDialogProps) {
+export function SettingsDialog({ open, onOpenChange, initialSection = "providers" }: SettingsDialogProps) {
   const [section, setSection] = useState(initialSection);
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [savingProvider, setSavingProvider] = useState<ApiKeyProvider | null>(
-    null,
-  );
-  const [expandedProvider, setExpandedProvider] =
-    useState<ApiKeyProvider | null>(null);
+  const [savingProvider, setSavingProvider] = useState<ApiKeyProvider | null>(null);
+  const [expandedProvider, setExpandedProvider] = useState<ApiKeyProvider | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [keyValues, setKeyValues] = useState(() => createProviderRecord(""));
-  const [visibleKeys, setVisibleKeys] = useState(() =>
-    createProviderRecord(false),
-  );
+  const [visibleKeys, setVisibleKeys] = useState(() => createProviderRecord(false));
   const expandedEditorRef = useRef<HTMLDivElement>(null);
 
   const providerSettings = useMemo(
@@ -98,16 +89,16 @@ export function SettingsDialog({
       buildProviderSettings(
         API_KEY_PROVIDERS,
         apiKeyStatus,
-        MODEL_CREDENTIAL_REQUIREMENTS,
+        MODEL_CREDENTIAL_REQUIREMENTS
       ),
-    [apiKeyStatus],
+    [apiKeyStatus]
   );
   const visibleProviders = useMemo(
     () => filterProviderSettings(providerSettings, searchQuery),
-    [providerSettings, searchQuery],
+    [providerSettings, searchQuery]
   );
   const configuredCount = providerSettings.filter(
-    (provider) => provider.isConfigured,
+    (provider) => provider.isConfigured
   ).length;
 
   useEffect(() => {
@@ -142,11 +133,7 @@ export function SettingsDialog({
     }
   }
 
-  useUnsavedWork(
-    "credentials",
-    open && Object.values(keyValues).some(Boolean),
-    keyValues,
-  );
+  useUnsavedWork("credentials", open && Object.values(keyValues).some(Boolean), keyValues);
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) {
@@ -285,31 +272,21 @@ export function SettingsDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="native-preferences">
-        <Tabs
-          orientation="vertical"
-          value={section}
-          onValueChange={(value) =>
-            setSection(value as "providers" | "updates" | "appearance")
-          }
-          className="contents"
-        >
+        <Tabs orientation="vertical" value={section} onValueChange={(value) => setSection(value as "providers" | "updates" | "appearance")} className="contents">
           <DialogHeader className="preferences-header">
             <DialogTitle>Settings</DialogTitle>
-            <DialogDescription>Showbiz preferences</DialogDescription>
-            <TabsList
-              aria-label="Settings sections"
-              className="preferences-navigation"
-            >
+            <DialogDescription>
+              Showbiz preferences
+            </DialogDescription>
+            <TabsList aria-label="Settings sections" className="preferences-navigation">
               <TabsTrigger value="providers">Providers</TabsTrigger>
               <TabsTrigger value="updates">Updates</TabsTrigger>
               <TabsTrigger value="appearance">Appearance</TabsTrigger>
             </TabsList>
           </DialogHeader>
 
-          <TabsContent
-            value="providers"
-            className="preferences-content min-h-0 overflow-hidden"
-          >
+          <TabsContent value="providers" className="preferences-content min-h-0 overflow-hidden">
+
             <div
               role="region"
               aria-label="API key providers"
@@ -353,19 +330,13 @@ export function SettingsDialog({
                   No providers or models match “{searchQuery.trim()}”.
                 </div>
               ) : (
-                <ul
-                  className="overflow-hidden rounded-lg border"
-                  aria-label="Providers"
-                >
+                <ul className="overflow-hidden rounded-lg border" aria-label="Providers">
                   {visibleProviders.map((provider) => {
                     const isExpanded = expandedProvider === provider.id;
                     const editorId = `provider-${provider.id}-editor`;
 
                     return (
-                      <li
-                        key={provider.id}
-                        className="border-b last:border-b-0"
-                      >
+                      <li key={provider.id} className="border-b last:border-b-0">
                         <button
                           type="button"
                           aria-label={`Configure ${provider.name}`}
@@ -419,37 +390,23 @@ export function SettingsDialog({
               <div className="h-4" />
             </div>
           </TabsContent>
-          <TabsContent
-            value="updates"
-            className="preferences-content min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6"
-          >
+          <TabsContent value="updates" className="preferences-content min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6">
             <UpdatesPanel />
           </TabsContent>
 
-          <TabsContent
-            value="appearance"
-            className="preferences-content min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6"
-          >
+          <TabsContent value="appearance" className="preferences-content min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6">
             <AppearancePanel />
           </TabsContent>
 
           <DialogFooter className="preferences-footer">
-            {section === "providers" ? (
-              <>
-                <p className="text-xs text-muted-foreground">
-                  {configuredCount} of {providerSettings.length} connected
-                </p>
-                <p className="text-right text-xs text-muted-foreground">
-                  Keys are stored in the local Showbiz database.
-                </p>
-              </>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                {section === "appearance"
-                  ? "Appearance changes are saved on this device."
-                  : "Download and install updates when you are ready."}
-              </p>
-            )}
+            {section === "providers" ? <>
+            <p className="text-xs text-muted-foreground">
+              {configuredCount} of {providerSettings.length} connected
+            </p>
+            <p className="text-right text-xs text-muted-foreground">
+              Keys are stored in the local Showbiz database.
+            </p>
+            </> : <p className="text-xs text-muted-foreground">{section === "appearance" ? "Appearance changes are saved on this device." : "Download and install updates when you are ready."}</p>}
           </DialogFooter>
         </Tabs>
       </DialogContent>
