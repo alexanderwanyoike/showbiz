@@ -10,7 +10,7 @@ import { generateAndSaveVideoRequestAction } from "../actions/generation-actions
 vi.stubGlobal("ResizeObserver", class {observe(){} unobserve(){} disconnect(){}});
 Element.prototype.scrollIntoView=vi.fn();
 vi.spyOn(HTMLMediaElement.prototype,"pause").mockImplementation(()=>{});
-vi.mock("../components/Header",()=>({Header:({children}:{children:ReactNode})=>createElement("header",null,children)}));
+vi.mock("../components/Header",()=>({Header:({children,title}:{children:ReactNode;title:string})=>createElement("header",null,createElement("span",null,title),children)}));
 vi.mock("./backend-api",async original=>({...await original<typeof import("./backend-api")>(),
  getStoryboard:async()=>({id:"board",project_id:"project",name:"Opening",image_model:"nano-banana-2",video_model:"seedance-2-fal"}),
  getShots:async()=>[1,2].map(order=>({id:`shot-${order}`,storyboard_id:"board",order,duration:8,image_model:null,video_model:null,image_url:`frame-${order}.png`,image_path:`images/${order}.png`,video_url:null,video_prompt:"A quiet static shot.",status:"pending"})),
@@ -23,7 +23,7 @@ afterEach(()=>{cleanup();vi.clearAllMocks();});
 it("generates with the selected shot override and leaves another shot on the storyboard default",async()=>{
  render(createElement(MemoryRouter,{initialEntries:["/storyboard/board"]},createElement(Routes,null,createElement(Route,{path:"/storyboard/:id",element:createElement(StoryboardPage)}))));
  const user=userEvent.setup();
- await screen.findByRole("img",{name:"Shot 2",exact:true});
+ await screen.findByText("Opening");
  const openControls=screen.queryByRole("button",{name:"Shot controls",exact:true});if(openControls)await user.click(openControls);
  const controls=await screen.findByRole("region",{name:"Shot model controls"});
  await user.click(within(controls).getByRole("button",{name:"Video model for shot 1"}));
@@ -31,7 +31,8 @@ it("generates with the selected shot override and leaves another shot on the sto
  await waitFor(()=>expect(setShotModels).toHaveBeenCalledWith("shot-1",{video_model:"seedance-2-fast-fal"}));
  await user.click(screen.getByRole("button",{name:"Generate video for shot 1",exact:true}));
  await waitFor(()=>expect(generateAndSaveVideoRequestAction).toHaveBeenCalledWith("shot-1","seedance-2-fast-fal",expect.objectContaining({mode:"image-to-video"})));
- await user.click(screen.getByRole("img",{name:"Shot 2",exact:true}));
+ const shotTwo=screen.queryByLabelText("Select shot 2");
+ if(shotTwo)await user.click(shotTwo);else await user.click(screen.getByRole("img",{name:"Shot 2",exact:true}));
  expect(await screen.findByRole("button",{name:"Video model for shot 2"})).toHaveProperty("textContent",expect.stringContaining("Seedance 2.0"));
  await user.click(screen.getByRole("button",{name:"Generate video for shot 2",exact:true}));
  await waitFor(()=>expect(generateAndSaveVideoRequestAction).toHaveBeenLastCalledWith("shot-2","seedance-2-fal",expect.objectContaining({mode:"image-to-video"})));
@@ -41,7 +42,7 @@ it("waits for a model save before allowing generation and preserves the prior ch
  let finish!: (result:Awaited<ReturnType<typeof setShotModels>>)=>void;
  vi.mocked(setShotModels).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
  render(createElement(MemoryRouter,{initialEntries:["/storyboard/board"]},createElement(Routes,null,createElement(Route,{path:"/storyboard/:id",element:createElement(StoryboardPage)}))));
- const user=userEvent.setup();await screen.findByRole("img",{name:"Shot 2",exact:true});
+ const user=userEvent.setup();await screen.findByText("Opening");
  const openControls=screen.queryByRole("button",{name:"Shot controls",exact:true});if(openControls)await user.click(openControls);
  const controls=await screen.findByRole("region",{name:"Shot model controls"});
  await user.click(within(controls).getByRole("button",{name:"Video model for shot 1"}));
