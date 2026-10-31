@@ -20,6 +20,7 @@ vi.mock("./backend-api", async (original) => ({
 vi.mock("../actions/generation-actions", async (original) => ({
   ...(await original<typeof import("../actions/generation-actions")>()),
   editImageAction: vi.fn(async () => { throw new Error("Provider unavailable"); }),
+  composeFrameAction: vi.fn(async () => { throw new Error("Provider unavailable"); }),
 }));
 afterEach(cleanup);
 it("opens a named picture dialog, returns keyboard focus on Escape, and exposes which take is selected", async () => {
@@ -50,4 +51,16 @@ it("keeps an edit instruction open after a failed generation so it can be correc
   await user.click(screen.getByRole("button", { name: "Apply" }));
   await screen.findByText("Provider unavailable");
   expect((screen.getByPlaceholderText("Edit the current picture (e.g. make it night, add rain)...") as HTMLTextAreaElement).value).toBe("Make the light warmer");
+});
+
+it("keeps an adjusted retake prompt after generation fails", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Variation" }));
+  const field = screen.getByPlaceholderText("Tweak the prompt for a variation...");
+  await user.clear(field);
+  await user.type(field, "A warmer portrait");
+  await user.click(screen.getByRole("button", { name: "Make" }));
+  await screen.findByText("Provider unavailable");
+  expect((screen.getByPlaceholderText("Tweak the prompt for a variation...") as HTMLTextAreaElement).value).toBe("A warmer portrait");
 });
