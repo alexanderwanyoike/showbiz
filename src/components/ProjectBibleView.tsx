@@ -1,3 +1,4 @@
+import "../bible-workspace.css";
 import { modelProviderName } from "../lib/model-provider";
 import { ConfirmDeletion } from "./ConfirmDeletion";
 import type { Result } from "../../shared/result";
@@ -5,8 +6,8 @@ import { GenerationCost } from "./GenerationCost";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
-import { useEffect, useRef, useState } from "react";
-import { Loader2, RefreshCw, Trash2, Upload, Sparkles, Wand2 } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Loader2, RefreshCw, Trash2, Upload, Sparkles, Wand2, Plus, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -119,6 +120,8 @@ function PictureMeta({ variant }: { variant: BibleAssetVariant | null }) {
 }
 
 export default function ProjectBibleView({ projectId, initialTab = "characters", generationModel }: ProjectBibleViewProps) {
+  const [composerOpen, setComposerOpen] = useState(true);
+  const newAction = useRef<HTMLButtonElement>(null);
   const [bibleId, setBibleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const loadRequest = useRef(0);
@@ -423,6 +426,28 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
     </div>;
   }
 
+  const modelControl = (scope: Tab) => (
+        <div className="bible-model-control">
+        <div>
+          <label htmlFor={`bible-generation-model-${scope}`} className="font-medium text-foreground">Generation model</label>
+          <p className="text-[10px]">Used for new pictures and retakes in this Bible view.</p>
+        </div>
+        <Select value={imageModel} onValueChange={(v) => setImageModel(v as ImageModelId)}>
+          <SelectTrigger id={`bible-generation-model-${scope}`} aria-label="Bible generation model" disabled={!!busyId} className="h-8 w-full text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {imageModels.map((m) => (
+              <SelectItem key={m.id} value={m.id} className="text-xs">
+                {m.name}{modelProviderName(m) ? ` · ${modelProviderName(m)}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        </div>
+  );
+  const closeComposer = () => { setComposerOpen(false); newAction.current?.focus(); };
+
   return (
     <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="gap-0" asChild>
     <section role="region" aria-label="Project bible" className="bible-workspace flex h-full flex-col">
@@ -439,34 +464,22 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
             </TabsTrigger>
           ))}
         </TabsList>
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-        <div>
-          <label htmlFor="bible-generation-model" className="font-medium text-foreground">Generation model</label>
-          <p className="text-[10px]">Used for new pictures and retakes in this Bible view.</p>
-        </div>
-        <Select value={imageModel} onValueChange={(v) => setImageModel(v as ImageModelId)}>
-          <SelectTrigger id="bible-generation-model" aria-label="Bible generation model" disabled={!!busyId} className="h-8 w-60 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {imageModels.map((m) => (
-              <SelectItem key={m.id} value={m.id} className="text-xs">
-                {m.name}{modelProviderName(m) ? ` · ${modelProviderName(m)}` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        </div>
+        <Button ref={newAction} size="sm" className="bible-new-action" aria-expanded={composerOpen} onClick={() => setComposerOpen(true)}>
+          <Plus className="h-3.5 w-3.5" /> New {tab === "characters" ? "character" : tab === "locations" ? "location" : "frame"}
+        </Button>
       </div>
 
       {error && (
         <div role="alert" className="mx-4 mt-2 rounded border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">{error}</div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="bible-sections">
         {(["characters", "locations"] as const).map((assetTab) => (
-          <TabsContent key={assetTab} value={assetTab} forceMount hidden={tab !== assetTab} className={tab === assetTab ? "m-0" : "hidden"}>
+          <TabsContent key={assetTab} value={assetTab} forceMount hidden={tab !== assetTab} className={tab === assetTab ? "bible-active-section" : "hidden"}>
           <AssetTab
+            composerOpen={composerOpen}
+            onCloseComposer={closeComposer}
+            modelControl={modelControl(assetTab)}
             type={assetTab === "characters" ? "character" : "location"}
             label={assetTab === "characters" ? "character" : "location"}
             assets={assetTab === "characters" ? characters : locations}
@@ -487,8 +500,11 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
           </TabsContent>
         ))}
 
-        <TabsContent value="frames" forceMount hidden={tab !== "frames"} className={tab === "frames" ? "m-0" : "hidden"}>
+        <TabsContent value="frames" forceMount hidden={tab !== "frames"} className={tab === "frames" ? "bible-active-section" : "hidden"}>
           <FramesTab
+            composerOpen={composerOpen}
+            onCloseComposer={closeComposer}
+            modelControl={modelControl("frames")}
             characters={characters}
             locations={locations}
             frames={frames}
@@ -517,6 +533,9 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
 
 // Characters / Locations: a "New" form, then a card per asset.
 function AssetTab({
+  composerOpen,
+  onCloseComposer,
+  modelControl,
   type,
   label,
   assets,
@@ -534,6 +553,9 @@ function AssetTab({
   onDeleteAsset,
   onExpand,
 }: {
+  composerOpen: boolean;
+  onCloseComposer: () => void;
+  modelControl: ReactNode;
   type: "character" | "location";
   label: string;
   assets: BibleAsset[];
@@ -557,17 +579,18 @@ function AssetTab({
   const creating = busyId === `new-${type}`;
 
   return (
-    <div className="space-y-4">
+    <div className="bible-section-layout" data-composer-open={composerOpen}>
       {/* New */}
-      <div className="rounded border border-border p-3">
-        <p className="mb-2 text-xs font-medium capitalize text-muted-foreground">New {label}</p>
-        <GenerationCost modelId={generationContext.modelId} request={{kind: "image"}} subject={{project_id: generationContext.projectId}} />
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <aside className="bible-composer" aria-label={`New ${label}`} hidden={!composerOpen}>
+        <div className="bible-panel-heading"><h3>New {label}</h3><Button variant="ghost" size="icon" aria-label="Close creation panel" onClick={onCloseComposer}><X className="h-3.5 w-3.5" /></Button></div>
+        <div className="bible-composer-body">
+        {modelControl}
+        <div className="bible-create-fields">
           <label className="grid gap-1 text-[11px] text-muted-foreground">
           <span>Name</span>
           <Input
             disabled={busyId !== null}
-            className="h-9 text-sm sm:w-44"
+            className="h-8 text-xs"
             aria-label={`${type === "character" ? "Character" : "Location"} name`}
             placeholder={`${label} name`}
             value={newName}
@@ -578,14 +601,18 @@ function AssetTab({
           <span>Prompt for generation</span>
           <Textarea
             disabled={busyId !== null}
-            className="min-h-[40px] flex-1 text-xs resize-none"
+            className="bible-prompt text-xs resize-none"
             aria-label={`${type === "character" ? "Character" : "Location"} prompt`}
             placeholder="Describe it (or just upload a picture)..."
             value={newPrompt}
             onChange={(e) => setNewPrompt(e.target.value)}
           />
           </label>
-          <div className="flex flex-wrap gap-2">
+        </div>
+        </div>
+        <div className="bible-composer-footer">
+          <div className="bible-cost"><GenerationCost modelId={generationContext.modelId} request={{kind: "image"}} subject={{project_id: generationContext.projectId}} /></div>
+          <div className="bible-create-actions">
             <Button
               size="sm"
               className="text-xs"
@@ -617,13 +644,14 @@ function AssetTab({
             <Button type="button" variant="ghost" size="sm" className="text-xs" aria-label={`Clear ${label} draft`} disabled={busyId !== null || (!newName && !newPrompt)} onClick={() => { setNewName(""); setNewPrompt(""); onClearDraft(); }}>Clear draft</Button>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* List */}
+      <section className="bible-library" aria-label={type === "character" ? "Characters library" : "Locations library"}>
+      <div className="bible-library-heading"><span>{assets.length} {assets.length === 1 ? label : `${label}s`}</span><span>Reference library</span></div>
       {assets.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{label === "character" ? "No characters yet. Create one above." : "No locations yet. Create one above."}</p>
+        <div className="bible-empty-library"><ImageIcon /><h3>{label === "character" ? "No characters yet" : "No locations yet"}</h3><p>Create or upload a picture in the New {label} panel.</p></div>
       ) : (
-        <div className="space-y-3">
+        <div className="bible-media-grid">
           {assets.map((asset) => {
             const takes = (variants[asset.id] ?? []).filter((v) => v.media_url);
             return (
@@ -648,12 +676,16 @@ function AssetTab({
           })}
         </div>
       )}
+      </section>
     </div>
   );
 }
 
 // Frames: compose from characters + a location + a prompt, then manage takes.
 function FramesTab({
+  composerOpen,
+  onCloseComposer,
+  modelControl,
   characters,
   locations,
   frames,
@@ -670,6 +702,9 @@ function FramesTab({
   onDeleteFrame,
   onExpand,
 }: {
+  composerOpen: boolean;
+  onCloseComposer: () => void;
+  modelControl: ReactNode;
   characters: BibleAsset[];
   locations: BibleAsset[];
   frames: BibleAsset[];
@@ -736,12 +771,16 @@ function FramesTab({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded border border-border p-3">
-        <p className="mb-2 text-xs font-medium text-muted-foreground">Make a frame</p>
+    <div className="bible-section-layout" data-composer-open={composerOpen}>
+      <aside className="bible-composer" aria-label="New frame" hidden={!composerOpen}>
+        <div className="bible-panel-heading"><h3>New frame</h3><Button variant="ghost" size="icon" aria-label="Close creation panel" onClick={onCloseComposer}><X className="h-3.5 w-3.5" /></Button></div>
+        <div className="bible-composer-body">
+        {modelControl}
+        <div className="bible-reference-heading"><span>References</span><span>{selectedChars.size} {selectedChars.size === 1 ? "character selected" : "characters selected"}{locationId ? " · 1 location" : ""}</span></div>
+        <div className="bible-reference-groups">
 
-        <p className="mb-1 text-[11px] font-medium text-muted-foreground">Characters (optional)</p>
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="bible-reference-group"><p className="bible-field-label">Characters (optional)</p>
+        <div className="bible-reference-list">
           {characters.length === 0 && <span className="text-xs text-muted-foreground">No characters yet. You can generate a frame from a prompt.</span>}
           {characters.map((c) => {
             const url = primaryPicture(variants[c.id] ?? [])?.media_url ?? null;
@@ -760,8 +799,8 @@ function FramesTab({
           })}
         </div>
 
-        <p className="mb-1 text-[11px] font-medium text-muted-foreground">Location (optional)</p>
-        <div className="mb-2 flex flex-wrap gap-2">
+        </div><div className="bible-reference-group"><p className="bible-field-label">Location (optional)</p>
+        <div className="bible-reference-list">
           {locations.length === 0 && <span className="text-xs text-muted-foreground">Optional</span>}
           {locations.map((l) => {
             const url = primaryPicture(variants[l.id] ?? [])?.media_url ?? null;
@@ -779,6 +818,7 @@ function FramesTab({
             );
           })}
         </div>
+        </div></div>
         {locationViews.length > 1 && (
           <div className="mb-3">
             <p className="mb-1 text-[10px] text-muted-foreground">View</p>
@@ -797,27 +837,35 @@ function FramesTab({
           </div>
         )}
 
+        <label className="bible-prompt-label"><span>Scene description</span>
         <Textarea
           disabled={busyId !== null}
-          className="mb-2 min-h-[60px] text-sm resize-y"
+          className="bible-prompt text-xs resize-none"
           aria-label="Frame prompt"
           placeholder="What's happening (and the look, e.g. 90s anime)..."
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
-        <GenerationCost modelId={generationContext.modelId} request={{kind: selectedChars.size > 0 || locationId ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId}} />
+        </label>
+        </div>
+        <div className="bible-composer-footer">
+        <div className="bible-cost"><GenerationCost modelId={generationContext.modelId} request={{kind: selectedChars.size > 0 || locationId ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId}} /></div>
+        <div className="bible-create-actions">
         <Button size="sm" className="text-xs" disabled={busyId !== null || !prompt.trim() || (!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId))} onClick={makeFrame}>
           {making ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
           Generate frame
         </Button>
         <Button type="button" variant="ghost" size="sm" className="ml-2 text-xs" aria-label="Clear frame draft" disabled={busyId !== null || (!prompt && !selectedChars.size && !locationId)} onClick={() => { setPrompt(""); setSelectedChars(new Set()); setLocationId(null); setLocationVariantId(null); onClearDraft(); }}>Clear draft</Button>
+        </div>
         {!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId) && <p className="mt-2 text-xs text-muted-foreground">Choose a model that accepts reference images to include these characters or locations.</p>}
-      </div>
-
+        </div>
+      </aside>
+      <section className="bible-library" aria-label="Frames library">
+      <div className="bible-library-heading"><span>{frames.length} {frames.length === 1 ? "frame" : "frames"}</span><span>Storyboard pictures</span></div>
       {frames.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No frames yet. Compose one above, then use it as a shot's start/end frame.</p>
+        <div className="bible-empty-library"><ImageIcon /><h3>No frames yet</h3><p>Create a frame with a scene description and optional references.<br />Use it as a shot’s start or end frame.</p></div>
       ) : (
-        <div className="space-y-3">
+        <div className="bible-media-grid">
           {frames.map((f) => (
             <AssetCard
               key={f.id}
@@ -838,6 +886,7 @@ function FramesTab({
           ))}
         </div>
       )}
+      </section>
     </div>
   );
 }
@@ -876,6 +925,7 @@ function AssetCard({
   onExpand: (url: string) => void;
 }) {
   const primary = primaryPicture(takes);
+  const actionModel = getAvailableImageModels().find((model) => model.id === generationContext.modelId);
   const [mode, setMode] = useState<"variation" | "edit" | null>(null);
   const [pending, setPending] = useState<"retake" | "variation" | "edit" | null>(null);
   const [variation, setVariation] = useState(basePrompt);
@@ -896,15 +946,15 @@ function AssetCard({
   }
 
   return (
-    <div className="rounded border border-border p-3">
-      <div className="flex gap-3">
+    <article className="bible-entry">
+      <div className="bible-entry-content">
         <BiblePictureTile
           url={primary?.media_url ?? null}
           actionLabel={`View ${asset.name} picture`}
           size="lg"
           onExpand={() => primary?.media_url && onExpand(primary.media_url)}
         />
-        <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="bible-entry-info">
           <div className="flex items-start justify-between gap-2">
             <span className="truncate text-sm font-medium">{asset.name}</span>
             <Button size="icon" variant="ghost" className="h-7 w-7" disabled={busy} onClick={() => onDeleteAsset(asset)} aria-label={`Delete ${asset.name}`} title={`Delete ${asset.name}`}>
@@ -935,7 +985,9 @@ function AssetCard({
             </div>
           )}
 
-          <GenerationCost modelId={generationContext.modelId} request={{kind: mode === "edit" ? "image_edit" : primary || builtFrom ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId, subject_id: asset.id}} />
+          <details className="bible-entry-actions"><summary>Picture actions</summary>
+          <p className="bible-action-model">{actionModel?.name} · {modelProviderName(actionModel)}</p>
+          <div className="bible-cost"><GenerationCost modelId={generationContext.modelId} request={{kind: mode === "edit" ? "image_edit" : primary || builtFrom ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId, subject_id: asset.id}} /></div>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" className="text-xs" disabled={busy || (!!primary && !imageCapabilities.composition)} title={!imageCapabilities.composition && primary ? "Choose a model that accepts reference images." : undefined} onClick={() => run("retake", () => onRetake(asset))}>
               {pending === "retake" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
@@ -1036,8 +1088,9 @@ function AssetCard({
               <Button type="button" variant="ghost" size="sm" disabled={busy} aria-label={`Cancel edit for ${asset.name}`} onClick={() => { setEditInstruction(""); setMode(null); }}>Cancel</Button>
             </div>
           )}
+          </details>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
