@@ -23,7 +23,7 @@ export function createGenerationBillingCommands(db: DatabaseSync, readKey: (prov
         const result: GenerationBillingSync = { checked: rows.length, reported: 0, notes: [] };
         const fal = rows.filter((row) => row.provider === "fal");
         if (fal.length) {
-          const key = readKey("fal");
+          const key = readKey("fal-billing") ?? readKey("fal");
           if (!key) result.notes.push(...fal.map((row) => ({ request_id: row.request_id, message: "Add a FAL key in Settings to check the provider's actual charge." })));
           else {
             const groups = new Map<number, PendingCharge[]>();
