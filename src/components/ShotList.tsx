@@ -115,7 +115,7 @@ export default function ShotList({
               </button>
               <div className="shot-browser-actions">
                 <button
-                  aria-label={`Move shot ${shot.order} up`}
+                  aria-label={`Move shot ${shot.order} earlier`}
                   title="Move earlier"
                   disabled={index === 0}
                   onClick={() => onMoveShot(index, "up")}
@@ -123,7 +123,7 @@ export default function ShotList({
                   <ChevronLeft size={12} />
                 </button>
                 <button
-                  aria-label={`Move shot ${shot.order} down`}
+                  aria-label={`Move shot ${shot.order} later`}
                   title="Move later"
                   disabled={index === shots.length - 1}
                   onClick={() => onMoveShot(index, "down")}
