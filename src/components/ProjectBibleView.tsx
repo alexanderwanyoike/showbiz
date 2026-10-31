@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BiblePictureActions } from "./BiblePictureActions";
 import { BiblePicturePreview } from "./BiblePicturePreview";
 import { BiblePictureTile } from "./BiblePictureTile";
 import {
@@ -957,10 +958,7 @@ function AssetCard({
         <div className="bible-entry-info">
           <div className="flex items-start justify-between gap-2">
             <span className="truncate text-sm font-medium">{asset.name}</span>
-            <Button size="icon" variant="ghost" className="h-7 w-7" disabled={busy} onClick={() => onDeleteAsset(asset)} aria-label={`Delete ${asset.name}`} title={`Delete ${asset.name}`}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+            <BiblePictureActions name={asset.name} hasDraft={variationEdited || !!editInstruction}>
           <PictureMeta variant={primary} />
           {builtFrom && <p className="text-[10px] text-muted-foreground">Built from: {builtFrom}</p>}
 
@@ -985,7 +983,6 @@ function AssetCard({
             </div>
           )}
 
-          <details className="bible-entry-actions"><summary>Picture actions</summary>
           <p className="bible-action-model">{actionModel?.name} · {modelProviderName(actionModel)}</p>
           <div className="bible-cost"><GenerationCost modelId={generationContext.modelId} request={{kind: mode === "edit" ? "image_edit" : primary || builtFrom ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId, subject_id: asset.id}} /></div>
           <div className="flex flex-wrap gap-2">
@@ -1088,7 +1085,9 @@ function AssetCard({
               <Button type="button" variant="ghost" size="sm" disabled={busy} aria-label={`Cancel edit for ${asset.name}`} onClick={() => { setEditInstruction(""); setMode(null); }}>Cancel</Button>
             </div>
           )}
-          </details>
+          <Button size="sm" variant="ghost" className="bible-delete-entry" disabled={busy} onClick={() => onDeleteAsset(asset)} aria-label={`Delete ${asset.name}`}><Trash2 className="h-3.5 w-3.5" /> Delete entry</Button>
+            </BiblePictureActions>
+          </div>
         </div>
       </div>
     </article>
