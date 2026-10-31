@@ -59,6 +59,8 @@ export function createMcpSession(dispatch: Invoke, changed: () => void = () => {
       }
       if (definition.command === "read_context") data = { revision };
       else data = await invoke(definition.command, nativeArgs);
+      const nativeFailure = z.object({ ok: z.literal(false), error: z.object({ code: z.string(), message: z.string() }) }).safeParse(data);
+      if (nativeFailure.success) return failure(nativeFailure.data.error.code, nativeFailure.data.error.message);
       if (Array.isArray(data)) data = { items: data.slice(Number(args.offset ?? 0), Number(args.offset ?? 0) + Number(args.limit ?? 100)), total: data.length };
       const result: McpResult = { ok: true, value: { revision, data } };
       if (requestId) {
