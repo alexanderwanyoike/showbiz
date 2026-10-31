@@ -344,3 +344,19 @@ it("cancels a staged key replacement while keeping the current saved credential"
   expect(api.saveApiKeyAction).not.toHaveBeenCalled();
   expect(api.deleteApiKeyAction).not.toHaveBeenCalled();
 });
+it("keeps the saved key and replacement draft when saving the replacement fails", async () => {
+  const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
+  api.getApiKeyStatusAction.mockResolvedValue(API_KEY_PROVIDERS.map((provider) => ({ provider: provider.id, name: provider.name, is_configured: provider.id === "fal", source: provider.id === "fal" ? "database" : null })));
+  api.saveApiKeyAction.mockResolvedValue({ success: false, error: "The replacement could not be saved." });
+  render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Configure fal.ai" }));
+  await user.click(screen.getByRole("button", { name: "Replace fal.ai API key" }));
+  await user.type(screen.getByLabelText("fal.ai API key"), "replacement-key");
+  await user.click(screen.getByRole("button", { name: "Save replacement" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("The replacement could not be saved.");
+  expect(screen.getByLabelText<HTMLInputElement>("fal.ai API key").value).toBe("replacement-key");
+  expect(screen.getByText("Key saved")).toBeTruthy();
+  expect(api.deleteApiKeyAction).not.toHaveBeenCalled();
+  alert.mockRestore();
+});
