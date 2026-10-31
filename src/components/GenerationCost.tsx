@@ -1,3 +1,5 @@
+import { API_KEY_PROVIDERS } from "../../shared/provider-catalog";
+import type { GenerationUsage } from "../../shared/generation-usage";
 import { ModelPricingDialog } from "./ModelPricingDialog";
 import {
   getAvailableImageModels,
@@ -10,6 +12,20 @@ import {
 } from "../lib/generation-usage";
 import type { GenerationCostRequest } from "../../shared/generation-cost";
 import type { GenerationSubject } from "../lib/model-generation-accounting";
+
+const outcomeLabels: Record<GenerationUsage["status"], string> = {
+  running: "Running",
+  completed: "Completed",
+  failed: "Failed",
+  cancelled: "Cancelled",
+  interrupted: "Interrupted",
+};
+const operationLabels: Record<GenerationUsage["kind"], string> = {
+  image: "Image generation",
+  image_edit: "Image edit",
+  image_compose: "Image composition",
+  video: "Video generation",
+};
 
 export interface GenerationCostProps {
   modelId: string;
@@ -26,10 +42,16 @@ export function GenerationCost({
     request,
     subject,
   );
-  const model = [
-    ...getAvailableImageModels(),
-    ...getAvailableVideoModels(),
-  ].find((entry) => entry.id === modelId);
+  const models = [...getAvailableImageModels(), ...getAvailableVideoModels()];
+  const model = models.find((entry) => entry.id === modelId);
+  const lastModel = models.find(
+    (entry) =>
+      entry.id === last?.model_id && entry.apiKeyProvider === last?.provider,
+  );
+  const lastProvider =
+    API_KEY_PROVIDERS.find((entry) => entry.id === last?.provider)?.name ??
+    last?.provider ??
+    "Unknown provider";
   const provider = model?.apiKeyProvider;
   let previous = last ? "Final charge unknown" : null;
   if (last?.reported_microusd != null)
@@ -70,11 +92,19 @@ export function GenerationCost({
           aria-label="Last generation cost"
           className="block text-muted-foreground tabular-nums"
         >
-          Last: {previous}
-          {last?.status === "failed" || last?.status === "interrupted"
-            ? ` (${last.status})`
-            : ""}
+          Last request: {previous}
         </output>
+      )}
+      {last && (
+        <p
+          aria-label="Last request details"
+          className="break-words text-muted-foreground"
+        >
+          <span>{operationLabels[last.kind]}</span> ·{" "}
+          <span>{lastModel?.name ?? last.model_id}</span> ·{" "}
+          <span>{lastProvider}</span> ·{" "}
+          <span>{outcomeLabels[last.status]}</span>
+        </p>
       )}
       {error && (
         <p role="status" className="text-muted-foreground">

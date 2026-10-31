@@ -22,6 +22,13 @@ const identifier = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0 && value.length <= 256;
 const kinds = new Set(["image", "image_edit", "image_compose", "video"]);
 
+function familyFilter(family: "image" | "video" | null) {
+  if (family === "video") return " AND kind = 'video'";
+  if (family === "image")
+    return " AND kind IN ('image','image_edit','image_compose')";
+  return "";
+}
+
 export function createGenerationUsageCommands(db: DatabaseSync) {
   if (
     db
@@ -60,11 +67,12 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
     limit: number,
     offset: number,
     subject: string | null,
+    family: "image" | "video" | null,
   ): GenerationUsage[] {
     return (
       db
         .prepare(
-          "SELECT * FROM generation_usage WHERE project_id = ? AND (? IS NULL OR subject_id = ?) ORDER BY started_at DESC, request_id LIMIT ? OFFSET ?",
+          `SELECT * FROM generation_usage WHERE project_id = ? AND (? IS NULL OR subject_id = ?)${familyFilter(family)} ORDER BY started_at DESC, request_id LIMIT ? OFFSET ?`,
         )
         .all(projectId, subject, subject, limit, offset) as UsageRow[]
     ).map(({ settings_json, price_basis_json, ...row }) => ({
@@ -189,7 +197,8 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
       execute(() => {
         if (
           (args.reported_microusd !== null && !money(args.reported_microusd)) ||
-          (args.reported_microusd === null && !identifier(args.provider_request_id)) ||
+          (args.reported_microusd === null &&
+            !identifier(args.provider_request_id)) ||
           (args.provider_request_id != null &&
             !identifier(args.provider_request_id))
         )
@@ -238,6 +247,9 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
         const subject = args.subject_id ?? null;
         if (subject !== null && !identifier(subject))
           return invalid("The generation subject is invalid.");
+        const family = args.kind_family ?? null;
+        if (family !== null && family !== "image" && family !== "video")
+          return invalid("Choose a valid generation family.");
         const limit = args.limit ?? 50;
         const offset = args.offset ?? 0;
         if (
@@ -250,7 +262,7 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
           return invalid("The usage page is invalid.");
         const total = db
           .prepare(
-            "SELECT COUNT(*) AS count FROM generation_usage WHERE project_id = ? AND (? IS NULL OR subject_id = ?)",
+            `SELECT COUNT(*) AS count FROM generation_usage WHERE project_id = ? AND (? IS NULL OR subject_id = ?)${familyFilter(family)}`,
           )
           .get(
             args.project_id,
@@ -263,6 +275,7 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
             Number(limit),
             Number(offset),
             subject as string | null,
+            family,
           ),
           total_count: total.count,
         });
