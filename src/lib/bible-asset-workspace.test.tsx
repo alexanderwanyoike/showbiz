@@ -59,7 +59,8 @@ it.each([
     ).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(within(workspace).getByText("Warm morning light")).toBeTruthy();
-    if (initialTab === "frames") expect(within(workspace).getByText("Imported picture")).toBeTruthy();
+    if (initialTab === "frames")
+      expect(within(workspace).getByText("Imported picture")).toBeTruthy();
     expect(
       within(workspace)
         .getByRole("button", { name: `Use take 1 for ${name}` })
@@ -70,8 +71,14 @@ it.each([
         name: `Delete take 2 for ${name}`,
       }),
     ).toBeTruthy();
-    await user.click(within(workspace).getByRole("button", { name: "Variation…" }));
-    expect(within(workspace).getByRole("textbox", { name: `Variation prompt for ${name}` })).toHaveProperty("value", "Warm morning light");
+    await user.click(
+      within(workspace).getByRole("button", { name: "Variation…" }),
+    );
+    expect(
+      within(workspace).getByRole("textbox", {
+        name: `Variation prompt for ${name}`,
+      }),
+    ).toHaveProperty("value", "Warm morning light");
     await user.click(
       within(workspace).getByRole("button", { name: "Back to library" }),
     );

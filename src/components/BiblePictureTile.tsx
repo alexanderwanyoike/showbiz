@@ -60,7 +60,14 @@ export function BiblePictureTile({
           </span>
         )}
       </button>
-      {hint && <p id={hintId} className="mt-1 max-w-28 text-[10px] text-muted-foreground">{hint}</p>}
+      {hint && (
+        <p
+          id={hintId}
+          className="mt-1 max-w-28 text-[10px] text-muted-foreground"
+        >
+          {hint}
+        </p>
+      )}
       {onExpand && onClick && url && (
         <button
           type="button"

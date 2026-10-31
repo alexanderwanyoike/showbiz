@@ -36,7 +36,11 @@ import {
   type BibleAsset,
   type BibleAssetVariant,
 } from "../lib/backend-api";
-import { composeFrameAction, editImageAction, generateImageAction } from "../actions/generation-actions";
+import {
+  composeFrameAction,
+  editImageAction,
+  generateImageAction,
+} from "../actions/generation-actions";
 import {
   assetBasePrompt,
   assetReferences,
@@ -46,12 +50,18 @@ import {
   recipeVariantIds,
   type FrameRecipe,
 } from "../lib/bible-compose";
-import { getAvailableImageModels, getImageModel, type ImageModelId } from "../lib/models";
+import {
+  getAvailableImageModels,
+  getImageModel,
+  type ImageModelId,
+} from "../lib/models";
 
 type BibleGenerationContext = { modelId: string; projectId: string };
 
 type ImageCapabilities = { editing: boolean; composition: boolean };
-type BibleDeletion = { kind: "asset"; asset: BibleAsset } | { kind: "picture"; variant: BibleAssetVariant };
+type BibleDeletion =
+  | { kind: "asset"; asset: BibleAsset }
+  | { kind: "picture"; variant: BibleAssetVariant };
 
 const MAX_BIBLE_IMAGE_SIDE = 1600;
 const BIBLE_IMAGE_QUALITY = 0.9;
@@ -59,8 +69,12 @@ const BIBLE_IMAGE_QUALITY = 0.9;
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => (typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Failed to read file")));
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+    reader.onload = () =>
+      typeof reader.result === "string"
+        ? resolve(reader.result)
+        : reject(new Error("Failed to read file"));
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
 }
@@ -69,7 +83,10 @@ function prepareBibleImageDataUrl(dataUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
-      const scale = Math.min(1, MAX_BIBLE_IMAGE_SIDE / Math.max(image.width, image.height));
+      const scale = Math.min(
+        1,
+        MAX_BIBLE_IMAGE_SIDE / Math.max(image.width, image.height),
+      );
       if (scale === 1 && dataUrl.length < 4_000_000) {
         resolve(dataUrl);
         return;
@@ -85,7 +102,8 @@ function prepareBibleImageDataUrl(dataUrl: string): Promise<string> {
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
       resolve(canvas.toDataURL("image/jpeg", BIBLE_IMAGE_QUALITY));
     };
-    image.onerror = () => reject(new Error("Unsupported image format. Try PNG, JPEG, or WebP."));
+    image.onerror = () =>
+      reject(new Error("Unsupported image format. Try PNG, JPEG, or WebP."));
     image.src = dataUrl;
   });
 }
@@ -106,10 +124,17 @@ type Tab = "characters" | "locations" | "frames";
 interface ProjectBibleViewProps {
   projectId: string;
   initialTab?: Tab;
-  generationModel?: { value: ImageModelId; onChange: (model: ImageModelId) => void };
+  generationModel?: {
+    value: ImageModelId;
+    onChange: (model: ImageModelId) => void;
+  };
 }
 
-export default function ProjectBibleView({ projectId, initialTab = "characters", generationModel }: ProjectBibleViewProps) {
+export default function ProjectBibleView({
+  projectId,
+  initialTab = "characters",
+  generationModel,
+}: ProjectBibleViewProps) {
   const [composerOpen, setComposerOpen] = useState(true);
   const [activeAssetId, setActiveAssetId] = useState<string | null>(null);
   const newAction = useRef<HTMLButtonElement>(null);
@@ -119,9 +144,12 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   const [loading, setLoading] = useState(true);
   const loadRequest = useRef(0);
   const [assets, setAssets] = useState<BibleAsset[]>([]);
-  const [variants, setVariants] = useState<Record<string, BibleAssetVariant[]>>({});
+  const [variants, setVariants] = useState<Record<string, BibleAssetVariant[]>>(
+    {},
+  );
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [localImageModel, setLocalImageModel] = useState<ImageModelId>("nano-banana");
+  const [localImageModel, setLocalImageModel] =
+    useState<ImageModelId>("nano-banana");
   const imageModel = generationModel?.value ?? localImageModel;
   const setImageModel = generationModel?.onChange ?? setLocalImageModel;
   const [error, setError] = useState<string | null>(null);
@@ -130,16 +158,23 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   const [deletion, setDeletion] = useState<BibleDeletion | null>(null);
   const pendingAssets = useRef(new Map<string, BibleAsset>());
   useAgentChanges(load);
-  useEffect(() => { setTab(initialTab); }, [initialTab, projectId]);
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab, projectId]);
 
   const imageModels = getAvailableImageModels();
-  const generationContext = {modelId: imageModel, projectId};
+  const generationContext = { modelId: imageModel, projectId };
   const selectedModel = getImageModel(imageModel);
-  const imageCapabilities = { editing: !!selectedModel.editImage, composition: !!selectedModel.composeImage };
+  const imageCapabilities = {
+    editing: !!selectedModel.editImage,
+    composition: !!selectedModel.composeImage,
+  };
 
   useEffect(() => {
     void load();
-    return () => { loadRequest.current++; };
+    return () => {
+      loadRequest.current++;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
@@ -151,14 +186,22 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
       const bibles = await getBibles(projectId);
       const id = bibles[0]?.id ?? null;
       const list = id ? await getBibleAssets(id) : [];
-      const entries = await Promise.all(list.map(async (asset) => [asset.id, await getBibleAssetVariants(asset.id)] as const));
+      const entries = await Promise.all(
+        list.map(
+          async (asset) =>
+            [asset.id, await getBibleAssetVariants(asset.id)] as const,
+        ),
+      );
       if (request !== loadRequest.current) return;
       setBibleId(id);
       setAssets(list);
       setVariants(Object.fromEntries(entries));
     } catch (cause) {
-      if (request === loadRequest.current) setError(cause instanceof Error ? cause.message : String(cause));
-    } finally { if (request === loadRequest.current) setLoading(false); }
+      if (request === loadRequest.current)
+        setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      if (request === loadRequest.current) setLoading(false);
+    }
   }
 
   async function refreshAsset(assetId: string) {
@@ -173,15 +216,25 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   // every database, whereas "scene" only exists in the newer schema.
   const frames = assets.filter((a) => a.asset_type === "reference");
 
-  async function imageFromPrompt(prompt: string, subjectId: string): Promise<string> {
-    const raw = await generateImageAction(prompt, imageModel, {project_id: projectId, subject_id: subjectId});
+  async function imageFromPrompt(
+    prompt: string,
+    subjectId: string,
+  ): Promise<string> {
+    const raw = await generateImageAction(prompt, imageModel, {
+      project_id: projectId,
+      subject_id: subjectId,
+    });
     return prepareBibleImageDataUrl(raw);
   }
 
   async function addVariant(
     assetId: string,
     dataUrl: string,
-    meta: { name: string; source: "generated" | "uploaded"; prompt?: string | null }
+    meta: {
+      name: string;
+      source: "generated" | "uploaded";
+      prompt?: string | null;
+    },
   ) {
     const image_base64 = await prepareBibleImageDataUrl(dataUrl);
     const isFirst = (variants[assetId] ?? []).length === 0;
@@ -198,36 +251,58 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   }
 
   // Create a new character/location from a first picture.
-  async function handleNewAsset(type: "character" | "location", name: string, prompt: string, file: File | null): Promise<Result<void>> {
-    if (!bibleId || !name.trim()) return { ok: false, error: { code: "INVALID_INPUT", message: "Enter a name before creating a Bible entry." } };
+  async function handleNewAsset(
+    type: "character" | "location",
+    name: string,
+    prompt: string,
+    file: File | null,
+  ): Promise<Result<void>> {
+    if (!bibleId || !name.trim())
+      return {
+        ok: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Enter a name before creating a Bible entry.",
+        },
+      };
     setError(null);
     setBusyId(`new-${type}`);
     try {
-      await withApplicationWork(!file && prompt.trim() ? "generation" : "saving", async () => {
-        const draftKey = `${type}:${name.trim()}`;
-        let asset = pendingAssets.current.get(draftKey);
-        if (!asset || !assets.some((entry) => entry.id === asset?.id)) {
-          asset = await createBibleAsset(bibleId, {
-          asset_type: type,
-          name: name.trim(),
-          summary: null,
-          description: null,
-          tags_json: null,
-          rules_json: null,
-          consent_confirmed: false,
-        });
-          const created = asset;
-          setAssets((prev) => [created, ...prev]);
-          setVariants((prev) => ({ ...prev, [created.id]: [] }));
-          pendingAssets.current.set(draftKey, asset);
-        }
-        if (file) {
-          await addVariant(asset.id, await fileToDataUrl(file), { name: file.name, source: "uploaded" });
-        } else if (prompt.trim()) {
-          await addVariant(asset.id, await imageFromPrompt(prompt, asset.id), { name: name.trim(), source: "generated", prompt });
-        }
-        pendingAssets.current.delete(draftKey);
-      });
+      await withApplicationWork(
+        !file && prompt.trim() ? "generation" : "saving",
+        async () => {
+          const draftKey = `${type}:${name.trim()}`;
+          let asset = pendingAssets.current.get(draftKey);
+          if (!asset || !assets.some((entry) => entry.id === asset?.id)) {
+            asset = await createBibleAsset(bibleId, {
+              asset_type: type,
+              name: name.trim(),
+              summary: null,
+              description: null,
+              tags_json: null,
+              rules_json: null,
+              consent_confirmed: false,
+            });
+            const created = asset;
+            setAssets((prev) => [created, ...prev]);
+            setVariants((prev) => ({ ...prev, [created.id]: [] }));
+            pendingAssets.current.set(draftKey, asset);
+          }
+          if (file) {
+            await addVariant(asset.id, await fileToDataUrl(file), {
+              name: file.name,
+              source: "uploaded",
+            });
+          } else if (prompt.trim()) {
+            await addVariant(
+              asset.id,
+              await imageFromPrompt(prompt, asset.id),
+              { name: name.trim(), source: "generated", prompt },
+            );
+          }
+          pendingAssets.current.delete(draftKey);
+        },
+      );
       return { ok: true, value: undefined };
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -243,7 +318,10 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
     setBusyId(asset.id);
     try {
       await withApplicationWork("saving", async () => {
-        await addVariant(asset.id, await fileToDataUrl(file), { name: file.name, source: "uploaded" });
+        await addVariant(asset.id, await fileToDataUrl(file), {
+          name: file.name,
+          source: "uploaded",
+        });
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -261,56 +339,125 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
         await refreshAsset(variant.asset_id);
       });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The current take could not be changed. Try again.");
-    } finally { setBusyId(null); }
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "The current take could not be changed. Try again.",
+      );
+    } finally {
+      setBusyId(null);
+    }
   }
 
   function handleDeletePicture(variant: BibleAssetVariant) {
-    deletionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    deletionOrigin.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     setDeletion({ kind: "picture", variant });
   }
 
   function handleDeleteAsset(asset: BibleAsset) {
-    deletionOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    deletionOrigin.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     setDeletion({ kind: "asset", asset });
   }
 
   async function confirmDeletion(): Promise<Result<null>> {
-    if (!deletion) return { ok: false, error: { code: "INVALID_INPUT", message: "Choose a Bible entry or picture to delete." } };
+    if (!deletion)
+      return {
+        ok: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Choose a Bible entry or picture to delete.",
+        },
+      };
     const target = deletion;
     try {
       return await withApplicationWork("saving", async () => {
-        const removed = target.kind === "asset" ? await deleteBibleAsset(target.asset.id) : await deleteBibleAssetVariant(target.variant.id);
-        if (!removed) return { ok: false, error: { code: "NOT_FOUND", message: "The item could not be deleted. Refresh and try again." } };
+        const removed =
+          target.kind === "asset"
+            ? await deleteBibleAsset(target.asset.id)
+            : await deleteBibleAssetVariant(target.variant.id);
+        if (!removed)
+          return {
+            ok: false,
+            error: {
+              code: "NOT_FOUND",
+              message: "The item could not be deleted. Refresh and try again.",
+            },
+          };
         if (target.kind === "asset") {
-          setAssets((prev) => prev.filter((asset) => asset.id !== target.asset.id));
-          setVariants((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => id !== target.asset.id)));
+          setAssets((prev) =>
+            prev.filter((asset) => asset.id !== target.asset.id),
+          );
+          setVariants((prev) =>
+            Object.fromEntries(
+              Object.entries(prev).filter(([id]) => id !== target.asset.id),
+            ),
+          );
         } else {
-          setVariants((prev) => ({ ...prev, [target.variant.asset_id]: (prev[target.variant.asset_id] ?? []).filter((variant) => variant.id !== target.variant.id) }));
-          void refreshAsset(target.variant.asset_id).catch(() => setError("The picture was deleted, but its list could not be refreshed."));
+          setVariants((prev) => ({
+            ...prev,
+            [target.variant.asset_id]: (
+              prev[target.variant.asset_id] ?? []
+            ).filter((variant) => variant.id !== target.variant.id),
+          }));
+          void refreshAsset(target.variant.asset_id).catch(() =>
+            setError(
+              "The picture was deleted, but its list could not be refreshed.",
+            ),
+          );
         }
         return { ok: true, value: null };
       });
     } catch (cause) {
-      return { ok: false, error: { code: "IO_ERROR", message: cause instanceof Error ? cause.message : "Could not delete the Bible item." } };
+      return {
+        ok: false,
+        error: {
+          code: "IO_ERROR",
+          message:
+            cause instanceof Error
+              ? cause.message
+              : "Could not delete the Bible item.",
+        },
+      };
     }
   }
 
   // Compose from reference pictures + a prompt (falls back to text-to-image when
   // there are no references). Returns a prepared data URL.
-  async function composeFromVariantIds(variantIds: string[], prompt: string, subjectId: string): Promise<string> {
+  async function composeFromVariantIds(
+    variantIds: string[],
+    prompt: string,
+    subjectId: string,
+  ): Promise<string> {
     const images = (
-      await Promise.all(variantIds.map((vid) => getBibleVariantImageBase64(vid)))
+      await Promise.all(
+        variantIds.map((vid) => getBibleVariantImageBase64(vid)),
+      )
     ).filter((x): x is string => !!x);
     const raw =
       images.length > 0
-        ? await composeFrameAction(prompt, images, imageModel, {project_id: projectId, subject_id: subjectId})
-        : await generateImageAction(prompt, imageModel, {project_id: projectId, subject_id: subjectId});
+        ? await composeFrameAction(prompt, images, imageModel, {
+            project_id: projectId,
+            subject_id: subjectId,
+          })
+        : await generateImageAction(prompt, imageModel, {
+            project_id: projectId,
+            subject_id: subjectId,
+          });
     return prepareBibleImageDataUrl(raw);
   }
 
   // Add a generated take to an asset and make it the new primary.
-  async function addPrimaryTake(assetId: string, preparedDataUrl: string, prompt: string | null) {
+  async function addPrimaryTake(
+    assetId: string,
+    preparedDataUrl: string,
+    prompt: string | null,
+  ) {
     const take = await createBibleAssetVariant(assetId, {
       name: (prompt ?? "take").slice(0, 40),
       image_base64: preparedDataUrl,
@@ -325,7 +472,14 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   }
 
   async function handleMakeFrame(recipe: FrameRecipe): Promise<Result<void>> {
-    if (!bibleId || !recipe.prompt.trim()) return { ok: false, error: { code: "INVALID_INPUT", message: "Describe the frame before generating it." } };
+    if (!bibleId || !recipe.prompt.trim())
+      return {
+        ok: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Describe the frame before generating it.",
+        },
+      };
     setError(null);
     setBusyId("make-frame");
     try {
@@ -334,20 +488,24 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
         let asset = pendingAssets.current.get(draftKey);
         if (!asset || !assets.some((entry) => entry.id === asset?.id)) {
           asset = await createBibleAsset(bibleId, {
-          asset_type: "reference",
-          name: recipe.prompt.slice(0, 50) || "Frame",
-          summary: null,
-          description: null,
-          tags_json: null,
-          rules_json: JSON.stringify(recipe),
-          consent_confirmed: false,
-        });
+            asset_type: "reference",
+            name: recipe.prompt.slice(0, 50) || "Frame",
+            summary: null,
+            description: null,
+            tags_json: null,
+            rules_json: JSON.stringify(recipe),
+            consent_confirmed: false,
+          });
           const created = asset;
           setAssets((prev) => [created, ...prev]);
           setVariants((prev) => ({ ...prev, [created.id]: [] }));
           pendingAssets.current.set(draftKey, asset);
         }
-        const dataUrl = await composeFromVariantIds(recipeVariantIds(recipe, variants), recipe.prompt, asset.id);
+        const dataUrl = await composeFromVariantIds(
+          recipeVariantIds(recipe, variants),
+          recipe.prompt,
+          asset.id,
+        );
         await createBibleAssetVariant(asset.id, {
           name: recipe.prompt.slice(0, 40),
           image_base64: dataUrl,
@@ -372,19 +530,34 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
 
   // Retake any asset (re-roll), or vary it with a tweaked prompt. Stays on-model
   // by composing from the asset's references. The new take becomes the primary.
-  async function handleRetake(asset: BibleAsset, promptOverride?: string): Promise<Result<void>> {
+  async function handleRetake(
+    asset: BibleAsset,
+    promptOverride?: string,
+  ): Promise<Result<void>> {
     setError(null);
     setBusyId(asset.id);
     try {
-      const result = await withApplicationWork("generation", async (): Promise<Result<void>> => {
-        const prompt = (promptOverride ?? assetBasePrompt(asset, variants)).trim();
-        if (!prompt) {
-          return { ok: false, error: { code: "INVALID_INPUT", message: "Add a prompt first." } };
-        }
-        const dataUrl = await composeFromVariantIds(assetReferences(asset, variants), prompt, asset.id);
-        await addPrimaryTake(asset.id, dataUrl, prompt);
-        return { ok: true, value: undefined };
-      });
+      const result = await withApplicationWork(
+        "generation",
+        async (): Promise<Result<void>> => {
+          const prompt = (
+            promptOverride ?? assetBasePrompt(asset, variants)
+          ).trim();
+          if (!prompt) {
+            return {
+              ok: false,
+              error: { code: "INVALID_INPUT", message: "Add a prompt first." },
+            };
+          }
+          const dataUrl = await composeFromVariantIds(
+            assetReferences(asset, variants),
+            prompt,
+            asset.id,
+          );
+          await addPrimaryTake(asset.id, dataUrl, prompt);
+          return { ok: true, value: undefined };
+        },
+      );
       if (!result.ok) setError(result.error.message);
       return result;
     } catch (e) {
@@ -397,20 +570,47 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   }
 
   // Edit a specific picture with an instruction; the result becomes the primary.
-  async function handleEdit(asset: BibleAsset, variant: BibleAssetVariant, instruction: string): Promise<Result<void>> {
-    if (!instruction.trim()) return { ok: false, error: { code: "INVALID_INPUT", message: "Describe the picture edit before generating it." } };
+  async function handleEdit(
+    asset: BibleAsset,
+    variant: BibleAssetVariant,
+    instruction: string,
+  ): Promise<Result<void>> {
+    if (!instruction.trim())
+      return {
+        ok: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Describe the picture edit before generating it.",
+        },
+      };
     setError(null);
     setBusyId(asset.id);
     try {
-      const result = await withApplicationWork("generation", async (): Promise<Result<void>> => {
-        const source = await getBibleVariantImageBase64(variant.id);
-        if (!source) {
-          return { ok: false, error: { code: "IO_ERROR", message: "Couldn't read that picture." } };
-        }
-        const raw = await editImageAction(source, instruction, imageModel, {project_id: projectId, subject_id: asset.id});
-        await addPrimaryTake(asset.id, await prepareBibleImageDataUrl(raw), instruction);
-        return { ok: true, value: undefined };
-      });
+      const result = await withApplicationWork(
+        "generation",
+        async (): Promise<Result<void>> => {
+          const source = await getBibleVariantImageBase64(variant.id);
+          if (!source) {
+            return {
+              ok: false,
+              error: {
+                code: "IO_ERROR",
+                message: "Couldn't read that picture.",
+              },
+            };
+          }
+          const raw = await editImageAction(source, instruction, imageModel, {
+            project_id: projectId,
+            subject_id: asset.id,
+          });
+          await addPrimaryTake(
+            asset.id,
+            await prepareBibleImageDataUrl(raw),
+            instruction,
+          );
+          return { ok: true, value: undefined };
+        },
+      );
       if (!result.ok) setError(result.error.message);
       return result;
     } catch (e) {
@@ -423,125 +623,240 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   }
 
   if (!bibleId) {
-    return <div className="space-y-3 p-6 text-sm text-muted-foreground">
-      <p role={error ? "alert" : "status"}>{error ?? (loading ? "Loading Bible…" : "This project's Bible is unavailable.")}</p>
-      {!loading && <Button variant="outline" size="sm" onClick={() => void load()}>Try again</Button>}
-    </div>;
+    return (
+      <div className="space-y-3 p-6 text-sm text-muted-foreground">
+        <p role={error ? "alert" : "status"}>
+          {error ??
+            (loading
+              ? "Loading Bible…"
+              : "This project's Bible is unavailable.")}
+        </p>
+        {!loading && (
+          <Button variant="outline" size="sm" onClick={() => void load()}>
+            Try again
+          </Button>
+        )}
+      </div>
+    );
   }
 
-  const selectedAssetId = assets.some((asset) => asset.id === activeAssetId) ? activeAssetId : null;
+  const selectedAssetId = assets.some((asset) => asset.id === activeAssetId)
+    ? activeAssetId
+    : null;
   const modelControl = (scope: string) => (
-        <div className="bible-model-control">
-        <div>
-          <label htmlFor={`bible-generation-model-${scope}`} className="font-medium text-foreground">Generation model</label>
-          <p className="text-[10px]">Used for new pictures and retakes in this Bible view.</p>
-        </div>
-        <Select value={imageModel} onValueChange={(v) => setImageModel(v as ImageModelId)}>
-          <SelectTrigger id={`bible-generation-model-${scope}`} aria-label="Bible generation model" disabled={!!busyId} className="h-8 w-full text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {imageModels.map((m) => (
-              <SelectItem key={m.id} value={m.id} className="text-xs">
-                {m.name}{modelProviderName(m) ? ` · ${modelProviderName(m)}` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        </div>
+    <div className="bible-model-control">
+      <div>
+        <label
+          htmlFor={`bible-generation-model-${scope}`}
+          className="font-medium text-foreground"
+        >
+          Generation model
+        </label>
+        <p className="text-[10px]">
+          Used for new pictures and retakes in this Bible view.
+        </p>
+      </div>
+      <Select
+        value={imageModel}
+        onValueChange={(v) => setImageModel(v as ImageModelId)}
+      >
+        <SelectTrigger
+          id={`bible-generation-model-${scope}`}
+          aria-label="Bible generation model"
+          disabled={!!busyId}
+          className="h-8 w-full text-xs"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {imageModels.map((m) => (
+            <SelectItem key={m.id} value={m.id} className="text-xs">
+              {m.name}
+              {modelProviderName(m) ? ` · ${modelProviderName(m)}` : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
-  const closeComposer = () => { setComposerOpen(false); newAction.current?.focus(); };
+  const closeComposer = () => {
+    setComposerOpen(false);
+    newAction.current?.focus();
+  };
 
   return (
-    <Tabs value={tab} onValueChange={(value) => { setTab(value as Tab); setActiveAssetId(null); }} className="gap-0" asChild>
-    <section ref={workspace} role="region" aria-label="Project bible" className="bible-workspace flex h-full flex-col">
-      {/* Tabs + model */}
-      <div className="bible-toolbar flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2">
-        <TabsList aria-label="Bible sections">
-          {(["characters", "locations", "frames"] as Tab[]).map((t) => (
-            <TabsTrigger
-              key={t}
-              value={t}
-              className="text-xs capitalize"
+    <Tabs
+      value={tab}
+      onValueChange={(value) => {
+        setTab(value as Tab);
+        setActiveAssetId(null);
+      }}
+      className="gap-0"
+      asChild
+    >
+      <section
+        ref={workspace}
+        role="region"
+        aria-label="Project bible"
+        className="bible-workspace flex h-full flex-col"
+      >
+        {/* Tabs + model */}
+        <div className="bible-toolbar flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2">
+          <TabsList aria-label="Bible sections">
+            {(["characters", "locations", "frames"] as Tab[]).map((t) => (
+              <TabsTrigger key={t} value={t} className="text-xs capitalize">
+                {t[0].toUpperCase() + t.slice(1)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {!selectedAssetId && (
+            <Button
+              ref={newAction}
+              size="sm"
+              className="bible-new-action"
+              aria-expanded={composerOpen}
+              onClick={() => setComposerOpen(true)}
             >
-              {t[0].toUpperCase() + t.slice(1)}
-            </TabsTrigger>
+              <Plus className="h-3.5 w-3.5" /> New{" "}
+              {tab === "characters"
+                ? "character"
+                : tab === "locations"
+                  ? "location"
+                  : "frame"}
+            </Button>
+          )}
+        </div>
+
+        {error && (
+          <div
+            role="alert"
+            className="mx-4 mt-2 rounded border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive"
+          >
+            {error}
+          </div>
+        )}
+
+        <div className="bible-sections">
+          {(["characters", "locations"] as const).map((assetTab) => (
+            <TabsContent
+              key={assetTab}
+              value={assetTab}
+              forceMount
+              hidden={tab !== assetTab}
+              className={tab === assetTab ? "bible-active-section" : "hidden"}
+            >
+              <AssetTab
+                composerOpen={composerOpen}
+                onCloseComposer={closeComposer}
+                modelControl={modelControl(assetTab)}
+                detailModelControl={modelControl(`${assetTab}-detail`)}
+                activeAssetId={selectedAssetId}
+                onOpenAsset={setActiveAssetId}
+                onBack={() => setActiveAssetId(null)}
+                type={assetTab === "characters" ? "character" : "location"}
+                label={assetTab === "characters" ? "character" : "location"}
+                assets={assetTab === "characters" ? characters : locations}
+                variants={variants}
+                busyId={busyId}
+                onNew={handleNewAsset}
+                onClearDraft={() => {
+                  for (const key of pendingAssets.current.keys())
+                    if (
+                      key.startsWith(
+                        `${assetTab === "characters" ? "character" : "location"}:`,
+                      )
+                    )
+                      pendingAssets.current.delete(key);
+                }}
+                onRetake={handleRetake}
+                onEdit={handleEdit}
+                imageCapabilities={imageCapabilities}
+                generationContext={generationContext}
+                onUpload={handleAddPictureFromFile}
+                onSetPrimary={handleSetPrimary}
+                onDeleteTake={handleDeletePicture}
+                onDeleteAsset={handleDeleteAsset}
+                onExpand={setLightbox}
+              />
+            </TabsContent>
           ))}
-        </TabsList>
-        {!selectedAssetId && <Button ref={newAction} size="sm" className="bible-new-action" aria-expanded={composerOpen} onClick={() => setComposerOpen(true)}>
-          <Plus className="h-3.5 w-3.5" /> New {tab === "characters" ? "character" : tab === "locations" ? "location" : "frame"}
-        </Button>}
-      </div>
 
-      {error && (
-        <div role="alert" className="mx-4 mt-2 rounded border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">{error}</div>
-      )}
-
-      <div className="bible-sections">
-        {(["characters", "locations"] as const).map((assetTab) => (
-          <TabsContent key={assetTab} value={assetTab} forceMount hidden={tab !== assetTab} className={tab === assetTab ? "bible-active-section" : "hidden"}>
-          <AssetTab
-            composerOpen={composerOpen}
-            onCloseComposer={closeComposer}
-            modelControl={modelControl(assetTab)}
-            detailModelControl={modelControl(`${assetTab}-detail`)}
-            activeAssetId={selectedAssetId}
-            onOpenAsset={setActiveAssetId}
-            onBack={() => setActiveAssetId(null)}
-            type={assetTab === "characters" ? "character" : "location"}
-            label={assetTab === "characters" ? "character" : "location"}
-            assets={assetTab === "characters" ? characters : locations}
-            variants={variants}
-            busyId={busyId}
-            onNew={handleNewAsset}
-            onClearDraft={() => { for (const key of pendingAssets.current.keys()) if (key.startsWith(`${assetTab === "characters" ? "character" : "location"}:`)) pendingAssets.current.delete(key); }}
-            onRetake={handleRetake}
-            onEdit={handleEdit}
-            imageCapabilities={imageCapabilities}
-            generationContext={generationContext}
-            onUpload={handleAddPictureFromFile}
-            onSetPrimary={handleSetPrimary}
-            onDeleteTake={handleDeletePicture}
-            onDeleteAsset={handleDeleteAsset}
-            onExpand={setLightbox}
-          />
+          <TabsContent
+            value="frames"
+            forceMount
+            hidden={tab !== "frames"}
+            className={tab === "frames" ? "bible-active-section" : "hidden"}
+          >
+            <FramesTab
+              composerOpen={composerOpen}
+              onCloseComposer={closeComposer}
+              modelControl={modelControl("frames")}
+              detailModelControl={modelControl("frames-detail")}
+              activeAssetId={selectedAssetId}
+              onOpenAsset={setActiveAssetId}
+              onBack={() => setActiveAssetId(null)}
+              characters={characters}
+              locations={locations}
+              frames={frames}
+              variants={variants}
+              busyId={busyId}
+              onMakeFrame={handleMakeFrame}
+              onClearDraft={() => {
+                for (const key of pendingAssets.current.keys())
+                  if (key.startsWith("frame:"))
+                    pendingAssets.current.delete(key);
+              }}
+              onRetake={handleRetake}
+              onEdit={handleEdit}
+              imageCapabilities={imageCapabilities}
+              generationContext={generationContext}
+              onSetPrimary={handleSetPrimary}
+              onDeleteTake={handleDeletePicture}
+              onDeleteFrame={handleDeleteAsset}
+              onExpand={setLightbox}
+            />
           </TabsContent>
-        ))}
+        </div>
 
-        <TabsContent value="frames" forceMount hidden={tab !== "frames"} className={tab === "frames" ? "bible-active-section" : "hidden"}>
-          <FramesTab
-            composerOpen={composerOpen}
-            onCloseComposer={closeComposer}
-            modelControl={modelControl("frames")}
-            detailModelControl={modelControl("frames-detail")}
-            activeAssetId={selectedAssetId}
-            onOpenAsset={setActiveAssetId}
-            onBack={() => setActiveAssetId(null)}
-            characters={characters}
-            locations={locations}
-            frames={frames}
-            variants={variants}
-            busyId={busyId}
-            onMakeFrame={handleMakeFrame}
-            onClearDraft={() => { for (const key of pendingAssets.current.keys()) if (key.startsWith("frame:")) pendingAssets.current.delete(key); }}
-            onRetake={handleRetake}
-            onEdit={handleEdit}
-            imageCapabilities={imageCapabilities}
-            generationContext={generationContext}
-            onSetPrimary={handleSetPrimary}
-            onDeleteTake={handleDeletePicture}
-            onDeleteFrame={handleDeleteAsset}
-            onExpand={setLightbox}
+        {lightbox && (
+          <BiblePicturePreview
+            url={lightbox}
+            onClose={() => setLightbox(null)}
           />
-        </TabsContent>
-      </div>
-
-      {lightbox && <BiblePicturePreview url={lightbox} onClose={() => setLightbox(null)} />}
-      <ConfirmDeletion restoreFocus={() => {
-        if (deletionOrigin.current?.isConnected) deletionOrigin.current.focus();
-        else (workspace.current?.querySelector<HTMLButtonElement>('button[data-current-picture]:not(:disabled)') ?? workspace.current?.querySelector<HTMLButtonElement>('button[aria-label="Back to library"]') ?? newAction.current)?.focus();
-      }} open={!!deletion} onOpenChange={(open) => { if (!open) setDeletion(null); }} title={deletion?.kind === "asset" ? "Delete Bible entry" : "Delete picture"} description={deletion?.kind === "asset" ? `Delete “${deletion.asset.name}” and all its pictures? This cannot be undone.` : "Delete this picture from the Bible? This cannot be undone."} actionLabel={deletion?.kind === "asset" ? "Delete entry" : "Delete picture"} onConfirm={confirmDeletion} />
-    </section>
+        )}
+        <ConfirmDeletion
+          restoreFocus={() => {
+            if (deletionOrigin.current?.isConnected)
+              deletionOrigin.current.focus();
+            else
+              (
+                workspace.current?.querySelector<HTMLButtonElement>(
+                  "button[data-current-picture]:not(:disabled)",
+                ) ??
+                workspace.current?.querySelector<HTMLButtonElement>(
+                  'button[aria-label="Back to library"]',
+                ) ??
+                newAction.current
+              )?.focus();
+          }}
+          open={!!deletion}
+          onOpenChange={(open) => {
+            if (!open) setDeletion(null);
+          }}
+          title={
+            deletion?.kind === "asset" ? "Delete Bible entry" : "Delete picture"
+          }
+          description={
+            deletion?.kind === "asset"
+              ? `Delete “${deletion.asset.name}” and all its pictures? This cannot be undone.`
+              : "Delete this picture from the Bible? This cannot be undone."
+          }
+          actionLabel={
+            deletion?.kind === "asset" ? "Delete entry" : "Delete picture"
+          }
+          onConfirm={confirmDeletion}
+        />
+      </section>
     </Tabs>
   );
 }
@@ -551,7 +866,10 @@ function AssetTab({
   composerOpen,
   onCloseComposer,
   modelControl,
-  detailModelControl, activeAssetId, onOpenAsset, onBack,
+  detailModelControl,
+  activeAssetId,
+  onOpenAsset,
+  onBack,
   type,
   label,
   assets,
@@ -572,18 +890,33 @@ function AssetTab({
   composerOpen: boolean;
   onCloseComposer: () => void;
   modelControl: ReactNode;
-  detailModelControl: ReactNode; activeAssetId: string | null; onOpenAsset: (id: string) => void; onBack: () => void;
+  detailModelControl: ReactNode;
+  activeAssetId: string | null;
+  onOpenAsset: (id: string) => void;
+  onBack: () => void;
   type: "character" | "location";
   label: string;
   assets: BibleAsset[];
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
-  onNew: (type: "character" | "location", name: string, prompt: string, file: File | null) => Promise<Result<void>>;
+  onNew: (
+    type: "character" | "location",
+    name: string,
+    prompt: string,
+    file: File | null,
+  ) => Promise<Result<void>>;
   onClearDraft: () => void;
-  onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<Result<void>>;
+  onRetake: (
+    asset: BibleAsset,
+    promptOverride?: string,
+  ) => Promise<Result<void>>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
-  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<Result<void>>;
+  onEdit: (
+    asset: BibleAsset,
+    variant: BibleAssetVariant,
+    instruction: string,
+  ) => Promise<Result<void>>;
   onUpload: (asset: BibleAsset, file: File) => void;
   onSetPrimary: (variant: BibleAssetVariant) => void;
   onDeleteTake: (variant: BibleAssetVariant) => void;
@@ -596,39 +929,63 @@ function AssetTab({
   const creating = busyId === `new-${type}`;
 
   return (
-    <div className="bible-section-layout" data-composer-open={composerOpen && !activeAssetId} data-detail-open={!!activeAssetId}>
+    <div
+      className="bible-section-layout"
+      data-composer-open={composerOpen && !activeAssetId}
+      data-detail-open={!!activeAssetId}
+    >
       {/* New */}
-      <aside className="bible-composer" aria-label={`New ${label}`} hidden={!composerOpen || !!activeAssetId}>
-        <div className="bible-panel-heading"><h3>New {label}</h3><Button variant="ghost" size="icon" aria-label="Close creation panel" onClick={onCloseComposer}><X className="h-3.5 w-3.5" /></Button></div>
-        <div className="bible-composer-body">
-        {modelControl}
-        <div className="bible-create-fields">
-          <label className="grid gap-1 text-[11px] text-muted-foreground">
-          <span>Name</span>
-          <Input
-            disabled={busyId !== null}
-            className="h-8 text-xs"
-            aria-label={`${type === "character" ? "Character" : "Location"} name`}
-            placeholder={`${label} name`}
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-          </label>
-          <label className="grid flex-1 gap-1 text-[11px] text-muted-foreground">
-          <span>Prompt for generation</span>
-          <Textarea
-            disabled={busyId !== null}
-            className="bible-prompt text-xs resize-none"
-            aria-label={`${type === "character" ? "Character" : "Location"} prompt`}
-            placeholder="Describe it (or just upload a picture)..."
-            value={newPrompt}
-            onChange={(e) => setNewPrompt(e.target.value)}
-          />
-          </label>
+      <aside
+        className="bible-composer"
+        aria-label={`New ${label}`}
+        hidden={!composerOpen || !!activeAssetId}
+      >
+        <div className="bible-panel-heading">
+          <h3>New {label}</h3>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Close creation panel"
+            onClick={onCloseComposer}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
         </div>
+        <div className="bible-composer-body">
+          {modelControl}
+          <div className="bible-create-fields">
+            <label className="grid gap-1 text-[11px] text-muted-foreground">
+              <span>Name</span>
+              <Input
+                disabled={busyId !== null}
+                className="h-8 text-xs"
+                aria-label={`${type === "character" ? "Character" : "Location"} name`}
+                placeholder={`${label} name`}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
+            </label>
+            <label className="grid flex-1 gap-1 text-[11px] text-muted-foreground">
+              <span>Prompt for generation</span>
+              <Textarea
+                disabled={busyId !== null}
+                className="bible-prompt text-xs resize-none"
+                aria-label={`${type === "character" ? "Character" : "Location"} prompt`}
+                placeholder="Describe it (or just upload a picture)..."
+                value={newPrompt}
+                onChange={(e) => setNewPrompt(e.target.value)}
+              />
+            </label>
+          </div>
         </div>
         <div className="bible-composer-footer">
-          <div className="bible-cost"><GenerationCost modelId={generationContext.modelId} request={{kind: "image"}} subject={{project_id: generationContext.projectId}} /></div>
+          <div className="bible-cost">
+            <GenerationCost
+              modelId={generationContext.modelId}
+              request={{ kind: "image" }}
+              subject={{ project_id: generationContext.projectId }}
+            />
+          </div>
           <div className="bible-create-actions">
             <Button
               size="sm"
@@ -636,10 +993,17 @@ function AssetTab({
               disabled={busyId !== null || !newName.trim() || !newPrompt.trim()}
               onClick={async () => {
                 const result = await onNew(type, newName, newPrompt, null);
-                if (result.ok) { setNewName(""); setNewPrompt(""); }
+                if (result.ok) {
+                  setNewName("");
+                  setNewPrompt("");
+                }
               }}
             >
-              {creating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+              {creating ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3 mr-1" />
+              )}
               Generate {label}
             </Button>
             <Button
@@ -651,50 +1015,92 @@ function AssetTab({
               onClick={() =>
                 pickImageFile(async (file) => {
                   const result = await onNew(type, newName, "", file);
-                  if (result.ok) { setNewName(""); setNewPrompt(""); }
+                  if (result.ok) {
+                    setNewName("");
+                    setNewPrompt("");
+                  }
                 })
               }
             >
               <Upload className="h-3 w-3 mr-1" />
               Upload picture
             </Button>
-            <Button type="button" variant="ghost" size="sm" className="text-xs" aria-label={`Clear ${label} draft`} disabled={busyId !== null || (!newName && !newPrompt)} onClick={() => { setNewName(""); setNewPrompt(""); onClearDraft(); }}>Clear draft</Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              aria-label={`Clear ${label} draft`}
+              disabled={busyId !== null || (!newName && !newPrompt)}
+              onClick={() => {
+                setNewName("");
+                setNewPrompt("");
+                onClearDraft();
+              }}
+            >
+              Clear draft
+            </Button>
           </div>
         </div>
       </aside>
 
-      <section className="bible-library" aria-label={type === "character" ? "Characters library" : "Locations library"}>
-      <div className="bible-library-heading" hidden={!!activeAssetId}><span>{assets.length} {assets.length === 1 ? label : `${label}s`}</span><span>Reference library</span></div>
-      {assets.length === 0 ? (
-        <div className="bible-empty-library"><ImageIcon /><h3>{label === "character" ? "No characters yet" : "No locations yet"}</h3><p>Create or upload a picture in the New {label} panel.</p></div>
-      ) : (
-        <div className={activeAssetId ? "bible-detail-host" : "bible-media-grid"}>
-          {assets.map((asset) => {
-            const takes = (variants[asset.id] ?? []).filter((v) => v.media_url);
-            return (
-              <BibleAssetEntry
-                key={asset.id}
-                asset={asset}
-                active={activeAssetId === asset.id} hidden={!!activeAssetId && activeAssetId !== asset.id}
-                onOpen={() => onOpenAsset(asset.id)} onBack={onBack} modelControl={detailModelControl}
-                takes={takes}
-                busy={busyId !== null}
-                builtFrom={null}
-                basePrompt={primaryPicture(takes)?.prompt ?? ""}
-                onRetake={onRetake}
-                onEdit={onEdit}
-                imageCapabilities={imageCapabilities}
-            generationContext={generationContext}
-                onSetPrimary={onSetPrimary}
-                onDeleteTake={onDeleteTake}
-                onDeleteAsset={onDeleteAsset}
-                onUpload={() => pickImageFile((file) => onUpload(asset, file))}
-                onExpand={onExpand}
-              />
-            );
-          })}
+      <section
+        className="bible-library"
+        aria-label={
+          type === "character" ? "Characters library" : "Locations library"
+        }
+      >
+        <div className="bible-library-heading" hidden={!!activeAssetId}>
+          <span>
+            {assets.length} {assets.length === 1 ? label : `${label}s`}
+          </span>
+          <span>Reference library</span>
         </div>
-      )}
+        {assets.length === 0 ? (
+          <div className="bible-empty-library">
+            <ImageIcon />
+            <h3>
+              {label === "character" ? "No characters yet" : "No locations yet"}
+            </h3>
+            <p>Create or upload a picture in the New {label} panel.</p>
+          </div>
+        ) : (
+          <div
+            className={activeAssetId ? "bible-detail-host" : "bible-media-grid"}
+          >
+            {assets.map((asset) => {
+              const takes = (variants[asset.id] ?? []).filter(
+                (v) => v.media_url,
+              );
+              return (
+                <BibleAssetEntry
+                  key={asset.id}
+                  asset={asset}
+                  active={activeAssetId === asset.id}
+                  hidden={!!activeAssetId && activeAssetId !== asset.id}
+                  onOpen={() => onOpenAsset(asset.id)}
+                  onBack={onBack}
+                  modelControl={detailModelControl}
+                  takes={takes}
+                  busy={busyId !== null}
+                  builtFrom={null}
+                  basePrompt={primaryPicture(takes)?.prompt ?? ""}
+                  onRetake={onRetake}
+                  onEdit={onEdit}
+                  imageCapabilities={imageCapabilities}
+                  generationContext={generationContext}
+                  onSetPrimary={onSetPrimary}
+                  onDeleteTake={onDeleteTake}
+                  onDeleteAsset={onDeleteAsset}
+                  onUpload={() =>
+                    pickImageFile((file) => onUpload(asset, file))
+                  }
+                  onExpand={onExpand}
+                />
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );
@@ -705,7 +1111,10 @@ function FramesTab({
   composerOpen,
   onCloseComposer,
   modelControl,
-  detailModelControl, activeAssetId, onOpenAsset, onBack,
+  detailModelControl,
+  activeAssetId,
+  onOpenAsset,
+  onBack,
   characters,
   locations,
   frames,
@@ -725,7 +1134,10 @@ function FramesTab({
   composerOpen: boolean;
   onCloseComposer: () => void;
   modelControl: ReactNode;
-  detailModelControl: ReactNode; activeAssetId: string | null; onOpenAsset: (id: string) => void; onBack: () => void;
+  detailModelControl: ReactNode;
+  activeAssetId: string | null;
+  onOpenAsset: (id: string) => void;
+  onBack: () => void;
   characters: BibleAsset[];
   locations: BibleAsset[];
   frames: BibleAsset[];
@@ -733,10 +1145,17 @@ function FramesTab({
   busyId: string | null;
   onMakeFrame: (recipe: FrameRecipe) => Promise<Result<void>>;
   onClearDraft: () => void;
-  onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<Result<void>>;
+  onRetake: (
+    frame: BibleAsset,
+    promptOverride?: string,
+  ) => Promise<Result<void>>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
-  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<Result<void>>;
+  onEdit: (
+    asset: BibleAsset,
+    variant: BibleAssetVariant,
+    instruction: string,
+  ) => Promise<Result<void>>;
   onSetPrimary: (variant: BibleAssetVariant) => void;
   onDeleteTake: (variant: BibleAssetVariant) => void;
   onDeleteFrame: (asset: BibleAsset) => void;
@@ -744,21 +1163,41 @@ function FramesTab({
 }) {
   const [selectedChars, setSelectedChars] = useState<Set<string>>(new Set());
   const [locationId, setLocationId] = useState<string | null>(null);
-  const [locationVariantId, setLocationVariantId] = useState<string | null>(null);
+  const [locationVariantId, setLocationVariantId] = useState<string | null>(
+    null,
+  );
   const [prompt, setPrompt] = useState("");
-  useUnsavedWork("draft", !!prompt || selectedChars.size > 0 || !!locationId, JSON.stringify({ prompt, characters: [...selectedChars], locationId, locationVariantId }));
+  useUnsavedWork(
+    "draft",
+    !!prompt || selectedChars.size > 0 || !!locationId,
+    JSON.stringify({
+      prompt,
+      characters: [...selectedChars],
+      locationId,
+      locationVariantId,
+    }),
+  );
   const making = busyId === "make-frame";
   useEffect(() => {
     setSelectedChars((previous) => {
-      const next = new Set([...previous].filter((id) => characters.some((character) => character.id === id) && !!primaryPicture(variants[id] ?? [])?.media_url));
+      const next = new Set(
+        [...previous].filter(
+          (id) =>
+            characters.some((character) => character.id === id) &&
+            !!primaryPicture(variants[id] ?? [])?.media_url,
+        ),
+      );
       return next.size === previous.size ? previous : next;
     });
-    if (locationId && (!locations.some((location) => location.id === locationId) || !primaryPicture(variants[locationId] ?? [])?.media_url)) {
+    if (
+      locationId &&
+      (!locations.some((location) => location.id === locationId) ||
+        !primaryPicture(variants[locationId] ?? [])?.media_url)
+    ) {
       setLocationId(null);
       setLocationVariantId(null);
     }
   }, [characters, locations, locationId, variants]);
-
 
   function toggleChar(id: string) {
     setSelectedChars((prev) => {
@@ -779,7 +1218,9 @@ function FramesTab({
     }
   }
 
-  const locationViews = locationId ? (variants[locationId] ?? []).filter((v) => v.media_url) : [];
+  const locationViews = locationId
+    ? (variants[locationId] ?? []).filter((v) => v.media_url)
+    : [];
 
   async function makeFrame() {
     const result = await onMakeFrame({
@@ -788,129 +1229,245 @@ function FramesTab({
       locationVariantId,
       prompt,
     });
-    if (result.ok) { setPrompt(""); setSelectedChars(new Set()); setLocationId(null); setLocationVariantId(null); }
+    if (result.ok) {
+      setPrompt("");
+      setSelectedChars(new Set());
+      setLocationId(null);
+      setLocationVariantId(null);
+    }
   }
 
   return (
-    <div className="bible-section-layout" data-composer-open={composerOpen && !activeAssetId} data-detail-open={!!activeAssetId}>
-      <aside className="bible-composer" aria-label="New frame" hidden={!composerOpen || !!activeAssetId}>
-        <div className="bible-panel-heading"><h3>New frame</h3><Button variant="ghost" size="icon" aria-label="Close creation panel" onClick={onCloseComposer}><X className="h-3.5 w-3.5" /></Button></div>
+    <div
+      className="bible-section-layout"
+      data-composer-open={composerOpen && !activeAssetId}
+      data-detail-open={!!activeAssetId}
+    >
+      <aside
+        className="bible-composer"
+        aria-label="New frame"
+        hidden={!composerOpen || !!activeAssetId}
+      >
+        <div className="bible-panel-heading">
+          <h3>New frame</h3>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Close creation panel"
+            onClick={onCloseComposer}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
         <div className="bible-composer-body">
-        {modelControl}
-        <div className="bible-reference-heading"><span>References</span><span>{selectedChars.size} {selectedChars.size === 1 ? "character selected" : "characters selected"}{locationId ? " · 1 location" : ""}</span></div>
-        <div className="bible-reference-groups">
-
-        <div className="bible-reference-group"><p className="bible-field-label">Characters (optional)</p>
-        <div className="bible-reference-list">
-          {characters.length === 0 && <span className="text-xs text-muted-foreground">No characters yet. You can generate a frame from a prompt.</span>}
-          {characters.map((c) => {
-            const url = primaryPicture(variants[c.id] ?? [])?.media_url ?? null;
-            return (
-              <BiblePictureTile
-                key={c.id}
-                url={url}
-                label={c.name}
-                hint={!url ? "Add a picture first" : undefined}
-                disabled={busyId !== null || !url}
-                active={selectedChars.has(c.id)}
-                onClick={() => toggleChar(c.id)}
-                onExpand={() => url && onExpand(url)}
-              />
-            );
-          })}
-        </div>
-
-        </div><div className="bible-reference-group"><p className="bible-field-label">Location (optional)</p>
-        <div className="bible-reference-list">
-          {locations.length === 0 && <span className="text-xs text-muted-foreground">Optional</span>}
-          {locations.map((l) => {
-            const url = primaryPicture(variants[l.id] ?? [])?.media_url ?? null;
-            return (
-              <BiblePictureTile
-                key={l.id}
-                url={url}
-                label={l.name}
-                hint={!url ? "Add a picture first" : undefined}
-                disabled={busyId !== null || !url}
-                active={locationId === l.id}
-                onClick={() => pickLocation(l.id)}
-                onExpand={() => url && onExpand(url)}
-              />
-            );
-          })}
-        </div>
-        </div></div>
-        {locationViews.length > 1 && (
-          <div className="mb-3">
-            <p className="mb-1 text-[10px] text-muted-foreground">View</p>
-            <div className="flex flex-wrap gap-2">
-              {locationViews.map((v, i) => (
-                <BiblePictureTile
-                  key={v.id}
-                  url={v.media_url}
-                  label={`View ${i + 1}`}
-                  disabled={busyId !== null}
-                  active={locationVariantId === v.id}
-                  onClick={() => setLocationVariantId(v.id)}
-                />
-              ))}
+          {modelControl}
+          <div className="bible-reference-heading">
+            <span>References</span>
+            <span>
+              {selectedChars.size}{" "}
+              {selectedChars.size === 1
+                ? "character selected"
+                : "characters selected"}
+              {locationId ? " · 1 location" : ""}
+            </span>
+          </div>
+          <div className="bible-reference-groups">
+            <div className="bible-reference-group">
+              <p className="bible-field-label">Characters (optional)</p>
+              <div className="bible-reference-list">
+                {characters.length === 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    No characters yet. You can generate a frame from a prompt.
+                  </span>
+                )}
+                {characters.map((c) => {
+                  const url =
+                    primaryPicture(variants[c.id] ?? [])?.media_url ?? null;
+                  return (
+                    <BiblePictureTile
+                      key={c.id}
+                      url={url}
+                      label={c.name}
+                      hint={!url ? "Add a picture first" : undefined}
+                      disabled={busyId !== null || !url}
+                      active={selectedChars.has(c.id)}
+                      onClick={() => toggleChar(c.id)}
+                      onExpand={() => url && onExpand(url)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+            <div className="bible-reference-group">
+              <p className="bible-field-label">Location (optional)</p>
+              <div className="bible-reference-list">
+                {locations.length === 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    Optional
+                  </span>
+                )}
+                {locations.map((l) => {
+                  const url =
+                    primaryPicture(variants[l.id] ?? [])?.media_url ?? null;
+                  return (
+                    <BiblePictureTile
+                      key={l.id}
+                      url={url}
+                      label={l.name}
+                      hint={!url ? "Add a picture first" : undefined}
+                      disabled={busyId !== null || !url}
+                      active={locationId === l.id}
+                      onClick={() => pickLocation(l.id)}
+                      onExpand={() => url && onExpand(url)}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
-        )}
+          {locationViews.length > 1 && (
+            <div className="mb-3">
+              <p className="mb-1 text-[10px] text-muted-foreground">View</p>
+              <div className="flex flex-wrap gap-2">
+                {locationViews.map((v, i) => (
+                  <BiblePictureTile
+                    key={v.id}
+                    url={v.media_url}
+                    label={`View ${i + 1}`}
+                    disabled={busyId !== null}
+                    active={locationVariantId === v.id}
+                    onClick={() => setLocationVariantId(v.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
-        <label className="bible-prompt-label"><span>Scene description</span>
-        <Textarea
-          disabled={busyId !== null}
-          className="bible-prompt text-xs resize-none"
-          aria-label="Frame prompt"
-          placeholder="What's happening (and the look, e.g. 90s anime)..."
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-        />
-        </label>
+          <label className="bible-prompt-label">
+            <span>Scene description</span>
+            <Textarea
+              disabled={busyId !== null}
+              className="bible-prompt text-xs resize-none"
+              aria-label="Frame prompt"
+              placeholder="What's happening (and the look, e.g. 90s anime)..."
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            />
+          </label>
         </div>
         <div className="bible-composer-footer">
-        <div className="bible-cost"><GenerationCost modelId={generationContext.modelId} request={{kind: selectedChars.size > 0 || locationId ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId}} /></div>
-        <div className="bible-create-actions">
-        <Button size="sm" className="text-xs" disabled={busyId !== null || !prompt.trim() || (!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId))} onClick={makeFrame}>
-          {making ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
-          Generate frame
-        </Button>
-        <Button type="button" variant="ghost" size="sm" className="ml-2 text-xs" aria-label="Clear frame draft" disabled={busyId !== null || (!prompt && !selectedChars.size && !locationId)} onClick={() => { setPrompt(""); setSelectedChars(new Set()); setLocationId(null); setLocationVariantId(null); onClearDraft(); }}>Clear draft</Button>
-        </div>
-        {!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId) && <p className="mt-2 text-xs text-muted-foreground">Choose a model that accepts reference images to include these characters or locations.</p>}
+          <div className="bible-cost">
+            <GenerationCost
+              modelId={generationContext.modelId}
+              request={{
+                kind:
+                  selectedChars.size > 0 || locationId
+                    ? "image_compose"
+                    : "image",
+              }}
+              subject={{ project_id: generationContext.projectId }}
+            />
+          </div>
+          <div className="bible-create-actions">
+            <Button
+              size="sm"
+              className="text-xs"
+              disabled={
+                busyId !== null ||
+                !prompt.trim() ||
+                (!imageCapabilities.composition &&
+                  (selectedChars.size > 0 || !!locationId))
+              }
+              onClick={makeFrame}
+            >
+              {making ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3 mr-1" />
+              )}
+              Generate frame
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="ml-2 text-xs"
+              aria-label="Clear frame draft"
+              disabled={
+                busyId !== null ||
+                (!prompt && !selectedChars.size && !locationId)
+              }
+              onClick={() => {
+                setPrompt("");
+                setSelectedChars(new Set());
+                setLocationId(null);
+                setLocationVariantId(null);
+                onClearDraft();
+              }}
+            >
+              Clear draft
+            </Button>
+          </div>
+          {!imageCapabilities.composition &&
+            (selectedChars.size > 0 || !!locationId) && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Choose a model that accepts reference images to include these
+                characters or locations.
+              </p>
+            )}
         </div>
       </aside>
       <section className="bible-library" aria-label="Frames library">
-      <div className="bible-library-heading" hidden={!!activeAssetId}><span>{frames.length} {frames.length === 1 ? "frame" : "frames"}</span><span>Storyboard pictures</span></div>
-      {frames.length === 0 ? (
-        <div className="bible-empty-library"><ImageIcon /><h3>No frames yet</h3><p>Create a frame with a scene description and optional references.<br />Use it as a shot’s start or end frame.</p></div>
-      ) : (
-        <div className={activeAssetId ? "bible-detail-host" : "bible-media-grid"}>
-          {frames.map((f) => (
-            <BibleAssetEntry
-              key={f.id}
-              asset={f}
-              active={activeAssetId === f.id} hidden={!!activeAssetId && activeAssetId !== f.id}
-              onOpen={() => onOpenAsset(f.id)} onBack={onBack} modelControl={detailModelControl}
-              takes={(variants[f.id] ?? []).filter((v) => v.media_url)}
-              busy={busyId !== null}
-              builtFrom={builtFromLabel(f, characters, locations)}
-              basePrompt={parseRecipe(f.rules_json).prompt || primaryPicture(variants[f.id] ?? [])?.prompt || ""}
-              onRetake={onRetake}
-              onEdit={onEdit}
-                imageCapabilities={imageCapabilities}
-            generationContext={generationContext}
-              onSetPrimary={onSetPrimary}
-              onDeleteTake={onDeleteTake}
-              onDeleteAsset={onDeleteFrame}
-              onExpand={onExpand}
-            />
-          ))}
+        <div className="bible-library-heading" hidden={!!activeAssetId}>
+          <span>
+            {frames.length} {frames.length === 1 ? "frame" : "frames"}
+          </span>
+          <span>Storyboard pictures</span>
         </div>
-      )}
+        {frames.length === 0 ? (
+          <div className="bible-empty-library">
+            <ImageIcon />
+            <h3>No frames yet</h3>
+            <p>
+              Create a frame with a scene description and optional references.
+              <br />
+              Use it as a shot’s start or end frame.
+            </p>
+          </div>
+        ) : (
+          <div
+            className={activeAssetId ? "bible-detail-host" : "bible-media-grid"}
+          >
+            {frames.map((f) => (
+              <BibleAssetEntry
+                key={f.id}
+                asset={f}
+                active={activeAssetId === f.id}
+                hidden={!!activeAssetId && activeAssetId !== f.id}
+                onOpen={() => onOpenAsset(f.id)}
+                onBack={onBack}
+                modelControl={detailModelControl}
+                takes={(variants[f.id] ?? []).filter((v) => v.media_url)}
+                busy={busyId !== null}
+                builtFrom={builtFromLabel(f, characters, locations)}
+                basePrompt={
+                  parseRecipe(f.rules_json).prompt ||
+                  primaryPicture(variants[f.id] ?? [])?.prompt ||
+                  ""
+                }
+                onRetake={onRetake}
+                onEdit={onEdit}
+                imageCapabilities={imageCapabilities}
+                generationContext={generationContext}
+                onSetPrimary={onSetPrimary}
+                onDeleteTake={onDeleteTake}
+                onDeleteAsset={onDeleteFrame}
+                onExpand={onExpand}
+              />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
 }
-
