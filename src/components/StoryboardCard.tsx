@@ -4,7 +4,12 @@ import { ConfirmDeletion } from "./ConfirmDeletion";
 import { Link } from "react-router";
 import { MoreHorizontal, Trash2, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface StoryboardCardProps {
   id: string;
@@ -31,7 +36,11 @@ export default function StoryboardCard({
 
   return (
     <article className="storyboard-card group">
-      <Link to={`/storyboard/${id}`} className="block" aria-label={`Open storyboard ${name}`}>
+      <Link
+        to={`/storyboard/${id}`}
+        className="block"
+        aria-label={`Open storyboard ${name}`}
+      >
         {/* 16:9 Thumbnail */}
         <div className="storyboard-card-preview aspect-video relative overflow-hidden bg-muted/50">
           {previewImageUrl ? (
@@ -52,25 +61,40 @@ export default function StoryboardCard({
           <h2 className="text-sm font-medium text-foreground truncate">
             {name}
           </h2>
-          <time dateTime={updatedAt}>
-            {formattedDate}
-          </time>
+          <time dateTime={updatedAt}>{formattedDate}</time>
         </div>
       </Link>
 
       <div className="storyboards-card-actions">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button ref={actions} variant="ghost" size="icon" aria-label={`Storyboard actions for ${name}`} title={`Storyboard actions for ${name}`}>
+            <Button
+              ref={actions}
+              variant="ghost"
+              size="icon"
+              aria-label={`Storyboard actions for ${name}`}
+              title={`Storyboard actions for ${name}`}
+            >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => setDeleteOpen(true)}><Trash2 className="h-3.5 w-3.5" />Delete storyboard…</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setDeleteOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete storyboard…
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <ConfirmDeletion open={deleteOpen} onOpenChange={setDeleteOpen} title="Delete storyboard" description={`Delete “${name}” and all its shots? This cannot be undone.`} actionLabel="Delete storyboard" restoreFocus={() => actions.current?.focus()} onConfirm={() => onDelete(id)} />
+      <ConfirmDeletion
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete storyboard"
+        description={`Delete “${name}” and all its shots? This cannot be undone.`}
+        actionLabel="Delete storyboard"
+        restoreFocus={() => actions.current?.focus()}
+        onConfirm={() => onDelete(id)}
+      />
     </article>
   );
 }

@@ -10,21 +10,53 @@ import ProjectBibleView from "../components/ProjectBibleView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NewStoryboardDialog } from "../components/NewStoryboardDialog";
-import { getProject, getStoryboardsWithPreview, deleteStoryboard } from "../lib/backend-api";
-import type { Project, Storyboard, StoryboardWithPreview } from "../lib/backend-api";
+import {
+  getProject,
+  getStoryboardsWithPreview,
+  deleteStoryboard,
+} from "../lib/backend-api";
+import type {
+  Project,
+  Storyboard,
+  StoryboardWithPreview,
+} from "../lib/backend-api";
 
-async function readProjectLibrary(id: string): Promise<Result<{ project: Project; storyboards: StoryboardWithPreview[] }>> {
+async function readProjectLibrary(
+  id: string,
+): Promise<Result<{ project: Project; storyboards: StoryboardWithPreview[] }>> {
   try {
-    const [project, storyboards] = await Promise.all([getProject(id), getStoryboardsWithPreview(id)]);
-    return project ? { ok: true, value: { project, storyboards } } : { ok: false, error: { code: "NOT_FOUND", message: "This project is unavailable. Retry loading the open document." } };
+    const [project, storyboards] = await Promise.all([
+      getProject(id),
+      getStoryboardsWithPreview(id),
+    ]);
+    return project
+      ? { ok: true, value: { project, storyboards } }
+      : {
+          ok: false,
+          error: {
+            code: "NOT_FOUND",
+            message:
+              "This project is unavailable. Retry loading the open document.",
+          },
+        };
   } catch (cause) {
-    return { ok: false, error: { code: "IO_ERROR", message: cause instanceof Error ? cause.message : "Could not load this project's storyboards." } };
+    return {
+      ok: false,
+      error: {
+        code: "IO_ERROR",
+        message:
+          cause instanceof Error
+            ? cause.message
+            : "Could not load this project's storyboards.",
+      },
+    };
   }
 }
 
 export default function ProjectPage() {
   const { id: routeId } = useParams<{ id: string }>();
-  const { current, bibleGenerationModel, setBibleGenerationModel } = useProjectDocument();
+  const { current, bibleGenerationModel, setBibleGenerationModel } =
+    useProjectDocument();
   const id = routeId ?? current?.project_id;
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
@@ -41,7 +73,9 @@ export default function ProjectPage() {
   useAgentChanges(loadData);
   useEffect(() => {
     if (id) void loadData();
-    return () => { loadRequest.current++; };
+    return () => {
+      loadRequest.current++;
+    };
   }, [id]);
 
   async function loadData() {
@@ -59,63 +93,217 @@ export default function ProjectPage() {
   }
 
   function handleCreatedStoryboard(storyboard: Storyboard) {
-    setStoryboards((previous) => [{ ...storyboard, preview_image_path: null }, ...previous]);
+    setStoryboards((previous) => [
+      { ...storyboard, preview_image_path: null },
+      ...previous,
+    ]);
     window.dispatchEvent(new Event("showbiz:project-changed"));
     navigate(`/storyboard/${storyboard.id}`);
   }
-  async function handleDeleteStoryboard(storyboardId: string): Promise<Result<null>> {
+  async function handleDeleteStoryboard(
+    storyboardId: string,
+  ): Promise<Result<null>> {
     try {
       const removed = await deleteStoryboard(storyboardId);
-      if (!removed) return { ok: false, error: { code: "NOT_FOUND", message: "The storyboard could not be deleted. Refresh and try again." } };
-      setStoryboards((previous) => previous.filter((storyboard) => storyboard.id !== storyboardId));
+      if (!removed)
+        return {
+          ok: false,
+          error: {
+            code: "NOT_FOUND",
+            message:
+              "The storyboard could not be deleted. Refresh and try again.",
+          },
+        };
+      setStoryboards((previous) =>
+        previous.filter((storyboard) => storyboard.id !== storyboardId),
+      );
       window.dispatchEvent(new Event("showbiz:project-changed"));
       return { ok: true, value: null };
     } catch (cause) {
-      return { ok: false, error: { code: "IO_ERROR", message: cause instanceof Error ? cause.message : "Could not delete storyboard." } };
+      return {
+        ok: false,
+        error: {
+          code: "IO_ERROR",
+          message:
+            cause instanceof Error
+              ? cause.message
+              : "Could not delete storyboard.",
+        },
+      };
     }
   }
-  function clearSearch() { setSearchQuery(""); searchInput.current?.focus(); }
-  const filteredStoryboards = storyboards.filter((storyboard) => storyboard.name.toLowerCase().includes(searchQuery.trim().toLowerCase()));
+  function clearSearch() {
+    setSearchQuery("");
+    searchInput.current?.focus();
+  }
+  const filteredStoryboards = storyboards.filter((storyboard) =>
+    storyboard.name.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+  );
 
   return (
-    <div className={bibleView ? "desktop-page" : "desktop-page storyboards-library-workspace"}>
+    <div
+      className={
+        bibleView
+          ? "desktop-page"
+          : "desktop-page storyboards-library-workspace"
+      }
+    >
       {!bibleView && (
-        <header className="storyboards-context-toolbar" role="toolbar" aria-label="Storyboards">
+        <header
+          className="storyboards-context-toolbar"
+          role="toolbar"
+          aria-label="Storyboards"
+        >
           <h1>Storyboards</h1>
           <div className="storyboards-search">
             <Search aria-hidden="true" size={14} />
-            <Input ref={searchInput} type="search" aria-label="Search storyboards" placeholder="Search storyboards" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} disabled={!project} />
-            {searchQuery && <Button variant="ghost" size="icon" aria-label="Clear search" onClick={clearSearch}><X size={12} /></Button>}
+            <Input
+              ref={searchInput}
+              type="search"
+              aria-label="Search storyboards"
+              placeholder="Search storyboards"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              disabled={!project}
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Clear search"
+                onClick={clearSearch}
+              >
+                <X size={12} />
+              </Button>
+            )}
           </div>
-          <Button ref={newAction} size="sm" disabled={!project} onClick={() => setCreationOpen(true)}><Plus size={14} />New Storyboard</Button>
+          <Button
+            ref={newAction}
+            size="sm"
+            disabled={!project}
+            onClick={() => setCreationOpen(true)}
+          >
+            <Plus size={14} />
+            New Storyboard
+          </Button>
         </header>
       )}
-      <main className={bibleView ? "workspace-body" : "storyboards-library-main"}>
-        {bibleView ? project ? (
-          <>
-            <h1 className="sr-only">Project bible</h1>
-            <ProjectBibleView projectId={project.id} generationModel={bibleGenerationModel && setBibleGenerationModel ? { value: bibleGenerationModel, onChange: setBibleGenerationModel } : undefined} initialTab={searchParams.get("bibleTab") === "frames" ? "frames" : undefined} />
-          </>
+      <main
+        className={bibleView ? "workspace-body" : "storyboards-library-main"}
+      >
+        {bibleView ? (
+          project ? (
+            <>
+              <h1 className="sr-only">Project bible</h1>
+              <ProjectBibleView
+                projectId={project.id}
+                generationModel={
+                  bibleGenerationModel && setBibleGenerationModel
+                    ? {
+                        value: bibleGenerationModel,
+                        onChange: setBibleGenerationModel,
+                      }
+                    : undefined
+                }
+                initialTab={
+                  searchParams.get("bibleTab") === "frames"
+                    ? "frames"
+                    : undefined
+                }
+              />
+            </>
+          ) : (
+            <section
+              className="flex flex-1 flex-col items-center justify-center gap-3 p-6"
+              aria-label="Project bible"
+            >
+              <h1 className="sr-only">Project bible</h1>
+              <p role={loadError ? "alert" : "status"}>
+                {loadError ?? "Loading the open project…"}
+              </p>
+              {loadError && (
+                <Button variant="outline" onClick={() => void loadData()}>
+                  Retry loading project
+                </Button>
+              )}
+            </section>
+          )
         ) : (
-          <section className="flex flex-1 flex-col items-center justify-center gap-3 p-6" aria-label="Project bible"><h1 className="sr-only">Project bible</h1><p role={loadError ? "alert" : "status"}>{loadError ?? "Loading the open project…"}</p>{loadError && <Button variant="outline" onClick={() => void loadData()}>Retry loading project</Button>}</section>
-        ) : (
-          <section className="storyboards-gallery" aria-label="Storyboards library" aria-busy={isLoading}>
+          <section
+            className="storyboards-gallery"
+            aria-label="Storyboards library"
+            aria-busy={isLoading}
+          >
             <div className="storyboards-gallery-heading">
-              <output aria-label="Storyboard count">{filteredStoryboards.length === storyboards.length ? `${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}` : `${filteredStoryboards.length} of ${storyboards.length} storyboards`}</output>
-              {isLoading && <span role="status"><Loader2 className="animate-spin" size={12} />{project ? "Refreshing…" : "Loading project…"}</span>}
+              <output aria-label="Storyboard count">
+                {filteredStoryboards.length === storyboards.length
+                  ? `${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`
+                  : `${filteredStoryboards.length} of ${storyboards.length} storyboards`}
+              </output>
+              {isLoading && (
+                <span role="status">
+                  <Loader2 className="animate-spin" size={12} />
+                  {project ? "Refreshing…" : "Loading project…"}
+                </span>
+              )}
             </div>
-            {loadError && <div className="storyboards-load-error"><p role="alert">{loadError}</p><Button variant="outline" size="sm" onClick={() => void loadData()}>Retry loading storyboards</Button></div>}
-            {!project && isLoading ? <div className="storyboards-library-empty"><Clapperboard /><p>Loading the open project…</p></div> : !project ? null : storyboards.length === 0 ? (
-              <div className="storyboards-library-empty"><Clapperboard /><h2>No storyboards yet</h2><p>Use New Storyboard to start building a sequence of shots.</p></div>
+            {loadError && (
+              <div className="storyboards-load-error">
+                <p role="alert">{loadError}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadData()}
+                >
+                  Retry loading storyboards
+                </Button>
+              </div>
+            )}
+            {!project && isLoading ? (
+              <div className="storyboards-library-empty">
+                <Clapperboard />
+                <p>Loading the open project…</p>
+              </div>
+            ) : !project ? null : storyboards.length === 0 ? (
+              <div className="storyboards-library-empty">
+                <Clapperboard />
+                <h2>No storyboards yet</h2>
+                <p>Use New Storyboard to start building a sequence of shots.</p>
+              </div>
             ) : filteredStoryboards.length === 0 ? (
-              <div className="storyboards-library-empty"><Search /><h2>No matching storyboards</h2><p>No storyboard names match “{searchQuery}”.</p><Button variant="outline" size="sm" onClick={clearSearch}>Show all storyboards</Button></div>
+              <div className="storyboards-library-empty">
+                <Search />
+                <h2>No matching storyboards</h2>
+                <p>No storyboard names match “{searchQuery}”.</p>
+                <Button variant="outline" size="sm" onClick={clearSearch}>
+                  Show all storyboards
+                </Button>
+              </div>
             ) : (
-              <div className="storyboards-gallery-grid">{filteredStoryboards.map((storyboard) => <StoryboardCard key={storyboard.id} id={storyboard.id} name={storyboard.name} updatedAt={storyboard.updated_at} previewImageUrl={storyboard.preview_image_path} onDelete={handleDeleteStoryboard} />)}</div>
+              <div className="storyboards-gallery-grid">
+                {filteredStoryboards.map((storyboard) => (
+                  <StoryboardCard
+                    key={storyboard.id}
+                    id={storyboard.id}
+                    name={storyboard.name}
+                    updatedAt={storyboard.updated_at}
+                    previewImageUrl={storyboard.preview_image_path}
+                    onDelete={handleDeleteStoryboard}
+                  />
+                ))}
+              </div>
             )}
           </section>
         )}
       </main>
-      <NewStoryboardDialog open={creationOpen} onOpenChange={setCreationOpen} projectId={id} projectName={project?.name ?? "this project"} opener={newAction} onCreated={handleCreatedStoryboard} />
+      <NewStoryboardDialog
+        open={creationOpen}
+        onOpenChange={setCreationOpen}
+        projectId={id}
+        projectName={project?.name ?? "this project"}
+        opener={newAction}
+        onCreated={handleCreatedStoryboard}
+      />
     </div>
   );
 }
