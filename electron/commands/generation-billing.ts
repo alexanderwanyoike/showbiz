@@ -1,3 +1,4 @@
+import { readOpenRouterCharge } from "../provider-billing/openrouter";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { readFalCharges } from "../provider-billing/fal";
@@ -41,6 +42,18 @@ export function createGenerationBillingCommands(db: DatabaseSync, readKey: (prov
               }
             }
           }
+        }
+        const openrouter = rows.filter((row) => row.provider === "openrouter");
+        const key = openrouter.length ? readKey("openrouter") : null;
+        for (let index = 0; index < openrouter.length; index += 4) {
+          await Promise.all(openrouter.slice(index, index + 4).map(async (row) => {
+            if (!key) { result.notes.push({ request_id: row.request_id, message: "Add an OpenRouter key in Settings to check the provider's actual charge." }); return; }
+            const charge = await readOpenRouterCharge(row.provider_request_id, row.kind, key, http);
+            if (charge.ok && charge.value !== null) {
+              db.prepare("UPDATE generation_usage SET reported_microusd = ? WHERE request_id = ? AND project_id = ? AND reported_microusd IS NULL").run(charge.value, row.request_id, project_id);
+              result.reported++;
+            } else result.notes.push({ request_id: row.request_id, message: charge.ok ? "OpenRouter has not published the final charge yet. This cost remains unconfirmed." : charge.error.message });
+          }));
         }
         return { ok: true, value: result };
       } catch { return { ok: false, error: { code: "IO_ERROR", message: "Could not reconcile provider charges. Existing receipts and estimates were preserved." } }; }
