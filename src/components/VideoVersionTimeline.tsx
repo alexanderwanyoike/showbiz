@@ -17,13 +17,22 @@ interface VideoVersionTimelineProps {
   compact?: boolean;
 }
 
-const editTypeConfig: Record<string, { label: string; icon: typeof Sparkles; color: string }> = {
+const editTypeConfig: Record<
+  string,
+  { label: string; icon: typeof Sparkles; color: string }
+> = {
   generation: { label: "Gen", icon: Sparkles, color: "bg-blue-500" },
   regeneration: { label: "Regen", icon: Sparkles, color: "bg-purple-500" },
   extend: { label: "Extend", icon: Film, color: "bg-green-500" },
 };
 
-function VideoThumbnail({ videoUrl, className }: { videoUrl: string; className?: string }) {
+function VideoThumbnail({
+  videoUrl,
+  className,
+}: {
+  videoUrl: string;
+  className?: string;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasFrame, setHasFrame] = useState(false);
 
@@ -47,7 +56,9 @@ function VideoThumbnail({ videoUrl, className }: { videoUrl: string; className?:
         className={`${className} ${hasFrame ? "" : "opacity-0"}`}
       />
       {!hasFrame && (
-        <div className={`${className} absolute inset-0 bg-muted flex items-center justify-center`}>
+        <div
+          className={`${className} absolute inset-0 bg-muted flex items-center justify-center`}
+        >
           <Film className="h-3 w-3 text-muted-foreground" />
         </div>
       )}
@@ -86,6 +97,8 @@ function VersionNode({
       >
         {hasChildren ? (
           <button
+            aria-label={`Takes based on video take ${version.version_number}`}
+            aria-expanded={isExpanded}
             onClick={onToggleExpand}
             className="w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-foreground"
           >
@@ -103,6 +116,8 @@ function VersionNode({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
+                aria-label={`Use video take ${version.version_number}`}
+                aria-pressed={isCurrent}
                 onClick={() => onVersionSelect(version.id)}
                 className={`relative w-10 h-10 rounded overflow-hidden border-2 transition-all ${
                   isCurrent
@@ -125,7 +140,9 @@ function VersionNode({
               <div className="space-y-1">
                 <p className="font-medium">Take {version.version_number}</p>
                 {version.model_id && (
-                  <p className="text-xs text-muted-foreground">{version.model_id}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {version.model_id}
+                  </p>
                 )}
                 {version.prompt && (
                   <p className="text-xs text-muted-foreground truncate">
@@ -139,7 +156,9 @@ function VersionNode({
 
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1">
-            <span className="text-xs font-medium">Take {version.version_number}</span>
+            <span className="text-xs font-medium">
+              Take {version.version_number}
+            </span>
             <Badge
               variant="secondary"
               className={`text-[10px] px-1 py-0 h-4 ${config.color} text-white`}
@@ -210,13 +229,16 @@ export default function VideoVersionTimeline({
       <div className="flex gap-1 overflow-x-auto py-1">
         {allVersions.map((version) => {
           const isCurrent = version.id === currentVersionId;
-          const config = editTypeConfig[version.edit_type] || editTypeConfig.generation;
+          const config =
+            editTypeConfig[version.edit_type] || editTypeConfig.generation;
 
           return (
             <TooltipProvider key={version.id}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
+                    aria-label={`Use video take ${version.version_number}`}
+                    aria-pressed={isCurrent}
                     onClick={() => onVersionSelect(version.id)}
                     className={`relative w-8 h-8 rounded overflow-hidden border-2 flex-shrink-0 transition-all ${
                       isCurrent
@@ -259,9 +281,7 @@ export default function VideoVersionTimeline({
   );
 }
 
-function flattenTree(
-  nodes: VideoVersionNode[]
-): VideoVersionNode["version"][] {
+function flattenTree(nodes: VideoVersionNode[]): VideoVersionNode["version"][] {
   const result: VideoVersionNode["version"][] = [];
   for (const node of nodes) {
     result.push(node.version);

@@ -1,3 +1,4 @@
+import { kieResponseSchema } from "./kie-response";
 import { fetch } from "./http";
 
 const KIE_API_BASE = "https://api.kie.ai";
@@ -39,7 +40,7 @@ export async function uploadImageToKie(imageBase64: string, apiKey: string): Pro
     throw new Error(`kie.ai image upload failed (${res.status}): ${text}`);
   }
 
-  const json = await res.json();
+  const json = kieResponseSchema.parse(await res.json());
   const url: string | undefined = json?.data?.downloadUrl;
   if (!url) {
     throw new Error("kie.ai image upload returned no downloadUrl");
@@ -62,7 +63,7 @@ export async function createKieTask(
     body: JSON.stringify({ model, input }),
   });
 
-  const json = await res.json();
+  const json = kieResponseSchema.parse(await res.json());
 
   if (!res.ok || json.code !== 200) {
     throw new Error(parseKieError(json.code ?? res.status, json.msg ?? json.message ?? ""));
@@ -91,7 +92,7 @@ export async function pollKieTask(taskId: string, apiKey: string): Promise<strin
       }
     );
 
-    const json = await res.json();
+    const json = kieResponseSchema.parse(await res.json());
 
     if (!res.ok || (json.code !== undefined && json.code !== 200)) {
       throw new Error(parseKieError(json.code ?? res.status, json.msg ?? json.message ?? ""));
@@ -102,7 +103,7 @@ export async function pollKieTask(taskId: string, apiKey: string): Promise<strin
     if (state === "success") {
       let resultUrls: string[] = [];
       try {
-        const parsed = JSON.parse(json.data.resultJson ?? "{}");
+        const parsed = JSON.parse(json.data?.resultJson ?? "{}");
         resultUrls = parsed.resultUrls ?? [];
       } catch {
         // fall through

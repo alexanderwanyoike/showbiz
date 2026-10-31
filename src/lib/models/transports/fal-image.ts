@@ -1,3 +1,4 @@
+import type { GenerationObserver } from "../../../../shared/generation-output";
 import type { ImageTransport } from "./types";
 import type { ImageModelConfig } from "../config-schema";
 import { submitFalQueueRequest, pollFalResult, runFalInference, uploadImageToFal } from "../fal-shared";
@@ -32,13 +33,15 @@ async function runFalImageRequest(
   config: ImageModelConfig,
   endpointId: string,
   input: Record<string, unknown>,
-  apiKey: string
+  apiKey: string,
+  observer?: GenerationObserver
 ): Promise<string> {
   const opts = (config.transportOptions ?? {}) as Record<string, unknown>;
   const result = opts.directInference
-    ? await runFalInference<{ images: Array<{ url: string }> }>(endpointId, input, apiKey)
+    ? await runFalInference<{ images: Array<{ url: string }> }>(endpointId, input, apiKey, ...(observer ? [observer] as const : []))
     : await (async () => {
         const queueRequest = await submitFalQueueRequest(endpointId, input, apiKey);
+        await observer?.receipt({ provider_request_id: queueRequest.requestId, reported_microusd: null });
         return pollFalResult<{ images: Array<{ url: string }> }>(endpointId, queueRequest.requestId, apiKey, {
           statusUrl: queueRequest.statusUrl,
           responseUrl: queueRequest.responseUrl,
@@ -51,19 +54,21 @@ export const falImageTransport: ImageTransport = {
   async generateImage(
     config: ImageModelConfig,
     prompt: string,
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<string> {
     const opts = (config.transportOptions ?? {}) as Record<string, string>;
     const endpointId = opts.endpoint ?? config.models.generate;
     const input: Record<string, unknown> = { prompt, ...(config.fixedParams ?? {}) };
-    return runFalImageRequest(config, endpointId, input, apiKey);
+    return runFalImageRequest(config, endpointId, input, apiKey, observer);
   },
 
   async editImage(
     config: ImageModelConfig,
     editPrompt: string,
     sourceImageBase64: string,
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<string> {
     const opts = (config.transportOptions ?? {}) as Record<string, string>;
     const endpointId = opts.editEndpoint ?? config.models.edit ?? opts.endpoint ?? config.models.generate;
@@ -75,7 +80,7 @@ export const falImageTransport: ImageTransport = {
       [imageInput]: mode?.imageFormat === "array" ? [uploaded] : uploaded,
       ...(config.fixedParams ?? {}),
     };
-    return runFalImageRequest(config, endpointId, input, apiKey);
+    return runFalImageRequest(config, endpointId, input, apiKey, observer);
   },
 
   // Compose from multiple reference images (e.g. GPT Image 2's /edit endpoint,
@@ -84,7 +89,8 @@ export const falImageTransport: ImageTransport = {
     config: ImageModelConfig,
     prompt: string,
     referenceImages: string[],
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<string> {
     if (referenceImages.length === 0) {
       throw new Error("composeImage requires at least one reference image");
@@ -97,6 +103,6 @@ export const falImageTransport: ImageTransport = {
       [imageInput]: referenceImages.map((img) => uploadImageToFal(img)),
       ...(config.fixedParams ?? {}),
     };
-    return runFalImageRequest(config, endpointId, input, apiKey);
+    return runFalImageRequest(config, endpointId, input, apiKey, observer);
   },
 };
