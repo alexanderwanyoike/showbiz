@@ -36,6 +36,7 @@ const MUTATING_COMMANDS = new Set([
   "delete_version",
   "reorder_shots",
   "set_shot_models",
+  "set_shot_video_settings",
   "save_and_complete_video",
   "save_api_key",
   "save_shot_end_frame",
