@@ -5,10 +5,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ProjectBibleView from "../components/ProjectBibleView";
 import { generateImageAction } from "../actions/generation-actions";
+import { getBibles } from "./backend-api";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: () => null }));
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
-  getBibles: async () => [{ id: "bible" }],
+  getBibles: vi.fn(async () => [{ id: "bible" }]),
   getBibleAssets: async () => [],
   getBibleAssetVariants: async () => [],
   createBibleAsset: async (_id: string, values: Record<string, unknown>) => ({ ...values, id: "draft-asset" }),
@@ -85,4 +86,13 @@ it("labels generation and its prerequisites clearly and protects inputs while th
   expect(screen.getByText("Characters (optional)")).toBeTruthy();
   expect(screen.getByText("Location (optional)")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Generate frame" })).toBeTruthy();
+});
+
+it("shows a failed Bible load with a retry action instead of leaving an endless loading state", async () => {
+  vi.mocked(getBibles).mockRejectedValueOnce(new Error("Could not load Bible."));
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Could not load Bible.");
+  await user.click(screen.getByRole("button", { name: "Try again" }));
+  expect(await screen.findByRole("textbox", { name: "Character name" })).toBeTruthy();
 });
