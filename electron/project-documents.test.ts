@@ -295,3 +295,31 @@ it("keeps shot reordering atomic inside a self-contained document save", async (
     expect((await documents.invoke("get_shots",{storyboardId:board.id}) as {id:string}[]).map(shot=>shot.id)).toEqual([second.id,first.id]);
   } finally {await documents.close();}
 });
+
+it("rolls back project edits and recovers the saved media if packaging fails", async () => {
+ const {directory,documents}=setup();
+ try {
+  const created=await documents.create(path.join(directory,"Saved.showbiz"));if(!created.ok)throw new Error(created.error.message);
+  const board=await documents.invoke("create_storyboard",{projectId:created.value.project_id,name:"Opening"}) as {id:string};
+  const shot=await documents.invoke("create_shot",{storyboardId:board.id}) as {id:string};
+  await documents.invoke("save_shot_image",{id:shot.id,base64DataUrl:"data:image/png;base64,ZnJhbWU=",prompt:"Saved"});
+  fs.rmSync(path.join(documents.mediaDirectory()!,"images",`${shot.id}.png`));
+  await expect(documents.invoke("update_project",{id:created.value.project_id,name:"Unsaved"})).rejects.toThrow("included");
+  expect(documents.current()?.name).toBe("Saved");
+  expect(await documents.invoke("get_shot_image_base64",{shotId:shot.id})).toBe("data:image/png;base64,ZnJhbWU=");
+ }finally{await documents.close();}
+});
+
+it("reopens embedded media larger than one chunk without an external media folder", async()=>{
+ const first=setup();const second=setup();
+ try{
+  const file=path.join(first.directory,"Large.showbiz");const copy=path.join(second.directory,"Large.showbiz");
+  await first.documents.create(file);
+  const bytes=Buffer.alloc(9*1024*1024,37);bytes[bytes.length-1]=91;
+  fs.writeFileSync(path.join(first.documents.mediaDirectory()!,"videos","large.mp4"),bytes);
+  expect((await first.documents.save()).ok).toBe(true);
+  await first.documents.close();fs.copyFileSync(file,copy);fs.rmSync(first.directory,{recursive:true,force:true});
+  expect((await second.documents.open(copy)).ok).toBe(true);
+  expect(fs.readFileSync(path.join(second.documents.mediaDirectory()!,"videos","large.mp4")).equals(bytes)).toBe(true);
+ }finally{await first.documents.close();await second.documents.close();}
+});
