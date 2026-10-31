@@ -280,3 +280,14 @@ it("shares an authenticated FAL price lookup across simultaneous controls", asyn
     expect(native.fetch).toHaveBeenCalledTimes(2);
   } finally { db.close(); }
 });
+it("marks an older cached OpenRouter rate unconfirmed when a live refresh fails", async () => {
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createGenerationPricingCommands(db);
+    native.invoke.mockImplementation(async (command, args) => commands[command]?.(args));
+    commands.save_generation_price({ kind: "image", price: { provider: "openrouter", model_id: "seedream-4.5-openrouter", currency: "USD", source_kind: "provider", source_url: "https://openrouter.ai/api/v1/images/models/bytedance-seed/seedream-4.5/endpoints", checked_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), rates: [{ unit: "image", microusd: 40000 }] } });
+    native.fetch.mockClear(); native.fetch.mockResolvedValue(new Response("unavailable", { status: 503 }));
+    expect(await getGenerationEstimate("seedream-4.5-openrouter", { kind: "image" })).toMatchObject({ kind: "estimate", min_microusd: 40000, stale: true });
+    expect(native.fetch).toHaveBeenCalledOnce();
+  } finally { db.close(); }
+});
