@@ -2,6 +2,7 @@ import type { ProjectDocumentInfo, RecentProjectDocument, DocumentResult } from 
 
 type DocumentOperation = Promise<DocumentResult<ProjectDocumentInfo | null>>;
 interface Documents {
+  warning?(): string | null;
   current(): ProjectDocumentInfo | null;
   recent(): RecentProjectDocument[];
   legacy(): { id: string; name: string }[];
@@ -42,7 +43,7 @@ export function createProjectDocumentCommands(options: {
     return chosen && !chosen.toLowerCase().endsWith(".showbiz") ? `${chosen}.showbiz` : chosen;
   };
   return {
-    get_project_document_state: () => ({ ok: true as const, value: { current: options.documents.current(), recent: options.documents.recent(), legacy: options.documents.legacy() } }),
+    get_project_document_state: () => ({ ok: true as const, value: { current: options.documents.current(), recent: options.documents.recent(), legacy: options.documents.legacy(), warning: options.documents.warning?.() ?? null } }),
     create_project_document: () => run(async () => {
       const file = await savePath("Untitled.showbiz");
       return file ? change(() => options.documents.create(file)) : { ok: true, value: null };

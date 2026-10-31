@@ -12,6 +12,7 @@ export interface RecentProjectDocument {
   name: string;
 }
 export interface ProjectDocumentState {
+  warning?: string | null;
   current: ProjectDocumentInfo | null;
   recent: RecentProjectDocument[];
   legacy: { id: string; name: string }[];

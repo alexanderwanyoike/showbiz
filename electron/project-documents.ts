@@ -22,11 +22,17 @@ export function createProjectDocuments(options: {
   let active: { file: string; db: DatabaseSync; commands: CommandMap; release: () => void } | null = null;
   let busy = false;
   let recent: RecentProjectDocument[] = [];
+  let warning: string | null = null;
   if (fs.existsSync(options.recentPath)) {
-    const parsed: unknown = JSON.parse(fs.readFileSync(options.recentPath, "utf8"));
-    if (!Array.isArray(parsed) || !parsed.every((item: unknown) => typeof item === "object" && item !== null && "file_path" in item && typeof item.file_path === "string" && "name" in item && typeof item.name === "string")) throw new Error("The recent project list is invalid.");
-    recent = parsed as RecentProjectDocument[];
+    try {
+      const parsed: unknown = JSON.parse(fs.readFileSync(options.recentPath, "utf8"));
+      if (!Array.isArray(parsed) || !parsed.every((item: unknown) => typeof item === "object" && item !== null && "file_path" in item && typeof item.file_path === "string" && "name" in item && typeof item.name === "string")) throw new Error("Invalid recent project list.");
+      recent = parsed as RecentProjectDocument[];
+    } catch (cause) {
+      warning = `The recent project list could not be read. Open a project file to rebuild it. ${cause instanceof Error ? cause.message : String(cause)}`;
+    }
   }
+
   function current(): ProjectDocumentInfo | null {
     if (!active) return null;
     const projects = createProjectCommands(active.db, projectMediaDirectory(active.file)).get_projects();
@@ -39,6 +45,7 @@ export function createProjectDocuments(options: {
     fs.writeFileSync(`${options.recentPath}.tmp`, JSON.stringify(next), { mode: 0o600 });
     fs.renameSync(`${options.recentPath}.tmp`, options.recentPath);
     recent = next;
+    warning = null;
   }
   function activate(file: string, db: DatabaseSync, release: () => void): ProjectDocumentInfo {
     const commands = options.bind(db, projectMediaDirectory(file));
@@ -52,6 +59,7 @@ export function createProjectDocuments(options: {
   }
   return {
     current,
+    warning: () => warning,
     legacy: () => options.legacy ? createProjectCommands(options.legacy.db, options.legacy.media).get_projects() : [],
     recent: () => [...recent],
     async create(filePath: string): Promise<DocumentResult<ProjectDocumentInfo>> {
