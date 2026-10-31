@@ -9,6 +9,7 @@ import {
   ProjectDocumentProvider,
   useProjectDocument,
 } from "./contexts/ProjectDocumentContext";
+import UsagePage from "./pages/UsagePage";
 import WorkspacePage from "./pages/WorkspacePage";
 import ProjectPage from "./pages/ProjectPage";
 import StoryboardPage from "./pages/StoryboardPage";
@@ -63,6 +64,7 @@ function DocumentWorkspace() {
         >
           {document.current ? (
             <Routes>
+              <Route path="/usage/:id" element={<UsagePage />} />
               <Route path="/project/:id" element={<ProjectPage />} />
               <Route path="/storyboard/:id" element={<StoryboardPage />} />
               <Route path="*" element={<ProjectPage />} />

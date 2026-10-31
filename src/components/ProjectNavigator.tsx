@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Clapperboard, File, LayoutGrid } from "lucide-react";
+import { BookOpen, Clapperboard, File, LayoutGrid, Receipt } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import {
   getProject,
@@ -71,6 +71,7 @@ export function ProjectNavigator() {
           <BookOpen size={15} />
           Bible
         </Link>
+        <Link className={`sidebar-item ${location.pathname.startsWith("/usage/") ? "is-selected" : ""}`} aria-current={location.pathname.startsWith("/usage/") ? "page" : undefined} to={`/usage/${current.project_id}`}><Receipt size={15} />Usage &amp; billing</Link>
         <div className="sidebar-caption sidebar-caption-projects">
           STORYBOARDS
         </div>
