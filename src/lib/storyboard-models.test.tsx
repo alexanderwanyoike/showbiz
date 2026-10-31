@@ -11,7 +11,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import StoryboardPage from "../pages/StoryboardPage";
-import { setShotModels } from "./backend-api";
+import { setShotModels, updateStoryboardModels } from "./backend-api";
 import { generateAndSaveVideoRequestAction } from "../actions/generation-actions";
 vi.stubGlobal(
   "ResizeObserver",
@@ -36,6 +36,7 @@ vi.mock("./backend-api", async (original) => ({
     image_model: "nano-banana-2",
     video_model: "seedance-2-fal",
   }),
+  updateStoryboardModels: vi.fn(async (id: string, image_model: string, video_model: string) => ({ id, project_id: "project", name: "Opening", image_model, video_model })),
   getShots: async () =>
     [1, 2].map((order) => ({
       id: `shot-${order}`,
@@ -194,4 +195,16 @@ it("waits for a model save before allowing generation and preserves the prior ch
     screen.getByRole("button", { name: "Video model for shot 1" }),
   ).toHaveProperty("textContent", expect.stringContaining("Seedance 2.0"));
   expect(generateAndSaveVideoRequestAction).not.toHaveBeenCalled();
+});
+
+it("edits model defaults from storyboard settings without requiring or changing a shot selection", async () => {
+  render(createElement(MemoryRouter, {initialEntries: ["/storyboard/board"]}, createElement(Routes, null, createElement(Route, {path: "/storyboard/:id", element: createElement(StoryboardPage)}))));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", {name: "Storyboard settings"}));
+  const settings = await screen.findByRole("dialog", {name: "Storyboard settings"});
+  expect(within(settings).getByText("Model defaults", {exact:true})).toBeTruthy();
+  await user.click(within(settings).getByRole("button", {name: "Storyboard image default"}));
+  await user.click(screen.getByRole("option", {name: /GPT Image 2/}));
+  await waitFor(() => expect(updateStoryboardModels).toHaveBeenCalledWith("board", "gpt-image-2", "seedance-2-fal"));
+  expect(setShotModels).not.toHaveBeenCalled();
 });
