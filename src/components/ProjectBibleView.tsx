@@ -1,4 +1,6 @@
 import "../bible-workspace.css";
+import "../bible-asset-workspace.css";
+import { BibleAssetEntry } from "./BibleAssetEntry";
 import { modelProviderName } from "../lib/model-provider";
 import { ConfirmDeletion } from "./ConfirmDeletion";
 import type { Result } from "../../shared/result";
@@ -12,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BiblePictureActions } from "./BiblePictureActions";
 import { BiblePicturePreview } from "./BiblePicturePreview";
 import { BiblePictureTile } from "./BiblePictureTile";
 import {
@@ -108,20 +109,9 @@ interface ProjectBibleViewProps {
   generationModel?: { value: ImageModelId; onChange: (model: ImageModelId) => void };
 }
 
-// Generate (prompt) or upload one picture.
-// Shows what made a picture: the model and the prompt (so you can see/reuse it).
-function PictureMeta({ variant }: { variant: BibleAssetVariant | null }) {
-  if (!variant?.prompt) return null;
-  return (
-    <p className="line-clamp-2 text-[10px] leading-snug text-muted-foreground" title={variant.prompt}>
-      {variant.model_id ? <span className="font-medium text-foreground/70">{variant.model_id} · </span> : null}
-      {variant.prompt}
-    </p>
-  );
-}
-
 export default function ProjectBibleView({ projectId, initialTab = "characters", generationModel }: ProjectBibleViewProps) {
   const [composerOpen, setComposerOpen] = useState(true);
+  const [activeAssetId, setActiveAssetId] = useState<string | null>(null);
   const newAction = useRef<HTMLButtonElement>(null);
   const [bibleId, setBibleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -427,7 +417,8 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
     </div>;
   }
 
-  const modelControl = (scope: Tab) => (
+  const selectedAssetId = assets.some((asset) => asset.id === activeAssetId) ? activeAssetId : null;
+  const modelControl = (scope: string) => (
         <div className="bible-model-control">
         <div>
           <label htmlFor={`bible-generation-model-${scope}`} className="font-medium text-foreground">Generation model</label>
@@ -450,7 +441,7 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   const closeComposer = () => { setComposerOpen(false); newAction.current?.focus(); };
 
   return (
-    <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="gap-0" asChild>
+    <Tabs value={tab} onValueChange={(value) => { setTab(value as Tab); setActiveAssetId(null); }} className="gap-0" asChild>
     <section role="region" aria-label="Project bible" className="bible-workspace flex h-full flex-col">
       {/* Tabs + model */}
       <div className="bible-toolbar flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2">
@@ -465,9 +456,9 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
             </TabsTrigger>
           ))}
         </TabsList>
-        <Button ref={newAction} size="sm" className="bible-new-action" aria-expanded={composerOpen} onClick={() => setComposerOpen(true)}>
+        {!selectedAssetId && <Button ref={newAction} size="sm" className="bible-new-action" aria-expanded={composerOpen} onClick={() => setComposerOpen(true)}>
           <Plus className="h-3.5 w-3.5" /> New {tab === "characters" ? "character" : tab === "locations" ? "location" : "frame"}
-        </Button>
+        </Button>}
       </div>
 
       {error && (
@@ -481,6 +472,10 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
             composerOpen={composerOpen}
             onCloseComposer={closeComposer}
             modelControl={modelControl(assetTab)}
+            detailModelControl={modelControl(`${assetTab}-detail`)}
+            activeAssetId={selectedAssetId}
+            onOpenAsset={setActiveAssetId}
+            onBack={() => setActiveAssetId(null)}
             type={assetTab === "characters" ? "character" : "location"}
             label={assetTab === "characters" ? "character" : "location"}
             assets={assetTab === "characters" ? characters : locations}
@@ -506,6 +501,10 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
             composerOpen={composerOpen}
             onCloseComposer={closeComposer}
             modelControl={modelControl("frames")}
+            detailModelControl={modelControl("frames-detail")}
+            activeAssetId={selectedAssetId}
+            onOpenAsset={setActiveAssetId}
+            onBack={() => setActiveAssetId(null)}
             characters={characters}
             locations={locations}
             frames={frames}
@@ -537,6 +536,7 @@ function AssetTab({
   composerOpen,
   onCloseComposer,
   modelControl,
+  detailModelControl, activeAssetId, onOpenAsset, onBack,
   type,
   label,
   assets,
@@ -557,6 +557,7 @@ function AssetTab({
   composerOpen: boolean;
   onCloseComposer: () => void;
   modelControl: ReactNode;
+  detailModelControl: ReactNode; activeAssetId: string | null; onOpenAsset: (id: string) => void; onBack: () => void;
   type: "character" | "location";
   label: string;
   assets: BibleAsset[];
@@ -580,9 +581,9 @@ function AssetTab({
   const creating = busyId === `new-${type}`;
 
   return (
-    <div className="bible-section-layout" data-composer-open={composerOpen}>
+    <div className="bible-section-layout" data-composer-open={composerOpen && !activeAssetId} data-detail-open={!!activeAssetId}>
       {/* New */}
-      <aside className="bible-composer" aria-label={`New ${label}`} hidden={!composerOpen}>
+      <aside className="bible-composer" aria-label={`New ${label}`} hidden={!composerOpen || !!activeAssetId}>
         <div className="bible-panel-heading"><h3>New {label}</h3><Button variant="ghost" size="icon" aria-label="Close creation panel" onClick={onCloseComposer}><X className="h-3.5 w-3.5" /></Button></div>
         <div className="bible-composer-body">
         {modelControl}
@@ -648,17 +649,19 @@ function AssetTab({
       </aside>
 
       <section className="bible-library" aria-label={type === "character" ? "Characters library" : "Locations library"}>
-      <div className="bible-library-heading"><span>{assets.length} {assets.length === 1 ? label : `${label}s`}</span><span>Reference library</span></div>
+      <div className="bible-library-heading" hidden={!!activeAssetId}><span>{assets.length} {assets.length === 1 ? label : `${label}s`}</span><span>Reference library</span></div>
       {assets.length === 0 ? (
         <div className="bible-empty-library"><ImageIcon /><h3>{label === "character" ? "No characters yet" : "No locations yet"}</h3><p>Create or upload a picture in the New {label} panel.</p></div>
       ) : (
-        <div className="bible-media-grid">
+        <div className={activeAssetId ? "bible-detail-host" : "bible-media-grid"}>
           {assets.map((asset) => {
             const takes = (variants[asset.id] ?? []).filter((v) => v.media_url);
             return (
-              <AssetCard
+              <BibleAssetEntry
                 key={asset.id}
                 asset={asset}
+                active={activeAssetId === asset.id} hidden={!!activeAssetId && activeAssetId !== asset.id}
+                onOpen={() => onOpenAsset(asset.id)} onBack={onBack} modelControl={detailModelControl}
                 takes={takes}
                 busy={busyId !== null}
                 builtFrom={null}
@@ -670,7 +673,7 @@ function AssetTab({
                 onSetPrimary={onSetPrimary}
                 onDeleteTake={onDeleteTake}
                 onDeleteAsset={onDeleteAsset}
-                onUpload={onUpload}
+                onUpload={() => pickImageFile((file) => onUpload(asset, file))}
                 onExpand={onExpand}
               />
             );
@@ -687,6 +690,7 @@ function FramesTab({
   composerOpen,
   onCloseComposer,
   modelControl,
+  detailModelControl, activeAssetId, onOpenAsset, onBack,
   characters,
   locations,
   frames,
@@ -706,6 +710,7 @@ function FramesTab({
   composerOpen: boolean;
   onCloseComposer: () => void;
   modelControl: ReactNode;
+  detailModelControl: ReactNode; activeAssetId: string | null; onOpenAsset: (id: string) => void; onBack: () => void;
   characters: BibleAsset[];
   locations: BibleAsset[];
   frames: BibleAsset[];
@@ -772,8 +777,8 @@ function FramesTab({
   }
 
   return (
-    <div className="bible-section-layout" data-composer-open={composerOpen}>
-      <aside className="bible-composer" aria-label="New frame" hidden={!composerOpen}>
+    <div className="bible-section-layout" data-composer-open={composerOpen && !activeAssetId} data-detail-open={!!activeAssetId}>
+      <aside className="bible-composer" aria-label="New frame" hidden={!composerOpen || !!activeAssetId}>
         <div className="bible-panel-heading"><h3>New frame</h3><Button variant="ghost" size="icon" aria-label="Close creation panel" onClick={onCloseComposer}><X className="h-3.5 w-3.5" /></Button></div>
         <div className="bible-composer-body">
         {modelControl}
@@ -862,15 +867,17 @@ function FramesTab({
         </div>
       </aside>
       <section className="bible-library" aria-label="Frames library">
-      <div className="bible-library-heading"><span>{frames.length} {frames.length === 1 ? "frame" : "frames"}</span><span>Storyboard pictures</span></div>
+      <div className="bible-library-heading" hidden={!!activeAssetId}><span>{frames.length} {frames.length === 1 ? "frame" : "frames"}</span><span>Storyboard pictures</span></div>
       {frames.length === 0 ? (
         <div className="bible-empty-library"><ImageIcon /><h3>No frames yet</h3><p>Create a frame with a scene description and optional references.<br />Use it as a shot’s start or end frame.</p></div>
       ) : (
-        <div className="bible-media-grid">
+        <div className={activeAssetId ? "bible-detail-host" : "bible-media-grid"}>
           {frames.map((f) => (
-            <AssetCard
+            <BibleAssetEntry
               key={f.id}
               asset={f}
+              active={activeAssetId === f.id} hidden={!!activeAssetId && activeAssetId !== f.id}
+              onOpen={() => onOpenAsset(f.id)} onBack={onBack} modelControl={detailModelControl}
               takes={(variants[f.id] ?? []).filter((v) => v.media_url)}
               busy={busyId !== null}
               builtFrom={builtFromLabel(f, characters, locations)}
@@ -892,204 +899,3 @@ function FramesTab({
   );
 }
 
-// One asset (character / location / frame): primary picture + meta, its other
-// takes, and retake / variation / edit (plus upload, for characters/locations).
-function AssetCard({
-  asset,
-  takes,
-  busy,
-  builtFrom,
-  basePrompt,
-  onRetake,
-  onEdit,
-  imageCapabilities,
-  generationContext,
-  onSetPrimary,
-  onDeleteTake,
-  onDeleteAsset,
-  onUpload,
-  onExpand,
-}: {
-  asset: BibleAsset;
-  takes: BibleAssetVariant[];
-  busy: boolean;
-  builtFrom: string | null;
-  basePrompt: string;
-  onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<Result<void>>;
-  imageCapabilities: ImageCapabilities;
-  generationContext: BibleGenerationContext;
-  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<Result<void>>;
-  onSetPrimary: (variant: BibleAssetVariant) => void;
-  onDeleteTake: (variant: BibleAssetVariant) => void;
-  onDeleteAsset: (asset: BibleAsset) => void;
-  onUpload?: (asset: BibleAsset, file: File) => void;
-  onExpand: (url: string) => void;
-}) {
-  const primary = primaryPicture(takes);
-  const actionModel = getAvailableImageModels().find((model) => model.id === generationContext.modelId);
-  const [mode, setMode] = useState<"variation" | "edit" | null>(null);
-  const [pending, setPending] = useState<"retake" | "variation" | "edit" | null>(null);
-  const [variation, setVariation] = useState(basePrompt);
-  const [variationEdited, setVariationEdited] = useState(false);
-  const [editInstruction, setEditInstruction] = useState("");
-
-  useUnsavedWork("draft", variationEdited, variation);
-  useUnsavedWork("draft", !!editInstruction, editInstruction);
-
-  // Track which action is running so only that button shows the spinner.
-  async function run(action: "retake" | "variation" | "edit", fn: () => Promise<unknown>) {
-    setPending(action);
-    try {
-      await fn();
-    } finally {
-      setPending(null);
-    }
-  }
-
-  return (
-    <article className="bible-entry">
-      <div className="bible-entry-content">
-        <BiblePictureTile
-          url={primary?.media_url ?? null}
-          actionLabel={`View ${asset.name} picture`}
-          size="lg"
-          onExpand={() => primary?.media_url && onExpand(primary.media_url)}
-        />
-        <div className="bible-entry-info">
-          <div className="flex items-start justify-between gap-2">
-            <span className="truncate text-sm font-medium">{asset.name}</span>
-            <BiblePictureActions name={asset.name} hasDraft={variationEdited || !!editInstruction}>
-          <PictureMeta variant={primary} />
-          {builtFrom && <p className="text-[10px] text-muted-foreground">Built from: {builtFrom}</p>}
-
-          {takes.length > 1 && (
-            <div>
-              <p className="mb-1 text-[10px] text-muted-foreground">Takes (click to use)</p>
-              <div className="flex flex-wrap gap-1.5">
-                {takes.map((t, index) => (
-                  <BiblePictureTile
-                    key={t.id}
-                    url={t.media_url}
-                    label={`take ${index + 1} for ${asset.name}`}
-                    actionLabel={`Use take ${index + 1} for ${asset.name}`}
-                    disabled={busy}
-                    active={t.is_primary}
-                    onClick={() => onSetPrimary(t)}
-                    onDelete={() => onDeleteTake(t)}
-                    onExpand={() => t.media_url && onExpand(t.media_url)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <p className="bible-action-model">{actionModel?.name} · {modelProviderName(actionModel)}</p>
-          <div className="bible-cost"><GenerationCost modelId={generationContext.modelId} request={{kind: mode === "edit" ? "image_edit" : primary || builtFrom ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId, subject_id: asset.id}} /></div>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" className="text-xs" disabled={busy || (!!primary && !imageCapabilities.composition)} title={!imageCapabilities.composition && primary ? "Choose a model that accepts reference images." : undefined} onClick={() => run("retake", () => onRetake(asset))}>
-              {pending === "retake" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-              Retake
-            </Button>
-            <Button
-              size="sm"
-              variant={mode === "variation" ? "default" : "outline"}
-              className="text-xs"
-              disabled={busy || (!!primary && !imageCapabilities.composition && !variationEdited && mode !== "variation")}
-              aria-label="Variation…"
-              aria-expanded={mode === "variation"}
-              aria-controls={`variation-${asset.id}`}
-              title={!imageCapabilities.composition && primary ? "Choose a model that accepts reference images." : undefined}
-              onClick={() => { if (!variationEdited) setVariation(basePrompt); setMode((m) => (m === "variation" ? null : "variation")); }}
-            >
-              <Sparkles className="h-3 w-3 mr-1" />
-              Variation…{variationEdited && <span className="text-[10px] text-muted-foreground">Draft</span>}
-            </Button>
-            <Button
-              size="sm"
-              variant={mode === "edit" ? "default" : "outline"}
-              className="text-xs"
-              disabled={busy || !primary || (!imageCapabilities.editing && !editInstruction && mode !== "edit")}
-              aria-label="Edit…"
-              aria-expanded={mode === "edit"}
-              aria-controls={`edit-${asset.id}`}
-              title={!imageCapabilities.editing ? "Choose a model that supports image editing." : undefined}
-              onClick={() => setMode((m) => (m === "edit" ? null : "edit"))}
-            >
-              <Wand2 className="h-3 w-3 mr-1" />
-              Edit…{editInstruction && <span className="text-[10px] text-muted-foreground">Draft</span>}
-            </Button>
-            {onUpload && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs"
-                disabled={busy}
-                onClick={() => pickImageFile((file) => onUpload(asset, file))}
-              >
-                <Upload className="h-3 w-3 mr-1" />
-                Upload
-              </Button>
-            )}
-          </div>
-
-          {mode === "variation" && (
-            <div id={`variation-${asset.id}`} className="flex flex-wrap items-end gap-2">
-              <Textarea
-                autoFocus
-                className="min-h-[40px] flex-1 text-xs resize-none"
-                disabled={busy}
-                aria-label={`Variation prompt for ${asset.name}`}
-                placeholder="Tweak the prompt for a variation..."
-                value={variation}
-                onChange={(e) => { setVariation(e.target.value); setVariationEdited(e.target.value !== basePrompt); }}
-              />
-              <Button
-                size="sm"
-                className="text-xs"
-                disabled={busy || !variation.trim() || (!!primary && !imageCapabilities.composition)}
-                onClick={() => run("variation", async () => {
-                  const result = await onRetake(asset, variation);
-                  if (result.ok) { setVariationEdited(false); setMode(null); }
-                })}
-              >
-                {pending === "variation" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                Generate variation
-              </Button>
-              <Button type="button" variant="ghost" size="sm" disabled={busy} aria-label={`Cancel variation for ${asset.name}`} onClick={() => { setVariation(basePrompt); setVariationEdited(false); setMode(null); }}>Cancel</Button>
-            </div>
-          )}
-
-          {mode === "edit" && primary && (
-            <div id={`edit-${asset.id}`} className="flex flex-wrap items-end gap-2">
-              <Textarea
-                autoFocus
-                className="min-h-[40px] flex-1 text-xs resize-none"
-                disabled={busy}
-                aria-label={`Edit instruction for ${asset.name}`}
-                placeholder="Edit the current picture (e.g. make it night, add rain)..."
-                value={editInstruction}
-                onChange={(e) => setEditInstruction(e.target.value)}
-              />
-              <Button
-                size="sm"
-                className="text-xs"
-                disabled={busy || !editInstruction.trim() || !imageCapabilities.editing}
-                onClick={() => run("edit", async () => {
-                  const result = await onEdit(asset, primary, editInstruction);
-                  if (result.ok) { setEditInstruction(""); setMode(null); }
-                })}
-              >
-                {pending === "edit" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
-                Generate edit
-              </Button>
-              <Button type="button" variant="ghost" size="sm" disabled={busy} aria-label={`Cancel edit for ${asset.name}`} onClick={() => { setEditInstruction(""); setMode(null); }}>Cancel</Button>
-            </div>
-          )}
-          <Button size="sm" variant="ghost" className="bible-delete-entry" disabled={busy} onClick={() => onDeleteAsset(asset)} aria-label={`Delete ${asset.name}`}><Trash2 className="h-3.5 w-3.5" /> Delete entry</Button>
-            </BiblePictureActions>
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-}
