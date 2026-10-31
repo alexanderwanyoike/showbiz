@@ -70,8 +70,10 @@ export function BibleAssetEntry({
   onExpand: (url: string) => void;
 }) {
   const primary = primaryPicture(takes);
-  const orderedTakes = [...takes].sort((left, right) =>
-    ((Date.parse(left.created_at) || 0) - (Date.parse(right.created_at) || 0)) || left.id.localeCompare(right.id),
+  const orderedTakes = [...takes].sort(
+    (left, right) =>
+      (Date.parse(left.created_at) || 0) -
+        (Date.parse(right.created_at) || 0) || left.id.localeCompare(right.id),
   );
   const pictureModel = getAvailableImageModels().find(
     (model) => model.id === primary?.model_id,
@@ -88,11 +90,15 @@ export function BibleAssetEntry({
   const wasActive = useRef(false);
   const takeFocus = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (!active) { takeFocus.current = null; return; }
+    if (!active) {
+      takeFocus.current = null;
+      return;
+    }
     if (!busy && takeFocus.current) {
       const target = takeFocus.current;
       takeFocus.current = null;
-      if (target.isConnected && document.activeElement === document.body) target.focus();
+      if (target.isConnected && document.activeElement === document.body)
+        target.focus();
     }
   }, [active, busy]);
   useEffect(() => {
@@ -222,7 +228,10 @@ export function BibleAssetEntry({
                   disabled={busy}
                   active={take.is_primary}
                   onClick={() => {
-                    takeFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+                    takeFocus.current =
+                      document.activeElement instanceof HTMLElement
+                        ? document.activeElement
+                        : null;
                     onSetPrimary(take);
                   }}
                   onDelete={() => onDeleteTake(take)}
