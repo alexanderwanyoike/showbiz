@@ -35,3 +35,17 @@ it("keeps a dirty workspace mounted until Stay or Discard is chosen for an inter
   expect(screen.queryByRole("alertdialog", { name: "Discard unsaved changes?" })).toBeNull();
   router.dispose();
 });
+it("discards drafts held by a persistent project view without leaving navigation blocked", async () => {
+  const router = createMemoryRouter([{ path: "*", element: createElement(Application) }]);
+  render(createElement(RouterProvider, { router }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "New Storyboard" }));
+  await user.type(screen.getByPlaceholderText("Storyboard name..."), "Unfinished board");
+  await user.click(screen.getByRole("link", { name: "Bible" }));
+  await user.click(within(await screen.findByRole("alertdialog", { name: "Discard unsaved changes?" })).getByRole("button", { name: "Discard and continue" }));
+  await screen.findByRole("textbox", { name: "Character name" });
+  await user.click(screen.getByRole("link", { name: "Storyboards" }));
+  expect(screen.queryByRole("alertdialog", { name: "Discard unsaved changes?" })).toBeNull();
+  expect(await screen.findByRole("button", { name: "New Storyboard" })).toBeTruthy();
+  router.dispose();
+});
