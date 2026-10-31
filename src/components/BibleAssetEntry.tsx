@@ -217,6 +217,7 @@ export function BibleAssetEntry({
                   key={take.id}
                   url={take.media_url}
                   label={`take ${index + 1} for ${asset.name}`}
+                  caption={`Take ${index + 1}`}
                   actionLabel={`Use take ${index + 1} for ${asset.name}`}
                   disabled={busy}
                   active={take.is_primary}

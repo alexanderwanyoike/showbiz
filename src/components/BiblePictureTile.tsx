@@ -4,6 +4,7 @@ import { Check, ImageIcon, Maximize2, Trash2 } from "lucide-react";
 export function BiblePictureTile({
   url,
   label,
+  caption,
   actionLabel,
   hint,
   active,
@@ -15,6 +16,7 @@ export function BiblePictureTile({
 }: {
   url: string | null;
   label?: string;
+  caption?: string;
   actionLabel?: string;
   hint?: string;
   active?: boolean;
@@ -51,7 +53,7 @@ export function BiblePictureTile({
         )}
         {label && (
           <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-[10px] text-white">
-            {label}
+            {caption ?? label}
           </span>
         )}
         {active && (
