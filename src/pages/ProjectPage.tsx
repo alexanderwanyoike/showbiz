@@ -100,6 +100,7 @@ export default function ProjectPage() {
     try {
       await deleteStoryboard(storyboardId);
       setStoryboards((prev) => prev.filter((s) => s.id !== storyboardId));
+      window.dispatchEvent(new Event("showbiz:project-changed"));
     } catch (error) {
       console.error("Failed to delete storyboard:", error);
       alert("Failed to delete storyboard");
@@ -117,6 +118,7 @@ export default function ProjectPage() {
       const updated = await updateProject(id, editedName.trim());
       if (updated) {
         setProject(updated);
+      window.dispatchEvent(new Event("showbiz:project-changed"));
       }
       setIsEditingName(false);
     } catch (error) {

@@ -50,8 +50,11 @@ export function ProjectNavigator() {
           setError(cause instanceof Error ? cause.message : String(cause));
       }
     }
+    const refresh = () => { void load(); };
+    window.addEventListener("showbiz:project-changed", refresh);
     void load();
     return () => {
+      window.removeEventListener("showbiz:project-changed", refresh);
       cancelled = true;
     };
   }, [location.pathname]);

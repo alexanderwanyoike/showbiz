@@ -454,6 +454,7 @@ export default function StoryboardPage() {
       const updated = await updateStoryboard(id, editedName.trim());
       if (updated) {
         setStoryboard(updated);
+      window.dispatchEvent(new Event("showbiz:project-changed"));
       }
       setIsEditingName(false);
     } catch (error) {

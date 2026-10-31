@@ -64,6 +64,7 @@ export default function WorkspacePage() {
     try {
       await deleteProject(id);
       setProjects((prev) => prev.filter((p) => p.id !== id));
+      window.dispatchEvent(new Event("showbiz:project-changed"));
     } catch (error) {
       console.error("Failed to delete project:", error);
       alert("Failed to delete project");
