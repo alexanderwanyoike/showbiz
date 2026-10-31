@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Clapperboard, Download, Palette, Settings } from "lucide-react";
 import { useUpdates } from "../hooks/useUpdates";
 import { SettingsDialog } from "./SettingsDialog";
@@ -18,6 +18,7 @@ export function Header({
   children?: ReactNode;
   menu?: (actions: { openSettings: (section: MenuSettingsSection) => void; reportError: (message: string) => void; openShortcuts: () => void }) => ReactNode;
 }) {
+  const settingsOrigin = useRef<HTMLElement | null>(null);
   const chrome = useRef<HTMLElement>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [menuError, setMenuError] = useState<string | null>(null);
@@ -27,13 +28,19 @@ export function Header({
     "providers" | "updates" | "appearance"
   >("providers");
   const { status: updateStatus } = useUpdates();
+  function openSettings(section: MenuSettingsSection) {
+    settingsOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSettingsSection(section);
+    setSettingsOpen(true);
+  }
+  useEffect(() => { if (!settingsOpen && settingsOrigin.current?.isConnected) settingsOrigin.current.focus(); }, [settingsOpen]);
   return (
     <header ref={chrome} className="desktop-chrome integrated-titlebar" data-native-titlebar={window.showbiz?.desktop?.customTitlebar ? "true" : "false"} data-desktop-platform={window.showbiz?.desktop?.platform}>
       <div className="desktop-wordmark" aria-label="Showbiz">
         <Clapperboard size={20} />
         <span>Showbiz</span>
       </div>
-      {menu?.({ openSettings: (section) => { setSettingsSection(section); setSettingsOpen(true); }, reportError: setMenuError, openShortcuts: () => setShortcutsOpen(true) })}
+      {menu?.({ openSettings, reportError: setMenuError, openShortcuts: () => setShortcutsOpen(true) })}
       {children}
       <span className="desktop-chrome-caption">{caption}</span>
       <div className="desktop-chrome-actions">
@@ -42,10 +49,7 @@ export function Header({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              setSettingsSection("updates");
-              setSettingsOpen(true);
-            }}
+            onClick={() => openSettings("updates")}
           >
             <Download size={13} />
             <span className="desktop-update-label">{updateStatus.state === "downloaded"
@@ -55,19 +59,13 @@ export function Header({
         )}
         <WorkspaceCommand
           label="Appearance"
-          onClick={() => {
-            setSettingsSection("appearance");
-            setSettingsOpen(true);
-          }}
+          onClick={() => openSettings("appearance")}
         >
           <Palette size={17} />
         </WorkspaceCommand>
         <WorkspaceCommand
           label="Settings"
-          onClick={() => {
-            setSettingsSection("providers");
-            setSettingsOpen(true);
-          }}
+          onClick={() => openSettings("providers")}
         >
           <Settings size={17} />
         </WorkspaceCommand>
