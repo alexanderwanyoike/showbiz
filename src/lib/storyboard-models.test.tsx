@@ -586,5 +586,9 @@ it("keeps an in-flight frame edit visible and retains its prompt after provider 
     within(dialog).getByRole("button", { name: "Edit Image" }),
   ).toHaveProperty("disabled", false);
   await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", {name:"Edit frame for shot 1"})));
+  await waitFor(() =>
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Edit frame for shot 1" }),
+    ),
+  );
 });
