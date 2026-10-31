@@ -64,7 +64,7 @@ function createProviderRecord<T>(initialValue: T): Record<ApiKeyProvider, T> {
 function modelSummary(provider: ProviderSetting): string {
   if (provider.id === "fal-billing") return "Actual charges only; generation uses your fal.ai key.";
   if (provider.modelNames.length === 0) {
-    return "No generation models currently enabled";
+    return "Saved credential; no enabled generation models";
   }
 
   const visibleNames = provider.modelNames.slice(0, 3).join(", ");
@@ -92,6 +92,10 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
         API_KEY_PROVIDERS,
         apiKeyStatus,
         MODEL_CREDENTIAL_REQUIREMENTS
+      ).filter((provider) =>
+        provider.isConfigured ||
+        provider.modelNames.length > 0 ||
+        provider.id === "fal-billing"
       ),
     [apiKeyStatus]
   );
@@ -183,7 +187,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
   }
 
   async function handleDeleteKey(provider: ApiKeyProvider) {
-    if (!confirm("Remove this API key from the database?")) return;
+    if (!confirm("Remove this saved key from Showbiz on this device? This does not revoke the key at the provider.")) return;
 
     setSavingProvider(provider);
     try {
@@ -214,7 +218,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted-foreground">
               <KeyRound className="h-4 w-4 shrink-0" />
-              <span className="truncate">Saved in the local database</span>
+              <span className="truncate">Saved on this device</span>
             </div>
             <Button
               variant="outline"
@@ -409,7 +413,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
               {configuredCount} of {providerSettings.length} credentials saved
             </p>
             <p className="text-right text-xs text-muted-foreground">
-              Keys are stored in the local Showbiz database.
+              Keys are saved on this device and are not included in project files.
             </p>
             </> : <p className="text-xs text-muted-foreground">{section === "appearance" ? "Appearance changes are saved on this device." : "Download and install updates when you are ready."}</p>}
           </DialogFooter>

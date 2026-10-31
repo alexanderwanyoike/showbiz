@@ -5,6 +5,7 @@ The audit follows the existing native document workspace and [Apple toolbar guid
 | Finding | Correction |
 | --- | --- |
 | A rate editor inside each shot or asset appeared to edit that item, but changed all projects on the device. | Model pricing opens a clearly titled device-wide dialog. The nearby generation control keeps read-only cost details. |
+| Disabled providers invited key entry despite having no usable generation models. | Setup shows enabled providers and the optional FAL billing connection. Previously saved inactive credentials remain available for removal. |
 | A saved API key was labeled Connected without checking connectivity. | Preferences says Key saved and counts saved credentials. Local server availability is not inferred from key storage. |
 | Bundled published prices looked like live provider rates. | Published snapshots, cached API rates and manual estimates have distinct labels and source dates. |
 | A provider historical average could be mistaken for a quote adjusted to the chosen video settings. | The estimate says provider history and states that duration, resolution, audio and input media are not included in that calculation. |

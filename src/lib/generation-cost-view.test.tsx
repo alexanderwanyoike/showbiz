@@ -106,3 +106,17 @@ it("names the generation type and video settings affected by a device-wide rate"
   await userEvent.setup().click(screen.getByRole("button", { name: "Model pricing…" }));
   expect(screen.getByText("Video · 720p · Audio on")).toBeTruthy();
 });
+it("cancels a staged custom rate with Escape without a second confirmation", async () => {
+  const { default: userEvent } = await import("@testing-library/user-event");
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockResolvedValue({ ok: true, value: null });
+  render(createElement(GenerationCost, { modelId: "veo-3.1-openrouter", request: { kind: "video", duration: "8s" } }));
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Model pricing…" }));
+  await user.type(screen.getByLabelText("USD per second"), "0.13");
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog", { name: "Model pricing" })).toBeNull();
+  expect(confirm).not.toHaveBeenCalled();
+  confirm.mockRestore();
+});

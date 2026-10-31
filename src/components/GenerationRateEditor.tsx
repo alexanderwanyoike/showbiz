@@ -15,7 +15,6 @@ export function GenerationRateEditor({
   provider,
   request,
   price,
-  onDirtyChange,
   onBusyChange,
   onCancel,
 }: {
@@ -23,7 +22,6 @@ export function GenerationRateEditor({
   provider: string;
   request: GenerationCostRequest;
   price?: GenerationPrice;
-  onDirtyChange?: (dirty: boolean) => void;
   onBusyChange?: (busy: boolean) => void;
   onCancel?: () => void;
 }) {
@@ -32,9 +30,6 @@ export function GenerationRateEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  useEffect(() => {
-    onDirtyChange?.(!!amount || !!source);
-  }, [amount, source, onDirtyChange]);
   useEffect(() => {
     onBusyChange?.(saving);
   }, [saving, onBusyChange]);
