@@ -2005,6 +2005,13 @@
   dependencies:
     "@types/node" "*"
 
+"@types/yauzl@^3.4.0":
+  version "3.4.0"
+  resolved "https://registry.yarnpkg.com/@types/yauzl/-/yauzl-3.4.0.tgz#93de17db1589472d30b4e106c5e7711bcf32a5e9"
+  integrity sha512-NRPn5w6h8dhcnmx3YIRQcqMywY/+nND/uOkJessedcrowO3C0AssHp3tMJpxKAwOhFOo0OV1y9VtsC5hbKKBAw==
+  dependencies:
+    "@types/node" "*"
+
 "@types/yazl@^3.3.1":
   version "3.3.1"
   resolved "https://registry.yarnpkg.com/@types/yazl/-/yazl-3.3.1.tgz#01654f3e98e35b67aab89ece3491993e5b00e114"
@@ -3767,6 +3774,11 @@ pe-library@^0.4.1:
   resolved "https://registry.yarnpkg.com/pe-library/-/pe-library-0.4.1.tgz#e269be0340dcb13aa6949d743da7d658c3e2fbea"
   integrity sha512-eRWB5LBz7PpDu4PUlwT0PhnQfTQJlDDdPa35urV4Osrm0t0AqQFGn+UIkU3klZvwJ8KPO3VbBFsXquA6p6kqZw==
 
+pend@~1.2.0:
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/pend/-/pend-1.2.0.tgz#7a57eb550a6783f9115331fcf4663d5c8e007a50"
+  integrity sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg==
+
 picocolors@1.1.1, picocolors@^1.1.1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/picocolors/-/picocolors-1.1.1.tgz#3d321af3eab939b083c8f929a1d12cda81c26b6b"
@@ -4755,6 +4767,13 @@ yargs@^17.6.2:
     string-width "^4.2.3"
     y18n "^5.0.5"
     yargs-parser "^21.1.1"
+
+yauzl@^3.4.0:
+  version "3.4.0"
+  resolved "https://registry.yarnpkg.com/yauzl/-/yauzl-3.4.0.tgz#88b2a21455f37ca7dccf2eeb33bacb4392322719"
+  integrity sha512-jIH9yLR9wqr0wOS0TpBvo/g/2UgZH5qePVbjgRliiF0BYvOZyaBknKsF+x9Iht0O6sqgnB93rCICdOZFecJuDw==
+  dependencies:
+    pend "~1.2.0"
 
 yazl@^3.3.1:
   version "3.3.1"

@@ -2,12 +2,29 @@ import { afterEach, expect, it } from "vitest";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { open, type Entry, type ZipFile } from "yauzl";
 import { openDatabase, loadMigrations } from "./db";
 import { exportStoryboardPackage } from "./storyboard-package";
 
 const roots: string[] = [];
 afterEach(() => roots.splice(0).forEach((root) => rmSync(root, { recursive: true, force: true })));
+
+async function readArchive(file: string): Promise<Map<string, Buffer>> {
+  const zip = await new Promise<ZipFile>((resolve, reject) => open(file, { lazyEntries: true }, (error, archive) => error || !archive ? reject(error) : resolve(archive)));
+  return new Promise((resolve, reject) => {
+    const files = new Map<string, Buffer>();
+    zip.on("error", reject);
+    zip.on("end", () => resolve(files));
+    zip.on("entry", (entry: Entry) => zip.openReadStream(entry, (error, stream) => {
+      if (error || !stream) { reject(error); return; }
+      const chunks: Buffer[] = [];
+      stream.on("data", (chunk: Buffer) => chunks.push(chunk));
+      stream.on("error", reject);
+      stream.on("end", () => { files.set(entry.fileName, Buffer.concat(chunks)); zip.readEntry(); });
+    }));
+    zip.readEntry();
+  });
+}
 
 it("exports every shot in storyboard order with the selected media and a portable manifest", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "showbiz-package-"));
@@ -24,7 +41,8 @@ it("exports every shot in storyboard order with the selected media and a portabl
   const destination = path.join(root, "Opening.sbz");
   const result = await exportStoryboardPackage(db, root, "sb", destination);
   expect(result).toEqual({ ok: true, value: { save_path: destination, shot_count: 2, media_count: 2 } });
-  const manifest: unknown = JSON.parse(execFileSync("unzip", ["-p", destination, "storyboard.json"], { encoding: "utf8" }));
+  const archive = await readArchive(destination);
+  const manifest: unknown = JSON.parse(archive.get("storyboard.json")!.toString());
   expect(manifest).toMatchObject({
     format: "showbiz-storyboard", version: 1, storyboard: { id: "sb", name: "Opening" },
     shots: [
@@ -32,7 +50,7 @@ it("exports every shot in storyboard order with the selected media and a portabl
       { id: "shot-b", order: 2, media: [] },
     ],
   });
-  expect(execFileSync("unzip", ["-p", destination, "shots/0001/video.mp4"], { encoding: "utf8" })).toBe("selected video");
+  expect(archive.get("shots/0001/video.mp4")!.toString()).toBe("selected video");
   expect(readFileSync(destination).subarray(0, 2).toString()).toBe("PK");
   db.close();
 });
