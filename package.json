@@ -13,12 +13,14 @@
     "dev:frontend": "vite dev",
     "dev:electron": "node scripts/dev-electron.mjs",
     "build:frontend": "vite build",
-    "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron --out-extension:.js=.cjs",
+    "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron --out-extension:.js=.cjs && yarn build:mcp",
     "package:electron": "yarn build:frontend && yarn build:electron && electron-builder",
     "test": "vitest run && yarn test:distribution",
     "test:watch": "vitest",
     "test:distribution": "node --test scripts/prepare-release.test.mjs",
-    "prepare:release": "node scripts/prepare-release.mjs"
+    "prepare:release": "node scripts/prepare-release.mjs",
+    "build:mcp": "node scripts/build-mcp.mjs",
+    "mcp": "node dist-electron/showbiz-mcp.cjs"
   },
   "build": {
     "appId": "com.showbiz.app",
@@ -130,7 +132,17 @@
     },
     "nsis": {
       "artifactName": "Showbiz.Setup.${version}.exe"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "dist-electron/showbiz-mcp.cjs",
+        "to": "mcp/showbiz-mcp.cjs"
+      },
+      {
+        "from": "dist-electron/mcp-LICENSES.txt",
+        "to": "mcp/mcp-LICENSES.txt"
+      }
+    ]
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",

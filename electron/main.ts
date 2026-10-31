@@ -1,3 +1,5 @@
+import { createMcpSession } from "./mcp/session";
+import { startLocalBridge } from "./mcp/local-bridge";
 import { app, BrowserWindow, ipcMain, Menu, dialog } from "electron";
 import path from "node:path";
 import fs from "node:fs";
@@ -28,7 +30,7 @@ function openShowbizDatabase() {
   return openDatabase(path.join(dataDir, "showbiz.db"), migrations);
 }
 
-function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: ReturnType<typeof createWorkRuntime>) {
+async function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: ReturnType<typeof createWorkRuntime>) {
   const db = openShowbizDatabase();
   const mediaDir = mediaBaseDir(appDataDir());
   // Save helpers assume the media subdirectories exist, exactly like the Rust
@@ -38,9 +40,20 @@ function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: Retu
     ...createDataCommands(db, mediaDir, createExportCommandsForApp(db, mediaDir)),
     ...updates.commands,
   });
+  const session = createMcpSession(
+    (command, args) => work.invoke(-1, command, args, invokeHandler),
+    () => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send("showbiz:data_changed"); },
+    () => { const status = work.work.getStatus(); return status.unsaved.length === 0 && status.active.length === 0 && !status.closing; },
+  );
   ipcMain.handle("showbiz:invoke", (event, cmd: string, args?: Record<string, unknown>) => {
-    return work.invoke(event.sender.id, cmd, args, invokeHandler);
+    return work.invoke(event.sender.id, cmd, args, session.invoke);
   });
+  try {
+    const bridge = await startLocalBridge(session.call);
+    app.once("will-quit", () => { void bridge.close().catch((cause: unknown) => console.error("Could not close the agent connection:", cause)); });
+  } catch (cause) {
+    console.error("The Showbiz agent connection is unavailable:", cause);
+  }
 
   ipcMain.handle("showbiz:read-media-bytes", (_event, relativePath: string) =>
     fs.promises.readFile(resolveMediaPath(mediaDir, relativePath))
@@ -74,7 +87,7 @@ function createWindow(work: ReturnType<typeof createWorkRuntime>) {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   hideDefaultApplicationMenu(Menu);
   const work = createWorkRuntime({
     windows: () => BrowserWindow.getAllWindows(),
@@ -86,7 +99,7 @@ app.whenReady().then(() => {
   });
   app.on("before-quit", work.beforeQuit);
   const updates = createUpdateRuntime({}, work.updateChanged, work.install);
-  registerIpc(updates, work);
+  await registerIpc(updates, work);
   createWindow(work);
   void updates.start();
 });
