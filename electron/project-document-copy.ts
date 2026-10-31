@@ -44,11 +44,13 @@ export async function copyProjectDocument(options: {
   options.source.prepare("VACUUM INTO ?").run(options.file);
   const db = openDatabase(options.file, options.migrations);
   try {
+    db.exec("PRAGMA secure_delete = ON");
     if (options.projectId)
       db.prepare("DELETE FROM projects WHERE id <> ?").run(options.projectId);
     db.exec(
       `DELETE FROM settings; PRAGMA application_id = ${DOCUMENT_APPLICATION_ID}`,
     );
+    db.exec("VACUUM");
     initMediaDirs(options.media);
     const paths = documentMediaPaths(db);
     const base = paths.length

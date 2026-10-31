@@ -134,7 +134,7 @@ export function createProjectDocuments(options: {
       try {
         const file = path.resolve(filePath);
         if (busy) throw new Error("A project file operation is in progress.");
-        fs.closeSync(fs.openSync(file, "wx"));
+        fs.closeSync(fs.openSync(file, "wx", 0o600));
         createdFile = file;
         release = lockProjectDocument(file);
         fs.mkdirSync(projectMediaDirectory(file));
@@ -249,8 +249,9 @@ export function createProjectDocuments(options: {
             "Choose a new filename. Save As does not replace another project or its media.",
           );
         release = lockProjectDocument(file);
-        active.db.prepare("VACUUM INTO ?").run(file);
+        fs.closeSync(fs.openSync(file, "wx", 0o600));
         created = true;
+        active.db.prepare("VACUUM INTO ?").run(file);
         await fs.promises.cp(
           projectMediaDirectory(active.file),
           projectMediaDirectory(file),
@@ -300,6 +301,7 @@ export function createProjectDocuments(options: {
         if (fs.existsSync(file) || fs.existsSync(projectMediaDirectory(file)))
           throw new Error("Choose a new filename for the converted project.");
         release = lockProjectDocument(file);
+        fs.closeSync(fs.openSync(file, "wx", 0o600));
         created = true;
         db = await copyProjectDocument({
           source: source.db,
