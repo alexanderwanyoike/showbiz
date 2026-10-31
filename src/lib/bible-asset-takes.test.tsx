@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import ProjectBibleView from "../components/ProjectBibleView";
@@ -141,9 +141,11 @@ it("keeps a primary-take deletion pending, then selects the surviving take and r
   expect(
     screen.getByRole("img", { name: "Ada current take" }).getAttribute("src"),
   ).toBe("/take-2.png");
-  expect(document.activeElement).toBe(
-    screen.getByRole("button", { name: "View Ada picture" }),
-  );
+  await waitFor(() => {
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "View Ada picture" }),
+    );
+  });
 });
 
 it("keeps the saved current picture and shows a retryable selection error", async () => {
