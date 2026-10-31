@@ -115,6 +115,7 @@ describe("get_api_key_status", () => {
       { provider: "fal", name: "fal.ai", is_configured: false, source: null },
       { provider: "replicate", name: "Replicate", is_configured: false, source: null },
       { provider: "openrouter", name: "OpenRouter", is_configured: false, source: null },
+      { provider: "local", name: "LocalAI", is_configured: false, source: null },
     ]);
   });
 
