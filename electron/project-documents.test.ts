@@ -198,6 +198,7 @@ it("converts one legacy library project with its media without copying credentia
         "utf8",
       ),
     ).toBe("frame");
+    expect(fs.readFileSync(path.join(directory, "Converted.showbiz")).includes(Buffer.from("private-secret"))).toBe(false);
     expect(old.get_projects()).toHaveLength(2);
     expect(
       createSettingsCommands(legacy).get_api_key({ provider: "fal" }),
