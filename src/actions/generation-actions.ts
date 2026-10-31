@@ -6,8 +6,8 @@ import type { VideoGenerationRequest } from "../lib/generation/types";
 
 export async function generateImageAction(prompt: string, modelId: ImageModelId = "imagen4"): Promise<string> {
   const model = getImageModel(modelId);
-  const apiKey = await getApiKey(model.apiKeyProvider);
-  if (!apiKey) throw new Error(`${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`);
+  const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
+  if (!apiKey && model.apiKeyProvider !== "local") throw new Error(`${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`);
   try {
     return await model.generateImage(prompt, apiKey);
   } catch (error) {
@@ -23,8 +23,8 @@ export async function generateAndSaveVideoAction(
   settings?: VideoGenerationSettings
 ): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
   const model = getVideoModel(modelId);
-  const apiKey = await getApiKey(model.apiKeyProvider);
-  if (!apiKey) {
+  const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
+  if (!apiKey && model.apiKeyProvider !== "local") {
     return { success: false, videoUrl: null, error: `${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.` };
   }
   try {
@@ -75,8 +75,8 @@ export async function generateAndSaveVideoRequestAction(
   request: VideoGenerationRequest
 ): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
   const model = getVideoModel(modelId);
-  const apiKey = await getApiKey(model.apiKeyProvider);
-  if (!apiKey) {
+  const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
+  if (!apiKey && model.apiKeyProvider !== "local") {
     return { success: false, videoUrl: null, error: `${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.` };
   }
   try {
@@ -122,8 +122,8 @@ export async function generateAndSaveVideoRequestAction(
 
 export async function editImageAction(sourceImageBase64: string, editPrompt: string, modelId: ImageModelId = "nano-banana"): Promise<string> {
   const model = getImageModel(modelId);
-  const apiKey = await getApiKey(model.apiKeyProvider);
-  if (!apiKey) throw new Error(`${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`);
+  const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
+  if (!apiKey && model.apiKeyProvider !== "local") throw new Error(`${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`);
   if (!model.supportsImageEditing || !model.editImage) throw new Error(`${model.name} does not support image editing.`);
   try {
     return await model.editImage(editPrompt, sourceImageBase64, apiKey);
@@ -141,8 +141,8 @@ export async function composeFrameAction(
   modelId: ImageModelId = "nano-banana"
 ): Promise<string> {
   const model = getImageModel(modelId);
-  const apiKey = await getApiKey(model.apiKeyProvider);
-  if (!apiKey) throw new Error(`${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`);
+  const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
+  if (!apiKey && model.apiKeyProvider !== "local") throw new Error(`${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`);
   if (!model.composeImage) throw new Error(`${model.name} does not support multi-reference composition.`);
   if (referenceImages.length === 0) throw new Error("Select at least one reference to compose a frame.");
   try {
@@ -154,7 +154,7 @@ export async function composeFrameAction(
 }
 
 export async function generateVideoPromptFromImage(imageBase64: string): Promise<string> {
-  const apiKey = await getApiKey("gemini");
+  const apiKey = (await getApiKey("gemini")) ?? "";
   if (!apiKey) throw new Error("Gemini API key is not configured. Please add it in Settings.");
   const prompt = `You are a video prompt expert. Analyze this image and generate a compelling video prompt that:
 1. Describes the scene in detail
@@ -167,7 +167,7 @@ Output ONLY the video prompt, nothing else.`;
 }
 
 export async function enhanceVideoPrompt(existingPrompt: string): Promise<string> {
-  const apiKey = await getApiKey("gemini");
+  const apiKey = (await getApiKey("gemini")) ?? "";
   if (!apiKey) throw new Error("Gemini API key is not configured. Please add it in Settings.");
   const prompt = `You are a video prompt expert. Enhance this video prompt to be more effective for AI video generation:
 

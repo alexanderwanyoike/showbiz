@@ -9,6 +9,7 @@ interface WorkWindow {
   on(event: "close", listener: (event: { preventDefault(): void }) => void): unknown;
 }
 const MUTATING_COMMANDS = new Set([
+  "set_local_generation_config",
   "begin_generation_usage",
   "record_generation_receipt",
   "finish_generation_usage",
