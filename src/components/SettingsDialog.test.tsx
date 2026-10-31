@@ -14,7 +14,13 @@ const api = vi.hoisted(() => ({
 }));
 const scrollIntoView = vi.fn();
 const updates = vi.hoisted(() => ({
-  getStatus: vi.fn().mockResolvedValue({ state: "current", installed_version: "1.0.2", last_checked_at: null }),
+  getStatus: vi
+    .fn()
+    .mockResolvedValue({
+      state: "current",
+      installed_version: "1.0.2",
+      last_checked_at: null,
+    }),
   subscribe: vi.fn(() => () => {}),
 }));
 vi.mock("../lib/update-client", () => ({ updateClient: updates }));
@@ -53,21 +59,43 @@ describe("SettingsDialog", () => {
   it("switches to Updates with the keyboard and preserves unsaved provider input", async () => {
     api.getApiKeyStatusAction.mockResolvedValue(emptyStatuses);
     const user = userEvent.setup();
-    render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
-    await user.click(await screen.findByRole("button", { name: "Configure Google AI (Gemini)" }));
+    render(
+      createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }),
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Configure Google AI (Gemini)",
+      }),
+    );
     await user.type(screen.getByLabelText("Google AI API key"), "draft-key");
     screen.getByRole("tab", { name: "Providers" }).focus();
-    await user.keyboard("{ArrowRight}");
-    expect(await screen.findByRole("region", { name: "Application updates" })).toBeTruthy();
-    await user.keyboard("{ArrowLeft}");
-    expect(screen.getByLabelText<HTMLInputElement>("Google AI API key").value).toBe("draft-key");
+    await user.keyboard("{ArrowDown}");
+    expect(
+      await screen.findByRole("region", { name: "Application updates" }),
+    ).toBeTruthy();
+    await user.keyboard("{ArrowUp}");
+    expect(
+      screen.getByLabelText<HTMLInputElement>("Google AI API key").value,
+    ).toBe("draft-key");
   });
 
   it("can open directly on the Updates tab", async () => {
     api.getApiKeyStatusAction.mockResolvedValue(emptyStatuses);
-    render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn(), initialSection: "updates" }));
-    expect(await screen.findByRole("region", { name: "Application updates" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Updates" }).getAttribute("aria-selected")).toBe("true");
+    render(
+      createElement(SettingsDialog, {
+        open: true,
+        onOpenChange: vi.fn(),
+        initialSection: "updates",
+      }),
+    );
+    expect(
+      await screen.findByRole("region", { name: "Application updates" }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("tab", { name: "Updates" })
+        .getAttribute("aria-selected"),
+    ).toBe("true");
   });
 
   it("puts provider controls in a named scrollable region", async () => {
@@ -77,11 +105,11 @@ describe("SettingsDialog", () => {
       createElement(SettingsDialog, {
         open: true,
         onOpenChange: vi.fn(),
-      })
+      }),
     );
 
     expect(
-      await screen.findByRole("region", { name: "API key providers" })
+      await screen.findByRole("region", { name: "API key providers" }),
     ).toBeTruthy();
   });
 
@@ -93,21 +121,21 @@ describe("SettingsDialog", () => {
       createElement(SettingsDialog, {
         open: true,
         onOpenChange: vi.fn(),
-      })
+      }),
     );
 
     await user.type(
       await screen.findByRole("searchbox", {
         name: "Search providers or models",
       }),
-      "Nano Banana"
+      "Nano Banana",
     );
 
     expect(
-      screen.getByRole("button", { name: "Configure Google AI (Gemini)" })
+      screen.getByRole("button", { name: "Configure Google AI (Gemini)" }),
     ).toBeTruthy();
     expect(
-      screen.queryByRole("button", { name: "Configure OpenAI" })
+      screen.queryByRole("button", { name: "Configure OpenAI" }),
     ).toBeNull();
   });
 
@@ -119,34 +147,28 @@ describe("SettingsDialog", () => {
       createElement(SettingsDialog, {
         open: true,
         onOpenChange: vi.fn(),
-      })
+      }),
     );
 
     await user.click(
       await screen.findByRole("button", {
         name: "Configure Google AI (Gemini)",
-      })
+      }),
     );
     const geminiInput = screen.getByLabelText("Google AI API key");
     await user.type(geminiInput, "draft-gemini-key");
 
-    await user.click(
-      screen.getByRole("button", { name: "Configure OpenAI" })
-    );
-    expect(
-      screen.queryByLabelText("Google AI API key")
-    ).toBeNull();
-    expect(
-      screen.getByLabelText("OpenAI API key")
-    ).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Configure OpenAI" }));
+    expect(screen.queryByLabelText("Google AI API key")).toBeNull();
+    expect(screen.getByLabelText("OpenAI API key")).toBeTruthy();
 
     await user.click(
       screen.getByRole("button", {
         name: "Configure Google AI (Gemini)",
-      })
+      }),
     );
     expect(
-      screen.getByLabelText<HTMLInputElement>("Google AI API key").value
+      screen.getByLabelText<HTMLInputElement>("Google AI API key").value,
     ).toBe("draft-gemini-key");
   });
 
@@ -155,26 +177,26 @@ describe("SettingsDialog", () => {
       emptyStatuses.map((status) =>
         status.provider === "replicate"
           ? { ...status, is_configured: true, source: "database" }
-          : status
-      )
+          : status,
+      ),
     );
 
     render(
       createElement(SettingsDialog, {
         open: true,
         onOpenChange: vi.fn(),
-      })
+      }),
     );
 
     const providerButtons = await screen.findAllByRole("button", {
       name: /^Configure /,
     });
     expect(providerButtons[0].getAttribute("aria-label")).toBe(
-      "Configure Replicate"
+      "Configure Replicate",
     );
     expect(screen.getByText("Connected")).toBeTruthy();
     expect(
-      screen.queryByRole("button", { name: "Remove Replicate API key" })
+      screen.queryByRole("button", { name: "Remove Replicate API key" }),
     ).toBeNull();
   });
 
@@ -186,11 +208,11 @@ describe("SettingsDialog", () => {
       createElement(SettingsDialog, {
         open: true,
         onOpenChange: vi.fn(),
-      })
+      }),
     );
 
     await user.click(
-      await screen.findByRole("button", { name: "Configure Replicate" })
+      await screen.findByRole("button", { name: "Configure Replicate" }),
     );
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
@@ -205,7 +227,7 @@ describe("SettingsDialog", () => {
         () =>
           new Promise((resolve) => {
             finishRefresh = resolve;
-          })
+          }),
       );
     api.saveApiKeyAction.mockResolvedValue({ success: true });
 
@@ -213,22 +235,22 @@ describe("SettingsDialog", () => {
       createElement(SettingsDialog, {
         open: true,
         onOpenChange: vi.fn(),
-      })
+      }),
     );
 
     await user.click(
       await screen.findByRole("button", {
         name: "Configure Google AI (Gemini)",
-      })
+      }),
     );
     await user.type(screen.getByLabelText("Google AI API key"), "new-key");
     await user.click(screen.getByRole("button", { name: "Save key" }));
 
     await waitFor(() =>
-      expect(api.getApiKeyStatusAction).toHaveBeenCalledTimes(2)
+      expect(api.getApiKeyStatusAction).toHaveBeenCalledTimes(2),
     );
     expect(
-      screen.getByRole("button", { name: "Configure Google AI (Gemini)" })
+      screen.getByRole("button", { name: "Configure Google AI (Gemini)" }),
     ).toBeTruthy();
 
     finishRefresh?.(emptyStatuses);
@@ -238,8 +260,14 @@ describe("SettingsDialog", () => {
     api.getApiKeyStatusAction.mockResolvedValue(emptyStatuses);
     api.saveApiKeyAction.mockResolvedValue({ success: true });
     const user = userEvent.setup();
-    render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
-    await user.click(await screen.findByRole("button", { name: "Configure Google AI (Gemini)" }));
+    render(
+      createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }),
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Configure Google AI (Gemini)",
+      }),
+    );
     await user.type(screen.getByLabelText("Google AI API key"), "draft-only");
     expect(applicationWork.snapshot().unsaved).toEqual(["credentials"]);
     await user.click(screen.getByRole("tab", { name: "Updates" }));
@@ -249,5 +277,31 @@ describe("SettingsDialog", () => {
     await waitFor(() => expect(applicationWork.snapshot().unsaved).toEqual([]));
     expect(applicationWork.getStatus().active).toEqual([]);
   });
+});
 
+it("selects a material and accent while retaining Showbiz's native appearance", async () => {
+  api.getApiKeyStatusAction.mockResolvedValue(
+    API_KEY_PROVIDERS.map((provider) => ({
+      provider: provider.id,
+      name: provider.name,
+      is_configured: false,
+      source: null,
+    })),
+  );
+  const user = userEvent.setup();
+  render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
+  await user.click(await screen.findByRole("tab", { name: "Appearance" }));
+  await user.click(
+    screen.getByRole("radio", { name: "Aluminium" }),
+  );
+  await user.click(screen.getByRole("radio", { name: "Emerald" }));
+  expect(document.documentElement.dataset.material).toBe("aluminium");
+  expect(document.documentElement.dataset.accent).toBe("sage");
+  expect(
+    JSON.parse(localStorage.getItem("showbiz-appearance") ?? "{}") as unknown,
+  ).toEqual({ material: "aluminium", accent: "sage" });
+  await user.click(
+    screen.getByRole("radio", { name: "Showbiz native" }),
+  );
+  expect(document.documentElement.dataset.material).toBe("native");
 });
