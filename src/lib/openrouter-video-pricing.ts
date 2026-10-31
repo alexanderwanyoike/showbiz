@@ -5,14 +5,11 @@ import type {
   GenerationPriceRate,
 } from "../../shared/generation-cost";
 
-const catalogSchema = z.object({
-  data: z.array(
-    z.object({
-      id: z.string(),
-      supported_resolutions: z.array(z.string()),
-      pricing_skus: z.record(z.string(), z.union([z.string(), z.number()])),
-    }),
-  ),
+const catalogSchema = z.object({ data: z.array(z.unknown()) });
+const modelSchema = z.object({
+  id: z.string(),
+  supported_resolutions: z.array(z.string()),
+  pricing_skus: z.record(z.string(), z.union([z.string(), z.number()])),
 });
 export async function getOpenRouterVideoPrice(
   modelId: string,
@@ -22,10 +19,13 @@ export async function getOpenRouterVideoPrice(
   const response = await fetch(url);
   if (!response.ok) return null;
   const parsed = catalogSchema.safeParse(await response.json());
-  const model = parsed.success
-    ? parsed.data.data.find((item) => item.id === slug)
-    : null;
-  if (!model) return null;
+  if (!parsed.success) return null;
+  const selected = parsed.data.data.find((item) =>
+    typeof item === "object" && item !== null && "id" in item && item.id === slug
+  );
+  const validated = modelSchema.safeParse(selected);
+  if (!validated.success) return null;
+  const model = validated.data;
   const rates: GenerationPriceRate[] = [];
   for (const resolution of model.supported_resolutions) {
     for (const audio of [false, true]) {
