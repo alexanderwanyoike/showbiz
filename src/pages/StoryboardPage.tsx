@@ -1,3 +1,4 @@
+import { ConfirmDeletion } from "../components/ConfirmDeletion";
 import { resolveShotVideoSettings, storeShotVideoSettings } from "../lib/shot-video-settings";
 import type { StoryboardSettingsValues } from "../../shared/storyboard-settings";
 import type { Result } from "../../shared/result";
@@ -145,6 +146,7 @@ export default function StoryboardPage() {
 
   const [storyboard, setStoryboard] = useState<Storyboard | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
+  const [shotToDelete, setShotToDelete] = useState<Shot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Selection State
@@ -440,21 +442,17 @@ export default function StoryboardPage() {
     }
   }
 
-  async function handleDeleteShot(shotId: string) {
+  async function handleDeleteShot(shotId: string): Promise<Result<null>> {
+    if(inFlightVideoShots.current.has(shotId)) return {ok:false,error:{code:"INVALID_INPUT",message:"Wait for this shot's current request to finish before deleting it."}};
     try {
-      await deleteShot(shotId);
-      if (selectedShotId === shotId) {
-        setSelectedShotId(null);
-      }
-      setShots((prev) => {
-        const filtered = prev.filter((s) => s.id !== shotId);
-        // Reorder remaining shots
-        return filtered.map((s, idx) => ({ ...s, order: idx + 1 }));
-      });
-    } catch (error) {
-      console.error("Failed to delete shot:", error);
-      alert("Failed to delete shot");
-    }
+      const deleted=await deleteShot(shotId);
+      if(!deleted) return {ok:false,error:{code:"NOT_FOUND",message:"The shot could not be deleted. Refresh the project or try again."}};
+      const index=shots.findIndex((shot)=>shot.id===shotId);
+      setSelectedShotId((current)=>current===shotId ? shots[index+1]?.id ?? shots[index-1]?.id ?? null : current);
+      setShots((previous)=>previous.filter((shot)=>shot.id!==shotId).map((shot,position)=>({...shot,order:position+1})));
+      setVideoSettingsDrafts((previous)=>{const next={...previous};delete next[shotId];return next;});
+      return {ok:true,value:null};
+    } catch {return {ok:false,error:{code:"IO_ERROR",message:"Could not confirm deletion. The shot is still listed; try again."}};}
   }
 
   async function handleMoveShot(index: number, direction: "up" | "down") {
@@ -923,6 +921,7 @@ export default function StoryboardPage() {
 
 
 
+      <ConfirmDeletion open={!!shotToDelete} onOpenChange={(open)=>{if(!open)setShotToDelete(null);}} title={`Delete shot ${shotToDelete?.order ?? ""}?`} description="This permanently deletes the shot and its image and video takes from this project. This cannot be undone." actionLabel="Delete shot" onConfirm={()=>shotToDelete ? handleDeleteShot(shotToDelete.id) : Promise.resolve({ok:false,error:{code:"NOT_FOUND",message:"The shot no longer exists."}})} />
       {inactiveVideoDraft && <div role="status" className="border-b border-border px-4 py-2 text-xs">Shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order} has unsaved video settings. <Button variant="link" size="sm" onClick={()=>setSelectedShotId(inactiveVideoDraft)}>Return to shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order}</Button></div>}
       {exportMessage && <p role="status" className="border-b border-border px-4 py-2 text-sm">{exportMessage}</p>}
       {(
@@ -937,12 +936,13 @@ export default function StoryboardPage() {
                 image_url: shot.image_url,
                 video_url: shot.video_url,
                 status: shot.status,
+                generationPending: pendingVideoShots.has(shot.id),
               }))}
               selectedShotId={selectedShotId}
               onSelectShot={setSelectedShotId}
               onAddShot={handleAddShot}
               onMoveShot={handleMoveShot}
-              onDeleteShot={handleDeleteShot}
+              onDeleteShot={(shotId)=>setShotToDelete(shots.find((shot)=>shot.id===shotId) ?? null)}
             />
           }
           previewSlot={

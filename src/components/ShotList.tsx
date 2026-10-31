@@ -11,6 +11,7 @@ export interface ShotListItem {
   image_url: string | null;
   video_url: string | null;
   status: "pending" | "generating" | "complete" | "failed";
+  generationPending?: boolean;
 }
 
 interface ShotListProps {
@@ -132,7 +133,8 @@ export default function ShotList({
                 </button>
                 <button
                   aria-label={`Delete shot ${shot.order}`}
-                  title="Delete shot"
+                  title={shot.status === "generating" || shot.generationPending ? "Wait for this shot's current request to finish." : "Delete shot"}
+                  disabled={shot.status === "generating" || shot.generationPending}
                   onClick={() => onDeleteShot(shot.id)}
                 >
                   <Trash2 size={12} />
