@@ -133,3 +133,13 @@ it("keeps the last subject request visible when a different model is selected fo
   expect(screen.getByText("Failed")).toBeTruthy();
   expect(screen.getByText("Image edit")).toBeTruthy();
 });
+it("does not hide recorded history while a future pricing change is being calculated", async () => {
+  const { act } = await import("@testing-library/react");
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockResolvedValue({ ok: true, value: { items: [{ request_id: "last", provider: "openrouter", model_id: "veo-3.1-openrouter", kind: "video", status: "completed", reported_microusd: 3200000 }] } });
+  render(createElement(GenerationCost, { modelId: "veo-3.1-openrouter", request: { kind: "video" }, subject: { project_id: "film", subject_id: "shot" } }));
+  expect((await screen.findByLabelText("Last generation cost")).textContent).toContain("$3.20 reported");
+  mocks.invoke.mockImplementation(() => new Promise(() => {}));
+  act(() => { window.dispatchEvent(new Event("showbiz:pricing-changed")); });
+  expect(screen.getByLabelText("Last generation cost").textContent).toContain("$3.20 reported");
+});
