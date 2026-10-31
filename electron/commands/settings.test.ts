@@ -159,3 +159,14 @@ describe("get_api_key_status", () => {
     }
   });
 });
+it("keeps an optional FAL billing-only credential separate from the inference key", () => {
+  const db = openTestDb();
+  try {
+    const commands = createSettingsCommands(db);
+    commands.save_api_key({ provider: "fal", apiKey: "generation-key" });
+    commands.save_api_key({ provider: "fal-billing", apiKey: "billing-key" });
+    expect(commands.get_api_key({ provider: "fal" })).toBe("generation-key");
+    expect(commands.get_api_key({ provider: "fal-billing" })).toBe("billing-key");
+    expect(commands.get_api_key_status()).toContainEqual(expect.objectContaining({ provider: "fal-billing", is_configured: true }));
+  } finally { db.close(); }
+});
