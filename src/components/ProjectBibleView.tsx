@@ -366,8 +366,8 @@ export default function ProjectBibleView({ projectId, initialTab = "characters" 
     await refreshAsset(assetId);
   }
 
-  async function handleMakeFrame(recipe: FrameRecipe) {
-    if (!bibleId || !recipe.prompt.trim()) return;
+  async function handleMakeFrame(recipe: FrameRecipe): Promise<Result<void>> {
+    if (!bibleId || !recipe.prompt.trim()) return { ok: false, error: { code: "INVALID_INPUT", message: "Describe the frame before generating it." } };
     setError(null);
     setBusyId("make-frame");
     try {
@@ -395,8 +395,11 @@ export default function ProjectBibleView({ projectId, initialTab = "characters" 
         });
         await refreshAsset(asset.id);
       });
+      return { ok: true, value: undefined };
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      return { ok: false, error: { code: "IO_ERROR", message } };
     } finally {
       setBusyId(null);
     }
@@ -683,7 +686,7 @@ function FramesTab({
   frames: BibleAsset[];
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
-  onMakeFrame: (recipe: FrameRecipe) => Promise<void>;
+  onMakeFrame: (recipe: FrameRecipe) => Promise<Result<void>>;
   onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<void>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
@@ -722,13 +725,13 @@ function FramesTab({
   const locationViews = locationId ? (variants[locationId] ?? []).filter((v) => v.media_url) : [];
 
   async function makeFrame() {
-    await onMakeFrame({
+    const result = await onMakeFrame({
       characters: [...selectedChars],
       location: locationId,
       locationVariantId,
       prompt,
     });
-    setPrompt("");
+    if (result.ok) setPrompt("");
   }
 
   return (
