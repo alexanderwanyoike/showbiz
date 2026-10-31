@@ -140,6 +140,7 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
                 "height",
                 "count",
                 "mode",
+                "has_end_frame",
               ].includes(key) ||
               !["string", "number", "boolean"].includes(typeof value) ||
               (typeof value === "string" && value.length > 128) ||

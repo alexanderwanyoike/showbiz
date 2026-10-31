@@ -59,6 +59,15 @@ export async function generateAndSaveVideoRequestAction(
     };
   }
   try {
+    let effectiveRequest = request;
+    if (request.mode === "image-to-video") {
+      effectiveRequest = {
+        ...request,
+        startImage:
+          request.startImage ?? (await getShotImageBase64(shotId)),
+        endImage: request.endImage ?? (await getShotEndFrameBase64(shotId)),
+      };
+    }
     const operation = await accountModelGeneration(
       modelId,
       {
@@ -67,19 +76,11 @@ export async function generateAndSaveVideoRequestAction(
         resolution: request.settings.resolution,
         audio: request.settings.audio,
         aspect_ratio: request.settings.aspectRatio,
-        mode: request.mode,
+        mode: effectiveRequest.mode,
+        has_end_frame: !!effectiveRequest.endImage,
       },
       { subject_id: shotId },
       async (observer) => {
-        let effectiveRequest = request;
-        if (request.mode === "image-to-video") {
-          effectiveRequest = {
-            ...request,
-            startImage:
-              request.startImage ?? (await getShotImageBase64(shotId)),
-            endImage: request.endImage ?? (await getShotEndFrameBase64(shotId)),
-          };
-        }
         const videoBlob = model.generateVideoFromRequest
           ? await model.generateVideoFromRequest(
               effectiveRequest,

@@ -57,6 +57,7 @@ export async function accountModelGeneration<T>(
       "count",
       "aspect_ratio",
       "mode",
+      "has_end_frame",
     ] as const) {
       const value = request[key];
       if (value !== undefined) settings[key] = value;
