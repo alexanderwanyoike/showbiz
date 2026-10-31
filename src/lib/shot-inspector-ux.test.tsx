@@ -42,3 +42,9 @@ it("does not offer frame editing to a prompt-only model", () => {
   expect(screen.queryByRole("button",{name:"Choose start frame"})).toBeNull();
   expect(screen.getByText("Local video uses the video prompt; frames are not sent.")).toBeTruthy();
 });
+it("lets users remove a saved end frame that the current model does not use", async () => {
+  const props=inspectorProps("local-video");props.shot={...props.shot!,end_frame_url:"end.png"};
+  render(createElement(MemoryRouter,null,createElement(ShotInspector,props)));
+  await userEvent.setup().click(screen.getByRole("button",{name:"Remove saved end frame"}));
+  expect(props.onClearEndFrame).toHaveBeenCalledWith("shot");
+});
