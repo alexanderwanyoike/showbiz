@@ -1,6 +1,6 @@
 export type GenerationKind = "image" | "image_edit" | "image_compose" | "video";
 export interface GenerationPriceRate {
-  unit: "image" | "second" | "megapixel";
+  unit: "image" | "second" | "megapixel" | "request";
   microusd: number;
   max_microusd?: number;
   resolution?: string;
@@ -14,6 +14,10 @@ export interface GenerationPrice {
   source_url: string;
   source_kind?: "provider" | "manual";
   checked_at: string;
+  endpoint_id?: string;
+  estimate_basis?: "historical_request";
+  billing_unit?: string;
+  billing_unit_microusd?: number;
   rates: GenerationPriceRate[];
   excludes_input_cost?: boolean;
 }
@@ -92,7 +96,7 @@ export function estimateGenerationCost(
     const megapixels =
       (Number(request.width) * Number(request.height)) / 1000000;
     units = [megapixels, megapixels];
-  } else if (request.kind === "video")
+  } else if (rate.unit !== "request" && request.kind === "video")
     return unavailable("The price unit does not match this generation.");
   const count = request.count ?? 1;
   if (

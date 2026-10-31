@@ -1,3 +1,4 @@
+import { getFalPrice } from "./fal-pricing";
 import { getOpenRouterVideoPrice } from "./openrouter-video-pricing";
 import { invoke } from "./bridge";
 import { imageConfigs, videoConfigs } from "./models/registry";
@@ -80,6 +81,29 @@ export async function getGenerationEstimate(
     }
     let price = stored.value;
     if (price && price.provider !== config.apiKeyProvider) price = null;
+    if (config.apiKeyProvider === "fal" && price?.source_kind !== "manual") {
+      const options = config.transportOptions ?? {};
+      let endpoint: string | undefined;
+      if (request.kind === "video" && "imageToVideo" in config.models) {
+        endpoint = request.mode === "text-to-video"
+          ? String(options.textToVideoEndpoint ?? config.models.textToVideo ?? "")
+          : String(options.imageToVideoEndpoint ?? config.models.imageToVideo ?? "");
+      } else if ("generate" in config.models) {
+        endpoint = request.kind === "image"
+          ? String(options.endpoint ?? config.models.generate)
+          : String(options.editEndpoint ?? config.models.edit ?? options.endpoint ?? config.models.generate);
+      }
+      if (!endpoint) return { kind: "unavailable", reason: "FAL pricing requires a supported generation endpoint." };
+      if (!price || price.endpoint_id !== endpoint || price.estimate_basis !== "historical_request" || Date.now() - Date.parse(price.checked_at) > 60 * 60 * 1000) {
+        const key = await invoke<string | null>("get_api_key", { provider: "fal" });
+        if (!key) return { kind: "unavailable", reason: "Add your FAL key in Settings to retrieve account-specific live pricing." };
+        const fresh = await getFalPrice(modelId, endpoint, key);
+        if (!fresh.ok) return { kind: "unavailable", reason: fresh.error.message };
+        const saved = await invoke<Result<GenerationPrice>>("save_generation_price", { kind: request.kind, price: fresh.value });
+        if (!saved.ok) return { kind: "unavailable", reason: saved.error.message };
+        price = saved.value;
+      }
+    }
     const needsRefresh =
       !price ||
       (price.source_kind !== "manual" &&

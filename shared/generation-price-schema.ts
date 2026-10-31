@@ -16,11 +16,15 @@ export const generationPriceSchema = z
         ),
     ]),
     checked_at: z.iso.datetime(),
+    endpoint_id: z.string().min(1).max(256).optional(),
+    estimate_basis: z.literal("historical_request").optional(),
+    billing_unit: z.string().min(1).max(128).optional(),
+    billing_unit_microusd: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
     excludes_input_cost: z.boolean().optional(),
     rates: z
       .array(
         z.strictObject({
-          unit: z.enum(["image", "second", "megapixel"]),
+          unit: z.enum(["image", "second", "megapixel", "request"]),
           microusd: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
           max_microusd: z
             .number()
