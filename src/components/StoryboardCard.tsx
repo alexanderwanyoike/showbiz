@@ -30,14 +30,14 @@ export default function StoryboardCard({
   });
 
   return (
-    <div className="storyboard-card group">
-      <Link to={`/storyboard/${id}`} className="block">
+    <article className="storyboard-card group">
+      <Link to={`/storyboard/${id}`} className="block" aria-label={`Open storyboard ${name}`}>
         {/* 16:9 Thumbnail */}
         <div className="storyboard-card-preview aspect-video relative overflow-hidden bg-muted/50">
           {previewImageUrl ? (
             <img
               src={previewImageUrl}
-              alt={`Preview of ${name}`}
+              alt=""
               className="absolute inset-0 w-full h-full object-cover"
             />
           ) : (
@@ -49,19 +49,19 @@ export default function StoryboardCard({
 
         {/* Text below thumbnail */}
         <div className="storyboard-card-caption">
-          <h3 className="text-sm font-medium text-foreground truncate">
+          <h2 className="text-sm font-medium text-foreground truncate">
             {name}
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          </h2>
+          <time dateTime={updatedAt}>
             {formattedDate}
-          </p>
+          </time>
         </div>
       </Link>
 
-      <div className="absolute top-2 right-2">
+      <div className="storyboards-card-actions">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button ref={actions} variant="outline" size="icon" className="h-7 w-7 bg-card text-foreground" aria-label={`Storyboard actions for ${name}`} title={`Storyboard actions for ${name}`}>
+            <Button ref={actions} variant="ghost" size="icon" aria-label={`Storyboard actions for ${name}`} title={`Storyboard actions for ${name}`}>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -71,6 +71,6 @@ export default function StoryboardCard({
         </DropdownMenu>
       </div>
       <ConfirmDeletion open={deleteOpen} onOpenChange={setDeleteOpen} title="Delete storyboard" description={`Delete “${name}” and all its shots? This cannot be undone.`} actionLabel="Delete storyboard" restoreFocus={() => actions.current?.focus()} onConfirm={() => onDelete(id)} />
-    </div>
+    </article>
   );
 }
