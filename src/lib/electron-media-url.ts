@@ -54,7 +54,7 @@ function mediaMimeType(path: string): string {
 }
 
 function bytesToBlob(bytes: Uint8Array, type: string): Blob {
-  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const buffer = new Uint8Array(bytes).buffer;
   return new Blob([buffer], { type });
 }
 
@@ -97,6 +97,7 @@ export function createElectronMediaUrlResolver({
     },
 
     invalidateAll(): void {
+      mediaBasePathPromise = null;
       const entries = [...cache.values()];
       cache.clear();
       for (const entry of entries) {
