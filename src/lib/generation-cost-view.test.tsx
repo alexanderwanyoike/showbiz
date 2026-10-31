@@ -120,3 +120,16 @@ it("cancels a staged custom rate with Escape without a second confirmation", asy
   expect(confirm).not.toHaveBeenCalled();
   confirm.mockRestore();
 });
+it("keeps the last subject request visible when a different model is selected for future generation", async () => {
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockResolvedValue({ ok: true, value: { items: [{ request_id: "last-request", provider: "openrouter", model_id: "seedream-4.5-openrouter", kind: "image_edit", status: "failed", reported_microusd: 40000 }] } });
+  const subject = { project_id: "film", subject_id: "character" };
+  const view = render(createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" }, subject }));
+  expect((await screen.findByLabelText("Last generation cost")).textContent).toContain("$0.04 reported");
+  view.rerender(createElement(GenerationCost, { modelId: "nano-banana-2", request: { kind: "image" }, subject }));
+  expect((await screen.findByLabelText("Last generation cost")).textContent).toContain("Last request:");
+  expect(screen.getByText("Seedream 4.5")).toBeTruthy();
+  expect(screen.getByText("OpenRouter")).toBeTruthy();
+  expect(screen.getByText("Failed")).toBeTruthy();
+  expect(screen.getByText("Image edit")).toBeTruthy();
+});
