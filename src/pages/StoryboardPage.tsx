@@ -9,7 +9,7 @@ import { withApplicationWork } from "../lib/application-work";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Plus, Loader2, Sparkles, ImageIcon, Save } from "lucide-react";
-import { Header } from "../components/Header";
+import { WorkspaceToolbar as Header } from "../components/WorkspaceToolbar";
 import ShotList from "../components/ShotList";
 import ShotPreview from "../components/ShotPreview";
 import ShotInspector from "../components/ShotInspector";
