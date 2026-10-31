@@ -83,6 +83,7 @@ export async function generateAndSaveVideoRequestAction(
     return { success: false, videoUrl: null, error: `${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.` };
   }
   try {
+    const operation = await accountModelGeneration(modelId, {kind: "video", duration: request.settings.duration, resolution: request.settings.resolution, audio: request.settings.audio, aspect_ratio: request.settings.aspectRatio, mode: request.mode}, {subject_id: shotId}, async observer => {
     let effectiveRequest = request;
     if (request.mode === "image-to-video") {
       effectiveRequest = {
@@ -92,12 +93,13 @@ export async function generateAndSaveVideoRequestAction(
       };
     }
     const videoBlob = model.generateVideoFromRequest
-      ? await model.generateVideoFromRequest(effectiveRequest, apiKey)
+      ? await model.generateVideoFromRequest(effectiveRequest, apiKey, observer)
       : await model.generateVideoBlob!(
           effectiveRequest.prompt,
           effectiveRequest.startImage ?? null,
           apiKey,
-          effectiveRequest.settings
+          effectiveRequest.settings,
+          observer
         );
 
     const arrayBuffer = await videoBlob.arrayBuffer();
@@ -118,6 +120,8 @@ export async function generateAndSaveVideoRequestAction(
       currentVersion?.id ?? null
     );
     return { success: true, videoUrl: result.video_url };
+    });
+    return operation.ok ? operation.value : {success: false, videoUrl: null, error: operation.error.message};
   } catch (error) {
     return { success: false, videoUrl: null, error: error instanceof Error ? error.message : String(error) };
   }

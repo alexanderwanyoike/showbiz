@@ -8,7 +8,7 @@ import type { GenerationUsage } from "../../shared/generation-usage";
 import type { Result } from "../../shared/result";
 import type { DocumentResult, ProjectDocumentState } from "../../shared/project-document";
 
-export interface GenerationSubject { project_id: string; subject_id?: string }
+export interface GenerationSubject { project_id?: string; subject_id?: string }
 export async function accountModelGeneration<T>(modelId: string, request: GenerationCostRequest, subject: GenerationSubject | undefined, operation: (observer: GenerationObserver) => Promise<T>): Promise<Result<T>> {
   try {
     let projectId = subject?.project_id;
