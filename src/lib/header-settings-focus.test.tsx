@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { Header } from "../components/Header";
@@ -15,13 +15,17 @@ vi.mock("./update-client", () => ({
   },
 }));
 afterEach(cleanup);
-it("returns focus to the persistent titlebar command after closing preferences", async () => {
+it("opens appearance inside Settings and returns focus to the only titlebar gear", async () => {
   render(createElement(Header));
   const user = userEvent.setup();
-  const appearance = screen.getByRole("button", { name: "Appearance" });
+  const settings = screen.getByRole("button", { name: "Settings" });
+  expect(screen.queryByRole("button", { name: "Appearance" })).toBeNull();
+  await user.click(settings);
+  const dialog = await screen.findByRole("dialog", { name: "Settings" });
+  const appearance = within(dialog).getByRole("tab", { name: "Appearance" });
   await user.click(appearance);
-  await screen.findByRole("dialog", { name: "Settings" });
+  expect(appearance.getAttribute("aria-selected")).toBe("true");
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
-  expect(document.activeElement).toBe(appearance);
+  expect(document.activeElement).toBe(settings);
 });

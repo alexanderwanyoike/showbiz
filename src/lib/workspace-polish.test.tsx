@@ -70,9 +70,9 @@ it("names the app chrome icon command with a real keyboard tooltip", async () =>
   render(createElement(Header));
   await userEvent.setup().tab();
   expect(document.activeElement).toBe(
-    screen.getByRole("button", { name: "Appearance" }),
+    screen.getByRole("button", { name: "Settings" }),
   );
   expect(
-    await screen.findByRole("tooltip", { name: "Appearance" }),
+    await screen.findByRole("tooltip", { name: "Settings" }),
   ).toBeTruthy();
 });
