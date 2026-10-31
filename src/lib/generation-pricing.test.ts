@@ -291,3 +291,15 @@ it("marks an older cached OpenRouter rate unconfirmed when a live refresh fails"
     expect(native.fetch).toHaveBeenCalledOnce();
   } finally { db.close(); }
 });
+it("quotes Veo from the live catalog when unrelated video editing models have no resolution list", async () => {
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createGenerationPricingCommands(db);
+    native.invoke.mockImplementation(async (command, args) => commands[command]?.(args));
+    native.fetch.mockResolvedValue(new Response(JSON.stringify({ data: [
+      { id: "black-forest-labs/flux-video-edit", supported_resolutions: null, pricing_skus: { cents_per_second_output: "3" } },
+      { id: "google/veo-3.1", supported_resolutions: ["720p", "1080p", "4K"], pricing_skus: { duration_seconds_with_audio: "0.40", duration_seconds_without_audio: "0.20", duration_seconds_with_audio_4k: "0.60", duration_seconds_without_audio_4k: "0.40" } },
+    ] })));
+    expect(await getGenerationEstimate("veo-3.1-openrouter", { kind: "video", duration: "8s", resolution: "720p", audio: true })).toMatchObject({ kind: "estimate", min_microusd: 3200000, max_microusd: 3200000 });
+  } finally { db.close(); }
+});
