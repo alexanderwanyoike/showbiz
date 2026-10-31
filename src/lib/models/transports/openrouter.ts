@@ -21,7 +21,6 @@ export const openRouterImageTransport: ImageTransport = {
       await generateOpenRouterImage(
         { model: config.models.generate, prompt },
         apiKey,
-        observer,
       ),
       observer,
     );
@@ -35,7 +34,6 @@ export const openRouterImageTransport: ImageTransport = {
           references: [source],
         },
         apiKey,
-        observer,
       ),
       observer,
     );
@@ -45,7 +43,6 @@ export const openRouterImageTransport: ImageTransport = {
       await generateOpenRouterImage(
         { model: config.models.generate, prompt, references },
         apiKey,
-        observer,
       ),
       observer,
     );
