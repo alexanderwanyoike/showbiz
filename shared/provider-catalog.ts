@@ -41,6 +41,7 @@ export const API_KEY_PROVIDERS = [
     helpText: "Use an API token from your Replicate account.",
     order: 60,
   },
+  { id: "openrouter", name: "OpenRouter", credentialLabel: "OpenRouter API key", helpText: "Use an API key from your OpenRouter account.", order: 70 },
 ] as const;
 
 export type ApiKeyProvider = (typeof API_KEY_PROVIDERS)[number]["id"];

@@ -1,3 +1,4 @@
+import type { GenerationObserver } from "../../../shared/generation-output";
 import type { VideoGenerationRequest } from "../generation/types";
 import type { ApiKeyProvider } from "../../../shared/provider-catalog";
 
@@ -50,25 +51,28 @@ export interface ImageModelProvider {
   description: string;
   enabled: boolean;
   apiKeyProvider: ApiKeyProvider;
-  generateImage(prompt: string, apiKey: string): Promise<string>;
+  generateImage(prompt: string, apiKey: string, observer?: GenerationObserver): Promise<string>;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
   editImage?(
     prompt: string,
     sourceImageBase64: string,
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<string>;
   inpaintImage?(
     prompt: string,
     sourceImageBase64: string,
     maskBase64: string,
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<string>;
   supportsComposition?: boolean;
   composeImage?(
     prompt: string,
     referenceImages: string[],
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<string>;
 }
 
@@ -87,17 +91,20 @@ export interface VideoModelProvider {
     prompt: string,
     imageBase64: string | null,
     apiKey: string,
-    settings?: VideoGenerationSettings
+    settings?: VideoGenerationSettings,
+    observer?: GenerationObserver
   ): Promise<string>;
   generateVideoBlob?(
     prompt: string,
     imageBase64: string | null,
     apiKey: string,
-    settings?: VideoGenerationSettings
+    settings?: VideoGenerationSettings,
+    observer?: GenerationObserver
   ): Promise<Blob>;
   generateVideoFromRequest?(
     request: VideoGenerationRequest,
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<Blob>;
 }
 
