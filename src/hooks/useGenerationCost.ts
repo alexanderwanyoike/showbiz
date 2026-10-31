@@ -28,7 +28,7 @@ export function useGenerationCost(modelId: string, request: GenerationCostReques
       invoke<Result<{ items: GenerationUsage[] }>>("get_generation_usage", {project_id: subject.project_id, subject_id: subject.subject_id, limit: 50}).then(result => {
         if (stopped) return;
         if (!result.ok) setError(result.error.message);
-        else setLast(result.value.items.find(item => item.model_id === modelId && item.kind === request.kind) ?? null);
+        else setLast(result.value.items.find(item => item.model_id === modelId && (request.kind === "video" ? item.kind === "video" : item.kind !== "video")) ?? null);
       }).catch(() => { if (!stopped) setError("The last generation cost could not be loaded."); });
     }
     return () => { stopped = true; };
