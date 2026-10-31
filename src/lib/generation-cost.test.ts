@@ -89,3 +89,7 @@ it("keeps Auto duration as a range and rejects invalid image dimensions", () => 
     kind: "unavailable",
   });
 });
+it("includes provider routing price differences in an image estimate range", () => {
+  const price = {provider: "openrouter", model_id: "nano-banana-2-openrouter", currency: "USD" as const, source_url: "https://openrouter.ai", checked_at: "2026-10-31T12:00:00Z", rates: [{unit: "image" as const, microusd: 67200, max_microusd: 73920}], excludes_input_cost: true};
+  expect(estimateGenerationCost(price, {kind: "image"})).toMatchObject({kind: "estimate", min_microusd: 67200, max_microusd: 73920, excludes_input_cost: true});
+});
