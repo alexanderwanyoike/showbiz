@@ -83,8 +83,7 @@ export function BibleAssetEntry({ asset, takes, busy, builtFrom, basePrompt,
         </section>
         <section className="bible-asset-generation" aria-label={`Picture generation for ${asset.name}`}>
           <h3>Picture actions</h3>{modelControl}
-          <p className="bible-action-model">{actionModel?.name} · {modelProviderName(actionModel)}</p>
-          <div className="bible-cost"><GenerationCost modelId={generationContext.modelId} request={{kind: mode === "edit" ? "image_edit" : primary || builtFrom ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId, subject_id: asset.id}} /></div>
+          <div className="bible-cost bible-asset-next-cost"><p>Estimate for the next generation</p><GenerationCost modelId={generationContext.modelId} request={{kind: mode === "edit" ? "image_edit" : primary || builtFrom ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId, subject_id: asset.id}} /></div>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" className="text-xs" disabled={busy || (!!primary && !imageCapabilities.composition)} title={!imageCapabilities.composition && primary ? "Choose a model that accepts reference images." : undefined} onClick={() => run("retake", () => onRetake(asset))}>
               {pending === "retake" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
