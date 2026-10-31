@@ -1,15 +1,15 @@
 :root {
-  --native-chrome-top: #f4f5f6;
-  --native-chrome-bottom: #dce0e4;
-  --native-sidebar: #e9edf0;
+  --native-chrome-top: #f7f8fa;
+  --native-chrome-bottom: #d8dde5;
+  --native-sidebar: #dce1e9;
   --native-inset: #f9fafb;
   --native-highlight: #ffffffb0;
 }
 :root.dark {
-  --native-chrome-top: #363b41;
-  --native-chrome-bottom: #292d32;
-  --native-sidebar: #24282d;
-  --native-inset: #1c2025;
+  --native-chrome-top: #212630;
+  --native-chrome-bottom: #141820;
+  --native-sidebar: #13171e;
+  --native-inset: #1a1f28;
   --native-highlight: #ffffff0a;
 }
 :root[data-material]:not([data-material="native"]) {
@@ -143,7 +143,7 @@ body,
 .sidebar-item.is-selected {
   background: color-mix(in srgb, var(--primary) 16%, var(--native-sidebar));
   color: var(--foreground);
-  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 70%, transparent);
   box-shadow: inset 0 1px var(--native-highlight);
 }
 .sidebar-item.is-current-project {
@@ -675,8 +675,9 @@ body,
   border-radius: 3px;
 }
 .shot-browser-row.is-selected {
+  box-shadow: inset 0 -2px var(--primary);
   background: color-mix(in srgb, var(--primary) 15%, var(--native-sidebar));
-  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 70%, transparent);
 }
 .shot-browser-select {
   display: flex;
@@ -1036,10 +1037,10 @@ body,
   overflow: hidden;
 }
 .canvas-preview .shot-preview {
-  background: #d3d7db;
+  background: color-mix(in srgb, var(--background) 88%, black);
 }
 .dark .canvas-preview .shot-preview {
-  background: #1b1e22;
+  background: color-mix(in srgb, var(--background) 65%, black);
 }
 .canvas-preview .shot-preview-stage {
   padding: 30px 24px 20px;

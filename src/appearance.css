@@ -107,101 +107,101 @@
 }
 :root[data-material="aluminium"],
 .appearance-material[data-material="aluminium"] {
-  --surface-background: #e0e3e6;
-  --surface-panel: #f6f7f8;
-  --surface-muted: #e9ecee;
-  --surface-border: #c4cbd1;
+  --surface-background: #d7dce3;
+  --surface-panel: #f8f9fb;
+  --surface-muted: #c3cbd5;
+  --surface-border: #9ea8b6;
 }
 :root.dark[data-material="aluminium"],
 .dark .appearance-material[data-material="aluminium"] {
-  --surface-background: #202326;
-  --surface-panel: #292d31;
-  --surface-muted: #32373b;
-  --surface-border: #464e55;
+  --surface-background: #0d1015;
+  --surface-panel: #1b2028;
+  --surface-muted: #2b3340;
+  --surface-border: #414c5e;
 }
 :root[data-material="ceramic"],
 .appearance-material[data-material="ceramic"] {
-  --surface-background: #eae7e1;
-  --surface-panel: #faf8f3;
-  --surface-muted: #e1ddd6;
-  --surface-border: #c8c2b7;
+  --surface-background: #dedbd4;
+  --surface-panel: #fffdf8;
+  --surface-muted: #c9c3b7;
+  --surface-border: #aaa18e;
 }
 :root.dark[data-material="ceramic"],
 .dark .appearance-material[data-material="ceramic"] {
-  --surface-background: #252420;
-  --surface-panel: #302f2a;
-  --surface-muted: #3c3a33;
-  --surface-border: #514e43;
+  --surface-background: #12110e;
+  --surface-panel: #222019;
+  --surface-muted: #322e23;
+  --surface-border: #4d4736;
 }
 :root[data-material="slate"],
 .appearance-material[data-material="slate"] {
-  --surface-background: #e0e6eb;
-  --surface-panel: #f3f7fa;
-  --surface-muted: #d9e1e8;
-  --surface-border: #bdcbd6;
+  --surface-background: #cbd6e3;
+  --surface-panel: #f5f9ff;
+  --surface-muted: #b7c7da;
+  --surface-border: #8a9fb8;
 }
 :root.dark[data-material="slate"],
 .dark .appearance-material[data-material="slate"] {
-  --surface-background: #202831;
-  --surface-panel: #293440;
-  --surface-muted: #354452;
-  --surface-border: #4b5b6b;
+  --surface-background: #0b121d;
+  --surface-panel: #172437;
+  --surface-muted: #263951;
+  --surface-border: #3b5475;
 }
 :root[data-material="graphite"],
 .appearance-material[data-material="graphite"] {
-  --surface-background: #e3e3e3;
-  --surface-panel: #f7f7f7;
-  --surface-muted: #dbdbdb;
-  --surface-border: #c3c3c3;
+  --surface-background: #d3d5d9;
+  --surface-panel: #fafafa;
+  --surface-muted: #bfc2c9;
+  --surface-border: #9a9faa;
 }
 :root.dark[data-material="graphite"],
 .dark .appearance-material[data-material="graphite"] {
-  --surface-background: #222222;
-  --surface-panel: #2d2d2d;
-  --surface-muted: #383838;
-  --surface-border: #4b4b4b;
+  --surface-background: #0c0d10;
+  --surface-panel: #1b1d23;
+  --surface-muted: #2a2e37;
+  --surface-border: #414754;
 }
 :root[data-material="paper"],
 .appearance-material[data-material="paper"] {
-  --surface-background: #eee8d9;
-  --surface-panel: #fcf7eb;
-  --surface-muted: #e7deca;
-  --surface-border: #cfc2a8;
+  --surface-background: #e2dbcd;
+  --surface-panel: #fffdf4;
+  --surface-muted: #cfc3ae;
+  --surface-border: #b1a087;
 }
 :root.dark[data-material="paper"],
 .dark .appearance-material[data-material="paper"] {
-  --surface-background: #29261f;
-  --surface-panel: #343027;
-  --surface-muted: #403a2e;
-  --surface-border: #564b38;
+  --surface-background: #15120c;
+  --surface-panel: #272115;
+  --surface-muted: #39301f;
+  --surface-border: #57482e;
 }
 :root[data-material="copper"],
 .appearance-material[data-material="copper"] {
-  --surface-background: #e9dfda;
-  --surface-panel: #fbf2ec;
-  --surface-muted: #e3d2c8;
-  --surface-border: #c9ae9d;
+  --surface-background: #dfcfc4;
+  --surface-panel: #fff7f0;
+  --surface-muted: #c8af9d;
+  --surface-border: #a98973;
 }
 :root.dark[data-material="copper"],
 .dark .appearance-material[data-material="copper"] {
-  --surface-background: #2d2421;
-  --surface-panel: #3a2e29;
-  --surface-muted: #483930;
-  --surface-border: #634b3c;
+  --surface-background: #19100b;
+  --surface-panel: #2d1f16;
+  --surface-muted: #412d20;
+  --surface-border: #65452f;
 }
 :root[data-material="carbon"],
 .appearance-material[data-material="carbon"] {
-  --surface-background: #dedfe0;
-  --surface-panel: #f4f4f5;
-  --surface-muted: #d2d4d6;
-  --surface-border: #b5b8bc;
+  --surface-background: #cfd1d5;
+  --surface-panel: #f8f9fa;
+  --surface-muted: #b8bcc3;
+  --surface-border: #969da7;
 }
 :root.dark[data-material="carbon"],
 .dark .appearance-material[data-material="carbon"] {
-  --surface-background: #111315;
-  --surface-panel: #1c1f22;
-  --surface-muted: #292d31;
-  --surface-border: #3b4248;
+  --surface-background: #08090b;
+  --surface-panel: #14161a;
+  --surface-muted: #23262d;
+  --surface-border: #343a45;
 }
 :root[data-material="aluminium"] body {
   background-image: repeating-linear-gradient(
