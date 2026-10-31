@@ -44,7 +44,7 @@ export function ProjectNavigator() {
   if (!current) return null;
   const bible = location.search.includes("view=bible");
   return (
-    <aside className="desktop-sidebar">
+    <aside className="desktop-sidebar" id="project-navigation-panel">
       <div className="sidebar-document">
         <File size={17} />
         <strong>{name}</strong>
@@ -53,6 +53,7 @@ export function ProjectNavigator() {
       <nav aria-label="Project navigator">
         <Link
           className={`sidebar-item ${!bible && location.pathname.startsWith("/project/") ? "is-selected" : ""}`}
+          aria-current={!bible && location.pathname.startsWith("/project/") ? "page" : undefined}
           to={`/project/${current.project_id}`}
         >
           <LayoutGrid size={15} />
@@ -60,6 +61,7 @@ export function ProjectNavigator() {
         </Link>
         <Link
           className={`sidebar-item ${bible ? "is-selected" : ""}`}
+          aria-current={bible ? "page" : undefined}
           to={`/project/${current.project_id}?view=bible`}
         >
           <BookOpen size={15} />
@@ -72,6 +74,7 @@ export function ProjectNavigator() {
           <Link
             key={board.id}
             className={`sidebar-item ${location.pathname === `/storyboard/${board.id}` ? "is-selected" : ""}`}
+            aria-current={location.pathname === `/storyboard/${board.id}` ? "page" : undefined}
             to={`/storyboard/${board.id}`}
           >
             <Clapperboard size={14} />
