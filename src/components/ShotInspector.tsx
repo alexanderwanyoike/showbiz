@@ -33,6 +33,7 @@ import type {
 import { shotGenerationReadiness } from "../lib/shot-generation-readiness";
 import { filterFrameOptions } from "../lib/bible-compose";
 import type {
+  ImageModelInfo,
   VideoGenerationSettings,
   VideoModelInfo,
 } from "../lib/models/types";
@@ -82,6 +83,7 @@ export interface ShotInspectorProps {
   onGenerateVideo: (shotId: string) => void;
   onCancelVideoGeneration: (shotId: string) => void;
   onUpdateShot: (shotId: string, updates: { video_prompt?: string }) => void;
+  imageModel?: ImageModelInfo | null;
   videoModel: VideoModelInfo | null;
   videoSettings: VideoGenerationSettings;
   onVideoSettingsChange: (settings: VideoGenerationSettings) => void;
@@ -361,6 +363,7 @@ export default function ShotInspector({
   onGenerateVideo,
   onCancelVideoGeneration,
   onUpdateShot,
+  imageModel,
   videoModel,
   videoSettings,
   onVideoSettingsChange,
@@ -423,6 +426,14 @@ export default function ShotInspector({
               onPick={(variantId) => onPickFrame(shot.id, "start", variantId)}
               onUpload={(file) => onUploadFrame(shot.id, "start", file)}
             />
+            {shot.image_url && (
+              <div className="mt-2 space-y-1.5">
+                <Button type="button" variant="outline" size="sm" className="w-full" aria-label={`Edit frame for shot ${shot.order}`} disabled={frameSaving || !currentVersion || !imageModel?.supportsImageEditing} onClick={() => { if (currentVersion) onEditImage(shot.id, currentVersion.id); }}>
+                  <Sparkles className="h-3.5 w-3.5 mr-1.5" />Edit frame
+                </Button>
+                {(!currentVersion || !imageModel?.supportsImageEditing) && <p className="text-[11px] text-muted-foreground">{!currentVersion ? "Choose or upload a frame to create an editable take." : `${imageModel?.name ?? "The image model"} does not support editing. Choose an editing model in Models for this shot.`}</p>}
+              </div>
+            )}
           </InspectorSection>
         ) : (
           <p className="border-b border-border/50 px-3 py-3 text-[11px] text-muted-foreground">
