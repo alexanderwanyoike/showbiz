@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { appDataDir, loadMigrations, openDatabase } from "./db";
 import { createProjectRuntime } from "./project-runtime";
-import { createExportCommandsForApp } from "./export-deps";
+import { createStoryboardPackageCommands } from "./commands/storyboard-package";
 import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
 import { projectApplicationMenu } from "./app-menu";
@@ -33,7 +33,7 @@ function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: Retu
   const projects = createProjectRuntime({
     appDirectory: appDataDir(), legacyDb: db,
     migrations: loadMigrations(path.join(app.getAppPath(), "electron/migrations")),
-    exports: createExportCommandsForApp,
+    exports: (db, media) => createStoryboardPackageCommands(db, media, (options) => dialog.showSaveDialog(options)),
     chooseOpen: async () => {
       const result = await dialog.showOpenDialog({ title: "Open Project", filters, properties: ["openFile"] });
       return result.canceled ? null : result.filePaths[0] ?? null;
