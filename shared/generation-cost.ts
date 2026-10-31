@@ -32,6 +32,7 @@ export interface GenerationCostRequest {
   count?: number;
   aspect_ratio?: string;
   mode?: string;
+  has_end_frame?: boolean;
 }
 export type GenerationCostEstimate =
   | { kind: "unavailable"; reason: string }
