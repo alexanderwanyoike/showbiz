@@ -694,14 +694,14 @@ function FramesTab({
   const making = busyId === "make-frame";
   useEffect(() => {
     setSelectedChars((previous) => {
-      const next = new Set([...previous].filter((id) => characters.some((character) => character.id === id)));
+      const next = new Set([...previous].filter((id) => characters.some((character) => character.id === id) && !!primaryPicture(variants[id] ?? [])?.media_url));
       return next.size === previous.size ? previous : next;
     });
-    if (locationId && !locations.some((location) => location.id === locationId)) {
+    if (locationId && (!locations.some((location) => location.id === locationId) || !primaryPicture(variants[locationId] ?? [])?.media_url)) {
       setLocationId(null);
       setLocationVariantId(null);
     }
-  }, [characters, locations, locationId]);
+  }, [characters, locations, locationId, variants]);
 
 
   function toggleChar(id: string) {
