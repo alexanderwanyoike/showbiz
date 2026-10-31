@@ -99,6 +99,7 @@ type Tab = "characters" | "locations" | "frames";
 interface ProjectBibleViewProps {
   projectId: string;
   initialTab?: Tab;
+  generationModel?: { value: ImageModelId; onChange: (model: ImageModelId) => void };
 }
 
 // A full-screen view of one picture.
@@ -200,12 +201,14 @@ function PictureMeta({ variant }: { variant: BibleAssetVariant | null }) {
   );
 }
 
-export default function ProjectBibleView({ projectId, initialTab = "characters" }: ProjectBibleViewProps) {
+export default function ProjectBibleView({ projectId, initialTab = "characters", generationModel }: ProjectBibleViewProps) {
   const [bibleId, setBibleId] = useState<string | null>(null);
   const [assets, setAssets] = useState<BibleAsset[]>([]);
   const [variants, setVariants] = useState<Record<string, BibleAssetVariant[]>>({});
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [imageModel, setImageModel] = useState<ImageModelId>("nano-banana");
+  const [localImageModel, setLocalImageModel] = useState<ImageModelId>("nano-banana");
+  const imageModel = generationModel?.value ?? localImageModel;
+  const setImageModel = generationModel?.onChange ?? setLocalImageModel;
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);

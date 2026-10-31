@@ -19,7 +19,7 @@ import type { Project, StoryboardWithPreview } from "../lib/backend-api";
 
 export default function ProjectPage() {
   const { id: routeId } = useParams<{ id: string }>();
-  const { current } = useProjectDocument();
+  const { current, bibleGenerationModel, setBibleGenerationModel } = useProjectDocument();
   const id = routeId ?? current?.project_id;
   const navigate = useNavigate();
 
@@ -138,7 +138,7 @@ export default function ProjectPage() {
       <Header title={activeTab === "bible" ? "Project bible" : "Storyboards"} />
       <main className="workspace-body">
         {activeTab === "bible" ? (
-          <ProjectBibleView projectId={project.id} initialTab={searchParams.get("bibleTab") === "frames" ? "frames" : undefined} />
+          <ProjectBibleView projectId={project.id} generationModel={bibleGenerationModel && setBibleGenerationModel ? { value: bibleGenerationModel, onChange: setBibleGenerationModel } : undefined} initialTab={searchParams.get("bibleTab") === "frames" ? "frames" : undefined} />
         ) : (
           <>
             {/* Top bar: search + new storyboard */}
