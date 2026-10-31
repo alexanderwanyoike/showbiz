@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { openTestDb } from "./db.test";
+import { createProjectCommands } from "./commands/projects";
 import { createShotCommands } from "./commands/shots";
 
 it("persists independent shot model overrides and restores inheritance without changing the board defaults", () => {
@@ -18,4 +19,12 @@ it("persists independent shot model overrides and restores inheritance without c
     expect(dispatch.set_shot_models({shot_id:first.id,image_model:null})).toMatchObject({ok:true,value:{image_model:null,video_model:"veo-3"}});
     expect(db.prepare("SELECT image_model,video_model FROM storyboards WHERE id='board'").get()).toMatchObject({image_model:"imagen4",video_model:"seedance-2-fal"});
   } finally { db.close(); }
+});
+
+it("starts new storyboards with available image and video model defaults", () => {
+ const db=openTestDb();try{
+  db.prepare("INSERT INTO projects(id,name) VALUES ('project','Film')").run();
+  const commands=createProjectCommands(db,"/unused-media");
+  expect(commands.create_storyboard({projectId:"project",name:"New"})).toMatchObject({image_model:"nano-banana-2",video_model:"seedance-2-fal"});
+ }finally{db.close();}
 });
