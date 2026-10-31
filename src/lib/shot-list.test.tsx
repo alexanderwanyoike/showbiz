@@ -32,6 +32,8 @@ it("selects shots with a native button and describes media readiness instead of 
   expect(select).toHaveBeenCalledWith("2");
   expect(screen.getAllByText("Frame ready")).toHaveLength(2);
   expect(screen.queryByText("00:00:08:00")).toBeNull();
+  expect(screen.getByRole("button",{name:"Move shot 2 earlier"})).toHaveProperty("disabled",false);
+  expect(screen.getByRole("button",{name:"Move shot 2 later"})).toHaveProperty("disabled",true);
 });
 
 it("shows a generated poster for a video-only shot", async () => {
