@@ -45,6 +45,13 @@
   color: var(--foreground);
   background: var(--control-hover);
 }
+[data-slot="button"][data-variant="default"]:not(:disabled):not([aria-disabled="true"]):active {
+  background: color-mix(in srgb, var(--primary) 74%, var(--foreground));
+}
+[data-slot="button"]:is([data-variant="secondary"], [data-variant="outline"], [data-variant="ghost"]):not(:disabled):not([aria-disabled="true"]):active {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 15%, var(--card));
+}
 [data-slot="button"][data-variant="ghost"]:is([aria-expanded="true"], [data-state="open"]) {
   color: var(--foreground);
   background: var(--control-hover);
