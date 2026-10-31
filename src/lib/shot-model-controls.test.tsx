@@ -58,3 +58,7 @@ it("keeps storyboard defaults out of the selected shot's controls", () => {
   expect(screen.queryByText("Storyboard defaults", { exact: true })).toBeNull();
   expect(screen.queryByRole("button", { name: "Storyboard image default" })).toBeNull();
 });
+it("explains that model choices apply to new takes rather than changing existing media", () => {
+  render(createElement(ShotModelControls,{shot:{id:"shot",order:1,image_model:null,video_model:null},defaults:{image_model:"nano-banana-2",video_model:"seedance-2-fal"},onShotChange:vi.fn(),disabled:false,error:null}));
+  expect(screen.getByText("Used for new takes. Existing media stays unchanged.")).toBeTruthy();
+});

@@ -35,3 +35,10 @@ it("keeps the main generation action visible while collapsing settings and offer
   await user.click(screen.getByRole("button", {name:"Video settings"}));
   expect(screen.getByRole("button", {name:"Generate video for shot 1"})).toHaveProperty("disabled",false);
 });
+it("does not offer frame editing to a prompt-only model", () => {
+  const props = inspectorProps("local-video");
+  props.videoModel = {...props.videoModel!,modeCapabilities:{textToVideo:{endpoint:"text-only"}}};
+  render(createElement(MemoryRouter,null,createElement(ShotInspector,props)));
+  expect(screen.queryByRole("button",{name:"Choose start frame"})).toBeNull();
+  expect(screen.getByText("Local video uses the video prompt; frames are not sent.")).toBeTruthy();
+});
