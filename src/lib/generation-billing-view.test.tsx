@@ -21,6 +21,7 @@ it("refreshes provider receipts before displaying totals and explains pending ch
   });
   render(createElement(MemoryRouter, { initialEntries: ["/usage/film"] }, createElement(Routes, null, createElement(Route, { path: "/usage/:id", element: createElement(UsagePage) }))));
   expect(await screen.findByText("$0.023 reported")).toBeTruthy();
+  expect(screen.getByText("Charge unconfirmed")).toBeTruthy();
   expect(screen.getByText("FAL billing access denied. This cost remains unconfirmed.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Refresh charges" })).toBeTruthy();
 });
