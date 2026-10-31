@@ -37,3 +37,35 @@ it("creates a project file and reopens its saved storyboard independently of the
     expect(documents.recent()).toMatchObject([{ file_path: file, name: "Morning" }]);
   } finally { await documents.close(); }
 });
+
+it("keeps the open project usable after an invalid open or refused overwrite", async () => {
+  const { directory, documents } = setup();
+  const file = path.join(directory, "Morning.showbiz");
+  const other = path.join(directory, "foreign.showbiz");
+  fs.writeFileSync(other, "not a project");
+  try {
+    await documents.create(file);
+    const before = documents.current();
+    expect((await documents.open(other)).ok).toBe(false);
+    expect((await documents.create(file)).ok).toBe(false);
+    expect(documents.current()).toEqual(before);
+    expect(await documents.invoke("get_projects")).toMatchObject([{ name: "Morning" }]);
+    expect(fs.readFileSync(other, "utf8")).toBe("not a project");
+    await expect(documents.invoke("create_project", { name: "Second" })).rejects.toThrow("File");
+  } finally { await documents.close(); }
+});
+
+it("removes an incomplete new document without changing the current one when recent-file persistence fails", async () => {
+  const { directory, documents } = setup();
+  const first = path.join(directory, "First.showbiz");
+  const second = path.join(directory, "Second.showbiz");
+  try {
+    await documents.create(first);
+    fs.unlinkSync(path.join(directory, "recent.json"));
+    fs.mkdirSync(path.join(directory, "recent.json"));
+    expect((await documents.create(second)).ok).toBe(false);
+    expect(documents.current()?.file_path).toBe(first);
+    expect(await documents.invoke("get_projects")).toMatchObject([{ name: "First" }]);
+    expect(fs.existsSync(second)).toBe(false);
+  } finally { await documents.close(); }
+});
