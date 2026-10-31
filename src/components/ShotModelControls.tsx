@@ -56,11 +56,11 @@ export function ShotModelControls({
           ...groups[kind],
         ];
     return (
-      <div className="space-y-1 min-w-0" key={kind}>
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>{label} model</span>
+      <div className="grid grid-cols-[36px_minmax(0,1fr)] items-center gap-2" key={kind}>
+        <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
+          <span>{label}</span>
           {!isDefault && (
-            <span>{value === inherit ? "Inherited" : "Override"}</span>
+            <span className="text-[9px]">{value === inherit ? "Default" : "Shot"}</span>
           )}
         </div>
         <ModelPicker
@@ -107,7 +107,7 @@ export function ShotModelControls({
   return (
     <section
       aria-label="Shot model controls"
-      className="border-b border-border/60 px-3 py-3 space-y-3"
+      className="border-b border-border/60 px-3 py-2 space-y-2"
     >
       <h3 className="text-xs font-medium">
         {shot ? "Models" : "Storyboard defaults"}
@@ -119,7 +119,7 @@ export function ShotModelControls({
       )}
       {shot ? (
         <>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2">
             {picker("image_model", false)}
             {picker("video_model", false)}
           </div>
