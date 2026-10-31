@@ -233,3 +233,27 @@ it("shares a provider rate lookup across simultaneous generation controls", asyn
     db.close();
   }
 });
+it("gets account-specific FAL pricing and a historical estimate for the actual edit endpoint without submitting generation", async () => {
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createGenerationPricingCommands(db);
+    native.invoke.mockImplementation(async (command, args) => command === "get_api_key" ? "test-fal-key" : commands[command]?.(args));
+    native.fetch.mockClear();
+    native.fetch.mockImplementation(async (url: string, init?: RequestInit) => new Response(JSON.stringify(
+      init?.method === "POST"
+        ? { estimate_type: "historical_api_price", total_cost: 0.18, currency: "USD" }
+        : { prices: [{ endpoint_id: "openai/gpt-image-2/edit", unit_price: 0.1, unit: "image", currency: "USD" }], has_more: false, next_cursor: null }
+    )));
+    expect(await getGenerationEstimate("gpt-image-2", { kind: "image_edit" })).toMatchObject({
+      kind: "estimate", min_microusd: 180000,
+      price: { source_kind: "provider", estimate_basis: "historical_request", endpoint_id: "openai/gpt-image-2/edit", billing_unit: "image", billing_unit_microusd: 100000 },
+    });
+    expect(native.fetch).toHaveBeenCalledTimes(2);
+    const [pricingUrl, pricingInit] = native.fetch.mock.calls[0];
+    expect(pricingUrl).toBe("https://api.fal.ai/v1/models/pricing?endpoint_id=openai%2Fgpt-image-2%2Fedit");
+    expect(pricingInit.headers.Authorization).toBe("Key test-fal-key");
+    const [estimateUrl, estimateInit] = native.fetch.mock.calls[1];
+    expect(estimateUrl).toBe("https://api.fal.ai/v1/models/pricing/estimate");
+    expect(JSON.parse(estimateInit.body)).toEqual({ estimate_type: "historical_api_price", endpoints: { "openai/gpt-image-2/edit": { call_quantity: 1 } } });
+  } finally { db.close(); }
+});
