@@ -229,7 +229,7 @@ it("keeps duration choices on their selected shot instead of leaking to another 
   const user=userEvent.setup();
   await user.click(await screen.findByRole("button",{name:"Shot controls"}));
   await user.click(screen.getByRole("combobox",{name:"Video duration"}));
-  await user.click(screen.getByRole("option",{name:"4s",exact:true}));
+  await user.click(screen.getByRole("option",{name:"4s"}));
   await waitFor(()=>expect(setShotVideoSettings).toHaveBeenCalledWith("shot-1",expect.objectContaining({model_id:"seedance-2-fal",settings:expect.objectContaining({duration:"4"})})));
   await user.click(screen.getByRole("button",{name:"Select shot 2"}));
   expect(screen.getByRole("combobox",{name:"Video duration"}).textContent).toBe("Auto");
