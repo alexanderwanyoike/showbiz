@@ -1,13 +1,12 @@
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { Plus, Clapperboard, Loader2, Search } from "lucide-react";
+import { Plus, Clapperboard, Loader2, Search, Pencil } from "lucide-react";
 import { WorkspaceToolbar as Header } from "../components/WorkspaceToolbar";
 import StoryboardCard from "../components/StoryboardCard";
 import ProjectBibleView from "../components/ProjectBibleView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getProject,
   getStoryboardsWithPreview,
@@ -30,9 +29,8 @@ export default function ProjectPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const activeTab = searchParams.get("view") === "bible" ? "bible" : "storyboards";
-  const setActiveTab = (value: string) => setSearchParams(value === "bible" ? { view: "bible" } : {});
 
   useUnsavedWork("draft", showNewStoryboardInput && !!newStoryboardName, newStoryboardName);
   useUnsavedWork("draft", isEditingName && editedName !== project?.name, editedName);
@@ -139,46 +137,16 @@ export default function ProjectPage() {
 
   return (
     <div className="desktop-page">
-      <Header backHref="/" backLabel="Projects" title={project.name} />
-
-      {/* Main Content */}
+      <Header backHref="/" backLabel="Projects" title={project.name}>
+        {isEditingName ? (
+          <Input aria-label="Project name" value={editedName} onChange={(event) => setEditedName(event.target.value)} onBlur={handleUpdateProjectName}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void handleUpdateProjectName();
+              if (event.key === "Escape") { setIsEditingName(false); setEditedName(project.name); }
+            }} className="h-7 w-56 text-xs" autoFocus />
+        ) : <Button variant="ghost" size="icon" aria-label="Rename project" title="Rename project" onClick={() => setIsEditingName(true)}><Pencil size={13} /></Button>}
+      </Header>
       <main className="workspace-body">
-        {/* Project Name Editor */}
-        <div className="project-name-control">
-          {isEditingName ? (
-            <Input
-              type="text"
-              value={editedName}
-              onChange={(e) => setEditedName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleUpdateProjectName();
-                if (e.key === "Escape") {
-                  setIsEditingName(false);
-                  setEditedName(project.name);
-                }
-              }}
-              onBlur={handleUpdateProjectName}
-              className="text-xl font-bold h-auto py-1 px-2 max-w-md"
-              autoFocus
-            />
-          ) : (
-            <h1
-              className="text-xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors inline-block"
-              onClick={() => setIsEditingName(true)}
-              title="Click to edit"
-            >
-              {project.name}
-            </h1>
-          )}
-        </div>
-
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "storyboards" | "bible")} className="project-sections">
-          <TabsList>
-            <TabsTrigger value="storyboards">Storyboards</TabsTrigger>
-            <TabsTrigger value="bible">Bible</TabsTrigger>
-          </TabsList>
-        </Tabs>
-
         {activeTab === "bible" ? (
           <ProjectBibleView projectId={project.id} />
         ) : (
