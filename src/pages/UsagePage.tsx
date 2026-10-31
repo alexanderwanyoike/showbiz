@@ -93,7 +93,7 @@ export default function UsagePage() {
             <p className="usage-explanation">
               USD. Reported charges are the amounts returned by the provider.
               Unconfirmed estimates are separate and may differ from your
-              invoice. Unknown charges are not counted as free. Gemini estimates use published rates; its generation API does not return a monetary receipt. Local compute estimates use your saved rate; hardware and electricity costs are otherwise unknown.
+              invoice. Unknown charges are not counted as free. Gemini estimates use published rates; its generation API does not return a monetary receipt. Local compute estimates use your saved rate; hardware and electricity costs are otherwise unknown. Refresh checks the requests on this page; totals cover this project, not your provider account balance.
             </p>
             {data.items.length ? (
               <div className="usage-table-scroll">
