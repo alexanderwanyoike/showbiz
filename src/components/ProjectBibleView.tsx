@@ -896,7 +896,7 @@ function FramesTab({
               takes={(variants[f.id] ?? []).filter((v) => v.media_url)}
               busy={busyId !== null}
               builtFrom={builtFromLabel(f, characters, locations)}
-              basePrompt={parseRecipe(f.rules_json).prompt}
+              basePrompt={parseRecipe(f.rules_json).prompt || primaryPicture(variants[f.id] ?? [])?.prompt || ""}
               onRetake={onRetake}
               onEdit={onEdit}
                 imageCapabilities={imageCapabilities}
