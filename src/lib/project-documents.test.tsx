@@ -102,39 +102,109 @@ it("opens recent files by their saved path and keeps the current project when a 
   ).toBeTruthy();
 });
 
-
 it("keeps New and Open available while reporting a damaged recent-file list", async () => {
-  native.invoke.mockResolvedValue({ ok: true, value: { current: null, recent: [], legacy: [], warning: "The recent project list could not be read." } });
-  render(createElement(MemoryRouter, null, createElement(App)));
-  expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("recent project list"));
-  expect(screen.getByRole("button", { name: "Open Project", exact: true }).hasAttribute("disabled")).toBe(false);
-});
-
-
-it.each(["project", "storyboard"] as const)("ignores a previous file's delayed %s read after opening another document", async (page) => {
-  const api = await import("./backend-api");
-  let current = { file_path: "/Films/Previous.showbiz", project_id: "previous", name: "Previous" };
-  let completePrevious!: (value: null) => void;
-  const previousRead = new Promise<null>((resolve) => { completePrevious = resolve; });
-  const projectRead = vi.spyOn(api, "getProject").mockImplementation(async (id) => id === "previous" ? previousRead : { id: "film", name: "Morning", created_at: "2026-10-31", updated_at: "2026-10-31" });
-  const storyboardRead = vi.spyOn(api, "getStoryboard").mockImplementation(async () => previousRead);
-  const shots = vi.spyOn(api, "getShots").mockResolvedValue([]);
-  const tracks = vi.spyOn(api, "ensureDefaultTracks").mockResolvedValue([]);
-  const clips = vi.spyOn(api, "getTimelineClips").mockResolvedValue([]);
-  native.invoke.mockImplementation(async (command: string) => {
-    if (command === "get_project_document_state") return { ok: true, value: { current, recent: [], legacy: [] } };
-    current = { file_path: "/Films/Morning.showbiz", project_id: "film", name: "Morning" };
-    return { ok: true, value: current };
+  native.invoke.mockResolvedValue({
+    ok: true,
+    value: {
+      current: null,
+      recent: [],
+      legacy: [],
+      warning: "The recent project list could not be read.",
+    },
   });
-  function Location() { return createElement("output", { "aria-label": "Current document route" }, useLocation().pathname); }
-  try {
-    render(createElement(MemoryRouter, { initialEntries: [`/${page}/previous`] }, createElement(App), createElement(Location)));
-    await screen.findByRole("navigation", { name: "Project navigator" });
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "File", exact: true }));
-    await user.click(await screen.findByRole("menuitem", { name: /Open Project/ }));
-    await screen.findByRole("button", { name: "Rename project", exact: true });
-    await act(async () => { completePrevious(null); });
-    expect(screen.getByLabelText("Current document route").textContent).toBe("/project/film");
-  } finally { projectRead.mockRestore(); storyboardRead.mockRestore(); shots.mockRestore(); tracks.mockRestore(); clips.mockRestore(); }
+  render(createElement(MemoryRouter, null, createElement(App)));
+  expect(await screen.findByRole("alert")).toHaveProperty(
+    "textContent",
+    expect.stringContaining("recent project list"),
+  );
+  expect(
+    screen
+      .getByRole("button", { name: "Open Project", exact: true })
+      .hasAttribute("disabled"),
+  ).toBe(false);
 });
+
+it.each(["project", "storyboard"] as const)(
+  "ignores a previous file's delayed %s read after opening another document",
+  async (page) => {
+    const api = await import("./backend-api");
+    let current = {
+      file_path: "/Films/Previous.showbiz",
+      project_id: "previous",
+      name: "Previous",
+    };
+    let completePrevious!: (value: null) => void;
+    const previousRead = new Promise<null>((resolve) => {
+      completePrevious = resolve;
+    });
+    const projectRead = vi
+      .spyOn(api, "getProject")
+      .mockImplementation(async (id) =>
+        id === "previous"
+          ? previousRead
+          : {
+              id: "film",
+              name: "Morning",
+              created_at: "2026-10-31",
+              updated_at: "2026-10-31",
+            },
+      );
+    const storyboardRead = vi
+      .spyOn(api, "getStoryboard")
+      .mockImplementation(async () => previousRead);
+    const shots = vi.spyOn(api, "getShots").mockResolvedValue([]);
+    const tracks = vi.spyOn(api, "ensureDefaultTracks").mockResolvedValue([]);
+    const clips = vi.spyOn(api, "getTimelineClips").mockResolvedValue([]);
+    native.invoke.mockImplementation(async (command: string) => {
+      if (command === "get_project_document_state")
+        return { ok: true, value: { current, recent: [], legacy: [] } };
+      current = {
+        file_path: "/Films/Morning.showbiz",
+        project_id: "film",
+        name: "Morning",
+      };
+      return { ok: true, value: current };
+    });
+    function Location() {
+      return createElement(
+        "output",
+        { "aria-label": "Current document route" },
+        useLocation().pathname,
+      );
+    }
+    try {
+      render(
+        createElement(
+          MemoryRouter,
+          { initialEntries: [`/${page}/previous`] },
+          createElement(App),
+          createElement(Location),
+        ),
+      );
+      await screen.findByRole("navigation", { name: "Project navigator" });
+      const user = userEvent.setup();
+      await user.click(
+        screen.getByRole("button", { name: "File", exact: true }),
+      );
+      await user.click(
+        await screen.findByRole("menuitem", { name: /Open Project/ }),
+      );
+      await screen.findByRole("button", {
+        name: "Rename project",
+        exact: true,
+      });
+      await act(async () => {
+        completePrevious(null);
+      });
+      expect(screen.getByLabelText("Current document route").textContent).toBe(
+        "/project/film",
+      );
+    } finally {
+      projectRead.mockRestore();
+      storyboardRead.mockRestore();
+      shots.mockRestore();
+      tracks.mockRestore();
+      clips.mockRestore();
+    }
+  },
+);

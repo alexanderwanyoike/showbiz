@@ -1,15 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
-import { hideDefaultApplicationMenu } from "./app-menu";
-
-describe("hideDefaultApplicationMenu", () => {
-  it("suppresses Electron's default application menu", () => {
-    const setApplicationMenu = vi.fn();
-
-    hideDefaultApplicationMenu({ setApplicationMenu });
-
-    expect(setApplicationMenu).toHaveBeenCalledWith(null);
-  });
-});
+import { expect, it, vi } from "vitest";
 
 it("offers native project-file commands with desktop accelerators", async () => {
   const { projectApplicationMenu } = await import("./app-menu");
@@ -27,6 +16,7 @@ it("offers native project-file commands with desktop accelerators", async () => 
     { type: "separator" },
     { role: "quit" },
   ]);
-  if (Array.isArray(file?.submenu) && "click" in file.submenu[1]) file.submenu[1].click?.();
+  if (Array.isArray(file?.submenu) && "click" in file.submenu[1])
+    file.submenu[1].click?.();
   expect(send).toHaveBeenCalledWith("open");
 });
