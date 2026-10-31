@@ -330,3 +330,17 @@ it.each([["openai", "OpenAI"], ["ltx", "LTX Video"], ["kie", "Kie AI"], ["replic
   expect(screen.getByRole("button", { name: `Remove ${name} API key` })).toBeTruthy();
   expect(screen.getByText("Saved credential; no enabled generation models")).toBeTruthy();
 });
+it("cancels a staged key replacement while keeping the current saved credential", async () => {
+  api.getApiKeyStatusAction.mockResolvedValue(API_KEY_PROVIDERS.map((provider) => ({ provider: provider.id, name: provider.name, is_configured: provider.id === "fal", source: provider.id === "fal" ? "database" : null })));
+  render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Configure fal.ai" }));
+  await user.click(screen.getByRole("button", { name: "Replace fal.ai API key" }));
+  await user.type(screen.getByLabelText("fal.ai API key"), "replacement-draft");
+  expect(screen.getByText("Your current key stays in use until you save a replacement.")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Cancel replacing fal.ai API key" }));
+  expect(screen.queryByLabelText("fal.ai API key")).toBeNull();
+  expect(screen.getByRole("button", { name: "Remove fal.ai API key" })).toBeTruthy();
+  expect(api.saveApiKeyAction).not.toHaveBeenCalled();
+  expect(api.deleteApiKeyAction).not.toHaveBeenCalled();
+});
