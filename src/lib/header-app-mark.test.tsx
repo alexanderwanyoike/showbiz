@@ -6,7 +6,7 @@ import { Header } from "../components/Header";
 vi.mock("../hooks/useUpdates", () => ({ useUpdates: () => ({ status: null }) }));
 vi.mock("../components/SettingsDialog", () => ({ SettingsDialog: () => null }));
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
-it("reuses the app icon's monochrome symbol at titlebar size with a packaged-relative URL", () => {
+it("reuses the app icon's inline monochrome symbol without external resource requests", () => {
   vi.stubEnv("BASE_URL", "./");
   render(createElement(Header));
   const wordmark = screen.getByLabelText("Showbiz");
@@ -16,6 +16,9 @@ it("reuses the app icon's monochrome symbol at titlebar size with a packaged-rel
   expect(mark?.getAttribute("height")).toBe("20");
   expect(mark?.getAttribute("aria-hidden")).toBe("true");
   expect(mark?.getAttribute("focusable")).toBe("false");
-  expect(mark?.querySelector("use")?.getAttribute("href")).toBe("./icon.svg#showbiz-mark");
+  expect(mark?.querySelector(":scope > use")?.getAttribute("href")).toBe("#showbiz-mark");
+  expect(mark?.querySelector("defs symbol#showbiz-mark")?.getAttribute("viewBox")).toBe("0 0 64 64");
+  expect(mark?.querySelector("defs #video-frame")).toBeTruthy();
+  expect(mark?.querySelector('use[href*=".svg"]')).toBeNull();
   expect(wordmark.textContent).toBe("Showbiz");
 });
