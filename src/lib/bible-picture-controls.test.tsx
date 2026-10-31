@@ -89,7 +89,8 @@ it("opens a named picture dialog, returns keyboard focus on Escape, and exposes 
 it("keeps an edit instruction open after a failed generation so it can be corrected or retried", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Edit…" }));
+  await user.click(await screen.findByText("Picture actions"));
+  await user.click(screen.getByRole("button", { name: "Edit…" }));
   const field = screen.getByPlaceholderText(
     "Edit the current picture (e.g. make it night, add rain)...",
   );
@@ -108,7 +109,8 @@ it("keeps an edit instruction open after a failed generation so it can be correc
 it("keeps an adjusted retake prompt after generation fails", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Variation…" }));
+  await user.click(await screen.findByText("Picture actions"));
+  await user.click(screen.getByRole("button", { name: "Variation…" }));
   const field = screen.getByPlaceholderText(
     "Tweak the prompt for a variation...",
   );
@@ -171,7 +173,8 @@ it("confirms a picture deletion and keeps an unsuccessful deletion available to 
 it("keeps separate edit and variation drafts visible and lets each be cancelled", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Edit…" }));
+  await user.click(await screen.findByText("Picture actions"));
+  await user.click(screen.getByRole("button", { name: "Edit…" }));
   await user.type(
     screen.getByRole("textbox", { name: "Edit instruction for Ada" }),
     "Warmer light",
