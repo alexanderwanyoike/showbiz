@@ -1,0 +1,185 @@
+.desktop-chrome.integrated-titlebar {
+  height: 48px;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--background);
+  border-color: transparent;
+  box-shadow: none;
+}
+.integrated-titlebar .desktop-wordmark {
+  flex-shrink: 0;
+  font-size: 13px;
+  gap: 7px;
+}
+.integrated-titlebar .desktop-chrome-caption {
+  position: static;
+  transform: none;
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  padding-inline: 12px;
+  text-align: center;
+  font-size: 11px;
+}
+.integrated-titlebar .desktop-chrome-actions {
+  flex-shrink: 0;
+  gap: 3px;
+}
+.integrated-titlebar > button,
+.integrated-titlebar .app-menubar,
+.app-menu-content {
+  -webkit-app-region: no-drag;
+}
+.integrated-titlebar[data-native-titlebar="true"][data-desktop-platform="win32"],
+.integrated-titlebar[data-native-titlebar="true"][data-desktop-platform="linux"] {
+  padding-left: max(12px, calc(env(titlebar-area-x, 0px) + 12px));
+  padding-right: max(
+    146px,
+    calc(
+      100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 8px
+    )
+  );
+}
+.integrated-titlebar[data-native-titlebar="true"][data-desktop-platform="darwin"] {
+  padding-left: max(88px, calc(env(titlebar-area-x, 0px) + 12px));
+}
+.app-menubar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 1px;
+}
+.app-menu-trigger {
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--foreground);
+  padding: 5px 8px;
+  font-size: 11px;
+  cursor: default;
+  outline: none;
+}
+.app-menu-trigger:hover,
+.app-menu-trigger[data-state="open"],
+.app-menu-trigger[data-highlighted] {
+  background: var(--accent);
+}
+.app-menu-trigger:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+.app-menu-content {
+  z-index: 90;
+  min-width: 230px;
+  max-width: calc(100vw - 16px);
+  padding: 5px;
+  color: var(--popover-foreground);
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: var(--floating-shadow, 0 10px 35px #0003);
+  outline: none;
+}
+.app-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 12px;
+  border-radius: 5px;
+  cursor: default;
+  outline: none;
+  user-select: none;
+}
+.app-menu-item[data-highlighted] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.app-menu-item[data-disabled] {
+  color: var(--muted-foreground);
+  opacity: 0.5;
+}
+.app-menu-shortcut {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.app-menu-separator {
+  height: 1px;
+  margin: 5px 3px;
+  background: var(--border);
+}
+.app-menu-error {
+  position: absolute;
+  top: 48px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--floating-shadow);
+  z-index: 95;
+  font-size: 12px;
+  -webkit-app-region: no-drag;
+}
+.app-menu-error span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1100px) {
+  .integrated-titlebar .desktop-chrome-caption {
+    display: none;
+  }
+  .integrated-titlebar .desktop-chrome-actions {
+    margin-left: auto;
+  }
+}
+@media (max-width: 900px) {
+  .desktop-update-label {
+    display: none;
+  }
+  .integrated-titlebar .desktop-wordmark span {
+    display: none;
+  }
+  .app-menu-trigger {
+    padding-inline: 7px;
+  }
+}
+.keyboard-shortcuts-dialog[data-slot="dialog-content"] {
+  max-width: 480px;
+}
+.keyboard-shortcut-list {
+  max-height: min(440px, 60vh);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding-right: 8px;
+}
+.keyboard-shortcut-list section + section {
+  margin-top: 18px;
+}
+.keyboard-shortcut-list h3 {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--muted-foreground);
+}
+.keyboard-shortcut-list dl > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+.keyboard-shortcut-list kbd {
+  font-family: inherit;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}

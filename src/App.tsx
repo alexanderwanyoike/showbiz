@@ -3,7 +3,7 @@ import { useState } from "react";
 import { PanelLeft } from "lucide-react";
 import { Routes, Route, useLocation } from "react-router";
 import { Header } from "./components/Header";
-import { DocumentMenu } from "./components/DocumentMenu";
+import { ApplicationMenu } from "./components/ApplicationMenu";
 import { ProjectNavigator } from "./components/ProjectNavigator";
 import { ApplicationStatus } from "./components/ApplicationStatus";
 import {
@@ -30,8 +30,16 @@ function DocumentWorkspace() {
     <div
       className={`desktop-shell ${navigatorOpen ? "" : "desktop-shell-start"}`}
     >
-      <Header caption={document.current?.name ?? ""}>
-        {!window.showbiz?.onDocumentAction && <DocumentMenu />}
+      <Header
+        caption={document.current?.name ?? ""}
+        menu={({ openSettings, reportError, openShortcuts }) => (
+          <ApplicationMenu
+            onSettings={openSettings}
+            onError={reportError}
+            onShortcuts={openShortcuts}
+          />
+        )}
+      >
         {document.current && (
           <WorkspaceCommand
             label="Project navigator"
