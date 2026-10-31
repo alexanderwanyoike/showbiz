@@ -26,3 +26,14 @@ it("quotes Nano Banana image output tokens as a routing range without claiming i
     expect(await getGenerationEstimate("nano-banana-2-openrouter", {kind: "image"})).toMatchObject({kind: "estimate", min_microusd: 67200, max_microusd: 73920, excludes_input_cost: true});
   } finally { db.close(); }
 });
+it("updates video estimates for duration, resolution and audio, including Auto ranges", async () => {
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createGenerationPricingCommands(db);
+    native.invoke.mockImplementation(async (command, args) => commands[command]?.(args));
+    native.fetch.mockResolvedValue(new Response(JSON.stringify({data: [{id: "google/veo-3.1", supported_resolutions: ["720p", "1080p", "4K"], supported_durations: [4, 6, 8], pricing_skus: {duration_seconds_with_audio: "0.40", duration_seconds_without_audio: "0.20", duration_seconds_with_audio_4k: "0.60", duration_seconds_without_audio_4k: "0.40"}}]})));
+    expect(await getGenerationEstimate("veo-3.1-openrouter", {kind: "video", duration: "8s", resolution: "1080p", audio: false})).toMatchObject({kind: "estimate", min_microusd: 1600000, max_microusd: 1600000});
+    expect(await getGenerationEstimate("veo-3.1-openrouter", {kind: "video", duration: "8s", resolution: "4K", audio: true})).toMatchObject({kind: "estimate", min_microusd: 4800000});
+    expect(await getGenerationEstimate("veo-3.1-openrouter", {kind: "video", duration: "auto", resolution: "720p", audio: true})).toMatchObject({kind: "estimate", min_microusd: 1600000, max_microusd: 3200000});
+  } finally { db.close(); }
+});
