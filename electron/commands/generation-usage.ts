@@ -187,7 +187,8 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
     record_generation_receipt: (args: Args = {}): Result<null> =>
       execute(() => {
         if (
-          !money(args.reported_microusd) ||
+          (args.reported_microusd !== null && !money(args.reported_microusd)) ||
+          (args.reported_microusd === null && !identifier(args.provider_request_id)) ||
           (args.provider_request_id != null &&
             !identifier(args.provider_request_id))
         )
