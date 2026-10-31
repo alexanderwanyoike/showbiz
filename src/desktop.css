@@ -1,28 +1,30 @@
 :root {
-  --native-chrome-top: #f7f8fa;
-  --native-chrome-bottom: #d8dde5;
-  --native-sidebar: #dce1e9;
-  --native-inset: #f9fafb;
-  --native-highlight: #ffffffb0;
+  --native-chrome-top: #f2f2f2;
+  --native-chrome-bottom: #f2f2f2;
+  --native-sidebar: #f7f7f7;
+  --native-inset: #ffffff;
+  --native-highlight: transparent;
 }
 :root.dark {
-  --native-chrome-top: #212630;
-  --native-chrome-bottom: #141820;
-  --native-sidebar: #13171e;
-  --native-inset: #1a1f28;
-  --native-highlight: #ffffff0a;
+  --native-chrome-top: #101010;
+  --native-chrome-bottom: #101010;
+  --native-sidebar: #171717;
+  --native-inset: #1b1b1b;
+  --native-highlight: transparent;
 }
 :root[data-material]:not([data-material="native"]) {
-  --native-sidebar: color-mix(
-    in srgb,
-    var(--surface-muted) 65%,
-    var(--surface-panel)
-  );
+  --native-sidebar: color-mix(in srgb, var(--surface-panel) 85%, var(--surface-background));
   --native-inset: var(--surface-panel);
+  --native-chrome-top: var(--surface-background);
+  --native-chrome-bottom: var(--surface-background);
+}
+:root[data-material="aluminium"],
+:root[data-material="copper"] {
   --native-chrome-top: color-mix(in srgb, var(--surface-muted) 80%, white);
   --native-chrome-bottom: var(--surface-muted);
 }
-:root.dark[data-material]:not([data-material="native"]) {
+:root.dark[data-material="aluminium"],
+:root.dark[data-material="copper"] {
   --native-chrome-top: color-mix(in srgb, var(--surface-muted) 92%, white);
 }
 :root body {
@@ -97,12 +99,6 @@ body,
   gap: 5px;
   -webkit-app-region: no-drag;
 }
-.desktop-chrome-actions [data-slot="button"] {
-  height: 27px;
-  min-height: 27px;
-  width: auto;
-  padding: 0 7px;
-}
 .desktop-sidebar {
   grid-area: sidebar;
   display: flex;
@@ -142,7 +138,7 @@ body,
   padding: 5px 9px;
   margin: 2px 0;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 11px;
   color: var(--muted-foreground);
 }
@@ -153,8 +149,8 @@ body,
 .sidebar-item.is-selected {
   background: color-mix(in srgb, var(--primary) 16%, var(--native-sidebar));
   color: var(--foreground);
-  border-color: color-mix(in srgb, var(--primary) 70%, transparent);
-  box-shadow: inset 0 1px var(--native-highlight);
+  border-color: transparent;
+  box-shadow: none;
 }
 .sidebar-item.is-current-project {
   color: var(--foreground);
@@ -196,7 +192,7 @@ body,
   color: var(--foreground);
 }
 .sidebar-storage span {
-  font-size: 9px;
+  font-size: 11px;
 }
 .sidebar-error {
   font-size: 10px;
@@ -246,7 +242,7 @@ body,
   height: 26px;
   width: 26px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--background);
 }
 .workspace-toolbar-actions {
@@ -355,7 +351,7 @@ body,
 }
 .project-row-link small {
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-size: 11px;
 }
 .project-row-date {
   color: var(--muted-foreground);
@@ -400,7 +396,7 @@ body,
   position: relative;
   border: 1px solid var(--border);
   background: var(--card);
-  border-radius: 5px;
+  border-radius: 10px;
   overflow: hidden;
   height: fit-content;
 }
@@ -484,25 +480,6 @@ body,
     128px 128px,
     100% 100%;
 }
-.desktop-shell [data-slot="button"] {
-  font-size: 11px;
-  font-weight: 550;
-  height: 29px;
-  min-height: 26px;
-  border-radius: 4px;
-  box-shadow:
-    inset 0 1px var(--native-highlight),
-    0 1px 1px #00000006;
-}
-.desktop-shell [data-slot="button"][data-variant="ghost"] {
-  box-shadow: none;
-}
-.desktop-shell [data-slot="input"],
-.desktop-shell [data-slot="textarea"],
-.desktop-shell [data-slot="select-trigger"] {
-  border-radius: 4px;
-  box-shadow: inset 0 1px 2px #00000008;
-}
 .desktop-shell svg {
   stroke-width: 1.6;
 }
@@ -516,7 +493,7 @@ body,
   padding: 0;
   gap: 0;
   overflow: hidden;
-  border-radius: 7px;
+  border-radius: 14px;
   box-shadow:
     0 18px 55px #00000040,
     0 1px 4px #00000025;
@@ -563,7 +540,7 @@ body,
   height: 32px;
   font-size: 11px;
   padding: 0 12px;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 .preferences-navigation [data-state="active"] {
   background: color-mix(in srgb, var(--primary) 14%, var(--native-sidebar));
@@ -589,7 +566,7 @@ body,
   gap: 12px;
 }
 .preferences-footer p {
-  font-size: 9px;
+  font-size: 11px;
 }
 .native-preferences .appearance-materials {
   gap: 14px 10px;
@@ -599,7 +576,7 @@ body,
   padding: 0;
   gap: 8px;
   box-shadow: none;
-  font-size: 10px;
+  font-size: 11px;
 }
 .native-preferences .material-preview {
   height: 58px;
@@ -628,7 +605,7 @@ body,
 }
 .native-preferences .appearance-accents label {
   min-width: 56px;
-  font-size: 9px;
+  font-size: 11px;
 }
 .native-preferences .appearance-swatch {
   width: 23px;
@@ -669,7 +646,7 @@ body,
   padding: 0 11px;
   border-bottom: 1px solid var(--border);
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-size: 11px;
 }
 .shot-browser-list {
   flex: 1;
@@ -710,7 +687,7 @@ body,
   border-radius: 2px;
   overflow: hidden;
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-size: 11px;
 }
 .shot-browser-thumbnail img {
   height: 100%;
@@ -732,7 +709,7 @@ body,
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted-foreground);
-  font-size: 9px;
+  font-size: 11px;
 }
 .shot-browser-copy small {
   display: flex;
@@ -771,7 +748,7 @@ body,
   height: 29px;
   margin: 7px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--card);
   font-size: 10px;
   box-shadow: inset 0 1px var(--native-highlight);
@@ -827,7 +804,7 @@ body,
   width: min(100%, 750px);
   min-height: 400px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 14px;
   overflow: hidden;
   background: var(--background);
   box-shadow:
@@ -862,7 +839,7 @@ body,
   gap: 12px;
   padding: 12px 9px;
   margin-left: -9px;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 .document-start button:hover {
   background: var(--accent);
@@ -883,7 +860,7 @@ body,
   margin-top: 3px;
   color: var(--muted-foreground);
   font-weight: 400;
-  font-size: 10px;
+  font-size: 11px;
 }
 .document-start-recent {
   padding: 30px 22px;
@@ -917,7 +894,7 @@ body,
   gap: 12px;
   text-align: left;
   padding: 11px 8px;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 .document-start-recent li button > svg {
   flex-shrink: 0;
@@ -996,7 +973,7 @@ body,
   margin: 14px -9px 0;
   padding: 14px;
   color: var(--muted-foreground);
-  font-size: 10px;
+  font-size: 11px;
 }
 .sidebar-document-file span {
   overflow: hidden;
@@ -1005,7 +982,7 @@ body,
 }
 .sidebar-document-file small {
   grid-column: 2;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .storyboard-workspace {
@@ -1096,7 +1073,7 @@ body,
   padding: 0 12px;
   justify-content: flex-start;
   gap: 8px;
-  font-size: 9px;
+  font-size: 11px;
 }
 .canvas-filmstrip .shot-browser-list {
   display: flex;
@@ -1127,13 +1104,13 @@ body,
   gap: 4px;
 }
 .canvas-filmstrip .shot-browser-copy strong {
-  font-size: 10px;
+  font-size: 11px;
 }
 .canvas-filmstrip .shot-browser-copy > span {
   display: none;
 }
 .canvas-filmstrip .shot-browser-copy small {
-  font-size: 9px;
+  font-size: 11px;
 }
 .canvas-filmstrip .shot-browser-add {
   align-self: center;
@@ -1146,7 +1123,7 @@ body,
   margin: 0;
   padding: 10px;
   white-space: nowrap;
-  font-size: 10px;
+  font-size: 11px;
 }
 @media (max-width: 1000px) {
   .storyboard-workspace.has-inspector {
@@ -1171,7 +1148,7 @@ body,
   gap: 7px;
   padding: 5px 8px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 11px;
 }
 .desktop-navigator-toggle[aria-expanded="true"] {

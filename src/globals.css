@@ -3,6 +3,7 @@
 @import "@fontsource-variable/manrope";
 @import "./appearance.css";
 @import "./desktop.css";
+@import "./native-controls.css";
 
 @font-face {
   font-family: "Lato";
@@ -47,23 +48,23 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.965 0.004 255);
-  --foreground: #151a23;
-  --card: oklch(0.992 0.002 255);
-  --card-foreground: #151a23;
-  --popover: oklch(0.988 0.003 255);
-  --popover-foreground: oklch(0.275 0.012 260);
+  --background: #f2f2f2;
+  --foreground: #1b1b1b;
+  --card: #ffffff;
+  --card-foreground: #1b1b1b;
+  --popover: #ffffff;
+  --popover-foreground: #1b1b1b;
   --primary: oklch(0.48 0.032 252);
   --primary-foreground: oklch(0.97 0.003 255);
-  --secondary: oklch(0.93 0.006 255);
-  --secondary-foreground: oklch(0.325 0.012 260);
-  --muted: oklch(0.94 0.004 255);
-  --muted-foreground: #4f5a6b;
+  --secondary: #e9e9e9;
+  --secondary-foreground: #282828;
+  --muted: #eaeaea;
+  --muted-foreground: #656565;
   --accent: oklch(0.905 0.008 252);
-  --accent-foreground: oklch(0.275 0.012 260);
+  --accent-foreground: #1b1b1b;
   --destructive: oklch(0.58 0.18 25);
-  --border: oklch(0.875 0.008 255);
-  --input: oklch(0.915 0.006 255);
+  --border: #dddddd;
+  --input: #d5d5d5;
   --ring: oklch(0.55 0.03 252);
   --chart-1: oklch(0.54 0.042 252);
   --chart-2: oklch(0.58 0.03 215);
@@ -89,7 +90,7 @@
     Roboto Mono, Geist Mono, Geist Mono Fallback, ui-monospace, SFMono-Regular,
     Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  --radius: 0.125rem;
+  --radius: 0.625rem;
 
   --shadow-2xs: 0px 1px 2px 0px oklch(0.22 0.01 260 / 0.02);
   --shadow-xs: 0px 1px 2px 0px oklch(0.22 0.01 260 / 0.03);
@@ -123,23 +124,23 @@
 }
 
 .dark {
-  --background: oklch(0.155 0.004 280);
-  --foreground: #f5f7fa;
-  --card: oklch(0.195 0.004 280);
-  --card-foreground: #f5f7fa;
-  --popover: oklch(0.22 0.008 255);
-  --popover-foreground: oklch(0.92 0.006 255);
+  --background: #101010;
+  --foreground: #f5f5f5;
+  --card: #1b1b1b;
+  --card-foreground: #f5f5f5;
+  --popover: #242424;
+  --popover-foreground: #f5f5f5;
   --primary: oklch(0.7 0.035 252);
   --primary-foreground: oklch(0.17 0.008 255);
-  --secondary: oklch(0.255 0.008 255);
-  --secondary-foreground: oklch(0.9 0.006 255);
-  --muted: oklch(0.225 0.004 280);
-  --muted-foreground: #acb6c6;
+  --secondary: #2b2b2b;
+  --secondary-foreground: #ededed;
+  --muted: #242424;
+  --muted-foreground: #acacac;
   --accent: oklch(0.35 0.04 230);
-  --accent-foreground: oklch(0.92 0.006 255);
+  --accent-foreground: #f5f5f5;
   --destructive: oklch(0.62 0.2 25);
-  --border: oklch(0.3 0.005 260 / 0.5);
-  --input: oklch(0.27 0.008 255);
+  --border: #ffffff14;
+  --input: #ffffff24;
   --ring: oklch(0.71 0.035 252);
   --chart-1: oklch(0.7 0.035 252);
   --chart-2: oklch(0.66 0.03 215);

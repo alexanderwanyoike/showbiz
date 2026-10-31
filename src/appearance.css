@@ -21,7 +21,7 @@
   gap: 6px;
   padding: 7px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 10px;
   font-size: 11px;
   cursor: pointer;
 }
@@ -67,7 +67,7 @@
   position: relative;
   padding: 7px 16px;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
 }
@@ -101,9 +101,9 @@
   --muted: var(--surface-muted);
   --secondary: var(--surface-muted);
   --sidebar: var(--surface-panel);
-  --input: var(--surface-muted);
-  --border: var(--surface-border);
-  --sidebar-border: var(--surface-border);
+  --input: color-mix(in srgb, var(--surface-border) 70%, var(--surface-panel));
+  --border: color-mix(in srgb, var(--surface-border) 65%, var(--surface-panel));
+  --sidebar-border: var(--border);
 }
 :root[data-material="aluminium"],
 .appearance-material[data-material="aluminium"] {
@@ -191,17 +191,17 @@
 }
 :root[data-material="carbon"],
 .appearance-material[data-material="carbon"] {
-  --surface-background: #cfd1d5;
-  --surface-panel: #f8f9fa;
-  --surface-muted: #b8bcc3;
-  --surface-border: #969da7;
+  --surface-background: #eeeeee;
+  --surface-panel: #ffffff;
+  --surface-muted: #eaeaea;
+  --surface-border: #d3d3d3;
 }
 :root.dark[data-material="carbon"],
 .dark .appearance-material[data-material="carbon"] {
-  --surface-background: #08090b;
-  --surface-panel: #14161a;
-  --surface-muted: #23262d;
-  --surface-border: #343a45;
+  --surface-background: #000000;
+  --surface-panel: #111111;
+  --surface-muted: #242424;
+  --surface-border: #292929;
 }
 :root[data-material="aluminium"] body {
   background-image: repeating-linear-gradient(
