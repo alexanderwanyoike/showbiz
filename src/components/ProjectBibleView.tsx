@@ -634,6 +634,7 @@ function AssetTab({
             >
               <Upload className="h-3 w-3" />
             </Button>
+            <Button type="button" variant="ghost" size="sm" className="text-xs" aria-label={`Clear ${label} draft`} disabled={creating || (!newName && !newPrompt)} onClick={() => { setNewName(""); setNewPrompt(""); }}>Clear draft</Button>
           </div>
         </div>
       </div>
@@ -810,6 +811,7 @@ function FramesTab({
           {making ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
           Make frame
         </Button>
+        <Button type="button" variant="ghost" size="sm" className="ml-2 text-xs" aria-label="Clear frame draft" disabled={making || (!prompt && !selectedChars.size && !locationId)} onClick={() => { setPrompt(""); setSelectedChars(new Set()); setLocationId(null); setLocationVariantId(null); }}>Clear draft</Button>
         {!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId) && <p className="mt-2 text-xs text-muted-foreground">Choose a model that accepts reference images to include these characters or locations.</p>}
       </div>
 
