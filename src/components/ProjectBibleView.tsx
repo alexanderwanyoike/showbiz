@@ -5,12 +5,13 @@ import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useEffect, useRef, useState } from "react";
-import { Check, ImageIcon, Loader2, Maximize2, RefreshCw, Trash2, Upload, Sparkles, Wand2 } from "lucide-react";
+import { Loader2, RefreshCw, Trash2, Upload, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { BiblePicturePreview } from "./BiblePicturePreview";
+import { BiblePictureTile } from "./BiblePictureTile";
 import {
   Select,
   SelectContent,
@@ -102,96 +103,6 @@ interface ProjectBibleViewProps {
   projectId: string;
   initialTab?: Tab;
   generationModel?: { value: ImageModelId; onChange: (model: ImageModelId) => void };
-}
-
-// A full-screen view of one picture.
-function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
-  const origin = useRef(document.activeElement instanceof HTMLElement ? document.activeElement : null);
-  return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-[95vw] border-0 bg-black/95 p-4 sm:max-w-[95vw]" aria-describedby={undefined} onCloseAutoFocus={(event) => { event.preventDefault(); origin.current?.focus(); }}>
-        <DialogTitle className="sr-only">Picture preview</DialogTitle>
-        <img src={url} alt="Bible picture" className="max-h-[88vh] w-full object-contain" />
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// An image tile used for pictures, characters, locations and frames.
-function Tile({
-  url,
-  label,
-  actionLabel,
-  active,
-  disabled = false,
-  size = "sm",
-  onClick,
-  onDelete,
-  onExpand,
-}: {
-  url: string | null;
-  label?: string;
-  actionLabel?: string;
-  active?: boolean;
-  disabled?: boolean;
-  size?: "sm" | "lg";
-  onClick?: () => void;
-  onDelete?: () => void;
-  onExpand?: () => void;
-}) {
-  const dims = size === "lg" ? "h-44 w-72" : "h-20 w-28";
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={onClick ?? onExpand}
-        disabled={disabled || (!onClick && !url)}
-        aria-label={actionLabel ?? label}
-        aria-pressed={active}
-        title={actionLabel ?? label}
-        className={`relative block ${dims} overflow-hidden rounded border bg-muted text-[10px] transition-colors ${active ? "border-primary ring-2 ring-primary" : "border-border hover:border-foreground/40"}`}
-      >
-        {url ? (
-          <img src={url} alt={label ?? ""} className="h-full w-full object-cover" />
-        ) : (
-          <span className="flex h-full w-full items-center justify-center text-muted-foreground/50">
-            <ImageIcon className="h-5 w-5" />
-          </span>
-        )}
-        {label && (
-          <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-[10px] text-white">{label}</span>
-        )}
-        {active && (
-          <span className="absolute left-1 top-1 rounded-full bg-primary p-0.5 text-primary-foreground">
-            <Check className="h-3 w-3" />
-          </span>
-        )}
-      </button>
-      {onExpand && onClick && url && (
-        <button
-          type="button"
-          onClick={onExpand}
-          className="absolute bottom-1 right-1 rounded bg-black/60 p-1 text-white hover:bg-black/80"
-          aria-label={`View ${label ?? "picture"}`}
-          title={`View ${label ?? "picture"}`}
-        >
-          <Maximize2 className="h-3.5 w-3.5" />
-        </button>
-      )}
-      {onDelete && (
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={disabled}
-          className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground opacity-80 hover:opacity-100"
-          aria-label={`Delete ${label ?? "picture"}`}
-          title={`Delete ${label ?? "picture"}`}
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
-      )}
-    </div>
-  );
 }
 
 // Generate (prompt) or upload one picture.
@@ -596,7 +507,7 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
         </TabsContent>
       </div>
 
-      {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
+      {lightbox && <BiblePicturePreview url={lightbox} onClose={() => setLightbox(null)} />}
       <ConfirmDeletion open={!!deletion} onOpenChange={(open) => { if (!open) setDeletion(null); }} title={deletion?.kind === "asset" ? "Delete Bible entry" : "Delete picture"} description={deletion?.kind === "asset" ? `Delete “${deletion.asset.name}” and all its pictures? This cannot be undone.` : "Delete this picture from the Bible? This cannot be undone."} actionLabel={deletion?.kind === "asset" ? "Delete entry" : "Delete picture"} onConfirm={confirmDeletion} />
     </section>
     </Tabs>
@@ -834,7 +745,7 @@ function FramesTab({
           {characters.map((c) => {
             const url = primaryPicture(variants[c.id] ?? [])?.media_url ?? null;
             return (
-              <Tile
+              <BiblePictureTile
                 key={c.id}
                 url={url}
                 label={c.name}
@@ -853,7 +764,7 @@ function FramesTab({
           {locations.map((l) => {
             const url = primaryPicture(variants[l.id] ?? [])?.media_url ?? null;
             return (
-              <Tile
+              <BiblePictureTile
                 key={l.id}
                 url={url}
                 label={l.name}
@@ -870,7 +781,7 @@ function FramesTab({
             <p className="mb-1 text-[10px] text-muted-foreground">View</p>
             <div className="flex flex-wrap gap-2">
               {locationViews.map((v, i) => (
-                <Tile
+                <BiblePictureTile
                   key={v.id}
                   url={v.media_url}
                   label={`View ${i + 1}`}
@@ -984,7 +895,7 @@ function AssetCard({
   return (
     <div className="rounded border border-border p-3">
       <div className="flex gap-3">
-        <Tile
+        <BiblePictureTile
           url={primary?.media_url ?? null}
           actionLabel={`View ${asset.name} picture`}
           size="lg"
@@ -1005,7 +916,7 @@ function AssetCard({
               <p className="mb-1 text-[10px] text-muted-foreground">Takes (click to use)</p>
               <div className="flex flex-wrap gap-1.5">
                 {takes.map((t, index) => (
-                  <Tile
+                  <BiblePictureTile
                     key={t.id}
                     url={t.media_url}
                     label={`take ${index + 1} for ${asset.name}`}
