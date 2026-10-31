@@ -2,6 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
+import { openTestDb } from "./db.test";
+import { createSettingsCommands } from "./commands/settings";
 import { loadMigrations } from "./db";
 import { createProjectCommands } from "./commands/projects";
 import { createShotCommands } from "./commands/shots";
@@ -9,13 +11,14 @@ import { createProjectDocuments } from "./project-documents";
 
 const directories: string[] = [];
 afterEach(() => directories.splice(0).forEach((directory) => fs.rmSync(directory, { recursive: true, force: true })));
-function setup() {
+function setup(legacy?: { db: import("node:sqlite").DatabaseSync; media: string }) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "showbiz-document-"));
   directories.push(directory);
   const documents = createProjectDocuments({
+    legacy,
     migrations: loadMigrations(path.resolve("electron/migrations")),
     recentPath: path.join(directory, "recent.json"),
-    bind: (db, media) => ({ ...createProjectCommands(db, media), ...createShotCommands(db, media) }),
+    bind: (db, media) => ({ ...createProjectCommands(db, media), ...createShotCommands(db, media), ...createSettingsCommands(db) }),
   });
   return { directory, documents };
 }
@@ -101,4 +104,29 @@ it("refuses concurrent editing of the same document and permits reopening after 
     await first.documents.close();
     expect((await second.documents.open(file)).ok).toBe(true);
   } finally { await first.documents.close(); await second.documents.close(); }
+});
+
+
+it("converts one legacy library project with its media without copying credentials or removing the original", async () => {
+  const legacy = openTestDb();
+  const fixture = setup();
+  const media = path.join(fixture.directory, "legacy-media");
+  fs.mkdirSync(path.join(media, "images"), { recursive: true });
+  fs.writeFileSync(path.join(media, "images", "frame.png"), "frame");
+  const old = createProjectCommands(legacy, media);
+  const project = old.create_project({ name: "Existing film" });
+  old.create_project({ name: "Another film" });
+  const board = old.create_storyboard({ projectId: project.id, name: "Opening" });
+  legacy.prepare('INSERT INTO shots(id,storyboard_id,"order",image_path) VALUES (?,?,1,?)').run("shot", board.id, "images/frame.png");
+  createSettingsCommands(legacy).save_api_key({ provider: "fal", apiKey: "private-secret" });
+  const { directory, documents } = setup({ db: legacy, media });
+  try {
+    expect(documents.legacy()).toHaveLength(2);
+    expect((await documents.importLegacy(project.id, path.join(directory, "Converted.showbiz"))).ok).toBe(true);
+    expect(await documents.invoke("get_projects")).toMatchObject([{ name: "Existing film" }]);
+    expect(await documents.invoke("get_api_key", { provider: "fal" })).toBeNull();
+    expect(fs.readFileSync(path.join(documents.mediaDirectory()!, "images", "frame.png"), "utf8")).toBe("frame");
+    expect(old.get_projects()).toHaveLength(2);
+    expect(createSettingsCommands(legacy).get_api_key({ provider: "fal" })).toBe("private-secret");
+  } finally { await documents.close(); legacy.close(); }
 });
