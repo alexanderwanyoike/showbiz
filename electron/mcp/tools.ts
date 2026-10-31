@@ -77,6 +77,10 @@ const asset = z.object({
   consent_confirmed: z.boolean(),
 });
 export const mcpTools: ToolDefinition[] = [
+  ...["get_generation_usage", "get_generation_cost_summary"].map(command => ({
+    ...define(command, { project_id: id }, "Read provider-reported costs, unconfirmed estimates and unknown generation charges."),
+    args: (input: Record<string, unknown>) => ({ project_id: input.project_id, offset: input.offset, limit: input.limit }),
+  })),
   define(
     "read_context",
     {},
