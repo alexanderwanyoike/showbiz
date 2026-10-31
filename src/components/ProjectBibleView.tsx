@@ -205,6 +205,8 @@ function PictureMeta({ variant }: { variant: BibleAssetVariant | null }) {
 
 export default function ProjectBibleView({ projectId, initialTab = "characters", generationModel }: ProjectBibleViewProps) {
   const [bibleId, setBibleId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const loadRequest = useRef(0);
   const [assets, setAssets] = useState<BibleAsset[]>([]);
   const [variants, setVariants] = useState<Record<string, BibleAssetVariant[]>>({});
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -225,22 +227,26 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
 
   useEffect(() => {
     void load();
+    return () => { loadRequest.current++; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   async function load() {
+    const request = ++loadRequest.current;
+    setLoading(true);
+    setError(null);
     try {
       const bibles = await getBibles(projectId);
       const id = bibles[0]?.id ?? null;
+      const list = id ? await getBibleAssets(id) : [];
+      const entries = await Promise.all(list.map(async (asset) => [asset.id, await getBibleAssetVariants(asset.id)] as const));
+      if (request !== loadRequest.current) return;
       setBibleId(id);
-      if (!id) return;
-      const list = await getBibleAssets(id);
       setAssets(list);
-      const entries = await Promise.all(list.map(async (a) => [a.id, await getBibleAssetVariants(a.id)] as const));
       setVariants(Object.fromEntries(entries));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
+    } catch (cause) {
+      if (request === loadRequest.current) setError(cause instanceof Error ? cause.message : String(cause));
+    } finally { if (request === loadRequest.current) setLoading(false); }
   }
 
   async function refreshAsset(assetId: string) {
@@ -481,7 +487,10 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   }
 
   if (!bibleId) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading bible…</div>;
+    return <div className="space-y-3 p-6 text-sm text-muted-foreground">
+      <p role={error ? "alert" : "status"}>{error ?? (loading ? "Loading Bible…" : "This project's Bible is unavailable.")}</p>
+      {!loading && <Button variant="outline" size="sm" onClick={() => void load()}>Try again</Button>}
+    </div>;
   }
 
   return (
