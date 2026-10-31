@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Result } from "../../shared/result";
 import { ConfirmDeletion } from "./ConfirmDeletion";
 import { Link } from "react-router";
@@ -21,6 +21,7 @@ export default function StoryboardCard({
   previewImageUrl,
   onDelete,
 }: StoryboardCardProps) {
+  const actions = useRef<HTMLButtonElement | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const formattedDate = new Date(updatedAt).toLocaleDateString("en-US", {
     month: "short",
@@ -60,7 +61,7 @@ export default function StoryboardCard({
       <div className="absolute top-2 right-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="h-7 w-7 bg-card text-foreground" aria-label={`Storyboard actions for ${name}`} title={`Storyboard actions for ${name}`}>
+            <Button ref={actions} variant="outline" size="icon" className="h-7 w-7 bg-card text-foreground" aria-label={`Storyboard actions for ${name}`} title={`Storyboard actions for ${name}`}>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -69,7 +70,7 @@ export default function StoryboardCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <ConfirmDeletion open={deleteOpen} onOpenChange={setDeleteOpen} title="Delete storyboard" description={`Delete “${name}” and all its shots? This cannot be undone.`} actionLabel="Delete storyboard" onConfirm={() => onDelete(id)} />
+      <ConfirmDeletion open={deleteOpen} onOpenChange={setDeleteOpen} title="Delete storyboard" description={`Delete “${name}” and all its shots? This cannot be undone.`} actionLabel="Delete storyboard" restoreFocus={() => actions.current?.focus()} onConfirm={() => onDelete(id)} />
     </div>
   );
 }
