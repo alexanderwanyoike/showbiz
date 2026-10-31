@@ -198,8 +198,10 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
     if (!shot?.video_url) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
+      const target = e.target;
+      if (!(target instanceof HTMLElement) || e.defaultPrevented) return;
       if (
+        target.closest("button, a, select, [role=dialog], [role=alertdialog], [role=combobox], [role=listbox], [role=menu], [role=switch]") ||
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
         target.isContentEditable
@@ -249,7 +251,7 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
           {isEmpty ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
               <ImageIcon className="h-10 w-10 mb-2 opacity-40" />
-              <p className="text-sm">Generate or upload an image</p>
+              <p className="text-sm">Choose a frame or add a video prompt in Shot controls.</p>
             </div>
           ) : (
             <>
@@ -302,6 +304,7 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
 
               {!showVideo && hasVideo && !isGenerating && (
                 <button
+                  aria-label={`Play video for shot ${shot.order}`}
                   onClick={() => setStatus("playing")}
                   className="absolute inset-0 z-10 flex items-center justify-center group/play"
                 >
@@ -354,6 +357,8 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
         </div>
         {hasVideo && (
           <input
+            aria-label="Shot playback position"
+            aria-valuetext={`${formatPlaybackTime(position)} of ${formatPlaybackTime(duration)}`}
             type="range"
             min={0}
             max={duration || 0}

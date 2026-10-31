@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { Link } from "react-router";
+import { useId, useState, type ReactNode } from "react";
 import { ChevronDown, Loader2, Sparkles, Upload, Video, ImageIcon, AlertCircle, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,7 @@ import {
 import ImageVersionTimeline from "./ImageVersionTimeline";
 import VideoVersionTimeline from "./VideoVersionTimeline";
 import type { ImageVersionNode, ImageVersionWithUrl, VideoVersionNode, VideoVersionWithUrl } from "../lib/backend-api";
-import { hasUsableShotVideoSource } from "../lib/bible-assets";
+import { shotGenerationReadiness } from "../lib/shot-generation-readiness";
 import { filterFrameOptions } from "../lib/bible-compose";
 import { formatDurationLabel } from "../lib/video-preview";
 import type { VideoGenerationSettings, VideoModelInfo } from "../lib/models/types";
@@ -39,8 +40,15 @@ export interface FrameOption {
 
 export interface ShotInspectorProps {
   modelControls?: ReactNode;
+  frameLibraryHref?: string;
   generationCost?: ReactNode;
   generationDisabled?: boolean;
+  generationPending?: boolean;
+  videoSettingsSaving?: boolean;
+  videoSettingsError?: string | null;
+  videoSettingsNotice?: string;
+  onRetryVideoSettingsSave?: () => void;
+  onDiscardVideoSettings?: () => void;
   shot: {
     id: string;
     order: number;
@@ -92,16 +100,19 @@ function InspectorSection({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const sectionId = useId();
   return (
     <div className="border-b border-border/50 last:border-b-0">
       <button
+        aria-expanded={open}
+        aria-controls={sectionId}
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground"
       >
         {title}
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? "" : "-rotate-90"}`} />
       </button>
-      {open && <div className="px-3 pb-3">{children}</div>}
+      {open && <div id={sectionId} className="px-3 pb-3">{children}</div>}
     </div>
   );
 }
@@ -223,6 +234,7 @@ function FramePicker({
   onPick,
   onUpload,
   onClear,
+  libraryHref,
 }: {
   label: string;
   previewUrl: string | null;
@@ -230,6 +242,7 @@ function FramePicker({
   onPick: (variantId: string) => void;
   onUpload: (file: File) => void;
   onClear?: () => void;
+  libraryHref?: string;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   return (
@@ -238,7 +251,9 @@ function FramePicker({
       <div className="mt-2 flex gap-2">
         <Button
           size="sm"
+          variant="outline"
           className="flex-1 text-xs"
+          aria-label={`Choose ${label.toLowerCase()}`}
           onClick={() => setPickerOpen(true)}
           disabled={frameOptions.length === 0}
           title={frameOptions.length === 0 ? "Compose frames in the Bible first" : undefined}
@@ -246,19 +261,19 @@ function FramePicker({
           <ImageIcon className="h-3 w-3 mr-1" />
           Choose Frame
         </Button>
-        <Button size="sm" variant="outline" className="text-xs" onClick={() => uploadFramePicker(onUpload)}>
+        <Button size="sm" variant="outline" className="text-xs" aria-label={`Upload ${label.toLowerCase()}`} onClick={() => uploadFramePicker(onUpload)}>
           <Upload className="h-3 w-3 mr-1" />
           Upload
         </Button>
         {onClear && previewUrl && (
-          <Button size="sm" variant="outline" className="text-xs" onClick={onClear}>
+          <Button size="sm" variant="outline" className="text-xs" aria-label={`Clear ${label.toLowerCase()}`} onClick={onClear}>
             <X className="h-3 w-3 mr-1" />
             Clear
           </Button>
         )}
       </div>
-      {frameOptions.length === 0 && (
-        <p className="mt-2 text-[11px] text-muted-foreground">Make frames in the Bible, then pick them here.</p>
+      {frameOptions.length === 0 && libraryHref && (
+        <p className="mt-2 text-[11px] text-muted-foreground"><Link to={libraryHref} className="text-primary underline underline-offset-2">Create a frame in the Bible</Link> or upload an image.</p>
       )}
       <FramePickerDialog
         label={label}
@@ -273,8 +288,11 @@ function FramePicker({
 
 export default function ShotInspector({
   modelControls,
+  frameLibraryHref,
   generationCost,
   generationDisabled = false,
+  generationPending = false,
+  videoSettingsSaving = false, videoSettingsError, videoSettingsNotice, onRetryVideoSettingsSave, onDiscardVideoSettings,
   shot,
   frameOptions,
   onPickFrame,
@@ -309,10 +327,7 @@ export default function ShotInspector({
     );
   }
 
-  const canGenerateVideo = hasUsableShotVideoSource({
-    imageUrl: shot.image_url,
-    prompt: shot.video_prompt,
-  });
+  const readiness = shotGenerationReadiness(shot, videoModel);
 
   const supportsEndFrame = videoModel?.modeCapabilities.imageToVideo?.supportsEndImage === true;
 
@@ -324,7 +339,8 @@ export default function ShotInspector({
       videoModel.capabilities.hasAudio === true);
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full min-h-0 flex flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto">
       {/* Shot header */}
       <div className="px-3 py-2 border-b border-border/50 flex items-center justify-between">
         <span className="text-sm font-medium">Shot {shot.order}</span>
@@ -336,19 +352,20 @@ export default function ShotInspector({
       {modelControls}
 
       {/* Start Frame Section */}
-      <InspectorSection title="Start Frame">
+      {videoModel?.modeCapabilities.imageToVideo ? <InspectorSection title="Start frame">
         <FramePicker
           label="Start frame"
+          libraryHref={frameLibraryHref}
           previewUrl={shot.image_url}
           frameOptions={frameOptions}
           onPick={(variantId) => onPickFrame(shot.id, "start", variantId)}
           onUpload={(file) => onUploadFrame(shot.id, "start", file)}
         />
-      </InspectorSection>
+      </InspectorSection> : <p className="border-b border-border/50 px-3 py-3 text-[11px] text-muted-foreground">{videoModel?.name ?? "This model"} uses the video prompt; frames are not sent.</p>}
 
       {/* Image Versions Section */}
       {versionCount > 0 && (
-        <InspectorSection title="Image Versions">
+        <InspectorSection title="Image takes">
           <ImageVersionTimeline
             versions={versions}
             currentVersionId={currentVersion?.id || null}
@@ -361,12 +378,14 @@ export default function ShotInspector({
       )}
 
       {/* End Frame Section */}
-      <InspectorSection title="End Frame" defaultOpen={!!shot.end_frame_url}>
+      {(supportsEndFrame || shot.end_frame_url) && <InspectorSection key={`end:${shot.id}:${videoModel?.id}`} title={videoModel?.modeCapabilities.imageToVideo?.requiresEndImage ? "End frame (required)" : "End frame (optional)"} defaultOpen={!!shot.end_frame_url || videoModel?.modeCapabilities.imageToVideo?.requiresEndImage}>
         {!supportsEndFrame ? (
           <p className="text-[11px] text-muted-foreground">
             {videoModel?.name ?? "This model"} doesn't support an end frame. The start frame and prompt drive the shot.
           </p>
         ) : (
+          <>
+          {!shot.image_url && <p className="mb-2 text-[11px] text-muted-foreground">An end frame is used only with a start frame.</p>}
           <FramePicker
             label="End frame"
             previewUrl={shot.end_frame_url}
@@ -375,17 +394,20 @@ export default function ShotInspector({
             onUpload={(file) => onUploadFrame(shot.id, "end", file)}
             onClear={() => onClearEndFrame(shot.id)}
           />
+          </>
         )}
-      </InspectorSection>
+      </InspectorSection>}
 
       {/* Prompt Section */}
-      <InspectorSection title="Prompt">
+      <InspectorSection title="Video prompt">
         <Textarea
+          aria-label="Video prompt"
           className="min-h-[88px] text-sm resize-y"
           placeholder="Describe the motion between the frames..."
           value={shot.video_prompt ?? ""}
           onChange={(e) => onUpdateShot(shot.id, { video_prompt: e.target.value })}
         />
+        <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">Prompt assistance uses Google AI (Gemini), independently of the selected image and video models. Charges are separate from the video estimate.</p>
         <div className="flex gap-2 mt-2">
           <Button
             size="sm"
@@ -399,7 +421,7 @@ export default function ShotInspector({
             ) : (
               <ImageIcon className="h-3 w-3 mr-1" />
             )}
-            From Image
+            Describe frame
           </Button>
           <Button
             size="sm"
@@ -413,13 +435,14 @@ export default function ShotInspector({
             ) : (
               <Sparkles className="h-3 w-3 mr-1" />
             )}
-            Enhance
+            Improve prompt
           </Button>
         </div>
       </InspectorSection>
 
       {/* Generate Video Section */}
-      <InspectorSection title="Generate Video">
+      <InspectorSection title="Video settings">
+        {videoSettingsNotice && <p role="status" className="mb-2 text-[11px] text-muted-foreground">{videoSettingsNotice}</p>}
         {videoModel && (
           <div className="mb-3 rounded border border-border/60 p-2">
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -431,11 +454,11 @@ export default function ShotInspector({
                 {videoModel.capabilities.durations.length > 1 && (
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground">Duration</label>
-                    <Select
+                    <Select disabled={videoSettingsSaving}
                       value={videoSettings.duration}
                       onValueChange={(duration) => onVideoSettingsChange({ ...videoSettings, duration })}
                     >
-                      <SelectTrigger className="h-8 text-xs">
+                      <SelectTrigger aria-label="Video duration" className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -452,11 +475,11 @@ export default function ShotInspector({
                 {(videoModel.capabilities.resolutions?.length ?? 0) > 1 && (
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground">Resolution</label>
-                    <Select
+                    <Select disabled={videoSettingsSaving}
                       value={videoSettings.resolution ?? ""}
                       onValueChange={(resolution) => onVideoSettingsChange({ ...videoSettings, resolution })}
                     >
-                      <SelectTrigger className="h-8 text-xs">
+                      <SelectTrigger aria-label="Video resolution" className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -473,11 +496,11 @@ export default function ShotInspector({
                 {(videoModel.capabilities.aspectRatios?.length ?? 0) > 1 && (
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground">Aspect Ratio</label>
-                    <Select
+                    <Select disabled={videoSettingsSaving}
                       value={videoSettings.aspectRatio ?? ""}
                       onValueChange={(aspectRatio) => onVideoSettingsChange({ ...videoSettings, aspectRatio })}
                     >
-                      <SelectTrigger className="h-8 text-xs">
+                      <SelectTrigger aria-label="Video aspect ratio" className="h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -494,7 +517,7 @@ export default function ShotInspector({
                 {videoModel.capabilities.hasAudio && (
                   <div className="flex items-center justify-between gap-2 self-end rounded border border-border/50 px-2 py-1.5">
                     <label className="text-[11px] font-medium text-muted-foreground">Audio</label>
-                    <Switch
+                    <Switch disabled={videoSettingsSaving} aria-label="Generate audio"
                       checked={videoSettings.audio ?? false}
                       onCheckedChange={(audio) => onVideoSettingsChange({ ...videoSettings, audio })}
                     />
@@ -506,13 +529,30 @@ export default function ShotInspector({
             )}
           </div>
         )}
-        {generationCost}
+      </InspectorSection>
+
+      {/* Video Versions Section */}
+      {videoVersionCount > 0 && (
+        <InspectorSection title="Video takes">
+          <VideoVersionTimeline
+            versions={videoVersions}
+            currentVersionId={currentVideoVersion?.id || null}
+            onVersionSelect={(versionId) => onVideoVersionSelect(shot.id, versionId)}
+            compact
+          />
+        </InspectorSection>
+      )}
+      </div>
+      <footer aria-label="Shot generation" className="shrink-0 border-t border-border bg-background px-3 py-2">
+        {videoSettingsError && <div className="mb-2 space-y-2"><p role="alert" className="text-xs text-destructive">{videoSettingsError}</p><div className="flex gap-2"><Button size="sm" variant="outline" onClick={onRetryVideoSettingsSave} disabled={videoSettingsSaving}>Retry settings save</Button><Button size="sm" variant="outline" onClick={onDiscardVideoSettings} disabled={videoSettingsSaving}>Discard changes</Button></div></div>}
+        <div className="max-h-[28vh] overflow-y-auto">{generationCost}</div>
+        {!readiness.ok && <p role="status" className="mb-2 text-[11px] text-muted-foreground">{readiness.error.message}</p>}
         <Button
           size="sm"
           className="w-full text-xs"
           aria-label={`Generate video for shot ${shot.order}`}
           onClick={() => onGenerateVideo(shot.id)}
-          disabled={generationDisabled || shot.status === "generating" || !canGenerateVideo}
+          disabled={generationDisabled || shot.status === "generating" || !readiness.ok}
         >
           {shot.status === "generating" ? (
             <>
@@ -526,6 +566,7 @@ export default function ShotInspector({
             </>
           )}
         </Button>
+        {(shot.status === "generating" || generationPending) && <p className="mt-2 text-[11px] text-muted-foreground">Stops waiting locally. Provider work and charges may continue.</p>}
         {shot.status === "generating" && (
           <Button
             size="sm"
@@ -542,19 +583,7 @@ export default function ShotInspector({
             <span>{shot.error_message}</span>
           </div>
         )}
-      </InspectorSection>
-
-      {/* Video Versions Section */}
-      {videoVersionCount > 0 && (
-        <InspectorSection title="Video Versions">
-          <VideoVersionTimeline
-            versions={videoVersions}
-            currentVersionId={currentVideoVersion?.id || null}
-            onVersionSelect={(versionId) => onVideoVersionSelect(shot.id, versionId)}
-            compact
-          />
-        </InspectorSection>
-      )}
+      </footer>
     </div>
   );
 }

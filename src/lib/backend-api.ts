@@ -1,3 +1,5 @@
+import type { StoredShotVideoSettings } from "../../shared/shot-video-settings";
+import type { Result } from "../../shared/result";
 import type { ShotModelOverrides, ShotModelsResult } from "../../shared/shot-models";
 import { invoke } from "./bridge";
 import { electronMediaUrlResolver } from "./electron-media-url";
@@ -40,6 +42,7 @@ export interface StoryboardWithPreview extends Storyboard {
 }
 
 export interface ShotWithUrls {
+  video_settings_json?: string | null;
   image_model: string | null;
   video_model: string | null;
   id: string;
@@ -513,4 +516,14 @@ export async function saveAndCompleteVideo(shotId: string, videoData: number[], 
 
 export function setShotModels(shotId: string, models: Partial<ShotModelOverrides>): Promise<ShotModelsResult> {
   return invoke("set_shot_models", {shot_id:shotId, ...models});
+}
+
+export async function updateStoryboardSettings(id: string, name: string, image_model: string, video_model: string): Promise<Result<Storyboard>> {
+  try { return await invoke<Result<Storyboard>>("update_storyboard_settings", {id,name,image_model,video_model}); }
+  catch { return {ok:false,error:{code:"IO_ERROR",message:"Could not save storyboard settings."}}; }
+}
+
+export async function setShotVideoSettings(shot_id: string, settings: StoredShotVideoSettings): Promise<Result<StoredShotVideoSettings>> {
+  try {return await invoke<Result<StoredShotVideoSettings>>("set_shot_video_settings",{shot_id,...settings});}
+  catch {return {ok:false,error:{code:"IO_ERROR",message:"Could not save this shot's video settings."}};}
 }

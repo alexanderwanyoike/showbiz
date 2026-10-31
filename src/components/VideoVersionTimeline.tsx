@@ -86,6 +86,8 @@ function VersionNode({
       >
         {hasChildren ? (
           <button
+            aria-label={`Takes based on video take ${version.version_number}`}
+            aria-expanded={isExpanded}
             onClick={onToggleExpand}
             className="w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-foreground"
           >
@@ -103,6 +105,8 @@ function VersionNode({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
+                aria-label={`Use video take ${version.version_number}`}
+                aria-pressed={isCurrent}
                 onClick={() => onVersionSelect(version.id)}
                 className={`relative w-10 h-10 rounded overflow-hidden border-2 transition-all ${
                   isCurrent
@@ -217,7 +221,9 @@ export default function VideoVersionTimeline({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => onVersionSelect(version.id)}
+                    aria-label={`Use video take ${version.version_number}`}
+                aria-pressed={isCurrent}
+                onClick={() => onVersionSelect(version.id)}
                     className={`relative w-8 h-8 rounded overflow-hidden border-2 flex-shrink-0 transition-all ${
                       isCurrent
                         ? "border-primary shadow-md"

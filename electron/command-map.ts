@@ -1,4 +1,5 @@
 import { createGenerationBillingCommands } from "./commands/generation-billing";
+import { createStoryboardSettingsCommands } from "./commands/storyboard-settings";
 import path from "node:path";
 import { createGenerationModelCommands } from "./commands/generation-models";
 import { createGenerationUsageCommands } from "./commands/generation-usage";
@@ -21,6 +22,7 @@ export function createDataCommands(
 ) {
   return {
     ...createProjectCommands(db, mediaDir),
+    ...createStoryboardSettingsCommands(db),
     ...createGenerationUsageCommands(db),
     ...createGenerationBillingCommands(db, readBillingKey ?? ((provider) => createSettingsCommands(db).get_api_key({ provider }))),
     ...createGenerationModelCommands(path.resolve("src/lib/models/providers")),

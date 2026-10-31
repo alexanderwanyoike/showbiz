@@ -30,3 +30,8 @@ it("shows one application header and the active board title in its workspace too
  expect(screen.getAllByRole("button", { name: "Settings" })).toHaveLength(1);
  expect(screen.getByText("Opening", { exact: true })).toBeTruthy();
 });
+it("places the shot-inspector toggle in the workspace toolbar rather than over the media canvas", async () => {
+  render(createElement(MemoryRouter,{initialEntries:["/storyboard/sb"]},createElement(Routes,null,createElement(Route,{path:"/storyboard/:id",element:createElement(StoryboardPage)}))));
+  const toggle = await screen.findByRole("button",{name:"Shot controls"});
+  expect(toggle.closest("header")?.className).toContain("workspace-toolbar");
+});
