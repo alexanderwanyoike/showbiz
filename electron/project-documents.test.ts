@@ -283,3 +283,15 @@ it("moves all shot media with the project file alone and recreates disposable me
     expect(fs.existsSync(`${moved}.media`)).toBe(false);
   } finally { await first.documents.close(); await second.documents.close(); }
 });
+
+it("keeps shot reordering atomic inside a self-contained document save", async () => {
+  const {directory,documents}=setup();
+  try {
+    const created=await documents.create(path.join(directory,"Order.showbiz"));if(!created.ok)throw new Error(created.error.message);
+    const board=await documents.invoke("create_storyboard",{projectId:created.value.project_id,name:"Opening"}) as {id:string};
+    const first=await documents.invoke("create_shot",{storyboardId:board.id}) as {id:string};
+    const second=await documents.invoke("create_shot",{storyboardId:board.id}) as {id:string};
+    await documents.invoke("reorder_shots",{storyboardId:board.id,shotIds:[second.id,first.id]});
+    expect((await documents.invoke("get_shots",{storyboardId:board.id}) as {id:string}[]).map(shot=>shot.id)).toEqual([second.id,first.id]);
+  } finally {await documents.close();}
+});
