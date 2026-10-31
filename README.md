@@ -140,4 +140,4 @@ See the [PR template](.github/pull_request_template.md) and [issue templates](.g
 
 ### Project files
 
-Create or open a `.showbiz` document, work in its bible and storyboards, then close it or use Save As for an independent copy. Keep its companion `.showbiz.media` folder with the file. Existing library projects can be converted without changing the original library. See [project documents](docs/project-documents.md).
+Create or open a `.showbiz` document, work in its bible and storyboards, then close it or use Save As for an independent copy. The file includes the project data and all media, so it can be moved or backed up on its own. Existing library projects can be converted without changing the original library. See [project documents](docs/project-documents.md).
