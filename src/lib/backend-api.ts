@@ -527,3 +527,8 @@ export async function setShotVideoSettings(shot_id: string, settings: StoredShot
   try {return await invoke<Result<StoredShotVideoSettings>>("set_shot_video_settings",{shot_id,...settings});}
   catch {return {ok:false,error:{code:"IO_ERROR",message:"Could not save this shot's video settings."}};}
 }
+
+export async function clearShotStartFrame(shot_id: string): Promise<Result<null>> {
+  try {return await invoke<Result<null>>("clear_shot_start_frame",{shot_id});}
+  catch {return {ok:false,error:{code:"IO_ERROR",message:"Could not remove the start frame selection."}};}
+}

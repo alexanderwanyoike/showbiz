@@ -12,7 +12,7 @@ function inspectorProps(modelId = "wan-flf2v-fal"): ShotInspectorProps {
   const videoModel = getAvailableVideoModels().find((model) => model.id === modelId)!;
   return {
     shot: {id:"shot",order:1,image_prompt:null,image_url:"frame.png",end_frame_url:null,video_prompt:"A quiet morning",status:"pending"},
-    frameOptions:[],onPickFrame:vi.fn(),onUploadFrame:vi.fn(),onClearEndFrame:vi.fn(),onGenerateVideo:vi.fn(),onCancelVideoGeneration:vi.fn(),onUpdateShot:vi.fn(),videoModel,videoSettings:videoModel.defaults,onVideoSettingsChange:vi.fn(),versions:[],currentVersion:null,versionCount:0,videoVersions:[],currentVideoVersion:null,videoVersionCount:0,onVersionSelect:vi.fn(),onBranchFrom:vi.fn(),onEditImage:vi.fn(),onVideoVersionSelect:vi.fn(),onGenerateVideoPrompt:vi.fn(),onEnhanceVideoPrompt:vi.fn(),isGeneratingPrompt:false,isEnhancingPrompt:false,
+    frameOptions:[],onClearStartFrame:vi.fn(),onPickFrame:vi.fn(),onUploadFrame:vi.fn(),onClearEndFrame:vi.fn(),onGenerateVideo:vi.fn(),onCancelVideoGeneration:vi.fn(),onUpdateShot:vi.fn(),videoModel,videoSettings:videoModel.defaults,onVideoSettingsChange:vi.fn(),versions:[],currentVersion:null,versionCount:0,videoVersions:[],currentVideoVersion:null,videoVersionCount:0,onVersionSelect:vi.fn(),onBranchFrom:vi.fn(),onEditImage:vi.fn(),onVideoVersionSelect:vi.fn(),onGenerateVideoPrompt:vi.fn(),onEnhanceVideoPrompt:vi.fn(),isGeneratingPrompt:false,isEnhancingPrompt:false,
   };
 }
 it("explains a model's missing required end frame before enabling generation", () => {
@@ -47,4 +47,15 @@ it("lets users remove a saved end frame that the current model does not use", as
   render(createElement(MemoryRouter,null,createElement(ShotInspector,props)));
   await userEvent.setup().click(screen.getByRole("button",{name:"Remove saved end frame"}));
   expect(props.onClearEndFrame).toHaveBeenCalledWith("shot");
+});
+it("shows a model's fixed duration even when it cannot be changed", () => {
+  render(createElement(MemoryRouter,null,createElement(ShotInspector,inspectorProps("wan-flf2v-fal"))));
+  expect(screen.getByText("5s",{exact:true})).toBeTruthy();
+});
+
+it("offers removal of a selected start frame so a shot can return to prompt-based generation", async () => {
+  const props=inspectorProps("seedance-2-fal");
+  render(createElement(MemoryRouter,null,createElement(ShotInspector,props)));
+  await userEvent.setup().click(screen.getByRole("button",{name:"Remove start frame"}));
+  expect(props.onClearStartFrame).toHaveBeenCalledWith("shot");
 });

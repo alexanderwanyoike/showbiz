@@ -41,7 +41,7 @@ export function ModelPicker<T extends ModelItem>({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent className="w-[280px] p-0" align="start">
-        <Command>
+        <Command defaultValue={value}>
           <CommandInput placeholder="Search models..." />
           <CommandList>
             <CommandEmpty>No models found.</CommandEmpty>
@@ -54,9 +54,10 @@ export function ModelPicker<T extends ModelItem>({
                   <CommandItem
                     key={model.id}
                     value={model.id}
+                    aria-current={value === model.id ? "true" : undefined}
                     keywords={[model.name, model.provider ?? "", group.displayName]}
                     onSelect={(id) => {
-                      onSelect(id);
+                      if (id !== value) onSelect(id);
                       setOpen(false);
                     }}
                   >

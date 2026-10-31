@@ -1,3 +1,4 @@
+import { createShotFrameCommands } from "./shot-frames";
 import { createShotVideoSettingsCommands } from "./shot-video-settings";
 import { createShotModelCommands } from "./shot-models";
 import path from "node:path";
@@ -361,6 +362,7 @@ export function createShotCommands(db: DatabaseSync, mediaDir: string) {
   return {
     ...createShotModelCommands(db),
     ...createShotVideoSettingsCommands(db),
+    ...createShotFrameCommands(db),
     get_shots(args?: Record<string, unknown>): ShotWithUrls[] {
       return getShots(args!.storyboardId as string);
     },

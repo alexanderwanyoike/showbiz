@@ -13,7 +13,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import StoryboardPage from "../pages/StoryboardPage";
 import type { GenerationCostRequest } from "../../shared/generation-cost";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: ({request}: {request: GenerationCostRequest}) => createElement("output", {"aria-label": "Generation cost mode"}, request.mode ?? "unknown") }));
-import { setShotModels, updateStoryboardSettings, setShotVideoSettings, deleteShot } from "./backend-api";
+import { setShotModels, updateStoryboardSettings, setShotVideoSettings, deleteShot, clearShotStartFrame } from "./backend-api";
 import { generateAndSaveVideoRequestAction } from "../actions/generation-actions";
 vi.stubGlobal(
   "ResizeObserver",
@@ -44,6 +44,7 @@ vi.mock("./backend-api", async (original) => ({
   updateStoryboardSettings: vi.fn(async (id: string, name: string, image_model: string, video_model: string) => ({ok:true,value:{id,project_id:"project",name,image_model,video_model}})),
   updateShot: vi.fn(async () => null),
   deleteShot: vi.fn(async () => false),
+  clearShotStartFrame: vi.fn(async () => ({ok:true,value:null})),
   getShots: async () =>
     [1, 2].map((order) => ({
       id: `shot-${order}`,
@@ -287,4 +288,14 @@ it("confirms shot deletion and keeps the shot available when the backend rejects
   await user.click(screen.getByRole("button",{name:"Delete shot"}));
   await waitFor(()=>expect(screen.queryByRole("alertdialog")).toBeNull());
   expect(screen.getAllByRole("button",{name:/^Select shot /})).toHaveLength(1);
+});
+
+it("returns the shot and its estimate to text-to-video after removing a start frame", async () => {
+  render(createElement(MemoryRouter,{initialEntries:["/storyboard/board"]},createElement(Routes,null,createElement(Route,{path:"/storyboard/:id",element:createElement(StoryboardPage)}))));
+  const user=userEvent.setup();
+  await user.click(await screen.findByRole("button",{name:"Shot controls"}));
+  await user.click(screen.getByRole("button",{name:"Remove start frame"}));
+  await waitFor(()=>expect(clearShotStartFrame).toHaveBeenCalledWith("shot-1"));
+  await waitFor(()=>expect(screen.getByLabelText("Generation cost mode").textContent).toBe("text-to-video"));
+  expect(screen.getByRole("button",{name:"Generate video for shot 1"})).toHaveProperty("disabled",false);
 });
