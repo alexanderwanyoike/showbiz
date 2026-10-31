@@ -1,21 +1,62 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  width="1024"
+  height="1024"
+  viewBox="0 0 1024 1024"
+>
   <defs>
     <linearGradient id="aluminium" x1="0" y1="0" x2="0.4" y2="1">
       <stop stop-color="#f5f7fa" />
       <stop offset="0.5" stop-color="#dce2e8" />
       <stop offset="1" stop-color="#adb7c3" />
     </linearGradient>
-    <path id="video-frame" d="M35 18H16a7 7 0 0 0-7 7v19a7 7 0 0 0 7 7h32a7 7 0 0 0 7-7V34" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
-    <path id="video-play" d="M27 27.5a1.8 1.8 0 0 1 2.7-1.55l12 7.05a1.8 1.8 0 0 1 0 3.1l-12 7.05A1.8 1.8 0 0 1 27 41.6Z" fill="currentColor" />
-    <path id="generation-glint" d="M50 7c1.8 7.4 3.6 9.2 11 11-7.4 1.8-9.2 3.6-11 11-1.8-7.4-3.6-9.2-11-11 7.4-1.8 9.2-3.6 11-11Z" fill="currentColor" />
+    <path
+      id="video-frame"
+      d="M35 18H16a7 7 0 0 0-7 7v19a7 7 0 0 0 7 7h32a7 7 0 0 0 7-7V34"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="5.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      id="video-play"
+      d="M27 27.5a1.8 1.8 0 0 1 2.7-1.55l12 7.05a1.8 1.8 0 0 1 0 3.1l-12 7.05A1.8 1.8 0 0 1 27 41.6Z"
+      fill="currentColor"
+    />
+    <path
+      id="generation-glint"
+      d="M50 7c1.8 7.4 3.6 9.2 11 11-7.4 1.8-9.2 3.6-11 11-1.8-7.4-3.6-9.2-11-11 7.4-1.8 9.2-3.6 11-11Z"
+      fill="currentColor"
+    />
     <symbol id="showbiz-mark" viewBox="0 0 64 64">
       <use xlink:href="#video-frame" />
       <use xlink:href="#video-play" />
       <use xlink:href="#generation-glint" />
     </symbol>
   </defs>
-  <rect x="52" y="52" width="920" height="920" rx="214" fill="url(#aluminium)" stroke="#a9b2be" stroke-width="4" />
-  <rect x="63" y="63" width="898" height="898" rx="204" fill="none" stroke="#fff" stroke-opacity="0.65" stroke-width="4" />
+  <rect
+    x="52"
+    y="52"
+    width="920"
+    height="920"
+    rx="214"
+    fill="url(#aluminium)"
+    stroke="#a9b2be"
+    stroke-width="4"
+  />
+  <rect
+    x="63"
+    y="63"
+    width="898"
+    height="898"
+    rx="204"
+    fill="none"
+    stroke="#fff"
+    stroke-opacity="0.65"
+    stroke-width="4"
+  />
   <g transform="translate(128 164) scale(12)">
     <use xlink:href="#video-frame" color="#202c3b" />
     <use xlink:href="#video-play" color="#2677e8" />
