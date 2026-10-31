@@ -30,6 +30,15 @@ export function createGenerationPricingCommands(db: DatabaseSync) {
         if (!kindValid(args.kind) || !parsed.success) return invalid();
         const price = parsed.data;
         const prefix = price.source_kind === "manual" ? "generation_price" : "generation_price_cache";
+        if (price.source_kind === "manual") {
+          const previous = read(`${prefix}:${args.kind}:${price.model_id}`);
+          const signature = (rate: GenerationPrice["rates"][number]) => JSON.stringify([rate.unit, rate.kind ?? null, rate.resolution ?? null, rate.audio ?? null]);
+          const updated = new Set(price.rates.map(signature));
+          const retained = previous?.provider === price.provider ? previous.rates.filter(rate => !updated.has(signature(rate))) : [];
+          const combined = generationPriceSchema.safeParse({...price, rates: [...retained, ...price.rates]});
+          if (!combined.success) return invalid();
+          price.rates = combined.data.rates;
+        }
         db.prepare("INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP").run(`${prefix}:${args.kind}:${price.model_id}`, JSON.stringify(price));
         return {ok: true, value: price};
       });
