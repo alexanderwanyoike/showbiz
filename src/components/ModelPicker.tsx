@@ -14,9 +14,10 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
+import { modelProviderName, type ModelProviderIdentity } from "../lib/model-provider";
 import type { ModelGroup } from "../lib/models/registry";
 
-interface ModelItem {
+interface ModelItem extends ModelProviderIdentity {
   id: string;
   name: string;
   provider?: string;
@@ -59,7 +60,7 @@ export function ModelPicker<T extends ModelItem>({
                     aria-current={value === model.id ? "true" : undefined}
                     keywords={[
                       model.name,
-                      model.provider ?? "",
+                      modelProviderName(model) ?? "",
                       group.displayName,
                     ]}
                     onSelect={(id) => {
@@ -73,12 +74,12 @@ export function ModelPicker<T extends ModelItem>({
                       }`}
                     />
                     <span className="flex-1 truncate">{model.name}</span>
-                    {model.provider && (
+                    {modelProviderName(model) && (
                       <Badge
                         variant="outline"
                         className="ml-auto text-[10px] px-1.5 py-0"
                       >
-                        {model.provider}
+                        {modelProviderName(model)}
                       </Badge>
                     )}
                   </CommandItem>

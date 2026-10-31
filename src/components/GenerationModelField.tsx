@@ -1,9 +1,10 @@
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelPicker } from "./ModelPicker";
+import { modelProviderName, type ModelProviderIdentity } from "../lib/model-provider";
 import type { ModelGroup } from "../lib/models/registry";
 
-export type GenerationModelGroups = ModelGroup<{
+export type GenerationModelGroups = ModelGroup<ModelProviderIdentity & {
   id: string;
   name: string;
   provider?: string;
@@ -53,6 +54,7 @@ export function GenerationModelField({
         ...groups,
       ]
     : groups;
+  const providerName = modelProviderName(selected);
   const name = selected?.name ?? (inherited ? defaultValue : value);
   return (
     <div className="space-y-1.5">
@@ -73,14 +75,14 @@ export function GenerationModelField({
             size="sm"
             disabled={disabled}
             className="w-full min-w-0 h-auto min-h-9 justify-between gap-2 py-1.5"
-            title={selected?.provider ? `${name} · ${selected.provider}` : name}
+            title={providerName ? `${name} · ${providerName}` : name}
             aria-label={accessibleName}
           >
             <span className="min-w-0 text-left">
               <span className="block truncate">{name}</span>
-              {selected?.provider && (
+              {providerName && (
                 <span className="block truncate text-[10px] font-normal text-muted-foreground">
-                  {selected.provider}
+                  {providerName}
                 </span>
               )}
             </span>
