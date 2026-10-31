@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { copyProjectDocument, DOCUMENT_APPLICATION_ID } from "./project-document-copy";
 import { lockProjectDocument } from "./project-document-lock";
 import { DatabaseSync } from "node:sqlite";
 import { openDatabase } from "./db";
@@ -8,11 +9,11 @@ import { initMediaDirs } from "./media-files";
 import type { CommandMap } from "./ipc";
 import type { DocumentResult, ProjectDocumentInfo, RecentProjectDocument } from "../shared/project-document";
 
-const APPLICATION_ID = 0x53425a44;
 const fail = (cause: unknown): DocumentResult<never> => ({ ok: false, error: { code: "DOCUMENT_ERROR", message: cause instanceof Error ? cause.message : String(cause) } });
 export const projectMediaDirectory = (file: string) => `${file}.media`;
 
 export function createProjectDocuments(options: {
+  legacy?: { db: DatabaseSync; media: string };
   migrations: string[];
   recentPath: string;
   bind: (db: DatabaseSync, media: string) => CommandMap;
@@ -50,6 +51,7 @@ export function createProjectDocuments(options: {
   }
   return {
     current,
+    legacy: () => options.legacy ? createProjectCommands(options.legacy.db, options.legacy.media).get_projects() : [],
     recent: () => [...recent],
     async create(filePath: string): Promise<DocumentResult<ProjectDocumentInfo>> {
       let db: DatabaseSync | null = null;
@@ -65,7 +67,7 @@ export function createProjectDocuments(options: {
         fs.mkdirSync(projectMediaDirectory(file));
         createdMedia = true;
         db = openDatabase(file, options.migrations);
-        db.exec(`PRAGMA application_id = ${APPLICATION_ID}`);
+        db.exec(`PRAGMA application_id = ${DOCUMENT_APPLICATION_ID}`);
         initMediaDirs(projectMediaDirectory(file));
         createProjectCommands(db, projectMediaDirectory(file)).create_project({ name: path.basename(file, path.extname(file)) });
         const value = activate(file, db, release);
@@ -88,7 +90,7 @@ export function createProjectDocuments(options: {
         if (active?.file === file) return { ok: true, value: current()! };
         db = new DatabaseSync(file, { readOnly: true });
         const header = db.prepare("PRAGMA application_id").get();
-        if (header?.application_id !== APPLICATION_ID) throw new Error("This is not a Showbiz project document.");
+        if (header?.application_id !== DOCUMENT_APPLICATION_ID) throw new Error("This is not a Showbiz project document.");
         const count = db.prepare("SELECT COUNT(*) AS count FROM projects").get();
         if (count?.count !== 1) throw new Error("A project document must contain exactly one project.");
         db.close();
@@ -137,6 +139,29 @@ export function createProjectDocuments(options: {
         db?.close(); release?.();
         if (created) fs.rmSync(file, { force: true });
         if (created || copiedMedia) fs.rmSync(projectMediaDirectory(file), { recursive: true, force: true });
+        return fail(cause);
+      } finally { busy = false; }
+    },
+    async importLegacy(projectId: string, filePath: string): Promise<DocumentResult<ProjectDocumentInfo>> {
+      if (!options.legacy || busy) return fail(new Error("The existing project library is unavailable or busy."));
+      const source = options.legacy;
+      if (!createProjectCommands(source.db, source.media).get_project({ id: projectId })) return fail(new Error("The existing project was not found."));
+      const file = path.resolve(filePath);
+      let db: DatabaseSync | null = null;
+      let release: (() => void) | undefined;
+      let created = false;
+      busy = true;
+      try {
+        if (fs.existsSync(file) || fs.existsSync(projectMediaDirectory(file))) throw new Error("Choose a new filename for the converted project.");
+        release = lockProjectDocument(file);
+        created = true;
+        db = await copyProjectDocument({ source: source.db, sourceMedia: source.media, file, media: projectMediaDirectory(file), migrations: options.migrations, projectId });
+        const value = activate(file, db, release);
+        db = null;
+        return { ok: true, value };
+      } catch (cause) {
+        db?.close(); release?.();
+        if (created) { fs.rmSync(file, { force: true }); fs.rmSync(projectMediaDirectory(file), { recursive: true, force: true }); }
         return fail(cause);
       } finally { busy = false; }
     },
