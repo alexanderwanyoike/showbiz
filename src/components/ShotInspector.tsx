@@ -39,6 +39,7 @@ export interface FrameOption {
 
 export interface ShotInspectorProps {
   modelControls?: ReactNode;
+  generationDisabled?: boolean;
   shot: {
     id: string;
     order: number;
@@ -271,6 +272,7 @@ function FramePicker({
 
 export default function ShotInspector({
   modelControls,
+  generationDisabled = false,
   shot,
   frameOptions,
   onPickFrame,
@@ -507,7 +509,7 @@ export default function ShotInspector({
           className="w-full text-xs"
           aria-label={`Generate video for shot ${shot.order}`}
           onClick={() => onGenerateVideo(shot.id)}
-          disabled={shot.status === "generating" || !canGenerateVideo}
+          disabled={generationDisabled || shot.status === "generating" || !canGenerateVideo}
         >
           {shot.status === "generating" ? (
             <>

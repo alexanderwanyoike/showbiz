@@ -1030,6 +1030,7 @@ export default function StoryboardPage() {
           }
           inspectorSlot={
             <ShotInspector
+              generationDisabled={modelSaving}
               modelControls={<ShotModelControls shot={selectedShot} defaults={defaultModels} onShotChange={handleShotModels} onDefaultsChange={handleDefaultModels} disabled={modelSaving} error={modelError}/>}
               shot={selectedShotId ? (() => {
                 const s = shots.find(s => s.id === selectedShotId);
