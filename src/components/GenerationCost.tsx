@@ -92,7 +92,7 @@ export function GenerationCost({
               </p>
               <p>
                 {estimate.price.source_kind === "manual" ? "Saved" : estimate.price.source_kind === "published" ? "Snapshot dated" : "Retrieved"}{" "}
-                {new Date(estimate.price.checked_at).toLocaleDateString()}
+                {new Date(estimate.price.checked_at).toLocaleString()}
                 {estimate.stale ? ". Rate is older than 7 days." : ""}
               </p>
               {estimate.price.source_kind === "published" && <p>This published rate is not a live pricing API response or a confirmed charge.</p>}
