@@ -313,3 +313,19 @@ it("labels the optional FAL billing credential separately from generation models
   expect(screen.getByText("Actual charges only; generation uses your fal.ai key.")).toBeTruthy();
   expect(screen.getByLabelText("fal.ai billing key (optional)")).toBeTruthy();
 });
+it("shows credential setup only for enabled generation providers and the optional billing connection", async () => {
+  api.getApiKeyStatusAction.mockResolvedValue(API_KEY_PROVIDERS.map((provider) => ({ provider: provider.id, name: provider.name, is_configured: false, source: null })));
+  render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
+  await screen.findByRole("button", { name: "Configure Google AI (Gemini)" });
+  expect(screen.getAllByRole("button", { name: /^Configure / })).toHaveLength(5);
+  for (const name of ["OpenAI", "LTX Video", "Kie AI", "Replicate"]) expect(screen.queryByRole("button", { name: `Configure ${name}` })).toBeNull();
+  expect(screen.getByRole("button", { name: "Configure fal.ai billing" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Configure LocalAI" })).toBeTruthy();
+});
+it.each([["openai", "OpenAI"], ["ltx", "LTX Video"], ["kie", "Kie AI"], ["replicate", "Replicate"]])("keeps a saved inactive %s credential available for management", async (id, name) => {
+  api.getApiKeyStatusAction.mockResolvedValue(API_KEY_PROVIDERS.map((provider) => ({ provider: provider.id, name: provider.name, is_configured: provider.id === id, source: provider.id === id ? "database" : null })));
+  render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
+  await userEvent.setup().click(await screen.findByRole("button", { name: `Configure ${name}` }));
+  expect(screen.getByRole("button", { name: `Remove ${name} API key` })).toBeTruthy();
+  expect(screen.getByText("Saved credential; no enabled generation models")).toBeTruthy();
+});
