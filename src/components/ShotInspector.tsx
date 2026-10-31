@@ -142,8 +142,35 @@ function InspectorSection({
 }
 
 function FramePreview({ url, label }: { url: string | null; label: string }) {
-  if (!url) return <span className="shot-frame-thumbnail shot-frame-empty"><ImageIcon size={18}/><span>No frame</span></span>;
-  return <Dialog><DialogTrigger asChild><button type="button" className="shot-frame-thumbnail" aria-label={`Preview ${label.toLowerCase()}`}><img src={url} alt=""/></button></DialogTrigger><DialogContent className="shot-frame-preview-dialog" aria-describedby={undefined}><DialogHeader><DialogTitle>{label} preview</DialogTitle></DialogHeader><img className="shot-frame-full-image" src={url} alt={label}/></DialogContent></Dialog>;
+  if (!url)
+    return (
+      <span className="shot-frame-thumbnail shot-frame-empty">
+        <ImageIcon size={18} />
+        <span>No frame</span>
+      </span>
+    );
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="shot-frame-thumbnail"
+          aria-label={`Preview ${label.toLowerCase()}`}
+        >
+          <img src={url} alt="" />
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        className="shot-frame-preview-dialog"
+        aria-describedby={undefined}
+      >
+        <DialogHeader>
+          <DialogTitle>{label} preview</DialogTitle>
+        </DialogHeader>
+        <img className="shot-frame-full-image" src={url} alt={label} />
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function uploadFramePicker(onFile: (file: File) => void) {
@@ -283,43 +310,58 @@ function FramePicker({
   return (
     <>
       <div className="shot-frame-source">
-      <FramePreview url={previewUrl} label={label} />
-      <div className="shot-frame-controls">
-      <div className="frame-actions flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="min-w-0 flex-1 basis-32 text-xs"
-          aria-label={`Choose ${label.toLowerCase()}`}
-          onClick={(event) => {
-            pickerOpener.current = event.currentTarget;
-            setPickerOpen(true);
-          }}
-          disabled={disabled || frameOptions.length === 0}
-          title={
-            frameOptions.length === 0
-              ? "Compose frames in the Bible first"
-              : undefined
-          }
-        >
-          <ImageIcon className="h-3 w-3 mr-1" />
-          Choose
-        </Button>
-        <WorkspaceCommand label={`Upload ${label.toLowerCase()}`} disabled={disabled} onClick={() => uploadFramePicker(onUpload)}><Upload size={15}/></WorkspaceCommand>
-        {onClear && previewUrl && <WorkspaceCommand label={`Remove ${label.toLowerCase()}`} disabled={disabled} onClick={onClear}><X size={15}/></WorkspaceCommand>}
-        {extraActions}
+        <FramePreview url={previewUrl} label={label} />
+        <div className="shot-frame-controls">
+          <div className="frame-actions flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="min-w-0 flex-1 basis-32 text-xs"
+              aria-label={`Choose ${label.toLowerCase()}`}
+              onClick={(event) => {
+                pickerOpener.current = event.currentTarget;
+                setPickerOpen(true);
+              }}
+              disabled={disabled || frameOptions.length === 0}
+              title={
+                frameOptions.length === 0
+                  ? "Compose frames in the Bible first"
+                  : undefined
+              }
+            >
+              <ImageIcon className="h-3 w-3 mr-1" />
+              Choose
+            </Button>
+            <WorkspaceCommand
+              label={`Upload ${label.toLowerCase()}`}
+              disabled={disabled}
+              onClick={() => uploadFramePicker(onUpload)}
+            >
+              <Upload size={15} />
+            </WorkspaceCommand>
+            {onClear && previewUrl && (
+              <WorkspaceCommand
+                label={`Remove ${label.toLowerCase()}`}
+                disabled={disabled}
+                onClick={onClear}
+              >
+                <X size={15} />
+              </WorkspaceCommand>
+            )}
+            {extraActions}
+          </div>
+          {frameOptions.length === 0 && libraryHref && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              <Link
+                to={libraryHref}
+                className="text-primary underline underline-offset-2"
+              >
+                Create a frame in the Bible
+              </Link>
+            </p>
+          )}
+        </div>
       </div>
-      {frameOptions.length === 0 && libraryHref && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          <Link
-            to={libraryHref}
-            className="text-primary underline underline-offset-2"
-          >
-            Create a frame in the Bible
-          </Link>
-        </p>
-      )}
-      </div></div>
       <FramePickerDialog
         openerRef={pickerOpener}
         label={label}
@@ -409,10 +451,33 @@ export default function ShotInspector({
               frameOptions={frameOptions}
               onPick={(variantId) => onPickFrame(shot.id, "start", variantId)}
               onUpload={(file) => onUploadFrame(shot.id, "start", file)}
-              extraActions={shot.image_url ? <>
-                <WorkspaceCommand label={`Edit frame for shot ${shot.order}`} disabled={frameSaving || !currentVersion || !imageModel?.supportsImageEditing} onClick={() => {if(currentVersion)onEditImage(shot.id,currentVersion.id);}}><Sparkles size={15}/></WorkspaceCommand>
-                {(!currentVersion || !imageModel?.supportsImageEditing) && <InspectorHelp label="About frame editing">{!currentVersion ? "Choose or upload a frame to create an editable take." : `${imageModel?.name ?? "The image model"} does not support editing. Choose an editing model in Models for this shot.`}</InspectorHelp>}
-              </> : null}
+              extraActions={
+                shot.image_url ? (
+                  <>
+                    <WorkspaceCommand
+                      label={`Edit frame for shot ${shot.order}`}
+                      disabled={
+                        frameSaving ||
+                        !currentVersion ||
+                        !imageModel?.supportsImageEditing
+                      }
+                      onClick={() => {
+                        if (currentVersion)
+                          onEditImage(shot.id, currentVersion.id);
+                      }}
+                    >
+                      <Sparkles size={15} />
+                    </WorkspaceCommand>
+                    {(!currentVersion || !imageModel?.supportsImageEditing) && (
+                      <InspectorHelp label="About frame editing">
+                        {!currentVersion
+                          ? "Choose or upload a frame to create an editable take."
+                          : `${imageModel?.name ?? "The image model"} does not support editing. Choose an editing model in Models for this shot.`}
+                      </InspectorHelp>
+                    )}
+                  </>
+                ) : null
+              }
             />
           </InspectorSection>
         ) : (

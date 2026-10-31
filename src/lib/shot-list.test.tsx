@@ -35,9 +35,19 @@ it("selects shots with a native button and describes media readiness instead of 
   expect(select).toHaveBeenCalledWith("2");
   expect(screen.getAllByText("Frame ready")).toHaveLength(2);
   expect(screen.queryByText("00:00:08:00")).toBeNull();
-  await userEvent.setup().click(screen.getByRole("button", {name:"Shot 2 actions"}));
-  expect(screen.getByRole("menuitem",{name:"Move earlier"}).getAttribute("aria-disabled")).not.toBe("true");
-  expect(screen.getByRole("menuitem",{name:"Move later"}).getAttribute("aria-disabled")).toBe("true");
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Shot 2 actions" }));
+  expect(
+    screen
+      .getByRole("menuitem", { name: "Move earlier" })
+      .getAttribute("aria-disabled"),
+  ).not.toBe("true");
+  expect(
+    screen
+      .getByRole("menuitem", { name: "Move later" })
+      .getAttribute("aria-disabled"),
+  ).toBe("true");
 });
 
 it("shows a generated poster for a video-only shot", async () => {
@@ -73,16 +83,43 @@ it("shows a generated poster for a video-only shot", async () => {
 });
 
 it("moves shot selection and focus with sequence navigation keys", async () => {
-  const select=vi.fn();
-  function Sequence(){const [selected,setSelected]=useState("1");return createElement(ShotList,{shots:[1,2,3].map(order=>({id:String(order),order,image_prompt:null,video_prompt:null,image_url:null,video_url:null,status:"pending" as const})),selectedShotId:selected,onSelectShot:id=>{setSelected(id);select(id);},onAddShot:vi.fn(),onMoveShot:vi.fn(),onDeleteShot:vi.fn()});}
+  const select = vi.fn();
+  function Sequence() {
+    const [selected, setSelected] = useState("1");
+    return createElement(ShotList, {
+      shots: [1, 2, 3].map((order) => ({
+        id: String(order),
+        order,
+        image_prompt: null,
+        video_prompt: null,
+        image_url: null,
+        video_url: null,
+        status: "pending" as const,
+      })),
+      selectedShotId: selected,
+      onSelectShot: (id) => {
+        setSelected(id);
+        select(id);
+      },
+      onAddShot: vi.fn(),
+      onMoveShot: vi.fn(),
+      onDeleteShot: vi.fn(),
+    });
+  }
   render(createElement(Sequence));
-  const user=userEvent.setup();
-  screen.getByRole("button",{name:"Select shot 1"}).focus();
+  const user = userEvent.setup();
+  screen.getByRole("button", { name: "Select shot 1" }).focus();
   await user.keyboard("{ArrowRight}");
-  expect(screen.getByRole("button",{name:"Select shot 2",pressed:true})).toBe(document.activeElement);
+  expect(
+    screen.getByRole("button", { name: "Select shot 2", pressed: true }),
+  ).toBe(document.activeElement);
   await user.keyboard("{End}");
-  expect(screen.getByRole("button",{name:"Select shot 3",pressed:true})).toBe(document.activeElement);
+  expect(
+    screen.getByRole("button", { name: "Select shot 3", pressed: true }),
+  ).toBe(document.activeElement);
   await user.keyboard("{Home}");
-  expect(screen.getByRole("button",{name:"Select shot 1",pressed:true})).toBe(document.activeElement);
+  expect(
+    screen.getByRole("button", { name: "Select shot 1", pressed: true }),
+  ).toBe(document.activeElement);
   expect(select).toHaveBeenLastCalledWith("1");
 });

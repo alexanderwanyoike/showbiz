@@ -1,7 +1,20 @@
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { WorkspaceCommand } from "./WorkspaceCommand";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Plus, MoreHorizontal, ArrowLeft, ArrowRight, Trash2, Loader2 } from "lucide-react";
+import {
+  Plus,
+  MoreHorizontal,
+  ArrowLeft,
+  ArrowRight,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import { thumbnailGenerator } from "../lib/thumbnail-generator";
 import { resolvePreviewStill } from "../lib/video-preview";
 
@@ -44,23 +57,33 @@ export default function ShotList({
   onDeleteShot,
 }: ShotListProps) {
   const [posters, setPosters] = useState<Record<string, string>>({});
-  const shotButtons=useRef<Record<string,HTMLButtonElement|null>>({});
-  const actionButtons=useRef<Record<string,HTMLButtonElement|null>>({});
-  function navigateShot(event:KeyboardEvent<HTMLButtonElement>,index:number) {
-    let next=index;
-    if(event.key==="ArrowLeft")next=Math.max(0,index-1);
-    else if(event.key==="ArrowRight")next=Math.min(shots.length-1,index+1);
-    else if(event.key==="Home")next=0;
-    else if(event.key==="End")next=shots.length-1;
+  const shotButtons = useRef<Record<string, HTMLButtonElement | null>>({});
+  const actionButtons = useRef<Record<string, HTMLButtonElement | null>>({});
+  function navigateShot(
+    event: KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) {
+    let next = index;
+    if (event.key === "ArrowLeft") next = Math.max(0, index - 1);
+    else if (event.key === "ArrowRight")
+      next = Math.min(shots.length - 1, index + 1);
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = shots.length - 1;
     else return;
     event.preventDefault();
-    const target=shots[next];
-    if(target && next!==index){onSelectShot(target.id);shotButtons.current[target.id]?.focus();}
+    const target = shots[next];
+    if (target && next !== index) {
+      onSelectShot(target.id);
+      shotButtons.current[target.id]?.focus();
+    }
   }
-  function restoreShotFocus(id:string) {
-    const opener=actionButtons.current[id];
-    if(opener?.isConnected)opener.focus();
-    else Object.values(shotButtons.current).find(button=>button?.isConnected)?.focus();
+  function restoreShotFocus(id: string) {
+    const opener = actionButtons.current[id];
+    if (opener?.isConnected) opener.focus();
+    else
+      Object.values(shotButtons.current)
+        .find((button) => button?.isConnected)
+        ?.focus();
   }
 
   useEffect(() => {
@@ -118,8 +141,10 @@ export default function ShotList({
             >
               <button
                 className="shot-browser-select"
-                ref={(button)=>{shotButtons.current[shot.id]=button;}}
-                onKeyDown={(event)=>navigateShot(event,index)}
+                ref={(button) => {
+                  shotButtons.current[shot.id] = button;
+                }}
+                onKeyDown={(event) => navigateShot(event, index)}
                 aria-keyshortcuts="ArrowLeft ArrowRight Home End"
                 aria-label={`Select shot ${shot.order}`}
                 aria-pressed={selectedShotId === shot.id}
@@ -145,12 +170,51 @@ export default function ShotList({
               </button>
               <div className="shot-browser-actions">
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild><WorkspaceCommand label={`Shot ${shot.order} actions`} ref={(button)=>{actionButtons.current[shot.id]=button;}}><MoreHorizontal size={16}/></WorkspaceCommand></DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" aria-label={`Shot ${shot.order} actions`}>
-                    <DropdownMenuItem disabled={index===0} onSelect={()=>onMoveShot(index,"up")}><ArrowLeft size={14}/>Move earlier</DropdownMenuItem>
-                    <DropdownMenuItem disabled={index===shots.length-1} onSelect={()=>onMoveShot(index,"down")}><ArrowRight size={14}/>Move later</DropdownMenuItem>
-                    <DropdownMenuSeparator/>
-                    <DropdownMenuItem disabled={shot.status==="generating"||shot.generationPending} aria-description={shot.generationPending ? "Wait for this shot's current request to finish." : undefined} onSelect={()=>onDeleteShot(shot.id,()=>restoreShotFocus(shot.id))}><Trash2 size={14}/>Delete shot</DropdownMenuItem>
+                  <DropdownMenuTrigger asChild>
+                    <WorkspaceCommand
+                      label={`Shot ${shot.order} actions`}
+                      ref={(button) => {
+                        actionButtons.current[shot.id] = button;
+                      }}
+                    >
+                      <MoreHorizontal size={16} />
+                    </WorkspaceCommand>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    aria-label={`Shot ${shot.order} actions`}
+                  >
+                    <DropdownMenuItem
+                      disabled={index === 0}
+                      onSelect={() => onMoveShot(index, "up")}
+                    >
+                      <ArrowLeft size={14} />
+                      Move earlier
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={index === shots.length - 1}
+                      onSelect={() => onMoveShot(index, "down")}
+                    >
+                      <ArrowRight size={14} />
+                      Move later
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      disabled={
+                        shot.status === "generating" || shot.generationPending
+                      }
+                      aria-description={
+                        shot.generationPending
+                          ? "Wait for this shot's current request to finish."
+                          : undefined
+                      }
+                      onSelect={() =>
+                        onDeleteShot(shot.id, () => restoreShotFocus(shot.id))
+                      }
+                    >
+                      <Trash2 size={14} />
+                      Delete shot
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

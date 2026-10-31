@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
@@ -86,7 +92,7 @@ it("keeps the main generation action visible while collapsing settings and offer
     ...inspectorProps("seedance-2-fal"),
     frameLibraryHref: "/project/film?view=bible&bibleTab=frames",
   };
-  props.shot = {...props.shot!,image_url:null};
+  props.shot = { ...props.shot!, image_url: null };
   render(
     createElement(MemoryRouter, null, createElement(ShotInspector, props)),
   );
@@ -202,7 +208,9 @@ it("edits the selected image take and explains unavailable editing", async () =>
   expect(
     screen.getByRole("button", { name: "Edit frame for shot 1" }),
   ).toHaveProperty("disabled", true);
-  await userEvent.setup().click(screen.getByRole("button",{name:"About frame editing"}));
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "About frame editing" }));
   expect(
     screen.getByText(
       "Frame editor does not support editing. Choose an editing model in Models for this shot.",
@@ -219,7 +227,9 @@ it("edits the selected image take and explains unavailable editing", async () =>
   expect(
     screen.getByRole("button", { name: "Edit frame for shot 1" }),
   ).toHaveProperty("disabled", true);
-  await userEvent.setup().click(screen.getByRole("button",{name:"About frame editing"}));
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "About frame editing" }));
   expect(
     screen.getByText("Choose or upload a frame to create an editable take."),
   ).toBeTruthy();
@@ -307,25 +317,56 @@ it("returns focus to Choose frame after dismissing the frame picker", async () =
   await waitFor(() => expect(document.activeElement).toBe(opener));
 });
 it("opens the selected frame at full size on request and returns keyboard focus", async () => {
-  render(createElement(MemoryRouter,null,createElement(ShotInspector,inspectorProps("seedance-2-fal"))));
-  const user=userEvent.setup();
-  const preview=screen.getByRole("button",{name:"Preview start frame"});
+  render(
+    createElement(
+      MemoryRouter,
+      null,
+      createElement(ShotInspector, inspectorProps("seedance-2-fal")),
+    ),
+  );
+  const user = userEvent.setup();
+  const preview = screen.getByRole("button", { name: "Preview start frame" });
   await user.click(preview);
-  const dialog=screen.getByRole("dialog",{name:"Start frame preview"});
-  expect(within(dialog).getByRole("img",{name:"Start frame"}).getAttribute("src")).toBe("frame.png");
+  const dialog = screen.getByRole("dialog", { name: "Start frame preview" });
+  expect(
+    within(dialog)
+      .getByRole("img", { name: "Start frame" })
+      .getAttribute("src"),
+  ).toBe("frame.png");
   await user.keyboard("{Escape}");
-  await waitFor(()=>expect(document.activeElement).toBe(preview));
+  await waitFor(() => expect(document.activeElement).toBe(preview));
 });
 it("keeps take history available without displacing generation inputs", async () => {
-  const props=inspectorProps("seedance-2-fal");
-  props.versionCount=1;
-  props.versions=[{version:{id:"take",shot_id:"shot",parent_version_id:null,version_number:1,edit_type:"generation",image_path:"frame.png",prompt:null,edit_prompt:null,mask_path:null,is_current:true,created_at:"now",image_url:"frame.png",mask_url:null},children:[]}];
-  render(createElement(MemoryRouter,null,createElement(ShotInspector,props)));
-  expect(screen.queryByRole("button",{name:"Use image take 1"})).toBeNull();
-  const user=userEvent.setup();
-  await user.click(screen.getByRole("button",{name:"Image takes"}));
-  await user.click(screen.getByRole("button",{name:"Use image take 1"}));
-  expect(props.onVersionSelect).toHaveBeenCalledWith("shot","take");
-  expect(screen.getByRole("textbox",{name:"Video prompt"})).toBeTruthy();
-  expect(screen.getByRole("combobox",{name:"Video duration"})).toBeTruthy();
+  const props = inspectorProps("seedance-2-fal");
+  props.versionCount = 1;
+  props.versions = [
+    {
+      version: {
+        id: "take",
+        shot_id: "shot",
+        parent_version_id: null,
+        version_number: 1,
+        edit_type: "generation",
+        image_path: "frame.png",
+        prompt: null,
+        edit_prompt: null,
+        mask_path: null,
+        is_current: true,
+        created_at: "now",
+        image_url: "frame.png",
+        mask_url: null,
+      },
+      children: [],
+    },
+  ];
+  render(
+    createElement(MemoryRouter, null, createElement(ShotInspector, props)),
+  );
+  expect(screen.queryByRole("button", { name: "Use image take 1" })).toBeNull();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Image takes" }));
+  await user.click(screen.getByRole("button", { name: "Use image take 1" }));
+  expect(props.onVersionSelect).toHaveBeenCalledWith("shot", "take");
+  expect(screen.getByRole("textbox", { name: "Video prompt" })).toBeTruthy();
+  expect(screen.getByRole("combobox", { name: "Video duration" })).toBeTruthy();
 });

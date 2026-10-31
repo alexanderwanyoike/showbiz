@@ -64,10 +64,7 @@ export function ShotVideoSettings({
           const fieldId = `${id}-${field.key}`;
           return (
             <div className="shot-output-field" key={field.key}>
-              <label
-                htmlFor={fieldId}
-                className="shot-output-label"
-              >
+              <label htmlFor={fieldId} className="shot-output-label">
                 {field.label}
               </label>
               {field.options.length === 1 ? (
@@ -110,10 +107,7 @@ export function ShotVideoSettings({
         })}
       {videoModel.capabilities.hasAudio && (
         <div className="shot-output-field">
-          <label
-            htmlFor={`${id}-audio`}
-            className="shot-output-label"
-          >
+          <label htmlFor={`${id}-audio`} className="shot-output-label">
             Audio
           </label>
           <Switch

@@ -470,13 +470,13 @@ it("confirms shot deletion and keeps the shot available when the backend rejects
     ),
   );
   const user = userEvent.setup();
-  const actions=await screen.findByRole("button", { name: "Shot 1 actions" });
+  const actions = await screen.findByRole("button", { name: "Shot 1 actions" });
   await user.click(actions);
-  await user.click(screen.getByRole("menuitem",{name:"Delete shot"}));
-  await user.click(screen.getByRole("button",{name:"Cancel"}));
-  await waitFor(()=>expect(document.activeElement).toBe(actions));
+  await user.click(screen.getByRole("menuitem", { name: "Delete shot" }));
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(document.activeElement).toBe(actions));
   await user.click(actions);
-  await user.click(screen.getByRole("menuitem",{name:"Delete shot"}));
+  await user.click(screen.getByRole("menuitem", { name: "Delete shot" }));
   expect(deleteShot).not.toHaveBeenCalled();
   await screen.findByRole("alertdialog", { name: "Delete shot 1?" });
   await user.click(screen.getByRole("button", { name: "Delete shot" }));
@@ -609,7 +609,9 @@ it("keeps a saved take viewable while a new request runs and after it fails", as
       video_path: `videos/${shot.id}.mp4`,
     })),
   );
-  let finish: (result: Awaited<ReturnType<typeof generateAndSaveVideoRequestAction>>) => void = () => {};
+  let finish: (
+    result: Awaited<ReturnType<typeof generateAndSaveVideoRequestAction>>,
+  ) => void = () => {};
   vi.mocked(generateAndSaveVideoRequestAction).mockImplementationOnce(
     () =>
       new Promise((resolve) => {
@@ -643,7 +645,11 @@ it("keeps a saved take viewable while a new request runs and after it fails", as
   expect(container.querySelector("video")?.getAttribute("src")).toBe(
     "saved-shot-1.mp4",
   );
-  finish({ success: false, videoUrl: null, error: "Missing provider credentials" });
+  finish({
+    success: false,
+    videoUrl: null,
+    error: "Missing provider credentials",
+  });
   expect(await screen.findByText("Missing provider credentials")).toBeTruthy();
   expect(
     screen.getByRole("button", { name: "Play video for shot 1" }),
