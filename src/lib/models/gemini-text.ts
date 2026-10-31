@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { fetch } from "./http";
 import { parseGoogleApiError } from "./types";
 
@@ -10,17 +11,11 @@ interface GeminiTextOptions {
   apiKey: string;
 }
 
-function extractTextFromResponse(data: Record<string, unknown>): string {
-  // Extract text from response
-  // Response format: candidates[0].content.parts[].text
-  const candidates = data.candidates as
-    | Array<{ content?: { parts?: Array<{ text?: string }> } }>
-    | undefined;
-  const parts = candidates?.[0]?.content?.parts || [];
-  for (const part of parts) {
-    if (part.text) {
-      return part.text.trim();
-    }
+function extractTextFromResponse(data: unknown): string {
+  const parsed = z.object({ candidates: z.array(z.object({ content: z.object({ parts: z.array(z.object({ text: z.string().optional() })).optional() }).optional() })).optional() }).safeParse(data);
+  if (parsed.success) {
+    const text = parsed.data.candidates?.[0]?.content?.parts?.find(part => part.text)?.text;
+    if (text) return text.trim();
   }
   throw new Error("No text found in Gemini response");
 }

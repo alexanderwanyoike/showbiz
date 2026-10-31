@@ -19,11 +19,13 @@ interface HttpRequestArgs {
 interface HttpResponse {
   status: number;
   body_b64: string;
+  headers?: Header[];
 }
 
 /** Minimal shape the proxy reads from a fetch Response (status + bytes). */
 interface FetchResponseLike {
   status: number;
+  headers?: { get(name: string): string | null };
   arrayBuffer(): Promise<ArrayBuffer>;
 }
 
@@ -83,7 +85,13 @@ export function createHttpCommands(fetchFn: FetchFn = fetch as unknown as FetchF
         throw new Error(`Failed to read response body: ${messageOf(error)}`);
       }
 
-      return encodeResponse(response.status, new Uint8Array(buffer));
+      const encoded = encodeResponse(response.status, new Uint8Array(buffer));
+      const headers: Header[] = [];
+      for (const name of ["content-type", "x-fal-request-id"]) {
+        const value = response.headers?.get(name);
+        if (value) headers.push([name, value]);
+      }
+      return headers.length ? { ...encoded, headers } : encoded;
     },
   };
 }
