@@ -23,7 +23,7 @@ export function createShotFrameCommands(db: DatabaseSync) {
             ok: false,
             error: { code: "NOT_FOUND", message: "The shot no longer exists." },
           };
-        db.exec("BEGIN IMMEDIATE");
+        db.exec("SAVEPOINT shot_start_frame");
         started = true;
         db.prepare(
           "UPDATE shots SET image_path = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
@@ -31,13 +31,13 @@ export function createShotFrameCommands(db: DatabaseSync) {
         db.prepare(
           "UPDATE image_versions SET is_current = 0 WHERE shot_id = ?",
         ).run(args.shot_id);
-        db.exec("COMMIT");
+        db.exec("RELEASE shot_start_frame");
         started = false;
         return { ok: true, value: null };
       } catch {
         if (started) {
           try {
-            db.exec("ROLLBACK");
+            db.exec("ROLLBACK TO shot_start_frame; RELEASE shot_start_frame");
           } catch (error) {
             console.error(
               "Could not roll back a frame selection change:",

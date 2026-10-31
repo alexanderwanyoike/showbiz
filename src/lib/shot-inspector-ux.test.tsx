@@ -212,3 +212,17 @@ it("edits the selected image take and explains unavailable editing", async () =>
     screen.getByText("Choose or upload a frame to create an editable take."),
   ).toBeTruthy();
 });
+it("allows frame actions to wrap in a narrow inspector without hiding Remove", () => {
+  render(
+    createElement(
+      MemoryRouter,
+      null,
+      createElement(ShotInspector, inspectorProps("seedance-2-fal")),
+    ),
+  );
+  const choose = screen.getByRole("button", { name: "Choose start frame" });
+  const remove = screen.getByRole("button", { name: "Remove start frame" });
+  expect(choose.parentElement).toBe(remove.parentElement);
+  expect(choose.parentElement?.classList.contains("flex-wrap")).toBe(true);
+  expect(choose.classList.contains("min-w-0")).toBe(true);
+});
