@@ -20,7 +20,7 @@ export function createProjectRuntime(options: {
     migrations: options.migrations,
     recentPath: path.join(options.appDirectory, "recent-projects.json"),
     legacy: { db: options.legacyDb, media: path.join(options.appDirectory, "media") },
-    bind: (db, media) => createDataCommands(db, media, options.exports(db, media) as ReturnType<typeof import("./commands/export").createExportCommands>),
+    bind: (db, media) => createDataCommands(db, media, options.exports(db, media)),
   });
   const globals: CommandMap = { ...createSettingsCommands(options.legacyDb), ...createHttpCommands(), ...createProjectDocumentCommands({ ...options, documents }) };
   return {
