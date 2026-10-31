@@ -27,6 +27,8 @@ it("starts with New and Open, then works inside one file and returns to the star
   let current: { file_path: string; project_id: string; name: string } | null =
     null;
   native.invoke.mockImplementation(async (command: string) => {
+    if (["ensure_default_tracks", "get_timeline_clips"].includes(command))
+      return [];
     if (command === "get_projects") return [];
     if (command === "get_project_document_state")
       return { ok: true, value: { current, recent: [], legacy: [] } };
@@ -153,9 +155,9 @@ it.each(["project", "storyboard"] as const)(
       .spyOn(api, "getStoryboard")
       .mockImplementation(async () => previousRead);
     const shots = vi.spyOn(api, "getShots").mockResolvedValue([]);
-    const tracks = vi.spyOn(api, "ensureDefaultTracks").mockResolvedValue([]);
-    const clips = vi.spyOn(api, "getTimelineClips").mockResolvedValue([]);
     native.invoke.mockImplementation(async (command: string) => {
+      if (["ensure_default_tracks", "get_timeline_clips"].includes(command))
+        return [];
       if (command === "get_project_document_state")
         return { ok: true, value: { current, recent: [], legacy: [] } };
       current = {
@@ -203,8 +205,6 @@ it.each(["project", "storyboard"] as const)(
       projectRead.mockRestore();
       storyboardRead.mockRestore();
       shots.mockRestore();
-      tracks.mockRestore();
-      clips.mockRestore();
     }
   },
 );
