@@ -13,7 +13,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import StoryboardPage from "../pages/StoryboardPage";
 import type { GenerationCostRequest } from "../../shared/generation-cost";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: ({request}: {request: GenerationCostRequest}) => createElement("output", {"aria-label": "Generation cost mode"}, request.mode ?? "unknown") }));
-import { setShotModels, updateStoryboardSettings, setShotVideoSettings } from "./backend-api";
+import { setShotModels, updateStoryboardSettings, setShotVideoSettings, deleteShot } from "./backend-api";
 import { generateAndSaveVideoRequestAction } from "../actions/generation-actions";
 vi.stubGlobal(
   "ResizeObserver",
@@ -43,6 +43,7 @@ vi.mock("./backend-api", async (original) => ({
   }),
   updateStoryboardSettings: vi.fn(async (id: string, name: string, image_model: string, video_model: string) => ({ok:true,value:{id,project_id:"project",name,image_model,video_model}})),
   updateShot: vi.fn(async () => null),
+  deleteShot: vi.fn(async () => false),
   getShots: async () =>
     [1, 2].map((order) => ({
       id: `shot-${order}`,
@@ -271,4 +272,19 @@ it("does not start a duplicate generation after stopping local waiting for an un
   expect(generateAndSaveVideoRequestAction).toHaveBeenCalledTimes(1);
   finish({success:false,videoUrl:null,error:"Request finished"});
   await waitFor(()=>expect(screen.getByRole("button",{name:"Generate video for shot 1"})).toHaveProperty("disabled",false));
+});
+
+it("confirms shot deletion and keeps the shot available when the backend rejects deletion", async () => {
+  vi.mocked(deleteShot).mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+  render(createElement(MemoryRouter,{initialEntries:["/storyboard/board"]},createElement(Routes,null,createElement(Route,{path:"/storyboard/:id",element:createElement(StoryboardPage)}))));
+  const user=userEvent.setup();
+  await user.click(await screen.findByRole("button",{name:"Delete shot 1"}));
+  expect(deleteShot).not.toHaveBeenCalled();
+  await screen.findByRole("alertdialog",{name:"Delete shot 1?"});
+  await user.click(screen.getByRole("button",{name:"Delete shot"}));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(screen.getByLabelText("Select shot 1")).toBeTruthy();
+  await user.click(screen.getByRole("button",{name:"Delete shot"}));
+  await waitFor(()=>expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(screen.getAllByRole("button",{name:/^Select shot /})).toHaveLength(1);
 });
