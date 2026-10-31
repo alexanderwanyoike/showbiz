@@ -406,21 +406,25 @@ export default function ProjectBibleView({ projectId, initialTab = "characters" 
 
   // Retake any asset (re-roll), or vary it with a tweaked prompt. Stays on-model
   // by composing from the asset's references. The new take becomes the primary.
-  async function handleRetake(asset: BibleAsset, promptOverride?: string) {
+  async function handleRetake(asset: BibleAsset, promptOverride?: string): Promise<Result<void>> {
     setError(null);
     setBusyId(asset.id);
     try {
-      await withApplicationWork("generation", async () => {
+      const result = await withApplicationWork("generation", async (): Promise<Result<void>> => {
         const prompt = (promptOverride ?? assetBasePrompt(asset, variants)).trim();
         if (!prompt) {
-          setError("Add a prompt first.");
-          return;
+          return { ok: false, error: { code: "INVALID_INPUT", message: "Add a prompt first." } };
         }
         const dataUrl = await composeFromVariantIds(assetReferences(asset, variants), prompt, asset.id);
         await addPrimaryTake(asset.id, dataUrl, prompt);
+        return { ok: true, value: undefined };
       });
+      if (!result.ok) setError(result.error.message);
+      return result;
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      return { ok: false, error: { code: "IO_ERROR", message } };
     } finally {
       setBusyId(null);
     }
@@ -566,7 +570,7 @@ function AssetTab({
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
   onNew: (type: "character" | "location", name: string, prompt: string, file: File | null) => Promise<Result<void>>;
-  onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<void>;
+  onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<Result<void>>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
   onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<Result<void>>;
@@ -690,7 +694,7 @@ function FramesTab({
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
   onMakeFrame: (recipe: FrameRecipe) => Promise<Result<void>>;
-  onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<void>;
+  onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<Result<void>>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
   onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<Result<void>>;
@@ -860,7 +864,7 @@ function AssetCard({
   busy: boolean;
   builtFrom: string | null;
   basePrompt: string;
-  onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<void>;
+  onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<Result<void>>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
   onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<Result<void>>;
@@ -880,7 +884,7 @@ function AssetCard({
   useUnsavedWork("draft", mode === "edit" && !!editInstruction, editInstruction);
 
   // Track which action is running so only that button shows the spinner.
-  async function run(action: "retake" | "variation" | "edit", fn: () => Promise<void>) {
+  async function run(action: "retake" | "variation" | "edit", fn: () => Promise<unknown>) {
     setPending(action);
     try {
       await fn();
@@ -984,8 +988,8 @@ function AssetCard({
                 className="text-xs"
                 disabled={busy || !variation.trim() || (!!primary && !imageCapabilities.composition)}
                 onClick={() => run("variation", async () => {
-                  await onRetake(asset, variation);
-                  setMode(null);
+                  const result = await onRetake(asset, variation);
+                  if (result.ok) setMode(null);
                 })}
               >
                 {pending === "variation" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
