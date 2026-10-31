@@ -42,6 +42,7 @@ vi.mock("./backend-api", async (original) => ({
     video_model: "seedance-2-fal",
   }),
   updateStoryboardSettings: vi.fn(async (id: string, name: string, image_model: string, video_model: string) => ({ok:true,value:{id,project_id:"project",name,image_model,video_model}})),
+  updateShot: vi.fn(async () => null),
   getShots: async () =>
     [1, 2].map((order) => ({
       id: `shot-${order}`,
@@ -254,4 +255,20 @@ it("retains a failed settings draft on its shot and blocks generation until save
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.getByRole("combobox",{name:"Video duration"}).textContent).toBe("Auto");
   expect(screen.getByRole("button",{name:"Generate video for shot 1"})).toHaveProperty("disabled",false);
+});
+
+it("does not start a duplicate generation after stopping local waiting for an unfinished request", async () => {
+  let finish!: (result: Awaited<ReturnType<typeof generateAndSaveVideoRequestAction>>) => void;
+  vi.mocked(generateAndSaveVideoRequestAction).mockImplementationOnce(()=>new Promise((resolve)=>{finish=resolve;}));
+  render(createElement(MemoryRouter,{initialEntries:["/storyboard/board"]},createElement(Routes,null,createElement(Route,{path:"/storyboard/:id",element:createElement(StoryboardPage)}))));
+  const user=userEvent.setup();
+  await user.click(await screen.findByRole("button",{name:"Shot controls"}));
+  await user.click(screen.getByRole("button",{name:"Generate video for shot 1"}));
+  await user.click(await screen.findByRole("button",{name:"Stop Waiting"}));
+  expect(screen.getByRole("button",{name:"Generate video for shot 1"})).toHaveProperty("disabled",true);
+  expect(screen.getByText("Stops waiting locally. Provider work and charges may continue.")).toBeTruthy();
+  await user.click(screen.getByRole("button",{name:"Generate video for shot 1"}));
+  expect(generateAndSaveVideoRequestAction).toHaveBeenCalledTimes(1);
+  finish({success:false,videoUrl:null,error:"Request finished"});
+  await waitFor(()=>expect(screen.getByRole("button",{name:"Generate video for shot 1"})).toHaveProperty("disabled",false));
 });
