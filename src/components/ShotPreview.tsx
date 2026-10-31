@@ -243,9 +243,9 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
   const isEmpty = !hasImage && !hasVideo;
 
   return (
-    <div className="h-full flex flex-col bg-black">
-      <div className="flex-1 flex items-center justify-center min-h-0">
-        <div className="relative w-full max-h-full aspect-video">
+    <div className="shot-preview h-full flex flex-col bg-black">
+      <div className="shot-preview-stage flex-1 flex items-center justify-center min-h-0">
+        <div className="shot-preview-frame relative w-full max-h-full aspect-video">
           {isEmpty ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
               <ImageIcon className="h-10 w-10 mb-2 opacity-40" />

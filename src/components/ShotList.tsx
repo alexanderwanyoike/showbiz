@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, ChevronUp, ChevronDown, Trash2, Loader2 } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Trash2, Loader2 } from "lucide-react";
 import { thumbnailGenerator } from "../lib/thumbnail-generator";
 import { resolvePreviewStill } from "../lib/video-preview";
 
@@ -112,19 +112,19 @@ export default function ShotList({
               <div className="shot-browser-actions">
                 <button
                   aria-label={`Move shot ${shot.order} up`}
-                  title="Move up"
+                  title="Move earlier"
                   disabled={index === 0}
                   onClick={() => onMoveShot(index, "up")}
                 >
-                  <ChevronUp size={12} />
+                  <ChevronLeft size={12} />
                 </button>
                 <button
                   aria-label={`Move shot ${shot.order} down`}
-                  title="Move down"
+                  title="Move later"
                   disabled={index === shots.length - 1}
                   onClick={() => onMoveShot(index, "down")}
                 >
-                  <ChevronDown size={12} />
+                  <ChevronRight size={12} />
                 </button>
                 <button
                   aria-label={`Delete shot ${shot.order}`}

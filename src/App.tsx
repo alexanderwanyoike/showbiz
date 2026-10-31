@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router";
+import { Routes, Route, Link, useLocation } from "react-router";
 import { Header } from "./components/Header";
 import { DocumentMenu } from "./components/DocumentMenu";
 import { ProjectNavigator } from "./components/ProjectNavigator";
@@ -12,14 +12,16 @@ import ProjectPage from "./pages/ProjectPage";
 import StoryboardPage from "./pages/StoryboardPage";
 function DocumentWorkspace() {
   const document = useProjectDocument();
+  const shotWorkspace = useLocation().pathname.startsWith("/storyboard/");
   return (
     <div
-      className={`desktop-shell ${document.current ? "" : "desktop-shell-start"}`}
+      className={`desktop-shell ${document.current && !shotWorkspace ? "" : "desktop-shell-start"}`}
     >
       <Header caption={document.current?.name ?? ""}>
         {!window.showbiz?.onDocumentAction && <DocumentMenu />}
+        {document.current && shotWorkspace && <nav className="shot-project-navigation" aria-label="Project views"><Link to={`/project/${document.current.project_id}`}>Storyboards</Link><Link to={`/project/${document.current.project_id}?view=bible`}>Bible</Link></nav>}
       </Header>
-      {document.current && <ProjectNavigator />}
+      {document.current && !shotWorkspace && <ProjectNavigator />}
       <section className="desktop-content" aria-label="Project workspace">
         {document.error && (
           <div role="alert" className="document-error">
