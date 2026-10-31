@@ -187,6 +187,7 @@
   line-height: 1.3;
 }
 .shot-workspace .shot-browser-actions {
+  border: 0;
   display: flex;
   position: static;
   opacity: 1;
