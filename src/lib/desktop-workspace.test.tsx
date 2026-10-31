@@ -10,7 +10,8 @@ vi.mock("./backend-api", async (original) => ({
   getProjects: async () => [{ id: "p", name: "A quiet morning", updated_at: "2026-10-31" }],
   getProject: async () => ({ id: "p", name: "A quiet morning", updated_at: "2026-10-31" }),
   getStoryboardsWithPreview: async () => [],
-  getBibles: async () => [],
+  getBibles: async () => [{ id: "b", project_id: "p", name: "Project bible" }],
+  getBibleAssets: async () => [],
   getApiKeyStatusAction: async () => [],
 }));
 vi.mock("./update-client", () => ({ updateClient: { getStatus: async () => ({ state: "current", installed_version: "1.0.3" }), subscribe: () => () => {} } }));
