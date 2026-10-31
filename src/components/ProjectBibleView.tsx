@@ -427,22 +427,26 @@ export default function ProjectBibleView({ projectId, initialTab = "characters" 
   }
 
   // Edit a specific picture with an instruction; the result becomes the primary.
-  async function handleEdit(asset: BibleAsset, variant: BibleAssetVariant, instruction: string) {
-    if (!instruction.trim()) return;
+  async function handleEdit(asset: BibleAsset, variant: BibleAssetVariant, instruction: string): Promise<Result<void>> {
+    if (!instruction.trim()) return { ok: false, error: { code: "INVALID_INPUT", message: "Describe the picture edit before generating it." } };
     setError(null);
     setBusyId(asset.id);
     try {
-      await withApplicationWork("generation", async () => {
+      const result = await withApplicationWork("generation", async (): Promise<Result<void>> => {
         const source = await getBibleVariantImageBase64(variant.id);
         if (!source) {
-          setError("Couldn't read that picture.");
-          return;
+          return { ok: false, error: { code: "IO_ERROR", message: "Couldn't read that picture." } };
         }
         const raw = await editImageAction(source, instruction, imageModel, {project_id: projectId, subject_id: asset.id});
         await addPrimaryTake(asset.id, await prepareBibleImageDataUrl(raw), instruction);
+        return { ok: true, value: undefined };
       });
+      if (!result.ok) setError(result.error.message);
+      return result;
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      return { ok: false, error: { code: "IO_ERROR", message } };
     } finally {
       setBusyId(null);
     }
@@ -565,7 +569,7 @@ function AssetTab({
   onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<void>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
-  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
+  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<Result<void>>;
   onUpload: (asset: BibleAsset, file: File) => void;
   onSetPrimary: (variant: BibleAssetVariant) => void;
   onDeleteTake: (variant: BibleAssetVariant) => void;
@@ -689,7 +693,7 @@ function FramesTab({
   onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<void>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
-  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
+  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<Result<void>>;
   onSetPrimary: (variant: BibleAssetVariant) => void;
   onDeleteTake: (variant: BibleAssetVariant) => void;
   onDeleteFrame: (asset: BibleAsset) => void;
@@ -859,7 +863,7 @@ function AssetCard({
   onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<void>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
-  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
+  onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<Result<void>>;
   onSetPrimary: (variant: BibleAssetVariant) => void;
   onDeleteTake: (variant: BibleAssetVariant) => void;
   onDeleteAsset: (asset: BibleAsset) => void;
@@ -1004,9 +1008,8 @@ function AssetCard({
                 className="text-xs"
                 disabled={busy || !editInstruction.trim() || !imageCapabilities.editing}
                 onClick={() => run("edit", async () => {
-                  await onEdit(asset, primary, editInstruction);
-                  setEditInstruction("");
-                  setMode(null);
+                  const result = await onEdit(asset, primary, editInstruction);
+                  if (result.ok) { setEditInstruction(""); setMode(null); }
                 })}
               >
                 {pending === "edit" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Wand2 className="h-3 w-3 mr-1" />}
