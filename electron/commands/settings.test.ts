@@ -171,3 +171,16 @@ it("keeps an optional FAL billing-only credential separate from the inference ke
     expect(commands.get_api_key_status()).toContainEqual(expect.objectContaining({ provider: "fal-billing", is_configured: true }));
   } finally { db.close(); }
 });
+it("invalidates cached account prices when a provider key changes and retains manual estimates", () => {
+  const db = openTestDb();
+  try {
+    const commands = createSettingsCommands(db);
+    commands.save_api_key({ provider: "fal", apiKey: "old-key" });
+    const price = { provider: "fal", model_id: "account-specific-fal", currency: "USD", source_kind: "provider", source_url: "https://api.fal.ai/v1/models/pricing", checked_at: new Date().toISOString(), rates: [{ unit: "image", microusd: 25000 }] };
+    commands.save_generation_price({ kind: "image", price });
+    commands.save_generation_price({ kind: "image", price: { ...price, model_id: "manual-fal", source_kind: "manual" } });
+    commands.save_api_key({ provider: "fal", apiKey: "new-key" });
+    expect(commands.get_generation_price({ kind: "image", model_id: "account-specific-fal" })).toEqual({ ok: true, value: null });
+    expect(commands.get_generation_price({ kind: "image", model_id: "manual-fal" })).toMatchObject({ ok: true, value: { source_kind: "manual" } });
+  } finally { db.close(); }
+});
