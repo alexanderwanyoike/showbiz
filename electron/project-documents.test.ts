@@ -130,3 +130,23 @@ it("converts one legacy library project with its media without copying credentia
     expect(createSettingsCommands(legacy).get_api_key({ provider: "fal" })).toBe("private-secret");
   } finally { await documents.close(); legacy.close(); }
 });
+
+it("rejects project media that escapes its companion folder and retains the active file", async () => {
+  const { directory, documents } = setup();
+  const unsafe = path.join(directory, "Unsafe.showbiz");
+  const safe = path.join(directory, "Safe.showbiz");
+  const result = await documents.create(unsafe);
+  if (!result.ok) throw new Error(result.error.message);
+  const projectId = result.value.project_id;
+  const board = await documents.invoke("create_storyboard", { projectId, name: "Opening" }) as { id: string };
+  await documents.close();
+  const { DatabaseSync } = await import("node:sqlite");
+  const db = new DatabaseSync(unsafe);
+  db.prepare('INSERT INTO shots(id,storyboard_id,"order",image_path) VALUES (?,?,1,?)').run("shot", board.id, "../../private.png");
+  db.close();
+  try {
+    await documents.create(safe);
+    expect((await documents.open(unsafe)).ok).toBe(false);
+    expect(documents.current()?.file_path).toBe(safe);
+  } finally { await documents.close(); }
+});
