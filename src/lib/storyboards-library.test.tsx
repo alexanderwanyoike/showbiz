@@ -77,6 +77,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  applicationWork.receive({ active: [], unsaved: [], closing: false });
   vi.resetAllMocks();
 });
 it("keeps search and New in one context toolbar and offers clear filtered recovery", async () => {
@@ -139,19 +140,30 @@ it("keeps a failed creation name for retry, prevents duplicate submits and opens
     "The document is read-only.",
   );
   expect((name as HTMLInputElement).value).toBe("Second scene");
-  commands.create.mockResolvedValueOnce({
-    ...opening,
-    id: "second",
-    name: "Second scene",
+  let displayedDiscard = false;
+  const observer = new MutationObserver((changes) => {
+    for (const change of changes) for (const node of change.addedNodes) {
+      if (node instanceof Element && (node.matches('[role="alertdialog"]') || node.querySelector('[role="alertdialog"]'))) displayedDiscard = true;
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  commands.create.mockImplementationOnce(async () => {
+    applicationWork.receive({ active: [], unsaved: ["draft"], closing: false });
+    return { ...opening, id: "second", name: "Second scene" };
   });
   await user.click(
     within(dialog).getByRole("button", { name: "Create storyboard" }),
   );
+  expect([...router.state.blockers.values()].some((blocker) => blocker.state === "blocked")).toBe(false);
+  expect(screen.queryByRole("alertdialog", { name: "Discard unsaved changes?" })).toBeNull();
   expect(
     await screen.findByRole("region", { name: "Created storyboard canvas" }),
   ).toBeTruthy();
+  observer.disconnect();
+  expect(displayedDiscard).toBe(false);
   expect(commands.create).toHaveBeenLastCalledWith("film", "Second scene");
-  expect(applicationWork.getStatus().unsaved).not.toContain("draft");
+  expect(applicationWork.snapshot().unsaved).not.toContain("draft");
+  expect(applicationWork.getStatus().unsaved).toContain("draft");
   expect(
     screen.queryByRole("alertdialog", { name: "Discard unsaved changes?" }),
   ).toBeNull();
