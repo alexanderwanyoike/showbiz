@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import { createBibleAsset } from "./backend-api";
 import { generateImageAction } from "../actions/generation-actions";
 import ProjectBibleView from "../components/ProjectBibleView";
 vi.mock("../actions/generation-actions", async (original) => ({
@@ -13,10 +14,10 @@ vi.mock("../actions/generation-actions", async (original) => ({
 }));
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
-  createBibleAsset: async (_id: string, input: Record<string, unknown>) => ({
+  createBibleAsset: vi.fn(async (_id: string, input: Record<string, unknown>) => ({
     ...input,
     id: "new-frame",
-  }),
+  })),
   getBibles: async () => [{ id: "bible" }],
   getBibleAssets: async () => [
     { id: "character", asset_type: "character", name: "Morning" },
@@ -87,4 +88,7 @@ it("retains the frame draft and its usage identity when generation fails", async
     "nano-banana",
     { project_id: "film", subject_id: "new-frame" },
   );
+  await user.click(screen.getByRole("button", { name: "Generate frame" }));
+  await screen.findByText("Provider unavailable");
+  expect(createBibleAsset).toHaveBeenCalledTimes(1);
 });
