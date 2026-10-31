@@ -554,7 +554,7 @@ export default function ShotInspector({
             <Button
               size="sm"
               variant="outline"
-              className="min-w-0 flex-1 basis-32 text-xs"
+              className="flex-1 text-xs"
               onClick={() => onGenerateVideoPrompt(shot.id)}
               disabled={isGeneratingPrompt || !shot.image_url}
             >
@@ -568,7 +568,7 @@ export default function ShotInspector({
             <Button
               size="sm"
               variant="outline"
-              className="min-w-0 flex-1 basis-32 text-xs"
+              className="flex-1 text-xs"
               onClick={() => onEnhanceVideoPrompt(shot.id)}
               disabled={isEnhancingPrompt || !shot.video_prompt}
             >
