@@ -106,7 +106,7 @@ it("discards drafts held by a persistent project view without leaving navigation
     screen.getByPlaceholderText("Storyboard name..."),
     "Unfinished board",
   );
-  await user.click(screen.getByRole("link", { name: "Bible" }));
+  await act(async () => { await router.navigate("/project/film?view=bible"); });
   await user.click(
     within(
       await screen.findByRole("alertdialog", {

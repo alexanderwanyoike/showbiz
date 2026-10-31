@@ -67,7 +67,7 @@ it("keeps a recoverable library load failure in context with a working retry", a
   commands.boards.mockRejectedValue(new Error("The document is busy."));
   render(createElement(MemoryRouter, null, createElement(App)));
   const user = userEvent.setup();
-  expect(await screen.findByRole("alert")).toHaveProperty("textContent", "The document is busy.");
+  expect(await within(await screen.findByRole("region", { name: "Storyboards library" })).findByRole("alert")).toHaveProperty("textContent", "The document is busy.");
   expect(screen.getByRole("toolbar", { name: "Storyboards" })).toBeTruthy();
   commands.boards.mockResolvedValue([opening]);
   await user.click(screen.getByRole("button", { name: "Retry loading storyboards" }));
