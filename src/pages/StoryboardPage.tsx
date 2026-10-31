@@ -10,9 +10,9 @@ import { useAgentChanges } from "../hooks/useAgentChanges";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useId } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Plus, Loader2, Sparkles, ImageIcon, Save } from "lucide-react";
+import { Plus, Loader2, Sparkles, ImageIcon, Save, PanelRight } from "lucide-react";
 import { WorkspaceToolbar as Header } from "../components/WorkspaceToolbar";
 import ShotList from "../components/ShotList";
 import ShotPreview from "../components/ShotPreview";
@@ -145,6 +145,9 @@ export default function StoryboardPage() {
 
   // Selection State
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
+  const [shotControlsOpen, setShotControlsOpen] = useState(false);
+  const shotControlsId = useId();
+  const shotControlsToggle = useRef<HTMLButtonElement>(null);
 
   const [bibleAssets, setBibleAssets] = useState<BibleAsset[]>([]);
   const [bibleVariants, setBibleVariants] = useState<Record<string, BibleAssetVariant[]>>({});
@@ -844,7 +847,6 @@ export default function StoryboardPage() {
   }
 
   const hasMedia = shots.some((shot) => shot.image_url || shot.end_frame_url || shot.video_url);
-  const totalDuration = shots.reduce((total, shot) => total + shot.duration, 0);
 
   if (isLoading) {
     return (
@@ -876,9 +878,10 @@ export default function StoryboardPage() {
         <div className="flex items-center gap-4">
 
           <Badge variant="secondary" className="text-sm">
-            {shots.length} Shots • {totalDuration}s Total
+            {shots.length} {shots.length === 1 ? "shot" : "shots"}
           </Badge>
           <StoryboardSettingsDialog name={storyboard.name} defaults={defaultModels} onSave={handleStoryboardSettingsSave} />
+          <Button ref={shotControlsToggle} variant="outline" size="sm" aria-label="Shot controls" aria-expanded={shotControlsOpen} aria-controls={shotControlsId} disabled={!selectedShot} onClick={() => setShotControlsOpen(!shotControlsOpen)}><PanelRight className="h-4 w-4" />Shot controls</Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={isExporting || !hasMedia}>{isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Export…</Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -893,7 +896,7 @@ export default function StoryboardPage() {
 
       {exportMessage && <p role="status" className="border-b border-border px-4 py-2 text-sm">{exportMessage}</p>}
       {(
-        <StoryboardModeView
+        <StoryboardModeView controlsOpen={shotControlsOpen} controlsId={shotControlsId} onCloseControls={() => { setShotControlsOpen(false); shotControlsToggle.current?.focus(); }}
           shotListSlot={
             <ShotList
               shots={shots.map(shot => ({

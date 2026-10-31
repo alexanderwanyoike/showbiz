@@ -1048,21 +1048,6 @@ body,
 .canvas-preview video {
   background: transparent;
 }
-.shot-controls-toggle {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  background: var(--background);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 10px;
-  box-shadow: 0 1px 3px #00000010;
-}
 .canvas-filmstrip {
   grid-area: shot-list;
   min-width: 0;
