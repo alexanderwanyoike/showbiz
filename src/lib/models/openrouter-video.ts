@@ -13,6 +13,7 @@ const jobSchema = z.object({
 const failure = (message: string, receipt?: GenerationReceipt): GenerationOutput<Blob> => ({ ok: false, error: { code: "IO_ERROR", message }, receipt });
 
 export async function generateOpenRouterVideo(model: string, request: VideoGenerationRequest, apiKey: string): Promise<GenerationOutput<Blob>> {
+  if (request.mode === "image-to-video" && !request.startImage) return { ok: false, error: { code: "INVALID_INPUT", message: "Choose a starting frame before generating this video." } };
   let receipt: GenerationReceipt | undefined;
   try {
     const { settings } = request;
