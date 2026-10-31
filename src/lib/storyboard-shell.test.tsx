@@ -25,8 +25,8 @@ afterEach(cleanup);
 it("shows one application header and the active board title in its workspace toolbar", async () => {
  render(createElement(MemoryRouter, { initialEntries: ["/storyboard/sb"] },
   createElement(Header), createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
- await screen.findByRole("button", { name: "Export…", exact: true });
+ await screen.findByRole("button", { name: "Export…" });
  expect(screen.getAllByLabelText("Showbiz")).toHaveLength(1);
- expect(screen.getAllByRole("button", { name: "Settings", exact: true })).toHaveLength(1);
+ expect(screen.getAllByRole("button", { name: "Settings" })).toHaveLength(1);
  expect(screen.getByText("Opening", { exact: true })).toBeTruthy();
 });

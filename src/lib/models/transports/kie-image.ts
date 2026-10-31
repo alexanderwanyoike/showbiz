@@ -1,3 +1,4 @@
+import { kieResponseSchema } from "../kie-response";
 import { fetch } from "../http";
 import { createKieTask, pollKieTask } from "../kie-shared";
 import type { ImageTransport } from "./types";
@@ -37,7 +38,7 @@ async function callFluxKontext(
     body: JSON.stringify(body),
   });
 
-  const json = await res.json();
+  const json = kieResponseSchema.parse(await res.json());
 
   if (!res.ok || (json.code !== undefined && json.code !== 200)) {
     const msg: string = json.msg ?? json.message ?? "";

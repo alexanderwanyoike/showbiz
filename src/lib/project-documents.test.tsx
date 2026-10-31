@@ -44,19 +44,19 @@ it("starts with New and Open, then works inside one file and returns to the star
   render(createElement(MemoryRouter, null, createElement(App)));
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: "New Project", exact: true }),
+    await screen.findByRole("button", { name: "New Project" }),
   );
   expect(
     await screen.findByRole("navigation", { name: "Project navigator" }),
   ).toBeTruthy();
   expect(screen.queryByText("All projects")).toBeNull();
   expect(await screen.findByText("/Films/Morning.showbiz")).toBeTruthy();
-  await user.click(screen.getByRole("button", { name: "File", exact: true }));
+  await user.click(screen.getByRole("button", { name: "File" }));
   await user.click(
     await screen.findByRole("menuitem", { name: /Close Project/ }),
   );
   expect(
-    await screen.findByRole("button", { name: "Open Project", exact: true }),
+    await screen.findByRole("button", { name: "Open Project" }),
   ).toBeTruthy();
   expect(
     screen.queryByRole("navigation", { name: "Project navigator" }),
@@ -89,7 +89,7 @@ it("opens recent files by their saved path and keeps the current project when a 
   expect(native.invoke).toHaveBeenCalledWith("open_project_document", {
     file_path: file.file_path,
   });
-  await user.click(screen.getByRole("button", { name: "File", exact: true }));
+  await user.click(screen.getByRole("button", { name: "File" }));
   await user.click(
     await screen.findByRole("menuitem", { name: /Open Project/ }),
   );
@@ -121,7 +121,7 @@ it("keeps New and Open available while reporting a damaged recent-file list", as
   );
   expect(
     screen
-      .getByRole("button", { name: "Open Project", exact: true })
+      .getByRole("button", { name: "Open Project" })
       .hasAttribute("disabled"),
   ).toBe(false);
 });
@@ -186,14 +186,14 @@ it.each(["project", "storyboard"] as const)(
       await screen.findByRole("navigation", { name: "Project navigator" });
       const user = userEvent.setup();
       await user.click(
-        screen.getByRole("button", { name: "File", exact: true }),
+        screen.getByRole("button", { name: "File" }),
       );
       await user.click(
         await screen.findByRole("menuitem", { name: /Open Project/ }),
       );
       await screen.findByRole("button", {
         name: "Rename project",
-        exact: true,
+        
       });
       await act(async () => {
         completePrevious(null);

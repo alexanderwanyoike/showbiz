@@ -27,7 +27,7 @@ it("selects shots with a native button and describes media readiness instead of 
   );
   await userEvent
     .setup()
-    .click(screen.getByRole("button", { name: "Select shot 2", exact: true }));
+    .click(screen.getByRole("button", { name: "Select shot 2" }));
   expect(select).toHaveBeenCalledWith("2");
   expect(screen.getAllByText("Frame ready")).toHaveLength(2);
   expect(screen.queryByText("00:00:08:00")).toBeNull();

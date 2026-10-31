@@ -292,16 +292,16 @@ it("selects a material and accent while retaining Showbiz's native appearance", 
   render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
   await user.click(await screen.findByRole("tab", { name: "Appearance" }));
   await user.click(
-    screen.getByRole("radio", { name: "Aluminium", exact: true }),
+    screen.getByRole("radio", { name: "Aluminium" }),
   );
-  await user.click(screen.getByRole("radio", { name: "Emerald", exact: true }));
+  await user.click(screen.getByRole("radio", { name: "Emerald" }));
   expect(document.documentElement.dataset.material).toBe("aluminium");
   expect(document.documentElement.dataset.accent).toBe("sage");
   expect(
     JSON.parse(localStorage.getItem("showbiz-appearance") ?? "{}") as unknown,
   ).toEqual({ material: "aluminium", accent: "sage" });
   await user.click(
-    screen.getByRole("radio", { name: "Showbiz native", exact: true }),
+    screen.getByRole("radio", { name: "Showbiz native" }),
   );
   expect(document.documentElement.dataset.material).toBe("native");
 });

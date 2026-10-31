@@ -1,3 +1,4 @@
+import type { Readable } from "node:stream";
 import { createWriteStream } from "node:fs";
 import { realpath, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
@@ -58,7 +59,7 @@ export async function exportStoryboardPackage(
       return { ok: false, error: { code: "INVALID_INPUT", message: "The package cannot overwrite source media" } };
     }
     const zip = new ZipFile();
-    zip.on("error", (error: Error) => zip.outputStream.destroy(error));
+    zip.on("error", (error: Error) => (zip.outputStream as Readable).destroy(error));
     zip.addBuffer(Buffer.from(JSON.stringify(manifest, null, 2)), "storyboard.json");
     for (const file of files) zip.addFile(file.source, file.entry, { compress: false });
     const completion = pipeline(zip.outputStream, createWriteStream(temporary, { flags: "wx" }));

@@ -1,17 +1,8 @@
 import type { VideoGenerationRequest } from "../generation/types";
 import type { ApiKeyProvider } from "../../../shared/provider-catalog";
 
-export type ImageModelId =
-  | "imagen4" | "nano-banana" | "nano-banana-2" | "nano-banana-2-lite" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5"
-  | "flux-schnell-fal" | "flux-dev-fal" | "flux-kontext-fal"
-  | "flux-schnell-replicate" | "flux-dev-replicate" | "gpt-image-2";
-export type VideoModelId =
-  | "veo-3.1-fal"
-  | "kling-v3-fal"
-  | "wan-flf2v-fal"
-  | "seedance-2-fal"
-  | "seedance-2-fast-fal"
-  | "ltx-2.3-fal";
+export type ImageModelId = string;
+export type VideoModelId = string;
 
 export interface VideoModelCapabilities {
   durations: string[];
@@ -53,6 +44,7 @@ export interface ImageModelModeCapabilities {
 }
 
 export interface ImageModelProvider {
+  modeCapabilities?: ImageModelModeCapabilities;
   id: ImageModelId;
   name: string;
   description: string;

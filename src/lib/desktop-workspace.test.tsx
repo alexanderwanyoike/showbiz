@@ -52,7 +52,7 @@ it("keeps desktop navigation and status visible while moving from the open docum
     screen.getByRole("contentinfo", { name: "Application status" }),
   ).toBeTruthy();
   await user.click(
-    await within(navigator).findByRole("link", { name: "Bible", exact: true }),
+    await within(navigator).findByRole("link", { name: "Bible" }),
   );
   expect(
     await screen.findByRole("region", { name: "Project bible" }),
@@ -72,20 +72,20 @@ it("renames a project from its desktop toolbar and lets Escape keep the saved na
     ),
   );
   await user.click(
-    await screen.findByRole("button", { name: "Rename project", exact: true }),
+    await screen.findByRole("button", { name: "Rename project" }),
   );
   const input = screen.getByRole("textbox", {
     name: "Project name",
-    exact: true,
+    
   });
   await user.clear(input);
   await user.type(input, "Uncommitted name");
   await user.keyboard("{Escape}");
   expect(
-    screen.queryByRole("textbox", { name: "Project name", exact: true }),
+    screen.queryByRole("textbox", { name: "Project name" }),
   ).toBeNull();
   expect(
-    screen.getByRole("button", { name: "Rename project", exact: true }),
+    screen.getByRole("button", { name: "Rename project" }),
   ).toBeTruthy();
 });
 
@@ -100,7 +100,7 @@ it("refreshes the project navigator when the application reports a project chang
   });
   render(createElement(MemoryRouter, null, createElement(App)));
   await screen.findByRole("navigation", { name: "Project navigator" });
-  await screen.findByRole("button", { name: "Rename project", exact: true });
+  await screen.findByRole("button", { name: "Rename project" });
   projects.mockResolvedValue({
     id: "p",
     name: "Renamed project",

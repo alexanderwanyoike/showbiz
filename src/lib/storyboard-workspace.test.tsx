@@ -26,9 +26,9 @@ it("offers storyboard packages without an editor or movie assembly workspace", a
   render(createElement(MemoryRouter, { initialEntries: ["/storyboard/sb"] },
     createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Export…", exact: true }));
-  expect(await screen.findByRole("menuitem", { name: "Media ZIP (.zip)", exact: true })).toBeTruthy();
-  expect(screen.getByRole("menuitem", { name: "Forgecut media (.sbz)", exact: true })).toBeTruthy();
+  await user.click(await screen.findByRole("button", { name: "Export…" }));
+  expect(await screen.findByRole("menuitem", { name: "Media ZIP (.zip)" })).toBeTruthy();
+  expect(screen.getByRole("menuitem", { name: "Forgecut media (.sbz)" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Export ZIP" })).toBeNull();
   expect(screen.queryByRole("tab", { name: "Editor" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Save Movie" })).toBeNull();

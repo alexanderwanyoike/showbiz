@@ -22,11 +22,11 @@ it("prioritizes the preview and shot strip while keeping shot controls available
   expect(screen.queryByRole("button", { name: "Generate video" })).toBeNull();
   const user = userEvent.setup();
   await user.click(
-    screen.getByRole("button", { name: "Shot controls", exact: true }),
+    screen.getByRole("button", { name: "Shot controls" }),
   );
   expect(screen.getByRole("button", { name: "Generate video" })).toBeTruthy();
   await user.click(
-    screen.getByRole("button", { name: "Shot controls", exact: true }),
+    screen.getByRole("button", { name: "Shot controls" }),
   );
   expect(screen.queryByRole("button", { name: "Generate video" })).toBeNull();
 });
