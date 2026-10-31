@@ -5,6 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ImageVersionTimeline from "../components/ImageVersionTimeline";
 import VideoVersionTimeline from "../components/VideoVersionTimeline";
+vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+
 afterEach(cleanup);
 it("names image and video take selection and identifies the selected take", async () => {
   const selectImage = vi.fn();
