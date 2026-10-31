@@ -2,7 +2,8 @@
 import { createElement } from "react";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, createMemoryRouter, RouterProvider } from "react-router";
+import Application from "../Application";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import App from "../App";
 import { applicationWork } from "./application-work";
@@ -32,7 +33,8 @@ it("keeps search and New in one context toolbar and offers clear filtered recove
 it("keeps a failed creation name for retry, prevents duplicate submits and opens the completed storyboard", async () => {
   let reject: ((cause: Error) => void) | undefined;
   commands.create.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
-  render(createElement(MemoryRouter, null, createElement(App)));
+  const router = createMemoryRouter([{ path: "*", element: createElement(Application) }]);
+  render(createElement(RouterProvider, { router }));
   const user = userEvent.setup();
   await user.click(await screen.findByRole("button", { name: "New Storyboard" }));
   const dialog = await screen.findByRole("dialog", { name: "New storyboard" });
@@ -51,6 +53,8 @@ it("keeps a failed creation name for retry, prevents duplicate submits and opens
   expect(await screen.findByRole("region", { name: "Created storyboard canvas" })).toBeTruthy();
   expect(commands.create).toHaveBeenLastCalledWith("film", "Second scene");
   expect(applicationWork.getStatus().unsaved).not.toContain("draft");
+  expect(screen.queryByRole("alertdialog", { name: "Discard unsaved changes?" })).toBeNull();
+  router.dispose();
 });
 it("cancels a creation draft with Escape and restores focus to New", async () => {
   render(createElement(MemoryRouter, null, createElement(App)));
