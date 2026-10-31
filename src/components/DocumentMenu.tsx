@@ -111,7 +111,9 @@ export function DocumentMenu({
           >
             Quit Showbiz
             {canQuit && window.showbiz?.desktop?.platform !== "win32" && (
-              <span className="app-menu-shortcut" aria-hidden="true">{menuShortcut("Q", mac)}</span>
+              <span className="app-menu-shortcut" aria-hidden="true">
+                {menuShortcut("Q", mac)}
+              </span>
             )}
           </Menubar.Item>
         </Menubar.Content>
