@@ -51,7 +51,7 @@ it("starts with New and Open, then works inside one file and returns to the star
   ).toBeTruthy();
   expect(screen.queryByText("All projects")).toBeNull();
   expect(await screen.findByText("/Films/Morning.showbiz")).toBeTruthy();
-  await user.click(screen.getByRole("button", { name: "File" }));
+  await user.click(screen.getByRole("menuitem", { name: "File" }));
   await user.click(
     await screen.findByRole("menuitem", { name: /Close Project/ }),
   );
@@ -89,7 +89,7 @@ it("opens recent files by their saved path and keeps the current project when a 
   expect(native.invoke).toHaveBeenCalledWith("open_project_document", {
     file_path: file.file_path,
   });
-  await user.click(screen.getByRole("button", { name: "File" }));
+  await user.click(screen.getByRole("menuitem", { name: "File" }));
   await user.click(
     await screen.findByRole("menuitem", { name: /Open Project/ }),
   );
@@ -186,7 +186,7 @@ it.each(["project", "storyboard"] as const)(
       await screen.findByRole("navigation", { name: "Project navigator" });
       const user = userEvent.setup();
       await user.click(
-        screen.getByRole("button", { name: "File" }),
+        screen.getByRole("menuitem", { name: "File" }),
       );
       await user.click(
         await screen.findByRole("menuitem", { name: /Open Project/ }),
