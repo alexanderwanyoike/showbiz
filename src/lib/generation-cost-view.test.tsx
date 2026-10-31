@@ -86,3 +86,15 @@ it("keeps a newly generated picture's charge visible before a reference retake",
     (await screen.findByLabelText("Last generation cost")).textContent,
   ).toContain("$0.04 reported");
 });
+it("distinguishes a published snapshot from live API pricing and opens device-wide model pricing explicitly", async () => {
+  const { default: userEvent } = await import("@testing-library/user-event");
+  mocks.estimate.mockResolvedValue({ kind: "estimate", min_microusd: 39000, max_microusd: 39000, stale: false, excludes_input_cost: true, price: { provider: "gemini", model_id: "nano-banana", currency: "USD", source_kind: "published", source_url: "https://ai.google.dev/gemini-api/docs/pricing", checked_at: "2026-10-31T12:00:00Z", rates: [{ unit: "image", microusd: 39000 }] } });
+  render(createElement(GenerationCost, { modelId: "nano-banana", request: { kind: "image" } }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByText("Rate details"));
+  expect(screen.getByText("Published price snapshot")).toBeTruthy();
+  expect(screen.queryByText("Set your rate")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Model pricing…" }));
+  expect(screen.getByRole("dialog", { name: "Model pricing" })).toBeTruthy();
+  expect(screen.getByText(/applies to this model on this device across all projects/)).toBeTruthy();
+});
