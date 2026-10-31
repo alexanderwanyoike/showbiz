@@ -711,7 +711,7 @@ export default function StoryboardPage() {
       setShots((prev) =>
         prev.map((s) =>
           s.id === shotId
-            ? { ...s, status: "failed" as const, error_message: "Add a start frame or a prompt before generating." }
+            ? { ...s, status: shot.video_url ? shot.status : "failed" as const, error_message: "Add a start frame or a prompt before generating." }
             : s
         )
       );
@@ -724,7 +724,7 @@ export default function StoryboardPage() {
     setShots((prev) =>
       prev.map((s) =>
         s.id === shotId
-          ? { ...s, status: "generating" as const, video_url: null, error_message: null }
+          ? { ...s, status: "generating" as const, error_message: null }
           : s
       )
     );
@@ -767,7 +767,7 @@ export default function StoryboardPage() {
         setShots((prev) =>
           prev.map((s) =>
             s.id === shotId
-              ? { ...s, status: "failed" as const, error_message: errorMessage }
+              ? { ...s, status: shot.video_url ? shot.status : "failed" as const, error_message: errorMessage }
               : s
           )
         );
@@ -779,7 +779,7 @@ export default function StoryboardPage() {
       setShots((prev) =>
         prev.map((s) =>
           s.id === shotId
-            ? { ...s, status: "failed" as const, error_message: errorMessage }
+            ? { ...s, status: shot.video_url ? shot.status : "failed" as const, error_message: errorMessage }
             : s
         )
       );

@@ -698,7 +698,7 @@ export default function ShotInspector({
             Stop Waiting
           </Button>
         )}
-        {shot.status === "failed" && shot.error_message && (
+        {shot.error_message && (
           <div className="mt-2 flex items-start gap-1.5 text-xs text-destructive">
             <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
             <span>{shot.error_message}</span>
