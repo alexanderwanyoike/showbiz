@@ -171,6 +171,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
           return;
         }
         updateKey(provider, "");
+        window.dispatchEvent(new Event("showbiz:pricing-changed"));
         await loadApiKeyStatus(false);
       });
     } catch (error) {
@@ -192,6 +193,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
           alert(result.error || "Failed to delete API key");
           return;
         }
+        window.dispatchEvent(new Event("showbiz:pricing-changed"));
         await loadApiKeyStatus(false);
       });
     } catch (error) {
@@ -364,7 +366,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
                               </span>
                               {provider.isConfigured && (
                                 <Badge variant="secondary" className="shrink-0">
-                                  Connected
+                                  Key saved
                                 </Badge>
                               )}
                             </span>
@@ -404,7 +406,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
           <DialogFooter className="preferences-footer">
             {section === "providers" ? <>
             <p className="text-xs text-muted-foreground">
-              {configuredCount} of {providerSettings.length} connected
+              {configuredCount} of {providerSettings.length} credentials saved
             </p>
             <p className="text-right text-xs text-muted-foreground">
               Keys are stored in the local Showbiz database.
