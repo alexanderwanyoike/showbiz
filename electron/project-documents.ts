@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { copyProjectDocument, DOCUMENT_APPLICATION_ID } from "./project-document-copy";
+import { copyProjectDocument, documentMediaPaths, DOCUMENT_APPLICATION_ID } from "./project-document-copy";
 import { lockProjectDocument } from "./project-document-lock";
 import { DatabaseSync } from "node:sqlite";
 import { openDatabase } from "./db";
 import { createProjectCommands } from "./commands/projects";
+import { resolveMediaPath } from "./media";
 import { initMediaDirs } from "./media-files";
 import type { CommandMap } from "./ipc";
 import type { DocumentResult, ProjectDocumentInfo, RecentProjectDocument } from "../shared/project-document";
@@ -93,10 +94,19 @@ export function createProjectDocuments(options: {
         if (header?.application_id !== DOCUMENT_APPLICATION_ID) throw new Error("This is not a Showbiz project document.");
         const count = db.prepare("SELECT COUNT(*) AS count FROM projects").get();
         if (count?.count !== 1) throw new Error("A project document must contain exactly one project.");
+        const media = projectMediaDirectory(file);
+        for (const relative of documentMediaPaths(db)) {
+          if (relative.includes("\\")) throw new Error("Project media paths must use forward slashes.");
+          const resolved = resolveMediaPath(media, relative);
+          if (!fs.existsSync(resolved)) throw new Error("Project media is missing. Keep the .showbiz file with its companion .media folder.");
+          const base = fs.realpathSync(media);
+          if (!fs.realpathSync(resolved).startsWith(`${base}${path.sep}`)) throw new Error("Project media points outside its companion folder.");
+        }
         db.close();
         db = null;
         release = lockProjectDocument(file);
         db = openDatabase(file, options.migrations);
+        initMediaDirs(projectMediaDirectory(file));
         const value = activate(file, db, release);
         db = null;
         return { ok: true, value };
@@ -132,6 +142,7 @@ export function createProjectDocuments(options: {
         await fs.promises.cp(projectMediaDirectory(active.file), projectMediaDirectory(file), { recursive: true, errorOnExist: true, force: false });
         copiedMedia = true;
         db = openDatabase(file, options.migrations);
+        initMediaDirs(projectMediaDirectory(file));
         const value = activate(file, db, release);
         db = null;
         return { ok: true, value };
