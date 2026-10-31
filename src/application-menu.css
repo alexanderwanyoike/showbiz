@@ -7,6 +7,7 @@
   box-shadow: none;
 }
 .integrated-titlebar .desktop-wordmark {
+  width: auto;
   flex-shrink: 0;
   font-size: 13px;
   gap: 7px;
