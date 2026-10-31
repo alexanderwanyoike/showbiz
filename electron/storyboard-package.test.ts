@@ -54,3 +54,18 @@ it("exports every shot in storyboard order with the selected media and a portabl
   expect(readFileSync(destination).subarray(0, 2).toString()).toBe("PK");
   db.close();
 });
+
+it("leaves an existing destination untouched when selected media is missing", async () => {
+  const root = mkdtempSync(path.join(tmpdir(), "showbiz-missing-package-"));
+  roots.push(root);
+  const db = openDatabase(":memory:", loadMigrations(path.resolve("electron/migrations")));
+  try {
+    db.exec(`INSERT INTO projects (id, name) VALUES ('p', 'Project');
+      INSERT INTO storyboards (id, project_id, name) VALUES ('sb', 'p', 'Opening');
+      INSERT INTO shots (id, storyboard_id, "order", video_path) VALUES ('s', 'sb', 1, 'missing.mp4');`);
+    const destination = path.join(root, "Opening.zip");
+    writeFileSync(destination, "existing package");
+    expect(await exportStoryboardPackage(db, root, "sb", destination)).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+    expect(readFileSync(destination, "utf8")).toBe("existing package");
+  } finally { db.close(); }
+});
