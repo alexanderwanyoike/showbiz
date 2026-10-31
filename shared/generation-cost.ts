@@ -12,7 +12,7 @@ export interface GenerationPrice {
   model_id: string;
   currency: "USD";
   source_url: string;
-  source_kind?: "provider" | "manual";
+  source_kind?: "provider" | "published" | "manual";
   checked_at: string;
   endpoint_id?: string;
   estimate_basis?: "historical_request";

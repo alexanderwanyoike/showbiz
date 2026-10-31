@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { invoke } from "../lib/bridge";
@@ -15,17 +15,25 @@ export function GenerationRateEditor({
   provider,
   request,
   price,
+  onDirtyChange,
+  onBusyChange,
+  onCancel,
 }: {
   modelId: string;
   provider: string;
   request: GenerationCostRequest;
   price?: GenerationPrice;
+  onDirtyChange?: (dirty: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
+  onCancel?: () => void;
 }) {
   const [amount, setAmount] = useState("");
   const [source, setSource] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => { onDirtyChange?.(!!amount || !!source); }, [amount, source, onDirtyChange]);
+  useEffect(() => { onBusyChange?.(saving); }, [saving, onBusyChange]);
   const unit = request.kind === "video" ? "second" : "image";
   useUnsavedWork("draft", !!amount || !!source, `${amount}\0${source}`);
   async function save() {
@@ -93,7 +101,7 @@ export function GenerationRateEditor({
       else {
         setAmount("");
         setSource("");
-        setNotice("Provider pricing restored.");
+        setNotice("Custom rate removed. Provider pricing will be used if available.");
         window.dispatchEvent(new Event("showbiz:pricing-changed"));
       }
     } catch {
@@ -105,8 +113,7 @@ export function GenerationRateEditor({
   return (
     <fieldset disabled={saving} className="mt-2 space-y-2">
       <p>
-        Use a provider rate or your own estimate for local compute. This rate
-        applies to the selected resolution and audio settings.
+        Enter a custom estimate, including local compute if needed. This is a device-wide model rate, not a setting for this shot or asset.
       </p>
       <label className="grid gap-1">
         USD per {unit}
@@ -157,6 +164,8 @@ export function GenerationRateEditor({
             setAmount("");
             setSource("");
             setError(null);
+            setNotice(null);
+            onCancel?.();
           }}
         >
           Cancel

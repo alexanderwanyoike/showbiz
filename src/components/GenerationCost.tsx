@@ -1,4 +1,4 @@
-import { GenerationRateEditor } from "./GenerationRateEditor";
+import { ModelPricingDialog } from "./ModelPricingDialog";
 import {
   getAvailableImageModels,
   getAvailableVideoModels,
@@ -26,10 +26,11 @@ export function GenerationCost({
     request,
     subject,
   );
-  const provider = [
+  const model = [
     ...getAvailableImageModels(),
     ...getAvailableVideoModels(),
-  ].find((model) => model.id === modelId)?.apiKeyProvider;
+  ].find((entry) => entry.id === modelId);
+  const provider = model?.apiKeyProvider;
   let previous = last ? "Final charge unknown" : null;
   if (last?.reported_microusd != null)
     previous = `${formatGenerationCost(last.reported_microusd)} reported`;
@@ -50,7 +51,7 @@ export function GenerationCost({
         {!estimate
           ? "Estimating cost…"
           : estimate.kind === "estimate"
-            ? `Estimated ~${formatGenerationEstimate(estimate.min_microusd, estimate.max_microusd)}`
+            ? `Estimated${estimate.price.estimate_basis === "historical_request" ? " (provider history)" : ""} ~${formatGenerationEstimate(estimate.min_microusd, estimate.max_microusd)}`
             : modelId.startsWith("local-")
               ? "Local running cost not estimated"
               : "Estimate unavailable"}
@@ -81,17 +82,22 @@ export function GenerationCost({
               <p>
                 {estimate.price.source_kind === "manual"
                   ? "Your saved rate"
-                  : "Provider output rate"}{" "}
+                  : estimate.price.source_kind === "published"
+                    ? <span>Published price snapshot</span>
+                    : "Provider API pricing (cached)"}{" "}
                 · {estimate.price.provider} · USD
               </p>
               <p className="break-all select-text">
                 {estimate.price.source_url || "Entered on this device"}
               </p>
               <p>
-                {estimate.price.source_kind === "manual" ? "Saved" : "Checked"}{" "}
+                {estimate.price.source_kind === "manual" ? "Saved" : estimate.price.source_kind === "published" ? "Snapshot dated" : "Retrieved"}{" "}
                 {new Date(estimate.price.checked_at).toLocaleDateString()}
                 {estimate.stale ? ". Rate is older than 7 days." : ""}
               </p>
+              {estimate.price.source_kind === "published" && <p>This published rate is not a live pricing API response or a confirmed charge.</p>}
+              {estimate.price.estimate_basis === "historical_request" && <p>Historical cost per request from the provider. This estimate is not adjusted for duration, resolution, audio or input media.</p>}
+              {estimate.price.billing_unit && estimate.price.billing_unit_microusd !== undefined && <p>Current API unit rate: {formatGenerationCost(estimate.price.billing_unit_microusd)} per {estimate.price.billing_unit}. Billable quantity can vary.</p>}
               {estimate.excludes_input_cost && (
                 <p>Excludes input and other provider charges.</p>
               )}
@@ -103,18 +109,8 @@ export function GenerationCost({
           )}
         </details>
       )}
-      {provider && (
-        <details className="text-muted-foreground">
-          <summary className="cursor-pointer">Set your rate</summary>
-          <GenerationRateEditor
-            key={`${modelId}:${request.kind}:${request.resolution ?? ""}:${String(request.audio)}`}
-            modelId={modelId}
-            provider={provider}
-            request={request}
-            price={estimate?.kind === "estimate" ? estimate.price : undefined}
-          />
-        </details>
-      )}
+      {provider && <ModelPricingDialog modelId={modelId} modelName={model?.name ?? modelId} provider={provider} request={request} price={estimate?.kind === "estimate" ? estimate.price : undefined} />}
+
     </div>
   );
 }

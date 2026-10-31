@@ -15,7 +15,7 @@ function price(
     source_url,
     rates,
     currency: "USD",
-    source_kind: "provider",
+    source_kind: "published",
     checked_at,
     excludes_input_cost,
   };
