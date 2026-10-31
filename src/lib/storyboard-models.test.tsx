@@ -11,8 +11,27 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import StoryboardPage from "../pages/StoryboardPage";
-import { setShotModels } from "./backend-api";
-import { generateAndSaveVideoRequestAction } from "../actions/generation-actions";
+import type { GenerationCostRequest } from "../../shared/generation-cost";
+vi.mock("../components/GenerationCost", () => ({
+  GenerationCost: ({ request }: { request: GenerationCostRequest }) =>
+    createElement(
+      "output",
+      { "aria-label": "Generation cost mode" },
+      request.mode ?? "unknown",
+    ),
+}));
+import {
+  setShotModels,
+  updateStoryboardSettings,
+  setShotVideoSettings,
+  deleteShot,
+  clearShotStartFrame,
+  getCurrentImageVersion,
+} from "./backend-api";
+import {
+  editImageAction,
+  generateAndSaveVideoRequestAction,
+} from "../actions/generation-actions";
 vi.stubGlobal(
   "ResizeObserver",
   class {
@@ -22,6 +41,9 @@ vi.stubGlobal(
   },
 );
 Element.prototype.scrollIntoView = vi.fn();
+Element.prototype.hasPointerCapture = vi.fn(() => false);
+Element.prototype.setPointerCapture = vi.fn();
+Element.prototype.releasePointerCapture = vi.fn();
 vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
 vi.mock("../components/Header", () => ({
   Header: ({ children, title }: { children: ReactNode; title: string }) =>
@@ -36,6 +58,20 @@ vi.mock("./backend-api", async (original) => ({
     image_model: "nano-banana-2",
     video_model: "seedance-2-fal",
   }),
+  updateStoryboardSettings: vi.fn(
+    async (
+      id: string,
+      name: string,
+      image_model: string,
+      video_model: string,
+    ) => ({
+      ok: true,
+      value: { id, project_id: "project", name, image_model, video_model },
+    }),
+  ),
+  updateShot: vi.fn(async () => null),
+  deleteShot: vi.fn(async () => false),
+  clearShotStartFrame: vi.fn(async () => ({ ok: true, value: null })),
   getShots: async () =>
     [1, 2].map((order) => ({
       id: `shot-${order}`,
@@ -55,11 +91,18 @@ vi.mock("./backend-api", async (original) => ({
   getTimelineClips: async () => [],
   getImageVersions: async () => [],
   getVideoVersions: async () => [],
-  getCurrentImageVersion: async () => null,
+  getCurrentImageVersion: vi.fn(async () => null),
+  getVersionImageBase64: vi.fn(async () => "data:image/png;base64,ZnJhbWU="),
   getCurrentVideoVersion: async () => null,
   getVersionCount: async () => 0,
   getVideoVersionCount: async () => 0,
   getShotImageBase64: async () => "data:image/png;base64,ZnJhbWU=",
+  setShotVideoSettings: vi.fn(
+    async (
+      _id: string,
+      settings: import("../../shared/shot-video-settings").StoredShotVideoSettings,
+    ) => ({ ok: true, value: settings }),
+  ),
   setShotModels: vi.fn(
     async (_id: string, models: Record<string, unknown>) => ({
       ok: true,
@@ -69,6 +112,7 @@ vi.mock("./backend-api", async (original) => ({
 }));
 vi.mock("../actions/generation-actions", async (original) => ({
   ...(await original<typeof import("../actions/generation-actions")>()),
+  editImageAction: vi.fn(async () => "data:image/png;base64,ZWRpdA=="),
   generateAndSaveVideoRequestAction: vi.fn(async () => ({
     success: false,
     error: "Verification only",
@@ -114,7 +158,7 @@ it("generates with the selected shot override and leaves another shot on the sto
   await user.click(
     screen.getByRole("button", {
       name: "Generate video for shot 1",
-      }),
+    }),
   );
   await waitFor(() =>
     expect(generateAndSaveVideoRequestAction).toHaveBeenCalledWith(
@@ -125,15 +169,14 @@ it("generates with the selected shot override and leaves another shot on the sto
   );
   const shotTwo = screen.queryByLabelText("Select shot 2");
   if (shotTwo) await user.click(shotTwo);
-  else
-    await user.click(screen.getByRole("img", { name: "Shot 2" }));
+  else await user.click(screen.getByRole("img", { name: "Shot 2" }));
   expect(
     await screen.findByRole("button", { name: "Video model for shot 2" }),
   ).toHaveProperty("textContent", expect.stringContaining("Seedance 2.0"));
   await user.click(
     screen.getByRole("button", {
       name: "Generate video for shot 2",
-      }),
+    }),
   );
   await waitFor(() =>
     expect(generateAndSaveVideoRequestAction).toHaveBeenLastCalledWith(
@@ -194,4 +237,352 @@ it("waits for a model save before allowing generation and preserves the prior ch
     screen.getByRole("button", { name: "Video model for shot 1" }),
   ).toHaveProperty("textContent", expect.stringContaining("Seedance 2.0"));
   expect(generateAndSaveVideoRequestAction).not.toHaveBeenCalled();
+});
+
+it("edits model defaults from storyboard settings without requiring or changing a shot selection", async () => {
+  render(
+    createElement(
+      MemoryRouter,
+      { initialEntries: ["/storyboard/board"] },
+      createElement(
+        Routes,
+        null,
+        createElement(Route, {
+          path: "/storyboard/:id",
+          element: createElement(StoryboardPage),
+        }),
+      ),
+    ),
+  );
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Storyboard settings" }),
+  );
+  const settings = await screen.findByRole("dialog", {
+    name: "Storyboard settings",
+  });
+  expect(
+    within(settings).getByText("Model defaults", { exact: true }),
+  ).toBeTruthy();
+  await user.click(
+    within(settings).getByRole("button", { name: "Storyboard image default" }),
+  );
+  await user.click(screen.getByRole("option", { name: /GPT Image 2/ }));
+  expect(updateStoryboardSettings).not.toHaveBeenCalled();
+  await user.click(within(settings).getByRole("button", { name: "Save" }));
+  await waitFor(() =>
+    expect(updateStoryboardSettings).toHaveBeenCalledWith(
+      "board",
+      "Opening",
+      "gpt-image-2",
+      "seedance-2-fal",
+    ),
+  );
+  expect(setShotModels).not.toHaveBeenCalled();
+});
+
+it("quotes the same frame-based video mode that the shot will generate", async () => {
+  render(
+    createElement(
+      MemoryRouter,
+      { initialEntries: ["/storyboard/board"] },
+      createElement(
+        Routes,
+        null,
+        createElement(Route, {
+          path: "/storyboard/:id",
+          element: createElement(StoryboardPage),
+        }),
+      ),
+    ),
+  );
+  await screen.findByText("Opening");
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Shot controls" }));
+  expect(screen.getByLabelText("Generation cost mode").textContent).toBe(
+    "image-to-video",
+  );
+});
+
+it("keeps duration choices on their selected shot instead of leaking to another shot with the same model", async () => {
+  render(
+    createElement(
+      MemoryRouter,
+      { initialEntries: ["/storyboard/board"] },
+      createElement(
+        Routes,
+        null,
+        createElement(Route, {
+          path: "/storyboard/:id",
+          element: createElement(StoryboardPage),
+        }),
+      ),
+    ),
+  );
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Shot controls" }),
+  );
+  await user.click(screen.getByRole("combobox", { name: "Video duration" }));
+  await user.click(screen.getByRole("option", { name: "4s" }));
+  await waitFor(() =>
+    expect(setShotVideoSettings).toHaveBeenCalledWith(
+      "shot-1",
+      expect.objectContaining({
+        model_id: "seedance-2-fal",
+        settings: expect.objectContaining({ duration: "4" }),
+      }),
+    ),
+  );
+  await user.click(screen.getByRole("button", { name: "Select shot 2" }));
+  expect(
+    screen.getByRole("combobox", { name: "Video duration" }).textContent,
+  ).toBe("Auto");
+  await user.click(screen.getByRole("button", { name: "Select shot 1" }));
+  expect(
+    screen.getByRole("combobox", { name: "Video duration" }).textContent,
+  ).toBe("4s");
+});
+it("retains a failed settings draft on its shot and blocks generation until saved or discarded", async () => {
+  vi.mocked(setShotVideoSettings).mockResolvedValueOnce({
+    ok: false,
+    error: { code: "IO_ERROR", message: "Could not save video settings." },
+  });
+  render(
+    createElement(
+      MemoryRouter,
+      { initialEntries: ["/storyboard/board"] },
+      createElement(
+        Routes,
+        null,
+        createElement(Route, {
+          path: "/storyboard/:id",
+          element: createElement(StoryboardPage),
+        }),
+      ),
+    ),
+  );
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Shot controls" }),
+  );
+  await user.click(screen.getByRole("combobox", { name: "Video duration" }));
+  await user.click(screen.getByRole("option", { name: "4s" }));
+  expect(await screen.findByRole("alert")).toHaveProperty(
+    "textContent",
+    "Could not save video settings.",
+  );
+  expect(
+    screen.getByRole("combobox", { name: "Video duration" }).textContent,
+  ).toBe("4s");
+  expect(
+    screen.getByRole("button", { name: "Generate video for shot 1" }),
+  ).toHaveProperty("disabled", true);
+  await user.click(screen.getByRole("button", { name: "Select shot 2" }));
+  expect(
+    screen.getByRole("combobox", { name: "Video duration" }).textContent,
+  ).toBe("Auto");
+  await user.click(screen.getByRole("button", { name: "Return to shot 1" }));
+  expect(
+    screen.getByRole("combobox", { name: "Video duration" }).textContent,
+  ).toBe("4s");
+  await user.click(screen.getByRole("button", { name: "Discard changes" }));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(
+    screen.getByRole("combobox", { name: "Video duration" }).textContent,
+  ).toBe("Auto");
+  expect(
+    screen.getByRole("button", { name: "Generate video for shot 1" }),
+  ).toHaveProperty("disabled", false);
+});
+
+it("does not start a duplicate generation after stopping local waiting for an unfinished request", async () => {
+  let finish!: (
+    result: Awaited<ReturnType<typeof generateAndSaveVideoRequestAction>>,
+  ) => void;
+  vi.mocked(generateAndSaveVideoRequestAction).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  render(
+    createElement(
+      MemoryRouter,
+      { initialEntries: ["/storyboard/board"] },
+      createElement(
+        Routes,
+        null,
+        createElement(Route, {
+          path: "/storyboard/:id",
+          element: createElement(StoryboardPage),
+        }),
+      ),
+    ),
+  );
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Shot controls" }),
+  );
+  await user.click(
+    screen.getByRole("button", { name: "Generate video for shot 1" }),
+  );
+  await user.click(await screen.findByRole("button", { name: "Stop Waiting" }));
+  expect(
+    screen.getByRole("button", { name: "Generate video for shot 1" }),
+  ).toHaveProperty("disabled", true);
+  expect(
+    screen.getByText(
+      "Stops waiting locally. Provider work and charges may continue.",
+    ),
+  ).toBeTruthy();
+  await user.click(
+    screen.getByRole("button", { name: "Generate video for shot 1" }),
+  );
+  expect(generateAndSaveVideoRequestAction).toHaveBeenCalledTimes(1);
+  finish({ success: false, videoUrl: null, error: "Request finished" });
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Generate video for shot 1" }),
+    ).toHaveProperty("disabled", false),
+  );
+});
+
+it("confirms shot deletion and keeps the shot available when the backend rejects deletion", async () => {
+  vi.mocked(deleteShot)
+    .mockResolvedValueOnce(false)
+    .mockResolvedValueOnce(true);
+  render(
+    createElement(
+      MemoryRouter,
+      { initialEntries: ["/storyboard/board"] },
+      createElement(
+        Routes,
+        null,
+        createElement(Route, {
+          path: "/storyboard/:id",
+          element: createElement(StoryboardPage),
+        }),
+      ),
+    ),
+  );
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Delete shot 1" }),
+  );
+  expect(deleteShot).not.toHaveBeenCalled();
+  await screen.findByRole("alertdialog", { name: "Delete shot 1?" });
+  await user.click(screen.getByRole("button", { name: "Delete shot" }));
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(screen.getByLabelText("Select shot 1")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Delete shot" }));
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(screen.getAllByRole("button", { name: /^Select shot / })).toHaveLength(
+    1,
+  );
+});
+
+it("returns the shot and its estimate to text-to-video after removing a start frame", async () => {
+  render(
+    createElement(
+      MemoryRouter,
+      { initialEntries: ["/storyboard/board"] },
+      createElement(
+        Routes,
+        null,
+        createElement(Route, {
+          path: "/storyboard/:id",
+          element: createElement(StoryboardPage),
+        }),
+      ),
+    ),
+  );
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Shot controls" }),
+  );
+  await user.click(screen.getByRole("button", { name: "Remove start frame" }));
+  await waitFor(() =>
+    expect(clearShotStartFrame).toHaveBeenCalledWith("shot-1"),
+  );
+  await waitFor(() =>
+    expect(screen.getByLabelText("Generation cost mode").textContent).toBe(
+      "text-to-video",
+    ),
+  );
+  expect(
+    screen.getByRole("button", { name: "Generate video for shot 1" }),
+  ).toHaveProperty("disabled", false);
+});
+
+it("keeps an in-flight frame edit visible and retains its prompt after provider failure", async () => {
+  vi.mocked(getCurrentImageVersion).mockResolvedValueOnce({
+    id: "take-3",
+    shot_id: "shot-1",
+    parent_version_id: null,
+    version_number: 3,
+    edit_type: "generation",
+    image_path: "images/3.png",
+    prompt: null,
+    edit_prompt: null,
+    mask_path: null,
+    is_current: true,
+    created_at: "now",
+    image_url: "frame-1.png",
+    mask_url: null,
+  });
+  let rejectEdit: (error: Error) => void = () => {};
+  vi.mocked(editImageAction).mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        rejectEdit = reject;
+      }),
+  );
+  render(
+    createElement(
+      MemoryRouter,
+      { initialEntries: ["/storyboard/board"] },
+      createElement(
+        Routes,
+        null,
+        createElement(Route, {
+          path: "/storyboard/:id",
+          element: createElement(StoryboardPage),
+        }),
+      ),
+    ),
+  );
+  const user = userEvent.setup();
+  await screen.findByText("Opening");
+  const controls = screen.queryByRole("button", { name: "Shot controls" });
+  if (controls) await user.click(controls);
+  await user.click(
+    await screen.findByRole("button", { name: "Edit frame for shot 1" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Edit frame for shot 1" });
+  await user.type(
+    within(dialog).getByRole("textbox", { name: "Frame edit prompt" }),
+    "Add morning mist",
+  );
+  await user.click(within(dialog).getByRole("button", { name: "Edit Image" }));
+  expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveProperty(
+    "disabled",
+    true,
+  );
+  await user.keyboard("{Escape}");
+  expect(
+    screen.getByRole("dialog", { name: "Edit frame for shot 1" }),
+  ).toBeTruthy();
+  rejectEdit(new Error("Provider rejected this edit"));
+  expect(await within(dialog).findByRole("alert")).toHaveProperty(
+    "textContent",
+    "Provider rejected this edit",
+  );
+  expect(
+    within(dialog).getByRole("textbox", { name: "Frame edit prompt" }),
+  ).toHaveProperty("value", "Add morning mist");
+  expect(
+    within(dialog).getByRole("button", { name: "Edit Image" }),
+  ).toHaveProperty("disabled", false);
 });

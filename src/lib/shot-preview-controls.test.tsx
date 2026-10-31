@@ -29,3 +29,63 @@ it("offers a named stop control that returns playback to the selected frame", as
   expect(screen.getByRole("img", { name: "Shot 1" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Play (Space)" })).toBeTruthy();
 });
+it("names media controls and leaves Space to focused dialogs instead of starting playback", async () => {
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  render(
+    createElement(
+      "div",
+      null,
+      createElement(ShotPreview, {
+        shot: {
+          id: "shot",
+          order: 1,
+          image_url: "frame.png",
+          video_url: "video.mp4",
+          status: "complete",
+        },
+      }),
+      createElement(
+        "section",
+        { role: "dialog", "aria-label": "Storyboard settings" },
+        createElement("button", null, "Cancel"),
+      ),
+    ),
+  );
+  expect(
+    screen.getByRole("button", { name: "Play video for shot 1" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("slider", { name: "Shot playback position" }),
+  ).toBeTruthy();
+  screen.getByRole("button", { name: "Cancel" }).focus();
+  await userEvent.setup().keyboard(" ");
+  expect(screen.queryByRole("button", { name: "Stop preview" })).toBeNull();
+});
+it("leaves Space to focused rate-detail disclosure controls", async () => {
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  render(
+    createElement(
+      "div",
+      null,
+      createElement(ShotPreview, {
+        shot: {
+          id: "shot",
+          order: 1,
+          image_url: "frame.png",
+          video_url: "video.mp4",
+          status: "complete",
+        },
+      }),
+      createElement(
+        "details",
+        null,
+        createElement("summary", null, "Rate details"),
+      ),
+    ),
+  );
+  screen.getByText("Rate details").focus();
+  await userEvent.setup().keyboard(" ");
+  expect(screen.queryByRole("button", { name: "Stop preview" })).toBeNull();
+});

@@ -16,6 +16,7 @@ const MUTATING_COMMANDS = new Set([
   "record_generation_receipt",
   "finish_generation_usage",
   "clear_shot_end_frame",
+  "clear_shot_start_frame",
   "copy_image_from_shot",
   "create_bible",
   "create_bible_asset",
@@ -36,6 +37,7 @@ const MUTATING_COMMANDS = new Set([
   "delete_version",
   "reorder_shots",
   "set_shot_models",
+  "set_shot_video_settings",
   "save_and_complete_video",
   "save_api_key",
   "save_shot_end_frame",
@@ -50,6 +52,7 @@ const MUTATING_COMMANDS = new Set([
   "update_shot",
   "update_storyboard",
   "update_storyboard_models",
+  "update_storyboard_settings",
 ]);
 
 type Dispatch = (command: string, args?: Record<string, unknown>) => Promise<unknown>;

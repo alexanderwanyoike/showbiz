@@ -11,6 +11,7 @@ export interface ShotListItem {
   image_url: string | null;
   video_url: string | null;
   status: "pending" | "generating" | "complete" | "failed";
+  generationPending?: boolean;
 }
 
 interface ShotListProps {
@@ -45,13 +46,23 @@ export default function ShotList({
   useEffect(() => {
     let cancelled = false;
     for (const shot of shots) {
-      if (shot.image_url || !shot.video_url || posters[shot.id]) continue;
+      if (
+        shot.image_url ||
+        !shot.video_url ||
+        Object.hasOwn(posters, shot.video_url)
+      )
+        continue;
+      const videoUrl = shot.video_url;
       thumbnailGenerator
-        .extractFrame(shot.video_url, 0)
+        .extractFrame(videoUrl, 0)
         .then((frame) => {
-          if (!cancelled) setPosters((prev) => ({ ...prev, [shot.id]: frame }));
+          if (!cancelled)
+            setPosters((prev) => ({ ...prev, [videoUrl]: frame }));
         })
-        .catch(() => {});
+        .catch((error: unknown) => {
+          console.warn("Could not prepare a shot preview:", error);
+          if (!cancelled) setPosters((prev) => ({ ...prev, [videoUrl]: "" }));
+        });
     }
     return () => {
       cancelled = true;
@@ -111,7 +122,7 @@ export default function ShotList({
               </button>
               <div className="shot-browser-actions">
                 <button
-                  aria-label={`Move shot ${shot.order} up`}
+                  aria-label={`Move shot ${shot.order} earlier`}
                   title="Move earlier"
                   disabled={index === 0}
                   onClick={() => onMoveShot(index, "up")}
@@ -119,7 +130,7 @@ export default function ShotList({
                   <ChevronLeft size={12} />
                 </button>
                 <button
-                  aria-label={`Move shot ${shot.order} down`}
+                  aria-label={`Move shot ${shot.order} later`}
                   title="Move later"
                   disabled={index === shots.length - 1}
                   onClick={() => onMoveShot(index, "down")}
@@ -128,7 +139,14 @@ export default function ShotList({
                 </button>
                 <button
                   aria-label={`Delete shot ${shot.order}`}
-                  title="Delete shot"
+                  title={
+                    shot.status === "generating" || shot.generationPending
+                      ? "Wait for this shot's current request to finish."
+                      : "Delete shot"
+                  }
+                  disabled={
+                    shot.status === "generating" || shot.generationPending
+                  }
                   onClick={() => onDeleteShot(shot.id)}
                 >
                   <Trash2 size={12} />
