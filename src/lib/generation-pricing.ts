@@ -1,4 +1,4 @@
-import { getFalPrice } from "./fal-pricing";
+import { refreshFalPrice } from "./fal-price-cache";
 import { getOpenRouterVideoPrice } from "./openrouter-video-pricing";
 import { invoke } from "./bridge";
 import { imageConfigs, videoConfigs } from "./models/registry";
@@ -97,14 +97,12 @@ export async function getGenerationEstimate(
           : String(options.editEndpoint ?? config.models.edit ?? options.endpoint ?? config.models.generate);
       }
       if (!endpoint) return { kind: "unavailable", reason: "FAL pricing requires a supported generation endpoint." };
-      if (!price || price.endpoint_id !== endpoint || price.estimate_basis !== "historical_request" || Date.now() - Date.parse(price.checked_at) > 60 * 60 * 1000) {
+      if (!price || price.endpoint_id !== endpoint || price.estimate_basis !== "historical_request" || !Number.isFinite(Date.parse(price.checked_at)) || Date.now() - Date.parse(price.checked_at) > 60 * 60 * 1000) {
         const key = await invoke<string | null>("get_api_key", { provider: "fal" });
         if (!key) return { kind: "unavailable", reason: "Add your FAL key in Settings to retrieve account-specific live pricing." };
-        const fresh = await getFalPrice(modelId, endpoint, key);
+        const fresh = await refreshFalPrice(modelId, endpoint, request.kind, key);
         if (!fresh.ok) return { kind: "unavailable", reason: fresh.error.message };
-        const saved = await invoke<Result<GenerationPrice>>("save_generation_price", { kind: request.kind, price: fresh.value });
-        if (!saved.ok) return { kind: "unavailable", reason: saved.error.message };
-        price = saved.value;
+        price = fresh.value;
       }
     }
     const needsRefresh =
