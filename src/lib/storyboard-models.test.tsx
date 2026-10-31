@@ -470,9 +470,13 @@ it("confirms shot deletion and keeps the shot available when the backend rejects
     ),
   );
   const user = userEvent.setup();
-  await user.click(
-    await screen.findByRole("button", { name: "Delete shot 1" }),
-  );
+  const actions=await screen.findByRole("button", { name: "Shot 1 actions" });
+  await user.click(actions);
+  await user.click(screen.getByRole("menuitem",{name:"Delete shot"}));
+  await user.click(screen.getByRole("button",{name:"Cancel"}));
+  await waitFor(()=>expect(document.activeElement).toBe(actions));
+  await user.click(actions);
+  await user.click(screen.getByRole("menuitem",{name:"Delete shot"}));
   expect(deleteShot).not.toHaveBeenCalled();
   await screen.findByRole("alertdialog", { name: "Delete shot 1?" });
   await user.click(screen.getByRole("button", { name: "Delete shot" }));
