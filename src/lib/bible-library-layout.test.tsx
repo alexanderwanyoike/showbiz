@@ -21,6 +21,7 @@ it("keeps new image controls in a reopenable creation dock without losing indepe
   await user.type(within(dock).getByRole("textbox", { name: "Frame prompt" }), "Morning light");
   await user.click(within(dock).getByRole("button", { name: "Close creation panel" }));
   expect(screen.queryByRole("complementary", { name: "New frame" })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "New frame" }));
   await user.click(screen.getByRole("button", { name: "New frame" }));
   expect((screen.getByRole("textbox", { name: "Frame prompt" }) as HTMLTextAreaElement).value).toBe("Morning light");
   await user.click(screen.getByRole("tab", { name: "Characters" }));

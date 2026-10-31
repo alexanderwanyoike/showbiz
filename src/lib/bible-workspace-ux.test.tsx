@@ -176,7 +176,7 @@ it("labels generation and its prerequisites clearly and protects inputs while th
   expect(within(panel).getByText("Name")).toBeTruthy();
   expect(within(panel).getByText("Prompt for generation")).toBeTruthy();
   expect(
-    screen.getByText("Used for new pictures and retakes in this Bible view."),
+    within(panel).getByText("Used for new pictures and retakes in this Bible view."),
   ).toBeTruthy();
   const name = within(panel).getByRole("textbox", { name: "Character name" });
   const prompt = within(panel).getByRole("textbox", {
