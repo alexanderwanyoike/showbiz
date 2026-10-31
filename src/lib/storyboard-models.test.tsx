@@ -86,7 +86,8 @@ vi.mock("./backend-api", async (original) => ({
       video_url: null,
       video_prompt: "A quiet static shot.",
       status: "pending",
-    }))),
+    })),
+  ),
   getBibles: async () => [],
   ensureDefaultTracks: async () => [],
   getTimelineClips: async () => [],
@@ -595,20 +596,56 @@ it("keeps an in-flight frame edit visible and retains its prompt after provider 
 });
 
 it("keeps a saved take viewable while a new request runs and after it fails", async () => {
-  const savedShots=await getShots("board");
-  vi.mocked(getShots).mockResolvedValueOnce(savedShots.map(shot=>({...shot,status:"complete",video_url:`saved-${shot.id}.mp4`,video_path:`videos/${shot.id}.mp4`})));
-  let finish:(result:{success:false;error:string})=>void=()=>{};
-  vi.mocked(generateAndSaveVideoRequestAction).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
-  const {container}=render(createElement(MemoryRouter,{initialEntries:["/storyboard/board"]},createElement(Routes,null,createElement(Route,{path:"/storyboard/:id",element:createElement(StoryboardPage)}))));
-  const user=userEvent.setup();
-  await screen.findByRole("button",{name:"Play video for shot 1"});
-  const openControls=screen.queryByRole("button",{name:"Shot controls"});if(openControls)await user.click(openControls);
-  await user.click(screen.getByRole("button",{name:"Generate video for shot 1"}));
-  await waitFor(()=>expect(generateAndSaveVideoRequestAction).toHaveBeenCalled());
-  expect(container.querySelector("video")?.getAttribute("src")).toBe("saved-shot-1.mp4");
-  finish({success:false,error:"Missing provider credentials"});
+  const savedShots = await getShots("board");
+  vi.mocked(getShots).mockResolvedValueOnce(
+    savedShots.map((shot) => ({
+      ...shot,
+      status: "complete",
+      video_url: `saved-${shot.id}.mp4`,
+      video_path: `videos/${shot.id}.mp4`,
+    })),
+  );
+  let finish: (result: { success: false; error: string }) => void = () => {};
+  vi.mocked(generateAndSaveVideoRequestAction).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const { container } = render(
+    createElement(
+      MemoryRouter,
+      { initialEntries: ["/storyboard/board"] },
+      createElement(
+        Routes,
+        null,
+        createElement(Route, {
+          path: "/storyboard/:id",
+          element: createElement(StoryboardPage),
+        }),
+      ),
+    ),
+  );
+  const user = userEvent.setup();
+  await screen.findByRole("button", { name: "Play video for shot 1" });
+  const openControls = screen.queryByRole("button", { name: "Shot controls" });
+  if (openControls) await user.click(openControls);
+  await user.click(
+    screen.getByRole("button", { name: "Generate video for shot 1" }),
+  );
+  await waitFor(() =>
+    expect(generateAndSaveVideoRequestAction).toHaveBeenCalled(),
+  );
+  expect(container.querySelector("video")?.getAttribute("src")).toBe(
+    "saved-shot-1.mp4",
+  );
+  finish({ success: false, error: "Missing provider credentials" });
   expect(await screen.findByText("Missing provider credentials")).toBeTruthy();
-  expect(screen.getByRole("button",{name:"Play video for shot 1"})).toBeTruthy();
-  expect(container.querySelector("video")?.getAttribute("src")).toBe("saved-shot-1.mp4");
-  expect(screen.queryByText("failed",{exact:true})).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Play video for shot 1" }),
+  ).toBeTruthy();
+  expect(container.querySelector("video")?.getAttribute("src")).toBe(
+    "saved-shot-1.mp4",
+  );
+  expect(screen.queryByText("failed", { exact: true })).toBeNull();
 });
