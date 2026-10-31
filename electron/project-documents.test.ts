@@ -260,3 +260,26 @@ it("still opens project files when the recent-file list is corrupt", async () =>
     await reopened?.close();
   }
 });
+
+it("moves all shot media with the project file alone and recreates disposable media caches on another machine", async () => {
+  const first = setup();
+  const second = setup();
+  const file = path.join(first.directory, "Portable.showbiz");
+  const moved = path.join(second.directory, "Moved.showbiz");
+  try {
+    const created = await first.documents.create(file);
+    if (!created.ok) throw new Error(created.error.message);
+    const board = await first.documents.invoke("create_storyboard", { projectId: created.value.project_id, name: "Opening" }) as { id: string };
+    const shot = await first.documents.invoke("create_shot", { storyboardId: board.id }) as { id: string };
+    await first.documents.invoke("save_shot_image", { id: shot.id, base64DataUrl: "data:image/png;base64,ZnJhbWU=", prompt: "Morning" });
+    await first.documents.invoke("save_shot_video", { id: shot.id, base64DataUrl: "data:video/mp4;base64,dmlkZW8=" });
+    await first.documents.close();
+    fs.copyFileSync(file, moved);
+    fs.rmSync(first.directory, { recursive: true, force: true });
+    const opened = await second.documents.open(moved);
+    expect(opened).toMatchObject({ ok: true });
+    expect(await second.documents.invoke("get_shot_image_base64", { shotId: shot.id })).toBe("data:image/png;base64,ZnJhbWU=");
+    expect(fs.readFileSync(path.join(second.documents.mediaDirectory()!, "videos", `${shot.id}.mp4`), "utf8")).toBe("video");
+    expect(fs.existsSync(`${moved}.media`)).toBe(false);
+  } finally { await first.documents.close(); await second.documents.close(); }
+});
