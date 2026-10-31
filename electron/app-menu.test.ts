@@ -20,3 +20,11 @@ it("offers native project-file commands with desktop accelerators", async () => 
     file.submenu[1].click?.();
   expect(send).toHaveBeenCalledWith("open");
 });
+it("keeps native View accelerators aligned with the integrated zoom and fullscreen menu", async () => {
+  const { projectApplicationMenu } = await import("./app-menu");
+  const menu=projectApplicationMenu(vi.fn());
+  expect(menu.find(item=>item.label==="&View")?.submenu).toEqual([
+    {role:"resetZoom"},{role:"zoomIn"},{role:"zoomOut"},{type:"separator"},{role:"togglefullscreen"},
+  ]);
+  expect(menu.some(item=>item.role==="viewMenu")).toBe(false);
+});
