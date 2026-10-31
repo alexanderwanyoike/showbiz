@@ -20,3 +20,16 @@ it("keeps text generation available but disables image editing for a local model
   expect(screen.getByRole("button", {name: "Edit"}).hasAttribute("disabled")).toBe(true);
   expect(screen.getByRole("button", {name: "Retake"}).hasAttribute("disabled")).toBe(true);
 });
+it("allows a text-only local frame while preventing unsupported reference composition", async () => {
+  render(createElement(ProjectBibleView, {projectId: "film"}));
+  await screen.findByRole("button", {name: "Edit"});
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("combobox"));
+  await user.click(screen.getByRole("option", {name: /Local image.*LocalAI/}));
+  await user.click(screen.getByRole("button", {name: "Frames"}));
+  await user.type(screen.getByPlaceholderText("What's happening (and the look, e.g. 90s anime)..."), "Morning in a quiet room");
+  const generate = screen.getByRole("button", {name: "Make frame"});
+  expect(generate.hasAttribute("disabled")).toBe(false);
+  await user.click(screen.getByRole("button", {name: "Morning"}));
+  expect(generate.hasAttribute("disabled")).toBe(true);
+});
