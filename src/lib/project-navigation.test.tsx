@@ -1,0 +1,32 @@
+// @vitest-environment jsdom
+import { createElement } from "react";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
+import { afterEach, expect, it, vi } from "vitest";
+import App from "../App";
+vi.mock("./bridge",()=>({invoke:async()=>({ok:true,value:{current:{file_path:"/Films/Morning.showbiz",project_id:"film",name:"Morning"},recent:[],legacy:[]}})}));
+vi.mock("./backend-api",async original=>({...await original<typeof import("./backend-api")>(),getProject:async()=>({id:"film",name:"Morning"}),getStoryboardsWithPreview:async()=>[{id:"opening",project_id:"film",name:"Opening scene"}],getApiKeyStatusAction:async()=>[]}));
+vi.mock("./update-client",()=>({updateClient:{getStatus:async()=>({state:"current",installed_version:"1.0.3"}),subscribe:()=>()=>{}}}));
+vi.mock("../pages/StoryboardPage",()=>({default:()=>createElement("section",{"aria-label":"Opening canvas"},"Opening scene")}));
+vi.mock("../pages/ProjectPage",async()=>{const {useLocation}=await import("react-router");return {default:()=>createElement("section",{"aria-label":useLocation().search?"Project bible":"Storyboards"},"Project view")};});
+afterEach(cleanup);
+it("keeps project views in one navigator that can be opened from any workspace",async()=>{
+ const user=userEvent.setup();render(createElement(MemoryRouter,null,createElement(App)));
+ const navigator=await screen.findByRole("navigation",{name:"Project navigator"});
+ await user.click(await within(navigator).findByRole("link",{name:"Opening scene"}));
+ await screen.findByRole("region",{name:"Opening canvas"});
+ expect(screen.queryByRole("navigation",{name:"Project views"})).toBeNull();
+ expect(screen.queryByRole("navigation",{name:"Project navigator"})).toBeNull();
+ const toggle=screen.getByRole("button",{name:"Project navigator"});
+ expect(toggle.getAttribute("aria-expanded")).toBe("false");
+ await user.click(toggle);
+ const opened=screen.getByRole("navigation",{name:"Project navigator"});
+ await user.click(within(opened).getByRole("link",{name:"Bible"}));
+ await screen.findByRole("region",{name:"Project bible"});
+ expect(screen.getByRole("navigation",{name:"Project navigator"})).toBeTruthy();
+ await user.click(within(screen.getByRole("navigation",{name:"Project navigator"})).getByRole("link",{name:"Opening scene"}));
+ expect(screen.getByRole("button",{name:"Project navigator"}).getAttribute("aria-expanded")).toBe("true");
+ await user.click(screen.getByRole("button",{name:"Project navigator"}));
+ expect(screen.queryByRole("navigation",{name:"Project navigator"})).toBeNull();
+});
