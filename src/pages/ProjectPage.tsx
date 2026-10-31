@@ -1,3 +1,4 @@
+import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
@@ -34,6 +35,8 @@ export default function ProjectPage() {
 
   useUnsavedWork("draft", showNewStoryboardInput && !!newStoryboardName, newStoryboardName);
   useUnsavedWork("draft", isEditingName && editedName !== project?.name, editedName);
+
+  useAgentChanges(loadData);
 
   // Load project and storyboards on mount
   useEffect(() => {

@@ -1,3 +1,4 @@
+import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useEffect, useState } from "react";
@@ -201,6 +202,8 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  useAgentChanges(load);
+
   const imageModels = getAvailableImageModels();
 
   useEffect(() => {

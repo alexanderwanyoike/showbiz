@@ -5,6 +5,10 @@ import type { UpdateStatus } from "../shared/update-status";
 // The renderer-facing bridge; src/lib/bridge.ts detects this to pick the
 // Electron shell over Tauri. Sandboxed preload: keep it a pure passthrough.
 contextBridge.exposeInMainWorld("showbiz", {
+  onDataChanged: (callback: () => void) => {
+    ipcRenderer.on("showbiz:data_changed", callback);
+    return () => ipcRenderer.removeListener("showbiz:data_changed", callback);
+  },
   onApplicationWork: (cb: (status: ApplicationWorkStatus) => void) => {
     const listener = (_event: unknown, status: ApplicationWorkStatus) => cb(status);
     ipcRenderer.on("showbiz:application_work", listener);

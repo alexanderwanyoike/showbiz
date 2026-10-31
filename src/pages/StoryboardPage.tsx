@@ -1,3 +1,4 @@
+import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -257,6 +258,8 @@ export default function StoryboardPage() {
   const [enhancingPromptShots, setEnhancingPromptShots] = useState<Set<string>>(new Set());
   const videoGenerationRuns = useRef<GenerationRunMap>({});
 
+  useAgentChanges(loadData);
+
   // Load storyboard and shots on mount
   useEffect(() => {
     if (id) loadData();
@@ -285,9 +288,7 @@ export default function StoryboardPage() {
       setStoryboard(storyboardData);
       const mappedShots = shotsData.map(shotFromShotWithUrls);
       setShots(mappedShots);
-      if (mappedShots.length > 0) {
-        setSelectedShotId(mappedShots[0].id);
-      }
+      setSelectedShotId((current) => mappedShots.some((shot) => shot.id === current) ? current : mappedShots[0]?.id ?? null);
       setTimelineTracks(tracksData);
       setTimelineClipRows(clipsData);
       setEditedName(storyboardData.name);

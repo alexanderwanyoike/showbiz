@@ -1,3 +1,4 @@
+import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
@@ -23,6 +24,8 @@ export default function WorkspacePage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useUnsavedWork("draft", showNewProjectInput && !!newProjectName, newProjectName);
+
+  useAgentChanges(loadProjects);
 
   // Load projects on mount
   useEffect(() => {
