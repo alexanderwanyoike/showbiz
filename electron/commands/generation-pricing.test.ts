@@ -14,3 +14,12 @@ it("keeps device price overrides separate from bundled provider rates and restor
     expect(commands.get_generation_price({model_id: "local-image", kind: "image"})).toMatchObject({ok: true, value: null});
   } finally { db.close(); }
 });
+it("retains manual rates for other output settings when one setting is updated", () => {
+ const db=openTestDb();try{
+ const commands=createGenerationPricingCommands(db);
+ const base={provider:"fal",model_id:"video",currency:"USD",source_kind:"manual",source_url:"",checked_at:"2026-10-31T12:00:00Z"};
+ commands.save_generation_price({kind:"video",price:{...base,rates:[{unit:"second",microusd:200000,resolution:"720p",audio:false}]}});
+ commands.save_generation_price({kind:"video",price:{...base,rates:[{unit:"second",microusd:400000,resolution:"1080p",audio:true}]}});
+ expect(commands.get_generation_price({model_id:"video",kind:"video"})).toMatchObject({ok:true,value:{rates:expect.arrayContaining([expect.objectContaining({resolution:"720p",microusd:200000}),expect.objectContaining({resolution:"1080p",microusd:400000})])}});
+ }finally{db.close();}
+});
