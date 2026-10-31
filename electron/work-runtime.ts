@@ -50,6 +50,7 @@ const MUTATING_COMMANDS = new Set([
   "update_shot",
   "update_storyboard",
   "update_storyboard_models",
+  "update_storyboard_settings",
 ]);
 
 type Dispatch = (command: string, args?: Record<string, unknown>) => Promise<unknown>;

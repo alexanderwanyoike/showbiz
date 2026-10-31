@@ -1,3 +1,4 @@
+import { createStoryboardSettingsCommands } from "./commands/storyboard-settings";
 import path from "node:path";
 import { createGenerationModelCommands } from "./commands/generation-models";
 import { createGenerationUsageCommands } from "./commands/generation-usage";
@@ -19,6 +20,7 @@ export function createDataCommands(
 ) {
   return {
     ...createProjectCommands(db, mediaDir),
+    ...createStoryboardSettingsCommands(db),
     ...createGenerationUsageCommands(db),
     ...createGenerationModelCommands(path.resolve("src/lib/models/providers")),
     ...createShotCommands(db, mediaDir),

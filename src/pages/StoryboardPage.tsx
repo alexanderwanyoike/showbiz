@@ -1,3 +1,5 @@
+import type { StoryboardSettingsValues } from "../../shared/storyboard-settings";
+import type { Result } from "../../shared/result";
 import { StoryboardSettingsDialog } from "../components/StoryboardSettingsDialog";
 import { GenerationCost } from "../components/GenerationCost";
 import { ShotModelControls } from "../components/ShotModelControls";
@@ -31,8 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   getStoryboard,
-  updateStoryboard,
-  updateStoryboardModels,
+  updateStoryboardSettings,
   setShotModels,
   getShots,
   createShot,
@@ -141,8 +142,6 @@ export default function StoryboardPage() {
   const [storyboard, setStoryboard] = useState<Storyboard | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editedName, setEditedName] = useState("");
 
   // Selection State
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
@@ -166,7 +165,6 @@ export default function StoryboardPage() {
   const videoModels = getAvailableVideoModels();
   const [modelSaving, setModelSaving] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
-  const [storyboardSettingsError, setStoryboardSettingsError] = useState<string | null>(null);
   const defaultModels = {image_model:defaultImageModel, video_model:defaultVideoModel};
   const selectedShot = shots.find(shot => shot.id === selectedShotId) ?? null;
   const selectedModels = resolveShotModels(selectedShot, defaultModels);
@@ -242,7 +240,6 @@ export default function StoryboardPage() {
 
   useUnsavedWork("draft", isModalOpen && !!imagePrompt, imagePrompt);
   useUnsavedWork("draft", editModalState.isOpen && !!editPrompt, editPrompt);
-  useUnsavedWork("draft", isEditingName && editedName !== storyboard?.name, editedName);
 
   async function loadData() {
     if (!id) return;
@@ -265,7 +262,6 @@ export default function StoryboardPage() {
       const mappedShots = shotsData.map(shotFromShotWithUrls);
       setShots(mappedShots);
       setSelectedShotId((current) => mappedShots.some((shot) => shot.id === current) ? current : mappedShots[0]?.id ?? null);
-      setEditedName(storyboardData.name);
       setDefaultImageModel((storyboardData.image_model as ImageModelId) || DEFAULT_STORYBOARD_MODELS.image_model);
       const loadedVideoModel: VideoModelId = videoModels.some((m) => m.id === storyboardData.video_model)
         ? (storyboardData.video_model as VideoModelId)
@@ -351,23 +347,18 @@ export default function StoryboardPage() {
     setShotVideoVersionCounts((prev) => ({ ...prev, [shotId]: videoCount }));
   }
 
-  async function handleUpdateStoryboardName() {
-    if (!id || !editedName.trim() || editedName === storyboard?.name) {
-      setEditedName(storyboard?.name || "");
-      return;
-    }
-
-    setStoryboardSettingsError(null);
+  async function handleStoryboardSettingsSave(values: StoryboardSettingsValues): Promise<Result<null>> {
+    if (!id) return {ok:false,error:{code:"NOT_FOUND",message:"The storyboard no longer exists."}};
+    setModelSaving(true);
     try {
-      const updated = await updateStoryboard(id, editedName.trim());
-      if (updated) {
-        setStoryboard(updated);
-        setEditedName(updated.name);
-        window.dispatchEvent(new Event("showbiz:project-changed"));
-      }
-    } catch (error) {
-      setStoryboardSettingsError(error instanceof Error ? error.message : "Could not rename the storyboard.");
-    }
+      const result = await updateStoryboardSettings(id, values.name, values.image_model, values.video_model);
+      if (!result.ok) return result;
+      setStoryboard(result.value);
+      setDefaultImageModel(result.value.image_model);
+      setDefaultVideoModel(result.value.video_model);
+      window.dispatchEvent(new Event("showbiz:project-changed"));
+      return {ok:true,value:null};
+    } finally {setModelSaving(false);}
   }
 
   async function handleShotModels(shotId: string, models: Partial<ShotModelOverrides>) {
@@ -377,18 +368,6 @@ export default function StoryboardPage() {
       if (!result.ok) { setModelError(result.error.message); return; }
       setShots(previous => previous.map(shot => shot.id === shotId ? {...shot,...result.value} : shot));
     } catch (cause) { setModelError(String(cause)); }
-    finally { setModelSaving(false); }
-  }
-
-  async function handleDefaultModels(models: {image_model:string;video_model:string}) {
-    if (!id) return;
-    setModelSaving(true); setStoryboardSettingsError(null);
-    try {
-      const updated = await updateStoryboardModels(id, models.image_model, models.video_model);
-      setStoryboard(updated);
-      setDefaultImageModel(models.image_model as ImageModelId);
-      setDefaultVideoModel(models.video_model as VideoModelId);
-    } catch (cause) { setStoryboardSettingsError(String(cause)); }
     finally { setModelSaving(false); }
   }
 
@@ -899,7 +878,7 @@ export default function StoryboardPage() {
           <Badge variant="secondary" className="text-sm">
             {shots.length} Shots • {totalDuration}s Total
           </Badge>
-          <Button variant="outline" size="sm" onClick={() => { setEditedName(storyboard.name); setStoryboardSettingsError(null); setIsEditingName(true); }}>Storyboard settings</Button>
+          <StoryboardSettingsDialog name={storyboard.name} defaults={defaultModels} onSave={handleStoryboardSettingsSave} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={isExporting || !hasMedia}>{isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Export…</Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -910,10 +889,7 @@ export default function StoryboardPage() {
         </div>
       </Header>
 
-      <StoryboardSettingsDialog open={isEditingName} onOpenChange={(open) => {
-        if (!open && editedName.trim() !== storyboard.name && !window.confirm("Discard the unsaved storyboard name?")) return;
-        setIsEditingName(open);
-      }} name={storyboard.name} editedName={editedName} onNameChange={setEditedName} onRename={() => void handleUpdateStoryboardName()} defaults={defaultModels} onDefaultsChange={handleDefaultModels} disabled={modelSaving} error={storyboardSettingsError} />
+
 
       {exportMessage && <p role="status" className="border-b border-border px-4 py-2 text-sm">{exportMessage}</p>}
       {(
