@@ -1,3 +1,4 @@
+import { GenerationCost } from "./GenerationCost";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
@@ -37,6 +38,8 @@ import {
   type FrameRecipe,
 } from "../lib/bible-compose";
 import { getAvailableImageModels, getImageModel, type ImageModelId } from "../lib/models";
+
+type BibleGenerationContext = { modelId: string; projectId: string };
 
 type ImageCapabilities = { editing: boolean; composition: boolean };
 
@@ -207,6 +210,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   useAgentChanges(load);
 
   const imageModels = getAvailableImageModels();
+  const generationContext = {modelId: imageModel, projectId};
   const selectedModel = getImageModel(imageModel);
   const imageCapabilities = { editing: !!selectedModel.editImage, composition: !!selectedModel.composeImage };
 
@@ -486,6 +490,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             onRetake={handleRetake}
             onEdit={handleEdit}
             imageCapabilities={imageCapabilities}
+            generationContext={generationContext}
             onUpload={handleAddPictureFromFile}
             onSetPrimary={handleSetPrimary}
             onDeleteTake={handleDeletePicture}
@@ -505,6 +510,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             onRetake={handleRetake}
             onEdit={handleEdit}
             imageCapabilities={imageCapabilities}
+            generationContext={generationContext}
             onSetPrimary={handleSetPrimary}
             onDeleteTake={handleDeletePicture}
             onDeleteFrame={handleDeleteAsset}
@@ -529,6 +535,7 @@ function AssetTab({
   onRetake,
   onEdit,
   imageCapabilities,
+  generationContext,
   onUpload,
   onSetPrimary,
   onDeleteTake,
@@ -543,6 +550,7 @@ function AssetTab({
   onNew: (type: "character" | "location", name: string, prompt: string, file: File | null) => Promise<void>;
   onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<void>;
   imageCapabilities: ImageCapabilities;
+  generationContext: BibleGenerationContext;
   onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
   onUpload: (asset: BibleAsset, file: File) => void;
   onSetPrimary: (variant: BibleAssetVariant) => void;
@@ -560,6 +568,7 @@ function AssetTab({
       {/* New */}
       <div className="rounded border border-border p-3">
         <p className="mb-2 text-xs font-medium capitalize text-muted-foreground">New {label}</p>
+        <GenerationCost modelId={generationContext.modelId} request={{kind: "image"}} subject={{project_id: generationContext.projectId}} />
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <Input
             className="h-9 text-sm sm:w-44"
@@ -625,6 +634,7 @@ function AssetTab({
                 onRetake={onRetake}
                 onEdit={onEdit}
                 imageCapabilities={imageCapabilities}
+            generationContext={generationContext}
                 onSetPrimary={onSetPrimary}
                 onDeleteTake={onDeleteTake}
                 onDeleteAsset={onDeleteAsset}
@@ -650,6 +660,7 @@ function FramesTab({
   onRetake,
   onEdit,
   imageCapabilities,
+  generationContext,
   onSetPrimary,
   onDeleteTake,
   onDeleteFrame,
@@ -663,6 +674,7 @@ function FramesTab({
   onMakeFrame: (recipe: FrameRecipe) => Promise<void>;
   onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<void>;
   imageCapabilities: ImageCapabilities;
+  generationContext: BibleGenerationContext;
   onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
   onSetPrimary: (variant: BibleAssetVariant) => void;
   onDeleteTake: (variant: BibleAssetVariant) => void;
@@ -770,6 +782,7 @@ function FramesTab({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
+        <GenerationCost modelId={generationContext.modelId} request={{kind: selectedChars.size > 0 || locationId ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId}} />
         <Button size="sm" className="text-xs" disabled={making || !prompt.trim() || (!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId))} onClick={makeFrame}>
           {making ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
           Make frame
@@ -792,6 +805,7 @@ function FramesTab({
               onRetake={onRetake}
               onEdit={onEdit}
                 imageCapabilities={imageCapabilities}
+            generationContext={generationContext}
               onSetPrimary={onSetPrimary}
               onDeleteTake={onDeleteTake}
               onDeleteAsset={onDeleteFrame}
@@ -815,6 +829,7 @@ function AssetCard({
   onRetake,
   onEdit,
   imageCapabilities,
+  generationContext,
   onSetPrimary,
   onDeleteTake,
   onDeleteAsset,
@@ -828,6 +843,7 @@ function AssetCard({
   basePrompt: string;
   onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<void>;
   imageCapabilities: ImageCapabilities;
+  generationContext: BibleGenerationContext;
   onEdit: (asset: BibleAsset, variant: BibleAssetVariant, instruction: string) => Promise<void>;
   onSetPrimary: (variant: BibleAssetVariant) => void;
   onDeleteTake: (variant: BibleAssetVariant) => void;
@@ -890,6 +906,7 @@ function AssetCard({
             </div>
           )}
 
+          <GenerationCost modelId={generationContext.modelId} request={{kind: mode === "edit" ? "image_edit" : primary || builtFrom ? "image_compose" : "image"}} subject={{project_id: generationContext.projectId, subject_id: asset.id}} />
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" className="text-xs" disabled={busy || (!!primary && !imageCapabilities.composition)} title={!imageCapabilities.composition && primary ? "Choose a model that accepts reference images." : undefined} onClick={() => run("retake", () => onRetake(asset))}>
               {pending === "retake" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
