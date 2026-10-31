@@ -105,11 +105,12 @@ export async function getGenerationEstimate(
         price = fresh.value;
       }
     }
+    let refreshUnconfirmed = false;
     const needsRefresh =
       !price ||
       (price.source_kind !== "manual" &&
         (!Number.isFinite(Date.parse(price.checked_at)) ||
-          Date.now() - Date.parse(price.checked_at) > 7 * 24 * 60 * 60 * 1000));
+          Date.now() - Date.parse(price.checked_at) > 60 * 60 * 1000));
     if (needsRefresh && config.apiKeyProvider === "openrouter") {
       const refreshed = await refreshPrice(modelId, request.kind, async () => {
         if (request.kind === "video" && "imageToVideo" in config.models) {
@@ -122,6 +123,7 @@ export async function getGenerationEstimate(
       });
       if (!refreshed.ok)
         return { kind: "unavailable", reason: refreshed.error.message };
+      refreshUnconfirmed = refreshed.value === null;
       price = refreshed.value ?? price;
       if (!price)
         return {
@@ -129,7 +131,8 @@ export async function getGenerationEstimate(
           reason: "A live rate is not available for this provider and model.",
         };
     }
-    return estimateGenerationCost(price, quantities);
+    const estimate = estimateGenerationCost(price, quantities);
+    return estimate.kind === "estimate" && refreshUnconfirmed ? { ...estimate, stale: true } : estimate;
   } catch {
     return {
       kind: "unavailable",

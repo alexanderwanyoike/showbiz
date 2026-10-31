@@ -56,6 +56,7 @@ export function GenerationCost({
               ? "Local running cost not estimated"
               : "Estimate unavailable"}
       </output>
+      {estimate?.kind === "estimate" && estimate.stale && <p role="status" className="text-muted-foreground">{estimate.price.source_kind === "published" ? "Published price snapshot may be out of date." : "Using an older cached price. Live pricing is unconfirmed."}</p>}
       {previous && (
         <output
           aria-label="Last generation cost"
@@ -93,7 +94,7 @@ export function GenerationCost({
               <p>
                 {estimate.price.source_kind === "manual" ? "Saved" : estimate.price.source_kind === "published" ? "Snapshot dated" : "Retrieved"}{" "}
                 {new Date(estimate.price.checked_at).toLocaleString()}
-                {estimate.stale ? ". Rate is older than 7 days." : ""}
+                {estimate.stale ? ". This rate may be out of date." : ""}
               </p>
               {estimate.price.source_kind === "published" && <p>This published rate is not a live pricing API response or a confirmed charge.</p>}
               {estimate.price.estimate_basis === "historical_request" && <p>Historical cost per request from the provider. This estimate is not adjusted for duration, resolution, audio or input media.</p>}
