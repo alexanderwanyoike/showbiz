@@ -15,15 +15,39 @@ import StoryboardPage from "./pages/StoryboardPage";
 function DocumentWorkspace() {
   const document = useProjectDocument();
   const shotWorkspace = useLocation().pathname.startsWith("/storyboard/");
-  const [navigatorPreference, setNavigatorPreference] = useState<{file:string;open:boolean} | null>(null);
-  const navigatorOpen = !!document.current && (navigatorPreference?.file === document.current.file_path ? navigatorPreference.open : !shotWorkspace);
+  const [navigatorPreference, setNavigatorPreference] = useState<{
+    file: string;
+    open: boolean;
+  } | null>(null);
+  const navigatorOpen =
+    !!document.current &&
+    (navigatorPreference?.file === document.current.file_path
+      ? navigatorPreference.open
+      : !shotWorkspace);
   return (
     <div
       className={`desktop-shell ${navigatorOpen ? "" : "desktop-shell-start"}`}
     >
       <Header caption={document.current?.name ?? ""}>
         {!window.showbiz?.onDocumentAction && <DocumentMenu />}
-        {document.current && <button type="button" className="desktop-navigator-toggle" aria-label="Project navigator" aria-expanded={navigatorOpen} aria-controls="project-navigation-panel" onClick={() => setNavigatorPreference({file:document.current!.file_path,open:!navigatorOpen})}><PanelLeft size={15}/><span>Project</span></button>}
+        {document.current && (
+          <button
+            type="button"
+            className="desktop-navigator-toggle"
+            aria-label="Project navigator"
+            aria-expanded={navigatorOpen}
+            aria-controls="project-navigation-panel"
+            onClick={() =>
+              setNavigatorPreference({
+                file: document.current!.file_path,
+                open: !navigatorOpen,
+              })
+            }
+          >
+            <PanelLeft size={15} />
+            <span>Project</span>
+          </button>
+        )}
       </Header>
       {navigatorOpen && <ProjectNavigator />}
       <section className="desktop-content" aria-label="Project workspace">

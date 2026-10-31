@@ -53,7 +53,11 @@ export function ProjectNavigator() {
       <nav aria-label="Project navigator">
         <Link
           className={`sidebar-item ${!bible && location.pathname.startsWith("/project/") ? "is-selected" : ""}`}
-          aria-current={!bible && location.pathname.startsWith("/project/") ? "page" : undefined}
+          aria-current={
+            !bible && location.pathname.startsWith("/project/")
+              ? "page"
+              : undefined
+          }
           to={`/project/${current.project_id}`}
         >
           <LayoutGrid size={15} />
@@ -74,7 +78,11 @@ export function ProjectNavigator() {
           <Link
             key={board.id}
             className={`sidebar-item ${location.pathname === `/storyboard/${board.id}` ? "is-selected" : ""}`}
-            aria-current={location.pathname === `/storyboard/${board.id}` ? "page" : undefined}
+            aria-current={
+              location.pathname === `/storyboard/${board.id}`
+                ? "page"
+                : undefined
+            }
             to={`/storyboard/${board.id}`}
           >
             <Clapperboard size={14} />
