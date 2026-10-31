@@ -72,7 +72,7 @@ it("retains the frame draft and its usage identity when generation fails", async
   render(createElement(ProjectBibleView, { projectId: "film" }));
   await screen.findByRole("button", { name: "Edit" });
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: /^frames$/i }));
+  await user.click(screen.getByRole("tab", { name: /^frames$/i }));
   await user.type(
     screen.getByPlaceholderText(
       "What's happening (and the look, e.g. 90s anime)...",

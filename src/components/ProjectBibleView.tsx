@@ -7,6 +7,7 @@ import { Check, ImageIcon, Loader2, Maximize2, RefreshCw, Trash2, Upload, Sparkl
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -95,6 +96,7 @@ type Tab = "characters" | "locations" | "frames";
 
 interface ProjectBibleViewProps {
   projectId: string;
+  initialTab?: Tab;
 }
 
 // A full-screen view of one picture.
@@ -198,16 +200,17 @@ function PictureMeta({ variant }: { variant: BibleAssetVariant | null }) {
   );
 }
 
-export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
+export default function ProjectBibleView({ projectId, initialTab = "characters" }: ProjectBibleViewProps) {
   const [bibleId, setBibleId] = useState<string | null>(null);
   const [assets, setAssets] = useState<BibleAsset[]>([]);
   const [variants, setVariants] = useState<Record<string, BibleAssetVariant[]>>({});
-  const [tab, setTab] = useState<Tab>("characters");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [imageModel, setImageModel] = useState<ImageModelId>("nano-banana");
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   useAgentChanges(load);
+  useEffect(() => { setTab(initialTab); }, [initialTab, projectId]);
 
   const imageModels = getAvailableImageModels();
   const generationContext = {modelId: imageModel, projectId};
@@ -444,24 +447,25 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   }
 
   return (
+    <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="gap-0" asChild>
     <section role="region" aria-label="Project bible" className="bible-workspace flex h-full flex-col">
       {/* Tabs + model */}
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
-        <div className="flex gap-1">
+        <TabsList aria-label="Bible sections">
           {(["characters", "locations", "frames"] as Tab[]).map((t) => (
-            <Button
+            <TabsTrigger
               key={t}
-              size="sm"
-              variant={tab === t ? "default" : "ghost"}
+              value={t}
               className="text-xs capitalize"
-              onClick={() => setTab(t)}
             >
-              {t}
-            </Button>
+              {t[0].toUpperCase() + t.slice(1)}
+            </TabsTrigger>
           ))}
-        </div>
+        </TabsList>
+        <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        Generation model
         <Select value={imageModel} onValueChange={(v) => setImageModel(v as ImageModelId)}>
-          <SelectTrigger className="h-8 w-60 text-xs">
+          <SelectTrigger aria-label="Bible generation model" disabled={!!busyId} className="h-8 w-60 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -472,6 +476,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             ))}
           </SelectContent>
         </Select>
+        </label>
       </div>
 
       {error && (
@@ -479,11 +484,12 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
       )}
 
       <div className="flex-1 overflow-y-auto p-4">
-        {(tab === "characters" || tab === "locations") && (
+        {(["characters", "locations"] as const).map((assetTab) => (
+          <TabsContent key={assetTab} value={assetTab} forceMount hidden={tab !== assetTab} className={tab === assetTab ? "m-0" : "hidden"}>
           <AssetTab
-            type={tab === "characters" ? "character" : "location"}
-            label={tab === "characters" ? "character" : "location"}
-            assets={tab === "characters" ? characters : locations}
+            type={assetTab === "characters" ? "character" : "location"}
+            label={assetTab === "characters" ? "character" : "location"}
+            assets={assetTab === "characters" ? characters : locations}
             variants={variants}
             busyId={busyId}
             onNew={handleNewAsset}
@@ -497,9 +503,10 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             onDeleteAsset={handleDeleteAsset}
             onExpand={setLightbox}
           />
-        )}
+          </TabsContent>
+        ))}
 
-        {tab === "frames" && (
+        <TabsContent value="frames" forceMount hidden={tab !== "frames"} className={tab === "frames" ? "m-0" : "hidden"}>
           <FramesTab
             characters={characters}
             locations={locations}
@@ -516,11 +523,12 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
             onDeleteFrame={handleDeleteAsset}
             onExpand={setLightbox}
           />
-        )}
+        </TabsContent>
       </div>
 
       {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
     </section>
+    </Tabs>
   );
 }
 
@@ -572,12 +580,14 @@ function AssetTab({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <Input
             className="h-9 text-sm sm:w-44"
+            aria-label={`${type === "character" ? "Character" : "Location"} name`}
             placeholder={`${label} name`}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
           />
           <Textarea
             className="min-h-[40px] flex-1 text-xs resize-none"
+            aria-label={`${type === "character" ? "Character" : "Location"} prompt`}
             placeholder="Describe it (or just upload a picture)..."
             value={newPrompt}
             onChange={(e) => setNewPrompt(e.target.value)}
@@ -778,6 +788,7 @@ function FramesTab({
 
         <Textarea
           className="mb-2 min-h-[60px] text-sm resize-y"
+          aria-label="Frame prompt"
           placeholder="What's happening (and the look, e.g. 90s anime)..."
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}

@@ -138,7 +138,7 @@ export default function ProjectPage() {
       <Header title={activeTab === "bible" ? "Project bible" : "Storyboards"} />
       <main className="workspace-body">
         {activeTab === "bible" ? (
-          <ProjectBibleView projectId={project.id} />
+          <ProjectBibleView projectId={project.id} initialTab={searchParams.get("bibleTab") === "frames" ? "frames" : undefined} />
         ) : (
           <>
             {/* Top bar: search + new storyboard */}

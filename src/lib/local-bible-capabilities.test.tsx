@@ -57,7 +57,7 @@ it("allows a text-only local frame while preventing unsupported reference compos
   await user.click(
     screen.getByRole("option", { name: /Local image.*LocalAI/ }),
   );
-  await user.click(screen.getByRole("button", { name: /^frames$/i }));
+  await user.click(screen.getByRole("tab", { name: /^frames$/i }));
   await user.type(
     screen.getByPlaceholderText(
       "What's happening (and the look, e.g. 90s anime)...",
