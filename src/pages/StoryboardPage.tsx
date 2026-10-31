@@ -3,7 +3,7 @@ import { withApplicationWork } from "../lib/application-work";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Plus, Loader2, Sparkles, ImageIcon, Video, Save } from "lucide-react";
-import { Header } from "../components/Header";
+import { WorkspaceToolbar as Header } from "../components/WorkspaceToolbar";
 import ShotList from "../components/ShotList";
 import ShotPreview from "../components/ShotPreview";
 import ShotInspector from "../components/ShotInspector";
@@ -923,7 +923,7 @@ export default function StoryboardPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="desktop-page">
         <Header />
         <div className="flex items-center justify-center py-24">
           <div className="text-muted-foreground flex items-center gap-2">
@@ -940,7 +940,7 @@ export default function StoryboardPage() {
   }
 
   return (
-    <div className="bg-background flex flex-col h-dvh overflow-hidden">
+    <div className="desktop-page storyboard-page">
       {/* Main App Header */}
       <Header
         backHref={`/project/${storyboard.project_id}`}

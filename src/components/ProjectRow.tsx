@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Film, Trash2 } from "lucide-react";
+import { Folder, Trash2, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -13,19 +13,19 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-interface ProjectCardProps {
+interface ProjectRowProps {
   id: string;
   name: string;
   updatedAt: string;
   onDelete: (id: string) => void;
 }
 
-export default function ProjectCard({
+export default function ProjectRow({
   id,
   name,
   updatedAt,
   onDelete,
-}: ProjectCardProps) {
+}: ProjectRowProps) {
   const formattedDate = new Date(updatedAt).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -33,34 +33,17 @@ export default function ProjectCard({
   });
 
   return (
-    <div className="group relative">
-      <Link to={`/project/${id}`} className="block">
-        {/* 16:9 Thumbnail */}
-        <div className="aspect-video relative rounded-md overflow-hidden bg-muted/50 group-hover:brightness-125 transition-all duration-200">
-          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/40">
-            <Film className="h-10 w-10" />
-          </div>
-        </div>
-
-        {/* Text below thumbnail */}
-        <div className="mt-2 px-0.5">
-          <h3 className="text-sm font-medium text-foreground truncate">
-            {name}
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Last modified: {formattedDate}
-          </p>
-        </div>
-      </Link>
-
-      {/* Delete button — appears on hover */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+    <tr className="project-row">
+      <td><Link to={`/project/${id}`} className="project-row-link"><Folder size={19} /><span><strong>{name}</strong><small>Showbiz project</small></span></Link></td>
+      <td className="project-row-date">{formattedDate}</td>
+      <td><div className="project-row-actions"><Link to={`/project/${id}`} aria-label={`Open ${name}`} title="Open project"><ChevronRight size={15} /></Link>
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 bg-black/60 hover:bg-black/80 text-white hover:text-white rounded-sm"
+              className="h-7 w-7"
+              aria-label={`Delete ${name}`}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -85,7 +68,7 @@ export default function ProjectCard({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
-    </div>
+      </div></td>
+    </tr>
   );
 }

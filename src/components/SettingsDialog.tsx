@@ -271,21 +271,21 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[640px]">
-        <Tabs value={section} onValueChange={(value) => setSection(value as "providers" | "updates" | "appearance")} className="contents">
-          <DialogHeader className="px-5 pt-5 pb-4 text-left sm:px-6 sm:pt-6">
+      <DialogContent className="native-preferences">
+        <Tabs orientation="vertical" value={section} onValueChange={(value) => setSection(value as "providers" | "updates" | "appearance")} className="contents">
+          <DialogHeader className="preferences-header">
             <DialogTitle>Settings</DialogTitle>
             <DialogDescription>
-              Manage providers, appearance and application updates.
+              Showbiz preferences
             </DialogDescription>
-            <TabsList aria-label="Settings sections" className="mt-3 w-full">
+            <TabsList aria-label="Settings sections" className="preferences-navigation">
               <TabsTrigger value="providers">Providers</TabsTrigger>
               <TabsTrigger value="updates">Updates</TabsTrigger>
               <TabsTrigger value="appearance">Appearance</TabsTrigger>
             </TabsList>
           </DialogHeader>
 
-          <TabsContent value="providers" className="min-h-0 overflow-hidden">
+          <TabsContent value="providers" className="preferences-content min-h-0 overflow-hidden">
 
             <div
               role="region"
@@ -390,15 +390,15 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
               <div className="h-4" />
             </div>
           </TabsContent>
-          <TabsContent value="updates" className="min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6">
+          <TabsContent value="updates" className="preferences-content min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6">
             <UpdatesPanel />
           </TabsContent>
 
-          <TabsContent value="appearance" className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6">
+          <TabsContent value="appearance" className="preferences-content min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6">
             <AppearancePanel />
           </TabsContent>
 
-          <DialogFooter className="flex-row items-center justify-between gap-3 border-t bg-background px-5 py-3 sm:px-6">
+          <DialogFooter className="preferences-footer">
             {section === "providers" ? <>
             <p className="text-xs text-muted-foreground">
               {configuredCount} of {providerSettings.length} connected

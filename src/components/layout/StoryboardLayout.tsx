@@ -13,13 +13,7 @@ export function StoryboardLayout({
 }: StoryboardLayoutProps) {
   return (
     <div
-      className="flex-1 min-h-0 bg-background"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "280px 1fr 320px",
-        gridTemplateRows: "1fr",
-        gridTemplateAreas: '"shot-list preview inspector"',
-      }}
+      className="storyboard-workspace"
     >
       <ZoneContainer area="shot-list">{shotListSlot}</ZoneContainer>
       <ZoneContainer area="preview">{previewSlot}</ZoneContainer>

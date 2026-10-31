@@ -1,8 +1,8 @@
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { Plus, Clapperboard, Loader2, Search } from "lucide-react";
-import { Header } from "../components/Header";
+import { WorkspaceToolbar as Header } from "../components/WorkspaceToolbar";
 import StoryboardCard from "../components/StoryboardCard";
 import ProjectBibleView from "../components/ProjectBibleView";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,9 @@ export default function ProjectPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"storyboards" | "bible">("storyboards");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("view") === "bible" ? "bible" : "storyboards";
+  const setActiveTab = (value: string) => setSearchParams(value === "bible" ? { view: "bible" } : {});
 
   useUnsavedWork("draft", showNewStoryboardInput && !!newStoryboardName, newStoryboardName);
   useUnsavedWork("draft", isEditingName && editedName !== project?.name, editedName);
@@ -119,7 +121,7 @@ export default function ProjectPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="desktop-page">
         <Header />
         <div className="flex items-center justify-center py-24">
           <div className="text-muted-foreground flex items-center gap-2">
@@ -136,13 +138,13 @@ export default function ProjectPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="desktop-page">
       <Header backHref="/" backLabel="Projects" title={project.name} />
 
       {/* Main Content */}
-      <main className="px-6 py-6">
+      <main className="workspace-body">
         {/* Project Name Editor */}
-        <div className="mb-4">
+        <div className="project-name-control">
           {isEditingName ? (
             <Input
               type="text"
@@ -170,7 +172,7 @@ export default function ProjectPage() {
           )}
         </div>
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "storyboards" | "bible")} className="mb-6">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "storyboards" | "bible")} className="project-sections">
           <TabsList>
             <TabsTrigger value="storyboards">Storyboards</TabsTrigger>
             <TabsTrigger value="bible">Bible</TabsTrigger>
@@ -182,7 +184,7 @@ export default function ProjectPage() {
         ) : (
           <>
         {/* Top bar: search + new storyboard */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="library-toolbar">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -267,9 +269,9 @@ export default function ProjectPage() {
           </div>
         ) : (
           <div
-            className="grid gap-6"
+            className="storyboard-contact-sheet"
             style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
             }}
           >
             {filteredStoryboards.map((storyboard) => (
@@ -287,7 +289,7 @@ export default function ProjectPage() {
 
         {/* Bottom status bar */}
         {!isLoading && storyboards.length > 0 && (
-          <div className="mt-8 text-xs text-muted-foreground">
+          <div className="library-summary">
             {filteredStoryboards.length === storyboards.length
               ? `${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`
               : `${filteredStoryboards.length} of ${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`}

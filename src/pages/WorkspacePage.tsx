@@ -2,8 +2,8 @@ import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Plus, Film, Loader2, Search } from "lucide-react";
-import { Header } from "../components/Header";
-import ProjectCard from "../components/ProjectCard";
+import { WorkspaceToolbar as Header } from "../components/WorkspaceToolbar";
+import ProjectRow from "../components/ProjectRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -75,13 +75,13 @@ export default function WorkspacePage() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="desktop-page">
       <Header />
 
       {/* Main Content */}
-      <main className="px-6 py-6">
+      <main className="workspace-body">
         {/* Top bar: search + new project */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="library-toolbar">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -172,28 +172,17 @@ export default function WorkspacePage() {
             </p>
           </div>
         ) : (
-          /* Projects Grid */
-          <div
-            className="grid gap-6"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            }}
-          >
-            {filteredProjects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                id={project.id}
-                name={project.name}
-                updatedAt={project.updated_at}
-                onDelete={handleDeleteProject}
-              />
-            ))}
+          <div className="library-table-scroll">
+            <table className="library-table" aria-label="Projects">
+              <thead><tr><th scope="col">Name</th><th scope="col">Date modified</th><th scope="col"><span className="sr-only">Actions</span></th></tr></thead>
+              <tbody>{filteredProjects.map((project) => <ProjectRow key={project.id} id={project.id} name={project.name} updatedAt={project.updated_at} onDelete={handleDeleteProject} />)}</tbody>
+            </table>
           </div>
         )}
 
         {/* Bottom status bar */}
         {!isLoading && projects.length > 0 && (
-          <div className="mt-8 text-xs text-muted-foreground">
+          <div className="library-summary">
             {filteredProjects.length === projects.length
               ? `${projects.length} project${projects.length === 1 ? "" : "s"}`
               : `${filteredProjects.length} of ${projects.length} project${projects.length === 1 ? "" : "s"}`}
