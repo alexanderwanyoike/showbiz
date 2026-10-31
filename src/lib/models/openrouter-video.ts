@@ -6,6 +6,7 @@ import type { VideoGenerationRequest } from "../generation/types";
 import type {
   GenerationOutput,
   GenerationReceipt,
+  GenerationObserver,
 } from "../../../shared/generation-output";
 
 const jobSchema = z.object({
@@ -28,6 +29,7 @@ export async function generateOpenRouterVideo(
   model: string,
   request: VideoGenerationRequest,
   apiKey: string,
+  observer?: GenerationObserver,
 ): Promise<GenerationOutput<Blob>> {
   if (request.mode === "image-to-video" && !request.startImage)
     return {
@@ -95,6 +97,8 @@ export async function generateOpenRouterVideo(
     if (!initial.success)
       return failure("OpenRouter returned an unsupported video job.");
     const job = initial.data.id;
+    receipt = { provider_request_id: job, reported_microusd: null };
+    await observer?.receipt(receipt);
     const url = `https://openrouter.ai/api/v1/videos/${encodeURIComponent(job)}`;
     return await pollUntilDone<GenerationOutput<Blob>>({
       initialInterval: 2000,
