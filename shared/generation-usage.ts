@@ -1,7 +1,9 @@
-import type { GenerationKind } from "./generation-cost";
+import type { GenerationPrice, GenerationKind } from "./generation-cost";
 
 export interface GenerationUsage {
   request_id: string;
+  subject_id: string | null;
+  price_basis: GenerationPrice | null;
   project_id: string;
   kind: GenerationKind;
   provider: string;

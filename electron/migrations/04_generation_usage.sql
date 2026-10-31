@@ -1,6 +1,8 @@
 CREATE TABLE generation_usage (
   request_id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  subject_id TEXT,
+  price_basis_json TEXT,
   kind TEXT NOT NULL,
   provider TEXT NOT NULL,
   model_id TEXT NOT NULL,

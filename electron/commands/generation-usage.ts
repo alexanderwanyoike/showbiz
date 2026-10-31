@@ -1,3 +1,4 @@
+import { generationPriceSchema } from "../../shared/generation-price-schema";
 import type { DatabaseSync } from "node:sqlite";
 import type {
   GenerationUsage,
@@ -6,7 +7,7 @@ import type {
 import type { Result } from "../../shared/result";
 
 type Args = Record<string, unknown>;
-type UsageRow = Omit<GenerationUsage, "settings"> & { settings_json: string };
+type UsageRow = Omit<GenerationUsage, "settings" | "price_basis"> & { settings_json: string; price_basis_json: string | null };
 const success = <T>(value: T): Result<T> => ({ ok: true, value });
 const invalid = (message: string): Result<never> => ({
   ok: false,
@@ -55,14 +56,16 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
     projectId: string,
     limit: number,
     offset: number,
+    subject: string | null,
   ): GenerationUsage[] {
     return (
       db
         .prepare(
-          "SELECT * FROM generation_usage WHERE project_id = ? ORDER BY started_at DESC, request_id LIMIT ? OFFSET ?",
+          "SELECT * FROM generation_usage WHERE project_id = ? AND (? IS NULL OR subject_id = ?) ORDER BY started_at DESC, request_id LIMIT ? OFFSET ?",
         )
-        .all(projectId, limit, offset) as UsageRow[]
-    ).map(({ settings_json, ...row }) => ({
+        .all(projectId, subject, subject, limit, offset) as UsageRow[]
+    ).map(({ settings_json, price_basis_json, ...row }) => ({
+      price_basis: price_basis_json ? generationPriceSchema.parse(JSON.parse(price_basis_json)) : null,
       ...row,
       settings: JSON.parse(settings_json) as GenerationUsage["settings"],
     }));
@@ -91,6 +94,11 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
           return invalid("The project does not exist.");
         if (usage(args.request_id))
           return invalid("This generation request has already started.");
+        const subject = args.subject_id ?? null;
+        if (subject !== null && !identifier(subject)) return invalid("The generation subject is invalid.");
+        const basis = args.price_basis == null ? null : generationPriceSchema.safeParse(args.price_basis);
+        if (basis && (!basis.success || basis.data.provider !== args.provider || basis.data.model_id !== args.model_id)) return invalid("The quoted price basis does not match the provider and model.");
+        const price = basis?.success ? basis.data : null;
         const min = args.estimated_min_microusd ?? null;
         const max = args.estimated_max_microusd ?? null;
         if (
@@ -123,20 +131,22 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
         )
           return invalid("Generation settings contain unsupported values.");
         const source =
-          typeof args.price_source === "string" &&
-          args.price_source.length <= 2048
-            ? args.price_source
+          typeof (args.price_source ?? price?.source_url) === "string" &&
+          String(args.price_source ?? price?.source_url).length <= 2048
+            ? String(args.price_source ?? price?.source_url)
             : null;
         const checked =
-          typeof args.price_checked_at === "string" &&
-          Number.isFinite(Date.parse(args.price_checked_at))
-            ? args.price_checked_at
+          typeof (args.price_checked_at ?? price?.checked_at) === "string" &&
+          Number.isFinite(Date.parse(String(args.price_checked_at ?? price?.checked_at)))
+            ? String(args.price_checked_at ?? price?.checked_at)
             : null;
         db.prepare(
-          `INSERT INTO generation_usage(request_id,project_id,kind,provider,model_id,settings_json,estimated_min_microusd,estimated_max_microusd,price_source,price_checked_at,started_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+          `INSERT INTO generation_usage(request_id,project_id,subject_id,price_basis_json,kind,provider,model_id,settings_json,estimated_min_microusd,estimated_max_microusd,price_source,price_checked_at,started_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         ).run(
           args.request_id as string,
           args.project_id as string,
+          subject as string | null,
+          price ? JSON.stringify(price) : null,
           args.kind,
           args.provider as string,
           args.model_id as string,
@@ -148,9 +158,10 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
           new Date().toISOString(),
         );
         const row = usage(args.request_id)!;
-        const { settings_json, ...value } = row;
+        const { settings_json, price_basis_json, ...value } = row;
         return success({
           ...value,
+          price_basis: price,
           settings: JSON.parse(settings_json) as GenerationUsage["settings"],
         });
       }),
@@ -203,6 +214,8 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
       execute(() => {
         if (!identifier(args.project_id))
           return invalid("Choose a project to view usage.");
+        const subject = args.subject_id ?? null;
+        if (subject !== null && !identifier(subject)) return invalid("The generation subject is invalid.");
         const limit = args.limit ?? 50;
         const offset = args.offset ?? 0;
         if (
@@ -215,11 +228,11 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
           return invalid("The usage page is invalid.");
         const total = db
           .prepare(
-            "SELECT COUNT(*) AS count FROM generation_usage WHERE project_id = ?",
+            "SELECT COUNT(*) AS count FROM generation_usage WHERE project_id = ? AND (? IS NULL OR subject_id = ?)",
           )
-          .get(args.project_id) as { count: number };
+          .get(args.project_id, subject as string | null, subject as string | null) as { count: number };
         return success({
-          items: items(args.project_id, Number(limit), Number(offset)),
+          items: items(args.project_id, Number(limit), Number(offset), subject as string | null),
           total_count: total.count,
         });
       }),
