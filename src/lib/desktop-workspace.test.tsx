@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
@@ -62,7 +62,7 @@ it("keeps desktop navigation and status visible while moving from the open docum
   ).toBeTruthy();
 });
 
-it("renames a project from its desktop toolbar and lets Escape keep the saved name", async () => {
+it("keeps project naming in project settings and lets Escape keep the saved name", async () => {
   const user = userEvent.setup();
   render(
     createElement(
@@ -72,7 +72,7 @@ it("renames a project from its desktop toolbar and lets Escape keep the saved na
     ),
   );
   await user.click(
-    await screen.findByRole("button", { name: "Rename project" }),
+    await screen.findByRole("button", { name: "Project settings" }),
   );
   const input = screen.getByRole("textbox", {
     name: "Project name",
@@ -85,8 +85,10 @@ it("renames a project from its desktop toolbar and lets Escape keep the saved na
     screen.queryByRole("textbox", { name: "Project name" }),
   ).toBeNull();
   expect(
-    screen.getByRole("button", { name: "Rename project" }),
+    screen.getByRole("button", { name: "Project settings" }),
   ).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Project settings" }));
+  expect((screen.getByRole("textbox", { name: "Project name" }) as HTMLInputElement).value).toBe("A quiet morning");
 });
 
 it("refreshes the project navigator when the application reports a project change", async () => {
@@ -100,14 +102,14 @@ it("refreshes the project navigator when the application reports a project chang
   });
   render(createElement(MemoryRouter, null, createElement(App)));
   await screen.findByRole("navigation", { name: "Project navigator" });
-  await screen.findByRole("button", { name: "Rename project" });
+  await screen.findByRole("button", { name: "Project settings" });
   projects.mockResolvedValue({
     id: "p",
     name: "Renamed project",
     updated_at: "2026-10-31",
     created_at: "2026-10-31",
   });
-  window.dispatchEvent(new Event("showbiz:project-changed"));
+  await act(async () => { window.dispatchEvent(new Event("showbiz:project-changed")); });
   expect(
     await screen.findByText("Renamed project", { exact: true }),
   ).toBeTruthy();
