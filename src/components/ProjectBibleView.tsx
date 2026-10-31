@@ -217,6 +217,7 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<BibleDeletion | null>(null);
+  const pendingAssets = useRef(new Map<string, BibleAsset>());
   useAgentChanges(load);
   useEffect(() => { setTab(initialTab); }, [initialTab, projectId]);
 
@@ -292,7 +293,10 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
     setBusyId(`new-${type}`);
     try {
       await withApplicationWork(!file && prompt.trim() ? "generation" : "saving", async () => {
-        const asset = await createBibleAsset(bibleId, {
+        const draftKey = `${type}:${name.trim()}`;
+        let asset = pendingAssets.current.get(draftKey);
+        if (!asset || !assets.some((entry) => entry.id === asset?.id)) {
+          asset = await createBibleAsset(bibleId, {
           asset_type: type,
           name: name.trim(),
           summary: null,
@@ -301,13 +305,17 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
           rules_json: null,
           consent_confirmed: false,
         });
-        setAssets((prev) => [asset, ...prev]);
-        setVariants((prev) => ({ ...prev, [asset.id]: [] }));
+          const created = asset;
+          setAssets((prev) => [created, ...prev]);
+          setVariants((prev) => ({ ...prev, [created.id]: [] }));
+          pendingAssets.current.set(draftKey, asset);
+        }
         if (file) {
           await addVariant(asset.id, await fileToDataUrl(file), { name: file.name, source: "uploaded" });
         } else if (prompt.trim()) {
           await addVariant(asset.id, await imageFromPrompt(prompt, asset.id), { name: name.trim(), source: "generated", prompt });
         }
+        pendingAssets.current.delete(draftKey);
       });
       return { ok: true, value: undefined };
     } catch (e) {
@@ -543,6 +551,7 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
             variants={variants}
             busyId={busyId}
             onNew={handleNewAsset}
+            onClearDraft={() => { for (const key of pendingAssets.current.keys()) if (key.startsWith(`${assetTab === "characters" ? "character" : "location"}:`)) pendingAssets.current.delete(key); }}
             onRetake={handleRetake}
             onEdit={handleEdit}
             imageCapabilities={imageCapabilities}
@@ -591,6 +600,7 @@ function AssetTab({
   variants,
   busyId,
   onNew,
+  onClearDraft,
   onRetake,
   onEdit,
   imageCapabilities,
@@ -607,6 +617,7 @@ function AssetTab({
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
   onNew: (type: "character" | "location", name: string, prompt: string, file: File | null) => Promise<Result<void>>;
+  onClearDraft: () => void;
   onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<Result<void>>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
@@ -680,7 +691,7 @@ function AssetTab({
               <Upload className="h-3 w-3 mr-1" />
               Upload picture
             </Button>
-            <Button type="button" variant="ghost" size="sm" className="text-xs" aria-label={`Clear ${label} draft`} disabled={busyId !== null || (!newName && !newPrompt)} onClick={() => { setNewName(""); setNewPrompt(""); }}>Clear draft</Button>
+            <Button type="button" variant="ghost" size="sm" className="text-xs" aria-label={`Clear ${label} draft`} disabled={busyId !== null || (!newName && !newPrompt)} onClick={() => { setNewName(""); setNewPrompt(""); onClearDraft(); }}>Clear draft</Button>
           </div>
         </div>
       </div>
