@@ -29,3 +29,19 @@ it("reconciles only the matching FAL request using discounted billing events acr
     expect(http).toHaveBeenCalledTimes(2);
   } finally { db.close(); }
 });
+it("reads a delayed OpenRouter video charge through its generation ID and preserves an actual zero", async () => {
+  const db = openTestDb();
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const usage = createGenerationUsageCommands(db);
+    usage.begin_generation_usage({ request_id: "ours", project_id: "film", provider: "openrouter", model_id: "veo-3.1-openrouter", kind: "video" });
+    usage.record_generation_receipt({ request_id: "ours", provider_request_id: "job-1", reported_microusd: null });
+    usage.finish_generation_usage({ request_id: "ours", status: "completed" });
+    const http = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(JSON.stringify({ id: "job-1", status: "completed", generation_id: "gen-1", usage: {} }))).mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "gen-1", total_cost: 0 } })));
+    const commands = createGenerationBillingCommands(db, () => "test-key", http);
+    expect(await commands.sync_generation_charges({ project_id: "film" })).toMatchObject({ ok: true, value: { reported: 1 } });
+    expect(String(http.mock.calls[0][0])).toBe("https://openrouter.ai/api/v1/videos/job-1");
+    expect(String(http.mock.calls[1][0])).toBe("https://openrouter.ai/api/v1/generation?id=gen-1");
+    expect(usage.get_generation_usage({ project_id: "film" })).toMatchObject({ ok: true, value: { items: [{ reported_microusd: 0, provider_request_id: "job-1" }] } });
+  } finally { db.close(); }
+});
