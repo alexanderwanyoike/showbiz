@@ -1,3 +1,4 @@
+import type { Result } from "../../shared/result";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useProjectDocument } from "../contexts/ProjectDocumentContext";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
@@ -100,14 +101,15 @@ export default function ProjectPage() {
     }
   }
 
-  async function handleDeleteStoryboard(storyboardId: string) {
+  async function handleDeleteStoryboard(storyboardId: string): Promise<Result<null>> {
     try {
-      await deleteStoryboard(storyboardId);
+      const removed = await deleteStoryboard(storyboardId);
+      if (!removed) return { ok: false, error: { code: "NOT_FOUND", message: "The storyboard could not be deleted. Refresh and try again." } };
       setStoryboards((prev) => prev.filter((s) => s.id !== storyboardId));
       window.dispatchEvent(new Event("showbiz:project-changed"));
+      return { ok: true, value: null };
     } catch (error) {
-      console.error("Failed to delete storyboard:", error);
-      alert("Failed to delete storyboard");
+      return { ok: false, error: { code: "IO_ERROR", message: error instanceof Error ? error.message : "Could not delete storyboard." } };
     }
   }
 
