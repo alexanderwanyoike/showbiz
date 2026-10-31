@@ -257,3 +257,14 @@ it("gets account-specific FAL pricing and a historical estimate for the actual e
     expect(JSON.parse(estimateInit.body)).toEqual({ estimate_type: "historical_api_price", endpoints: { "openai/gpt-image-2/edit": { call_quantity: 1 } } });
   } finally { db.close(); }
 });
+it("fetches the separate FAL first-last-frame endpoint for a video with an end frame", async () => {
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createGenerationPricingCommands(db);
+    native.invoke.mockImplementation(async (command, args) => command === "get_api_key" ? "test-fal-key" : commands[command]?.(args));
+    native.fetch.mockClear();
+    native.fetch.mockImplementation(async (_url: string, init?: RequestInit) => new Response(JSON.stringify(init?.method === "POST" ? { estimate_type: "historical_api_price", total_cost: 1.5, currency: "USD" } : { prices: [{ endpoint_id: "fal-ai/veo3.1/first-last-frame-to-video", unit_price: 0.4, unit: "second", currency: "USD" }] })));
+    expect(await getGenerationEstimate("veo-3.1-fal", { kind: "video", mode: "image-to-video", has_end_frame: true, duration: "8s", resolution: "720p", audio: true })).toMatchObject({ kind: "estimate", price: { endpoint_id: "fal-ai/veo3.1/first-last-frame-to-video" } });
+    expect(String(native.fetch.mock.calls[0][0])).toContain("first-last-frame-to-video");
+  } finally { db.close(); }
+});
