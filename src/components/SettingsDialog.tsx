@@ -62,6 +62,7 @@ function createProviderRecord<T>(initialValue: T): Record<ApiKeyProvider, T> {
 }
 
 function modelSummary(provider: ProviderSetting): string {
+  if (provider.id === "fal-billing") return "Actual charges only; generation uses your fal.ai key.";
   if (provider.modelNames.length === 0) {
     return "No generation models currently enabled";
   }
