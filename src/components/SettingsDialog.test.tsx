@@ -321,6 +321,7 @@ it("shows credential setup only for enabled generation providers and the optiona
   for (const name of ["OpenAI", "LTX Video", "Kie AI", "Replicate"]) expect(screen.queryByRole("button", { name: `Configure ${name}` })).toBeNull();
   expect(screen.getByRole("button", { name: "Configure fal.ai billing" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Configure LocalAI" })).toBeTruthy();
+  expect(screen.getByText("Keys are saved on this device and are not included in project files.")).toBeTruthy();
 });
 it.each([["openai", "OpenAI"], ["ltx", "LTX Video"], ["kie", "Kie AI"], ["replicate", "Replicate"]])("keeps a saved inactive %s credential available for management", async (id, name) => {
   api.getApiKeyStatusAction.mockResolvedValue(API_KEY_PROVIDERS.map((provider) => ({ provider: provider.id, name: provider.name, is_configured: provider.id === id, source: provider.id === id ? "database" : null })));
