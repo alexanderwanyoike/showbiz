@@ -33,6 +33,9 @@ export interface FrameOption {
 export interface ShotInspectorProps {
   modelControls?: ReactNode;
   frameLibraryHref?: string;
+  frameError?: {role:ShotFrameRole;message:string} | null;
+  frameSaving?: boolean;
+  onDismissFrameError?: () => void;
   generationCost?: ReactNode;
   generationDisabled?: boolean;
   generationPending?: boolean;
@@ -56,6 +59,7 @@ export interface ShotInspectorProps {
   onPickFrame: (shotId: string, role: ShotFrameRole, variantId: string) => void;
   onUploadFrame: (shotId: string, role: ShotFrameRole, file: File) => void;
   onClearEndFrame: (shotId: string) => void;
+  onClearStartFrame?: (shotId: string) => void;
   // Video actions
   onGenerateVideo: (shotId: string) => void;
   onCancelVideoGeneration: (shotId: string) => void;
@@ -227,6 +231,7 @@ function FramePicker({
   onUpload,
   onClear,
   libraryHref,
+  disabled = false,
 }: {
   label: string;
   previewUrl: string | null;
@@ -235,6 +240,7 @@ function FramePicker({
   onUpload: (file: File) => void;
   onClear?: () => void;
   libraryHref?: string;
+  disabled?: boolean;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   return (
@@ -247,20 +253,20 @@ function FramePicker({
           className="flex-1 text-xs"
           aria-label={`Choose ${label.toLowerCase()}`}
           onClick={() => setPickerOpen(true)}
-          disabled={frameOptions.length === 0}
+          disabled={disabled || frameOptions.length === 0}
           title={frameOptions.length === 0 ? "Compose frames in the Bible first" : undefined}
         >
           <ImageIcon className="h-3 w-3 mr-1" />
           Choose Frame
         </Button>
-        <Button size="sm" variant="outline" className="text-xs" aria-label={`Upload ${label.toLowerCase()}`} onClick={() => uploadFramePicker(onUpload)}>
+        <Button size="sm" variant="outline" className="text-xs" disabled={disabled} aria-label={`Upload ${label.toLowerCase()}`} onClick={() => uploadFramePicker(onUpload)}>
           <Upload className="h-3 w-3 mr-1" />
           Upload
         </Button>
         {onClear && previewUrl && (
-          <Button size="sm" variant="outline" className="text-xs" aria-label={`Clear ${label.toLowerCase()}`} onClick={onClear}>
+          <Button size="sm" variant="outline" className="text-xs" disabled={disabled} aria-label={`Remove ${label.toLowerCase()}`} onClick={onClear}>
             <X className="h-3 w-3 mr-1" />
-            Clear
+            Remove
           </Button>
         )}
       </div>
@@ -281,6 +287,7 @@ function FramePicker({
 export default function ShotInspector({
   modelControls,
   frameLibraryHref,
+  frameError, frameSaving = false, onDismissFrameError,
   generationCost,
   generationDisabled = false,
   generationPending = false,
@@ -290,6 +297,7 @@ export default function ShotInspector({
   onPickFrame,
   onUploadFrame,
   onClearEndFrame,
+  onClearStartFrame,
   onGenerateVideo,
   onCancelVideoGeneration,
   onUpdateShot,
@@ -343,6 +351,8 @@ export default function ShotInspector({
         <FramePicker
           label="Start frame"
           libraryHref={frameLibraryHref}
+          disabled={frameSaving}
+          onClear={onClearStartFrame ? ()=>onClearStartFrame(shot.id) : undefined}
           previewUrl={shot.image_url}
           frameOptions={frameOptions}
           onPick={(variantId) => onPickFrame(shot.id, "start", variantId)}
@@ -370,13 +380,14 @@ export default function ShotInspector({
           <div className="space-y-2">
             <FramePreview url={shot.end_frame_url} label="Saved end frame" />
             <p className="text-[11px] text-muted-foreground">{videoModel?.name ?? "This model"} does not use this saved end frame.</p>
-            <Button size="sm" variant="outline" onClick={()=>onClearEndFrame(shot.id)}>Remove saved end frame</Button>
+            <Button size="sm" variant="outline" disabled={frameSaving} onClick={()=>onClearEndFrame(shot.id)}>Remove saved end frame</Button>
           </div>
         ) : (
           <>
           {!shot.image_url && <p className="mb-2 text-[11px] text-muted-foreground">An end frame is used only with a start frame.</p>}
           <FramePicker
             label="End frame"
+            disabled={frameSaving}
             previewUrl={shot.end_frame_url}
             frameOptions={frameOptions}
             onPick={(variantId) => onPickFrame(shot.id, "end", variantId)}
@@ -448,6 +459,8 @@ export default function ShotInspector({
       )}
       </div>
       <footer aria-label="Shot generation" className="shrink-0 border-t border-border bg-background px-3 py-2">
+        {frameSaving && <p role="status" className="mb-2 text-xs text-muted-foreground">Saving frame selection…</p>}
+        {frameError && <div className="mb-2 space-y-2"><p role="alert" className="text-xs text-destructive">{frameError.role === "start" ? "Start frame" : "End frame"}: {frameError.message}</p><Button size="sm" variant="outline" onClick={onDismissFrameError}>Keep current frames</Button></div>}
         {videoSettingsError && <div className="mb-2 space-y-2"><p role="alert" className="text-xs text-destructive">{videoSettingsError}</p><div className="flex gap-2"><Button size="sm" variant="outline" onClick={onRetryVideoSettingsSave} disabled={videoSettingsSaving}>Retry settings save</Button><Button size="sm" variant="outline" onClick={onDiscardVideoSettings} disabled={videoSettingsSaving}>Discard changes</Button></div></div>}
         <div className="max-h-[28vh] overflow-y-auto">{generationCost}</div>
         {!readiness.ok && <p role="status" className="mb-2 text-[11px] text-muted-foreground">{readiness.error.message}</p>}

@@ -63,6 +63,7 @@ import {
   getShotEndFrameBase64,
   saveShotEndFrame,
   clearShotEndFrame,
+  clearShotStartFrame,
 } from "../lib/backend-api";
 import type {
   Storyboard,
@@ -88,7 +89,7 @@ import {
   getAvailableImageModels,
   getAvailableVideoModels,
 } from "../lib/models";
-import type { VideoGenerationSettings } from "../lib/models/types";
+import { blobToBase64, type VideoGenerationSettings } from "../lib/models/types";
 import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
 import type { VideoGenerationRequest } from "../lib/generation/types";
 import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
@@ -154,6 +155,9 @@ export default function StoryboardPage() {
   const [shotControlsOpen, setShotControlsOpen] = useState(false);
   const shotControlsId = useId();
   const shotControlsToggle = useRef<HTMLButtonElement>(null);
+
+  const [frameErrors, setFrameErrors] = useState<Record<string,{role:ShotFrameRole;message:string}>>({});
+  const [savingFrameShots, setSavingFrameShots] = useState<Set<string>>(new Set());
 
   const [bibleAssets, setBibleAssets] = useState<BibleAsset[]>([]);
   const [bibleVariants, setBibleVariants] = useState<Record<string, BibleAssetVariant[]>>({});
@@ -517,19 +521,22 @@ export default function StoryboardPage() {
     }
   }
 
+  async function changeFrame(shotId: string, role: ShotFrameRole, operation: ()=>Promise<Result<null>>) {
+    setFrameErrors((previous)=>{const next={...previous};delete next[shotId];return next;});
+    setSavingFrameShots((previous)=>new Set(previous).add(shotId));
+    try {
+      const result=await withApplicationWork("saving",operation);
+      if(!result.ok) setFrameErrors((previous)=>({...previous,[shotId]:{role,message:result.error.message}}));
+    } catch {setFrameErrors((previous)=>({...previous,[shotId]:{role,message:"The frame change was not saved. Choose or upload it again, or keep the current frames."}}));}
+    finally {setSavingFrameShots((previous)=>{const next=new Set(previous);next.delete(shotId);return next;});}
+  }
   async function handleUploadFrame(shotId: string, role: ShotFrameRole, file: File) {
     if (!id) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      if (typeof e.target?.result !== "string") return;
-      try {
-        await setShotFrameFromDataUrl(shotId, role, e.target.result);
-      } catch (error) {
-        console.error("Failed to upload frame:", error);
-        alert("Failed to upload frame");
-      }
-    };
-    reader.readAsDataURL(file);
+    await changeFrame(shotId,role,async()=>{
+      const dataUrl=await blobToBase64(file);
+      await setShotFrameFromDataUrl(shotId,role,dataUrl);
+      return {ok:true,value:null};
+    });
   }
 
   // Set a shot's start or end frame from a base64 data URL.
@@ -547,32 +554,32 @@ export default function StoryboardPage() {
     setShots(updatedShots.map(shotFromShotWithUrls));
   }
 
+  async function handleClearStartFrame(shotId: string) {
+    await changeFrame(shotId,"start",async()=>{
+      const result=await clearShotStartFrame(shotId);
+      if(!result.ok) return result;
+      setShots((previous)=>previous.map((shot)=>shot.id===shotId?{...shot,image_url:null}:shot));
+      await refreshVersionData(shotId);
+      return {ok:true,value:null};
+    });
+  }
   async function handleClearEndFrame(shotId: string) {
     if (!id) return;
-    try {
-      await clearShotEndFrame(shotId);
-      const updatedShots = await getShots(id);
-      setShots(updatedShots.map(shotFromShotWithUrls));
-    } catch (error) {
-      console.error("Failed to clear end frame:", error);
-    }
+    await changeFrame(shotId,"end",async()=>{
+      const shot=await clearShotEndFrame(shotId);
+      if(!shot) return {ok:false,error:{code:"NOT_FOUND",message:"The shot no longer exists."}};
+      setShots((previous)=>previous.map((current)=>current.id===shotId?shotFromShotWithUrls(shot):current));
+      return {ok:true,value:null};
+    });
   }
-
-  // Use a frame composed in the Bible as the shot's start/end frame.
   async function handlePickFrame(shotId: string, role: ShotFrameRole, variantId: string) {
     if (!id) return;
-    try {
-      const dataUrl = await getBibleVariantImageBase64(variantId);
-      if (!dataUrl) {
-        alert("That frame has no image yet.");
-        return;
-      }
-      await setShotFrameFromDataUrl(shotId, role, dataUrl);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error("Failed to set frame:", message);
-      alert(`Failed to set frame: ${message}`);
-    }
+    await changeFrame(shotId,role,async()=>{
+      const dataUrl=await getBibleVariantImageBase64(variantId);
+      if(!dataUrl) return {ok:false,error:{code:"INVALID_INPUT",message:"That Bible frame has no image. Choose another frame or create one in the Bible."}};
+      await setShotFrameFromDataUrl(shotId,role,dataUrl);
+      return {ok:true,value:null};
+    });
   }
 
   // --- Copy Image from Another Shot ---
@@ -963,7 +970,10 @@ export default function StoryboardPage() {
             <ShotInspector
               generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={videoCostRequest} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
               frameLibraryHref={`/project/${storyboard.project_id}?view=bible&bibleTab=frames`}
-              generationDisabled={modelSaving || videoSettingsSaving || !!selectedVideoDraft || !!(selectedShotId && pendingVideoShots.has(selectedShotId))}
+              generationDisabled={modelSaving || videoSettingsSaving || !!selectedVideoDraft || !!(selectedShotId && (pendingVideoShots.has(selectedShotId) || savingFrameShots.has(selectedShotId) || frameErrors[selectedShotId]))}
+              frameError={selectedShotId ? frameErrors[selectedShotId] : null}
+              frameSaving={!!(selectedShotId && savingFrameShots.has(selectedShotId))}
+              onDismissFrameError={()=>{if(selectedShotId)setFrameErrors((previous)=>{const next={...previous};delete next[selectedShotId];return next;});}}
               generationPending={!!(selectedShotId && pendingVideoShots.has(selectedShotId))}
               videoSettingsSaving={videoSettingsSaving}
               videoSettingsError={selectedVideoDraft?.error ?? null}
@@ -991,6 +1001,7 @@ export default function StoryboardPage() {
               onPickFrame={handlePickFrame}
               onUploadFrame={handleUploadFrame}
               onClearEndFrame={handleClearEndFrame}
+              onClearStartFrame={handleClearStartFrame}
               onGenerateVideo={handleGenerateVideo}
               onCancelVideoGeneration={handleCancelVideoGeneration}
               onUpdateShot={(shotId, updates) => handleUpdateShot(shotId, updates)}
