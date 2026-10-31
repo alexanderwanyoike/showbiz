@@ -770,10 +770,11 @@ function FramesTab({
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
         />
-        <Button size="sm" className="text-xs" disabled={making || !prompt.trim()} onClick={makeFrame}>
+        <Button size="sm" className="text-xs" disabled={making || !prompt.trim() || (!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId))} onClick={makeFrame}>
           {making ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
           Make frame
         </Button>
+        {!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId) && <p className="mt-2 text-xs text-muted-foreground">Choose a model that accepts reference images to include these characters or locations.</p>}
       </div>
 
       {frames.length === 0 ? (
