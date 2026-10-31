@@ -57,9 +57,9 @@ describe("SettingsDialog", () => {
     await user.click(await screen.findByRole("button", { name: "Configure Google AI (Gemini)" }));
     await user.type(screen.getByLabelText("Google AI API key"), "draft-key");
     screen.getByRole("tab", { name: "Providers" }).focus();
-    await user.keyboard("{ArrowRight}");
+    await user.keyboard("{ArrowDown}");
     expect(await screen.findByRole("region", { name: "Application updates" })).toBeTruthy();
-    await user.keyboard("{ArrowLeft}");
+    await user.keyboard("{ArrowUp}");
     expect(screen.getByLabelText<HTMLInputElement>("Google AI API key").value).toBe("draft-key");
   });
 
