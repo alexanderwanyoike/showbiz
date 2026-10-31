@@ -61,6 +61,7 @@ export function createMcpSession(
   const invoke: Invoke = async (command, args) => {
     const result = await dispatch(command, args);
     if (isMutation(command)) revision++;
+    if (["create_project_document", "open_project_document", "close_project_document", "save_project_document_as", "import_legacy_project"].includes(command) && typeof result === "object" && result !== null && "ok" in result && result.ok === true) cache.clear();
     return result;
   };
   async function execute(input: unknown): Promise<McpResult> {
