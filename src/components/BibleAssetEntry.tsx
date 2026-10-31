@@ -77,7 +77,7 @@ export function BibleAssetEntry({ asset, takes, busy, builtFrom, basePrompt,
       <div className="bible-asset-controls">
         <section className="bible-asset-metadata"><h3>Current picture</h3>
           {primary?.prompt ? <p className="bible-asset-prompt">{primary.prompt}</p> : <p className="bible-asset-empty-prompt">No generation prompt recorded.</p>}
-          <dl><dt>Model</dt><dd>{pictureModel?.name ?? primary?.model_id ?? 'Not recorded'}</dd><dt>Source</dt><dd>{primary?.source_kind === 'uploaded' ? 'Uploaded picture' : primary?.source_kind === 'generated' ? 'Generated picture' : 'Not recorded'}</dd></dl>
+          <dl><dt>Model</dt><dd>{pictureModel?.name ?? primary?.model_id ?? 'Not recorded'}</dd><dt>Source</dt><dd>{primary ? { uploaded: 'Uploaded picture', generated: 'Generated picture', edited: 'Edited picture', imported: 'Imported picture' }[primary.source_kind] ?? 'Not recorded' : 'Not recorded'}</dd></dl>
           {asset.summary && <p>{asset.summary}</p>}{asset.description && <p>{asset.description}</p>}
           {builtFrom && <p>Built from: {builtFrom}</p>}
         </section>
