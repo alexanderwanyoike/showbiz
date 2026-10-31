@@ -64,6 +64,9 @@ afterEach(cleanup);
 it("opens a named picture dialog, returns keyboard focus on Escape, and exposes which take is selected", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Open Ada details" }),
+  );
   const preview = await screen.findByRole("button", {
     name: "View Ada picture",
   });
@@ -75,9 +78,6 @@ it("opens a named picture dialog, returns keyboard focus on Escape, and exposes 
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog", { name: "Picture preview" })).toBeNull();
   expect(document.activeElement).toBe(preview);
-  await user.click(
-    screen.getByRole("button", { name: "Picture actions for Ada" }),
-  );
   expect(
     screen
       .getByRole("button", { name: "Use take 1 for Ada" })
@@ -252,7 +252,7 @@ it("keeps frame references fixed while their generation request is running", asy
   expect(character.getAttribute("aria-pressed")).toBe("true");
 });
 
-it("opens picture commands from More, keeps edit drafts across Escape and returns focus", async () => {
+it("opens the detail workspace from More and keeps edit drafts across a library visit", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
   const more = await screen.findByRole("button", {
@@ -260,8 +260,8 @@ it("opens picture commands from More, keeps edit drafts across Escape and return
   });
   expect(screen.queryByRole("button", { name: "Retake" })).toBeNull();
   await user.click(more);
-  const commands = await screen.findByRole("dialog", {
-    name: "Picture actions for Ada",
+  const commands = await screen.findByRole("region", {
+    name: "Ada details",
   });
   expect(within(commands).getByRole("button", { name: "Retake" })).toBeTruthy();
   await user.click(within(commands).getByRole("button", { name: "Edit…" }));
@@ -269,12 +269,13 @@ it("opens picture commands from More, keeps edit drafts across Escape and return
     within(commands).getByRole("textbox", { name: "Edit instruction for Ada" }),
     "Warm light",
   );
-  await user.keyboard("{Escape}");
-  expect(
-    screen.queryByRole("dialog", { name: "Picture actions for Ada" }),
-  ).toBeNull();
-  expect(document.activeElement).toBe(more);
-  await user.click(more);
+  await user.click(
+    within(commands).getByRole("button", { name: "Back to library" }),
+  );
+  expect(screen.queryByRole("region", { name: "Ada details" })).toBeNull();
+  const reopened = screen.getByRole("button", { name: "Open Ada details" });
+  expect(document.activeElement).toBe(reopened);
+  await user.click(reopened);
   expect(
     (
       screen.getByRole("textbox", {
@@ -294,9 +295,7 @@ it("returns to the picture command when a take preview closes without changing i
   await user.click(preview);
   await screen.findByRole("dialog", { name: "Picture preview" });
   await user.keyboard("{Escape}");
-  expect(
-    screen.getByRole("dialog", { name: "Picture actions for Ada" }),
-  ).toBeTruthy();
+  expect(screen.getByRole("region", { name: "Ada details" })).toBeTruthy();
   expect(document.activeElement).toBe(preview);
   expect(
     screen

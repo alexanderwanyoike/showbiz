@@ -27,7 +27,7 @@ export function BiblePictureTile({
   const hintId = useId();
   const dims = size === "lg" ? "h-44 w-72" : "h-20 w-28";
   return (
-    <div className="relative">
+    <div className="bible-picture-tile relative">
       <button
         type="button"
         onClick={onClick ?? onExpand}
@@ -36,7 +36,7 @@ export function BiblePictureTile({
         aria-describedby={hint ? hintId : undefined}
         aria-pressed={active}
         title={actionLabel ?? label}
-        className={`relative block ${dims} overflow-hidden rounded border bg-muted text-[10px] transition-colors ${active ? "border-primary ring-2 ring-primary" : "border-border hover:border-foreground/40"}`}
+        className={`bible-picture-select relative block ${dims} overflow-hidden rounded border bg-muted text-[10px] transition-colors ${active ? "border-primary ring-2 ring-primary" : "border-border hover:border-foreground/40"}`}
       >
         {url ? (
           <img
@@ -60,12 +60,20 @@ export function BiblePictureTile({
           </span>
         )}
       </button>
-      {hint && <p id={hintId} className="mt-1 max-w-28 text-[10px] text-muted-foreground">{hint}</p>}
+      {hint && (
+        <p
+          id={hintId}
+          className="mt-1 max-w-28 text-[10px] text-muted-foreground"
+        >
+          {hint}
+        </p>
+      )}
       {onExpand && onClick && url && (
         <button
           type="button"
           onClick={onExpand}
-          className="absolute bottom-1 right-1 rounded bg-black/60 p-1 text-white hover:bg-black/80"
+          disabled={disabled}
+          className="bible-picture-expand absolute bottom-1 right-1"
           aria-label={`View ${label ?? "picture"}`}
           title={`View ${label ?? "picture"}`}
         >
@@ -77,7 +85,7 @@ export function BiblePictureTile({
           type="button"
           onClick={onDelete}
           disabled={disabled}
-          className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground opacity-80 hover:opacity-100"
+          className="bible-picture-delete absolute right-1 top-1"
           aria-label={`Delete ${label ?? "picture"}`}
           title={`Delete ${label ?? "picture"}`}
         >
