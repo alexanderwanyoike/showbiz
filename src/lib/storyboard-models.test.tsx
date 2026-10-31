@@ -13,7 +13,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import StoryboardPage from "../pages/StoryboardPage";
 import type { GenerationCostRequest } from "../../shared/generation-cost";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: ({request}: {request: GenerationCostRequest}) => createElement("output", {"aria-label": "Generation cost mode"}, request.mode ?? "unknown") }));
-import { setShotModels, updateStoryboardModels } from "./backend-api";
+import { setShotModels, updateStoryboardSettings } from "./backend-api";
 import { generateAndSaveVideoRequestAction } from "../actions/generation-actions";
 vi.stubGlobal(
   "ResizeObserver",
@@ -38,7 +38,7 @@ vi.mock("./backend-api", async (original) => ({
     image_model: "nano-banana-2",
     video_model: "seedance-2-fal",
   }),
-  updateStoryboardModels: vi.fn(async (id: string, image_model: string, video_model: string) => ({ id, project_id: "project", name: "Opening", image_model, video_model })),
+  updateStoryboardSettings: vi.fn(async (id: string, name: string, image_model: string, video_model: string) => ({ok:true,value:{id,project_id:"project",name,image_model,video_model}})),
   getShots: async () =>
     [1, 2].map((order) => ({
       id: `shot-${order}`,
@@ -207,7 +207,9 @@ it("edits model defaults from storyboard settings without requiring or changing 
   expect(within(settings).getByText("Model defaults", {exact:true})).toBeTruthy();
   await user.click(within(settings).getByRole("button", {name: "Storyboard image default"}));
   await user.click(screen.getByRole("option", {name: /GPT Image 2/}));
-  await waitFor(() => expect(updateStoryboardModels).toHaveBeenCalledWith("board", "gpt-image-2", "seedance-2-fal"));
+  expect(updateStoryboardSettings).not.toHaveBeenCalled();
+  await user.click(within(settings).getByRole("button",{name:"Save"}));
+  await waitFor(() => expect(updateStoryboardSettings).toHaveBeenCalledWith("board", "Opening", "gpt-image-2", "seedance-2-fal"));
   expect(setShotModels).not.toHaveBeenCalled();
 });
 
