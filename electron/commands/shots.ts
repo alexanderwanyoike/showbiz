@@ -1,3 +1,4 @@
+import { createShotModelCommands } from "./shot-models";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { generateId } from "../db";
@@ -17,6 +18,8 @@ export interface ShotWithUrls {
   storyboard_id: string;
   order: number;
   duration: number;
+  image_model: string | null;
+  video_model: string | null;
   image_prompt: string | null;
   image_path: string | null;
   end_frame_path: string | null;
@@ -38,6 +41,8 @@ interface ShotRow {
   storyboard_id: string;
   order: number;
   duration: number;
+  image_model: string | null;
+  video_model: string | null;
   image_prompt: string | null;
   image_path: string | null;
   end_frame_path: string | null;
@@ -48,7 +53,7 @@ interface ShotRow {
   updated_at: string;
 }
 
-const SHOT_COLUMNS = `id, storyboard_id, "order", duration, image_prompt, image_path,
+const SHOT_COLUMNS = `id, storyboard_id, "order", duration, image_prompt, image_model, video_model, image_path,
                       end_frame_path, video_prompt, video_path, status, created_at, updated_at`;
 
 /** Ported shot commands; names and JSON shapes match the retired Rust backend's commands/shots.rs. */
@@ -68,6 +73,8 @@ export function createShotCommands(db: DatabaseSync, mediaDir: string) {
       storyboard_id: row.storyboard_id,
       order: row.order,
       duration: row.duration,
+      image_model: row.image_model,
+      video_model: row.video_model,
       image_prompt: row.image_prompt,
       image_path: row.image_path,
       end_frame_path: row.end_frame_path,
@@ -348,6 +355,7 @@ export function createShotCommands(db: DatabaseSync, mediaDir: string) {
   }
 
   return {
+    ...createShotModelCommands(db),
     get_shots(args?: Record<string, unknown>): ShotWithUrls[] {
       return getShots(args!.storyboardId as string);
     },

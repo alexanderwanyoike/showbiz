@@ -36,6 +36,7 @@ const MUTATING_COMMANDS = new Set([
   "remove_all_timeline_clips",
   "remove_timeline_clip",
   "reorder_shots",
+  "set_shot_models",
   "save_and_complete_video",
   "save_api_key",
   "save_shot_end_frame",
