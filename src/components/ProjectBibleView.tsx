@@ -621,7 +621,7 @@ function AssetTab({
 
       {/* List */}
       {assets.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No {label}s yet. Make one above.</p>
+        <p className="text-sm text-muted-foreground">{label === "character" ? "No characters yet. Create one above." : "No locations yet. Create one above."}</p>
       ) : (
         <div className="space-y-3">
           {assets.map((asset) => {
@@ -750,7 +750,8 @@ function FramesTab({
                 key={c.id}
                 url={url}
                 label={c.name}
-                disabled={busyId !== null}
+                hint={!url ? "Add a picture first" : undefined}
+                disabled={busyId !== null || !url}
                 active={selectedChars.has(c.id)}
                 onClick={() => toggleChar(c.id)}
                 onExpand={() => url && onExpand(url)}
@@ -769,7 +770,8 @@ function FramesTab({
                 key={l.id}
                 url={url}
                 label={l.name}
-                disabled={busyId !== null}
+                hint={!url ? "Add a picture first" : undefined}
+                disabled={busyId !== null || !url}
                 active={locationId === l.id}
                 onClick={() => pickLocation(l.id)}
                 onExpand={() => url && onExpand(url)}
