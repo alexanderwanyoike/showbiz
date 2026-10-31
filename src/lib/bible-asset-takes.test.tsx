@@ -40,3 +40,39 @@ it('blocks conflicting take actions while saving a new current take', async () =
     expect(screen.getByRole('button', { name: 'Delete Ada' }).hasAttribute('disabled')).toBe(true);
   } finally { await act(async () => { finish?.(); }); }
 });
+
+it('keeps a primary-take deletion pending, then selects the surviving take and restores focus', async () => {
+  let finish: (() => void) | undefined;
+  state.remove.mockImplementationOnce((id) => new Promise<void>((resolve) => { finish = resolve; }).then(() => {
+    state.removed.add(id); state.primary = 'take-2'; return true;
+  }));
+  render(<ProjectBibleView projectId="film" />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Open Ada details' }));
+  await user.click(screen.getByRole('button', { name: 'Delete take 1 for Ada' }));
+  const confirmation = await screen.findByRole('alertdialog', { name: 'Delete picture' });
+  try {
+    await user.click(within(confirmation).getByRole('button', { name: 'Delete picture' }));
+    expect(within(confirmation).getByRole('button', { name: 'Deleting…' }).hasAttribute('disabled')).toBe(true);
+    expect(within(confirmation).getByRole('button', { name: 'Cancel' }).hasAttribute('disabled')).toBe(true);
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('alertdialog', { name: 'Delete picture' })).toBeTruthy();
+  } finally { await act(async () => { finish?.(); }); }
+  expect(screen.queryByRole('button', { name: 'Use take 1 for Ada' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Use take 2 for Ada' }).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByRole('img', { name: 'Ada current take' }).getAttribute('src')).toBe('/take-2.png');
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'View Ada picture' }));
+});
+
+it('keeps the saved current picture and shows a retryable selection error', async () => {
+  state.update.mockRejectedValueOnce(new Error('Current take could not be saved.'));
+  render(<ProjectBibleView projectId="film" />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Open Ada details' }));
+  await user.click(screen.getByRole('button', { name: 'Use take 2 for Ada' }));
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Current take could not be saved.');
+  expect(screen.getByRole('img', { name: 'Ada current take' }).getAttribute('src')).toBe('/take-1.png');
+  await user.click(screen.getByRole('button', { name: 'Use take 2 for Ada' }));
+  expect(screen.getByRole('img', { name: 'Ada current take' }).getAttribute('src')).toBe('/take-2.png');
+  expect(screen.queryByRole('alert')).toBeNull();
+});
