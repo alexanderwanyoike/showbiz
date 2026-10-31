@@ -63,6 +63,8 @@ it("keeps project views in one navigator that can be opened from any workspace",
   const navigator = await screen.findByRole("navigation", {
     name: "Project navigator",
   });
+  screen.getByRole("button", { name: "Project navigator" }).focus();
+  expect(await screen.findByRole("tooltip", { name: "Project navigator" })).toBeTruthy();
   await user.click(
     await within(navigator).findByRole("link", { name: "Opening scene" }),
   );

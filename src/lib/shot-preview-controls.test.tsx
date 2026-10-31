@@ -24,7 +24,10 @@ it("offers a named stop control that returns playback to the selected frame", as
     }),
   );
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Play (Space)" }));
+  const play = screen.getByRole("button", { name: "Play (Space)" });
+  play.focus();
+  expect(await screen.findByRole("tooltip", { name: "Play (Space)" })).toBeTruthy();
+  await user.click(play);
   await user.click(screen.getByRole("button", { name: "Stop preview" }));
   expect(screen.getByRole("img", { name: "Shot 1" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Play (Space)" })).toBeTruthy();
