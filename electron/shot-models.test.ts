@@ -6,7 +6,7 @@ it("persists independent shot model overrides and restores inheritance without c
   const db = openTestDb();
   try {
     db.prepare("INSERT INTO projects(id,name) VALUES ('project','Film')").run();
-    db.prepare("INSERT INTO storyboards(id,project_id,name) VALUES ('board','project','Opening')").run();
+    db.prepare("INSERT INTO storyboards(id,project_id,name,image_model,video_model) VALUES ('board','project','Opening','imagen4','seedance-2-fal')").run();
     const commands = createShotCommands(db, "/unused-media");
     const first = commands.create_shot({storyboardId:"board"});
     const second = commands.create_shot({storyboardId:"board"});
