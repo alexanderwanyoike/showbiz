@@ -14,7 +14,8 @@ import '../usage.css';
 
 export default function UsagePage() {
   const { id } = useParams();
-  const [offset, setOffset] = useState(0);
+  const [pagination, setPagination] = useState({ projectId: id, offset: 0 });
+  const offset = pagination.projectId === id ? pagination.offset : 0;
   const [refresh, setRefresh] = useState(0);
   const [data, setData] = useState<UsageWithBilling | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,8 +74,8 @@ export default function UsagePage() {
         </div>
         <footer className="usage-pagination" aria-label="Request pagination">
           <span>{data ? data.total_count ? `${offset + 1} to ${Math.min(offset + data.items.length, data.total_count)} of ${data.total_count} requests` : '0 requests' : 'Project requests'}</span>
-          <Button variant="ghost" size="sm" disabled={loading || offset === 0} onClick={() => setOffset((value) => Math.max(0, value - 50))}>Previous</Button>
-          <Button variant="ghost" size="sm" disabled={!data || offset + 50 >= data.total_count} onClick={() => setOffset((value) => value + 50)}>Next</Button>
+          <Button variant="ghost" size="sm" disabled={loading || offset === 0} onClick={() => setPagination({ projectId: id, offset: Math.max(0, offset - 50) })}>Previous</Button>
+          <Button variant="ghost" size="sm" disabled={!data || offset + 50 >= data.total_count} onClick={() => setPagination({ projectId: id, offset: offset + 50 })}>Next</Button>
         </footer>
       </div>
     </div>
