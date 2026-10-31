@@ -26,5 +26,5 @@ it("keeps native View accelerators aligned with the integrated zoom and fullscre
   expect(menu.find(item=>item.label==="&View")?.submenu).toEqual([
     {role:"resetZoom"},{role:"zoomIn"},{role:"zoomOut"},{type:"separator"},{role:"togglefullscreen"},
   ]);
-  expect(menu.some(item=>item.role==="viewMenu")).toBe(false);
+  expect(menu).not.toContainEqual({role:"viewMenu"});
 });
