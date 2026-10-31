@@ -56,17 +56,17 @@ export function ShotVideoSettings({
     },
   ];
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="shot-output-settings">
       {fields
         .filter((field) => field.options.length > 0)
         .map((field) => {
           const value = videoSettings[field.key] ?? field.options[0];
           const fieldId = `${id}-${field.key}`;
           return (
-            <div className="space-y-1" key={field.key}>
+            <div className="shot-output-field" key={field.key}>
               <label
                 htmlFor={fieldId}
-                className="text-[11px] font-medium text-muted-foreground"
+                className="shot-output-label"
               >
                 {field.label}
               </label>
@@ -74,7 +74,7 @@ export function ShotVideoSettings({
                 <output
                   id={fieldId}
                   aria-label={field.accessibleName}
-                  className="flex h-8 items-center text-xs"
+                  className="shot-output-value text-xs"
                 >
                   {field.format(value)}
                 </output>
@@ -92,7 +92,7 @@ export function ShotVideoSettings({
                   <SelectTrigger
                     id={fieldId}
                     aria-label={field.accessibleName}
-                    className="h-8 text-xs"
+                    className="shot-output-select text-xs"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -109,10 +109,10 @@ export function ShotVideoSettings({
           );
         })}
       {videoModel.capabilities.hasAudio && (
-        <div className="flex items-center justify-between gap-2 self-end rounded border border-border/50 px-2 py-1.5">
+        <div className="shot-output-field">
           <label
             htmlFor={`${id}-audio`}
-            className="text-[11px] font-medium text-muted-foreground"
+            className="shot-output-label"
           >
             Audio
           </label>

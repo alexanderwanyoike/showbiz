@@ -1,3 +1,4 @@
+import "../../shot-workspace.css";
 import { WorkspaceCommand } from "../WorkspaceCommand";
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
@@ -21,7 +22,7 @@ export function StoryboardLayout({
 }: StoryboardLayoutProps) {
   return (
     <div
-      className={`storyboard-workspace ${controlsOpen ? "has-inspector" : ""}`}
+      className={`storyboard-workspace shot-workspace ${controlsOpen ? "has-inspector" : ""}`}
     >
       <section className="canvas-preview" aria-label="Shot preview">
         {previewSlot}
