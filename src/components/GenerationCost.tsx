@@ -14,10 +14,17 @@ import type { GenerationCostRequest } from "../../shared/generation-cost";
 import type { GenerationSubject } from "../lib/model-generation-accounting";
 
 const outcomeLabels: Record<GenerationUsage["status"], string> = {
-  running: "Running", completed: "Completed", failed: "Failed", cancelled: "Cancelled", interrupted: "Interrupted",
+  running: "Running",
+  completed: "Completed",
+  failed: "Failed",
+  cancelled: "Cancelled",
+  interrupted: "Interrupted",
 };
 const operationLabels: Record<GenerationUsage["kind"], string> = {
-  image: "Image generation", image_edit: "Image edit", image_compose: "Image composition", video: "Video generation",
+  image: "Image generation",
+  image_edit: "Image edit",
+  image_compose: "Image composition",
+  video: "Video generation",
 };
 
 export interface GenerationCostProps {
@@ -35,13 +42,16 @@ export function GenerationCost({
     request,
     subject,
   );
-  const models = [
-    ...getAvailableImageModels(),
-    ...getAvailableVideoModels(),
-  ];
+  const models = [...getAvailableImageModels(), ...getAvailableVideoModels()];
   const model = models.find((entry) => entry.id === modelId);
-  const lastModel = models.find((entry) => entry.id === last?.model_id && entry.apiKeyProvider === last?.provider);
-  const lastProvider = API_KEY_PROVIDERS.find((entry) => entry.id === last?.provider)?.name ?? last?.provider ?? "Unknown provider";
+  const lastModel = models.find(
+    (entry) =>
+      entry.id === last?.model_id && entry.apiKeyProvider === last?.provider,
+  );
+  const lastProvider =
+    API_KEY_PROVIDERS.find((entry) => entry.id === last?.provider)?.name ??
+    last?.provider ??
+    "Unknown provider";
   const provider = model?.apiKeyProvider;
   let previous = last ? "Final charge unknown" : null;
   if (last?.reported_microusd != null)
@@ -85,9 +95,17 @@ export function GenerationCost({
           Last request: {previous}
         </output>
       )}
-      {last && <p aria-label="Last request details" className="break-words text-muted-foreground">
-        <span>{operationLabels[last.kind]}</span> · <span>{lastModel?.name ?? last.model_id}</span> · <span>{lastProvider}</span> · <span>{outcomeLabels[last.status]}</span>
-      </p>}
+      {last && (
+        <p
+          aria-label="Last request details"
+          className="break-words text-muted-foreground"
+        >
+          <span>{operationLabels[last.kind]}</span> ·{" "}
+          <span>{lastModel?.name ?? last.model_id}</span> ·{" "}
+          <span>{lastProvider}</span> ·{" "}
+          <span>{outcomeLabels[last.status]}</span>
+        </p>
+      )}
       {error && (
         <p role="status" className="text-muted-foreground">
           {error}

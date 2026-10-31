@@ -24,7 +24,8 @@ const kinds = new Set(["image", "image_edit", "image_compose", "video"]);
 
 function familyFilter(family: "image" | "video" | null) {
   if (family === "video") return " AND kind = 'video'";
-  if (family === "image") return " AND kind IN ('image','image_edit','image_compose')";
+  if (family === "image")
+    return " AND kind IN ('image','image_edit','image_compose')";
   return "";
 }
 
@@ -196,7 +197,8 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
       execute(() => {
         if (
           (args.reported_microusd !== null && !money(args.reported_microusd)) ||
-          (args.reported_microusd === null && !identifier(args.provider_request_id)) ||
+          (args.reported_microusd === null &&
+            !identifier(args.provider_request_id)) ||
           (args.provider_request_id != null &&
             !identifier(args.provider_request_id))
         )
@@ -246,7 +248,8 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
         if (subject !== null && !identifier(subject))
           return invalid("The generation subject is invalid.");
         const family = args.kind_family ?? null;
-        if (family !== null && family !== "image" && family !== "video") return invalid("Choose a valid generation family.");
+        if (family !== null && family !== "image" && family !== "video")
+          return invalid("Choose a valid generation family.");
         const limit = args.limit ?? 50;
         const offset = args.offset ?? 0;
         if (
