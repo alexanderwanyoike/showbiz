@@ -226,3 +226,15 @@ it("accounts for editing and reference composition as distinct image operations"
     db.close();
   }
 });
+it("quotes and records the stored end frame before submitting the effective video request", async () => {
+  const db = openTestDb();
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = { ...createGenerationUsageCommands(db), ...createGenerationPricingCommands(db) };
+    commands.save_generation_price({ kind: "video", price: { provider: "openrouter", model_id: "veo-3.1-openrouter", currency: "USD", source_kind: "manual", source_url: "", checked_at: new Date().toISOString(), rates: [{ unit: "second", microusd: 100000 }] } });
+    mocks.invoke.mockImplementation(async (command: string, args) => command === "get_api_key" ? "key" : command === "get_project_document_state" ? { ok: true, value: { current: { project_id: "film" } } } : command === "get_shot_image_base64" ? "data:image/png;base64,c3RhcnQ=" : command === "get_shot_end_frame_base64" ? "data:image/png;base64,ZW5k" : commands[command]?.(args));
+    mocks.fetch.mockImplementation(async (url: string) => url.endsWith("/videos") ? new Response(JSON.stringify({ id: "job", status: "pending" })) : url.includes("/content") ? new Response("video", { headers: { "content-type": "video/mp4" } }) : new Response(JSON.stringify({ id: "job", status: "completed", usage: { cost: 0.8 } })));
+    expect(await generateAndSaveVideoRequestAction("shot", "veo-3.1-openrouter", { mode: "image-to-video", prompt: "morning", settings: { duration: "8s", resolution: "720p", audio: true } })).toMatchObject({ success: true });
+    expect(commands.get_generation_usage({ project_id: "film" })).toMatchObject({ ok: true, value: { items: [{ settings: { mode: "image-to-video", has_end_frame: true } }] } });
+  } finally { db.close(); }
+});
