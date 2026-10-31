@@ -360,3 +360,17 @@ it("keeps the saved key and replacement draft when saving the replacement fails"
   expect(api.deleteApiKeyAction).not.toHaveBeenCalled();
   alert.mockRestore();
 });
+it("saves a replacement directly and returns to the saved-key controls", async () => {
+  api.getApiKeyStatusAction.mockResolvedValue(API_KEY_PROVIDERS.map((provider) => ({ provider: provider.id, name: provider.name, is_configured: provider.id === "fal", source: provider.id === "fal" ? "database" : null })));
+  api.saveApiKeyAction.mockResolvedValue({ success: true });
+  render(createElement(SettingsDialog, { open: true, onOpenChange: vi.fn() }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Configure fal.ai" }));
+  await user.click(screen.getByRole("button", { name: "Replace fal.ai API key" }));
+  await user.type(screen.getByLabelText("fal.ai API key"), "replacement-key");
+  await user.click(screen.getByRole("button", { name: "Save replacement" }));
+  expect(await screen.findByRole("button", { name: "Remove fal.ai API key" })).toBeTruthy();
+  expect(api.saveApiKeyAction).toHaveBeenCalledWith("fal", "replacement-key");
+  expect(api.deleteApiKeyAction).not.toHaveBeenCalled();
+  expect(screen.queryByLabelText("fal.ai API key")).toBeNull();
+});
