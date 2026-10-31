@@ -148,7 +148,7 @@ it("keeps a failed creation name for retry, prevents duplicate submits and opens
   });
   observer.observe(document.body, { childList: true, subtree: true });
   commands.create.mockImplementationOnce(async () => {
-    applicationWork.receive({ active: [], unsaved: ["draft"], closing: false });
+    applicationWork.receive({ active: ["export"], unsaved: ["draft"], closing: false });
     return { ...opening, id: "second", name: "Second scene" };
   });
   await user.click(
@@ -164,6 +164,7 @@ it("keeps a failed creation name for retry, prevents duplicate submits and opens
   expect(commands.create).toHaveBeenLastCalledWith("film", "Second scene");
   expect(applicationWork.snapshot().unsaved).not.toContain("draft");
   expect(applicationWork.getStatus().unsaved).toContain("draft");
+  expect(applicationWork.getStatus().active).toContain("export");
   expect(
     screen.queryByRole("alertdialog", { name: "Discard unsaved changes?" }),
   ).toBeNull();
