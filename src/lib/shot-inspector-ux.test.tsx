@@ -86,6 +86,7 @@ it("keeps the main generation action visible while collapsing settings and offer
     ...inspectorProps("seedance-2-fal"),
     frameLibraryHref: "/project/film?view=bible&bibleTab=frames",
   };
+  props.shot = {...props.shot!,image_url:null};
   render(
     createElement(MemoryRouter, null, createElement(ShotInspector, props)),
   );
@@ -201,6 +202,7 @@ it("edits the selected image take and explains unavailable editing", async () =>
   expect(
     screen.getByRole("button", { name: "Edit frame for shot 1" }),
   ).toHaveProperty("disabled", true);
+  await userEvent.setup().click(screen.getByRole("button",{name:"About frame editing"}));
   expect(
     screen.getByText(
       "Frame editor does not support editing. Choose an editing model in Models for this shot.",
@@ -217,6 +219,7 @@ it("edits the selected image take and explains unavailable editing", async () =>
   expect(
     screen.getByRole("button", { name: "Edit frame for shot 1" }),
   ).toHaveProperty("disabled", true);
+  await userEvent.setup().click(screen.getByRole("button",{name:"About frame editing"}));
   expect(
     screen.getByText("Choose or upload a frame to create an editable take."),
   ).toBeTruthy();
