@@ -30,7 +30,7 @@ function setup() {
     invoke: <T>(command: string, args?: Record<string, unknown>) => runtime.invoke(1, command, args, commands) as Promise<T>,
     onApplicationWork: subscribe("showbiz:application_work"),
     onPrepareShutdown: subscribe("showbiz:prepare_shutdown"),
-    onUpdateStatus: () => () => {}, onExportProgress: () => () => {}, readMediaBytes: async () => new Uint8Array(),
+    onUpdateStatus: () => () => {}, readMediaBytes: async () => new Uint8Array(),
   };
   disconnect = connectApplicationWork();
   return { runtime, commands, confirm, events, commit };

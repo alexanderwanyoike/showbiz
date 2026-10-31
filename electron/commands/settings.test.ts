@@ -104,7 +104,7 @@ describe("delete_api_key", () => {
 });
 
 describe("get_api_key_status", () => {
-  it("lists the six providers with their display names in order", () => {
+  it("lists the configured provider catalog with their display names in order", () => {
     const commands = createSettingsCommands(openTestDb());
     const statuses = commands.get_api_key_status();
     expect(statuses).toEqual([
@@ -113,7 +113,10 @@ describe("get_api_key_status", () => {
       { provider: "ltx", name: "LTX Video", is_configured: false, source: null },
       { provider: "kie", name: "Kie AI", is_configured: false, source: null },
       { provider: "fal", name: "fal.ai", is_configured: false, source: null },
+      { provider: "fal-billing", name: "fal.ai billing", is_configured: false, source: null },
       { provider: "replicate", name: "Replicate", is_configured: false, source: null },
+      { provider: "openrouter", name: "OpenRouter", is_configured: false, source: null },
+      { provider: "local", name: "LocalAI", is_configured: false, source: null },
     ]);
   });
 
@@ -156,4 +159,28 @@ describe("get_api_key_status", () => {
       vi.unstubAllEnvs();
     }
   });
+});
+it("keeps an optional FAL billing-only credential separate from the inference key", () => {
+  const db = openTestDb();
+  try {
+    const commands = createSettingsCommands(db);
+    commands.save_api_key({ provider: "fal", apiKey: "generation-key" });
+    commands.save_api_key({ provider: "fal-billing", apiKey: "billing-key" });
+    expect(commands.get_api_key({ provider: "fal" })).toBe("generation-key");
+    expect(commands.get_api_key({ provider: "fal-billing" })).toBe("billing-key");
+    expect(commands.get_api_key_status()).toContainEqual(expect.objectContaining({ provider: "fal-billing", is_configured: true }));
+  } finally { db.close(); }
+});
+it("invalidates cached account prices when a provider key changes and retains manual estimates", () => {
+  const db = openTestDb();
+  try {
+    const commands = createSettingsCommands(db);
+    commands.save_api_key({ provider: "fal", apiKey: "old-key" });
+    const price = { provider: "fal", model_id: "account-specific-fal", currency: "USD", source_kind: "provider", source_url: "https://api.fal.ai/v1/models/pricing", checked_at: new Date().toISOString(), rates: [{ unit: "image", microusd: 25000 }] };
+    commands.save_generation_price({ kind: "image", price });
+    commands.save_generation_price({ kind: "image", price: { ...price, model_id: "manual-fal", source_kind: "manual" } });
+    commands.save_api_key({ provider: "fal", apiKey: "new-key" });
+    expect(commands.get_generation_price({ kind: "image", model_id: "account-specific-fal" })).toEqual({ ok: true, value: null });
+    expect(commands.get_generation_price({ kind: "image", model_id: "manual-fal" })).toMatchObject({ ok: true, value: { source_kind: "manual" } });
+  } finally { db.close(); }
 });

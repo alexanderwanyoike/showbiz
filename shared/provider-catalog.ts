@@ -35,11 +35,34 @@ export const API_KEY_PROVIDERS = [
     order: 50,
   },
   {
+    id: "fal-billing",
+    name: "fal.ai billing",
+    credentialLabel: "fal.ai billing key (optional)",
+    helpText:
+      "Optional billing-only key using the BILLING preset with billing:usage:read, auth:keys:read and account:users:read. Generation continues using your separate fal.ai API key.",
+    order: 55,
+  },
+  {
     id: "replicate",
     name: "Replicate",
     credentialLabel: "Replicate API token",
     helpText: "Use an API token from your Replicate account.",
     order: 60,
+  },
+  {
+    id: "openrouter",
+    name: "OpenRouter",
+    credentialLabel: "OpenRouter API key",
+    helpText: "Use an API key from your OpenRouter account.",
+    order: 70,
+  },
+  {
+    id: "local",
+    name: "LocalAI",
+    credentialLabel: "Local server API key (optional)",
+    helpText:
+      "Only needed if your LocalAI server requires authentication. Configure its address and installed models below.",
+    order: 80,
   },
 ] as const;
 
@@ -64,7 +87,7 @@ export interface ApiKeyStatus {
 }
 
 const API_KEY_PROVIDER_IDS = new Set<string>(
-  API_KEY_PROVIDERS.map((provider) => provider.id)
+  API_KEY_PROVIDERS.map((provider) => provider.id),
 );
 
 export function isApiKeyProvider(value: string): value is ApiKeyProvider {
