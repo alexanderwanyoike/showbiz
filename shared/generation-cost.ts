@@ -71,7 +71,8 @@ export function estimateGenerationCost(
   if (!Number.isSafeInteger(rate.microusd) || rate.microusd < 0)
     return unavailable("The provider rate is invalid.");
   const maximum = rate.max_microusd ?? rate.microusd;
-  if (!Number.isSafeInteger(maximum) || maximum < rate.microusd) return unavailable("The provider rate range is invalid.");
+  if (!Number.isSafeInteger(maximum) || maximum < rate.microusd)
+    return unavailable("The provider rate range is invalid.");
   let units: [number, number] = [1, 1];
   if (rate.unit === "second") {
     if (request.kind !== "video")
@@ -101,7 +102,10 @@ export function estimateGenerationCost(
     units[1] < units[0]
   )
     return unavailable("The generation quantity is invalid.");
-  const amounts = [Math.round(units[0] * count * rate.microusd), Math.round(units[1] * count * maximum)];
+  const amounts = [
+    Math.round(units[0] * count * rate.microusd),
+    Math.round(units[1] * count * maximum),
+  ];
   if (amounts.some((value) => !Number.isSafeInteger(value)))
     return unavailable("The estimated amount is too large.");
   const checked = Date.parse(price.checked_at);

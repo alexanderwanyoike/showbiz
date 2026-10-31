@@ -3,10 +3,24 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { invoke } from "../lib/bridge";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
-import type { GenerationCostRequest, GenerationPrice, GenerationPriceRate } from "../../shared/generation-cost";
+import type {
+  GenerationCostRequest,
+  GenerationPrice,
+  GenerationPriceRate,
+} from "../../shared/generation-cost";
 import type { Result } from "../../shared/result";
 
-export function GenerationRateEditor({modelId, provider, request, price}: {modelId: string; provider: string; request: GenerationCostRequest; price?: GenerationPrice}) {
+export function GenerationRateEditor({
+  modelId,
+  provider,
+  request,
+  price,
+}: {
+  modelId: string;
+  provider: string;
+  request: GenerationCostRequest;
+  price?: GenerationPrice;
+}) {
   const [amount, setAmount] = useState("");
   const [source, setSource] = useState("");
   const [saving, setSaving] = useState(false);
@@ -17,32 +31,147 @@ export function GenerationRateEditor({modelId, provider, request, price}: {model
   async function save() {
     const usd = Number(amount);
     const microusd = Math.round(usd * 1000000);
-    if (!amount.trim() || !Number.isFinite(usd) || usd < 0 || !Number.isSafeInteger(microusd) || (usd > 0 && microusd === 0)) { setError("Enter a valid USD rate, at least $0.000001 for a nonzero amount."); return; }
-    const rate: GenerationPriceRate = {unit, microusd, kind: request.kind, ...(request.resolution ? {resolution: request.resolution} : {}), ...(request.audio !== undefined ? {audio: request.audio} : {})};
-    const basis: GenerationPrice = {provider, model_id: modelId, currency: "USD", source_kind: "manual", source_url: source.trim(), checked_at: new Date().toISOString(), rates: [rate]};
-    setSaving(true); setError(null); setNotice(null);
+    if (
+      !amount.trim() ||
+      !Number.isFinite(usd) ||
+      usd < 0 ||
+      !Number.isSafeInteger(microusd) ||
+      (usd > 0 && microusd === 0)
+    ) {
+      setError(
+        "Enter a valid USD rate, at least $0.000001 for a nonzero amount.",
+      );
+      return;
+    }
+    const rate: GenerationPriceRate = {
+      unit,
+      microusd,
+      kind: request.kind,
+      ...(request.resolution ? { resolution: request.resolution } : {}),
+      ...(request.audio !== undefined ? { audio: request.audio } : {}),
+    };
+    const basis: GenerationPrice = {
+      provider,
+      model_id: modelId,
+      currency: "USD",
+      source_kind: "manual",
+      source_url: source.trim(),
+      checked_at: new Date().toISOString(),
+      rates: [rate],
+    };
+    setSaving(true);
+    setError(null);
+    setNotice(null);
     try {
-      const result = await invoke<Result<GenerationPrice>>("save_generation_price", {kind: request.kind, price: basis});
+      const result = await invoke<Result<GenerationPrice>>(
+        "save_generation_price",
+        { kind: request.kind, price: basis },
+      );
       if (!result.ok) setError(result.error.message);
-      else { setAmount(""); setSource(""); setNotice("Rate saved on this device."); window.dispatchEvent(new Event("showbiz:pricing-changed")); }
-    } catch { setError("Could not save the rate on this device."); }
-    finally { setSaving(false); }
+      else {
+        setAmount("");
+        setSource("");
+        setNotice("Rate saved on this device.");
+        window.dispatchEvent(new Event("showbiz:pricing-changed"));
+      }
+    } catch {
+      setError("Could not save the rate on this device.");
+    } finally {
+      setSaving(false);
+    }
   }
   async function reset() {
-    setSaving(true); setError(null); setNotice(null);
+    setSaving(true);
+    setError(null);
+    setNotice(null);
     try {
-      const result = await invoke<Result<null>>("clear_generation_price", {model_id: modelId, kind: request.kind});
+      const result = await invoke<Result<null>>("clear_generation_price", {
+        model_id: modelId,
+        kind: request.kind,
+      });
       if (!result.ok) setError(result.error.message);
-      else { setAmount(""); setSource(""); setNotice("Provider pricing restored."); window.dispatchEvent(new Event("showbiz:pricing-changed")); }
-    } catch { setError("Could not reset the saved rate."); }
-    finally { setSaving(false); }
+      else {
+        setAmount("");
+        setSource("");
+        setNotice("Provider pricing restored.");
+        window.dispatchEvent(new Event("showbiz:pricing-changed"));
+      }
+    } catch {
+      setError("Could not reset the saved rate.");
+    } finally {
+      setSaving(false);
+    }
   }
-  return <fieldset disabled={saving} className="mt-2 space-y-2">
-    <p>Use a provider rate or your own estimate for local compute. This rate applies to the selected resolution and audio settings.</p>
-    <label className="grid gap-1">USD per {unit}<Input type="number" min="0" step="0.000001" aria-label={`USD per ${unit}`} value={amount} onChange={event => {setAmount(event.target.value); setNotice(null);}} className="h-8 text-xs" /></label>
-    <label className="grid gap-1">Pricing source URL (optional)<Input type="url" aria-label="Pricing source URL (optional)" value={source} onChange={event => setSource(event.target.value)} className="h-8 text-xs" placeholder="https://…" /></label>
-    {error && <p role="alert" className="text-destructive">{error}</p>}
-    {notice && <p role="status">{notice}</p>}
-    <div className="flex flex-wrap gap-2"><Button type="button" size="sm" disabled={saving || !amount.trim()} onClick={() => void save()}>Save rate</Button><Button type="button" variant="ghost" size="sm" onClick={() => {setAmount("");setSource("");setError(null);}}>Cancel</Button>{price?.source_kind === "manual" && <Button type="button" variant="outline" size="sm" onClick={() => void reset()}>Use provider rate</Button>}</div>
-  </fieldset>;
+  return (
+    <fieldset disabled={saving} className="mt-2 space-y-2">
+      <p>
+        Use a provider rate or your own estimate for local compute. This rate
+        applies to the selected resolution and audio settings.
+      </p>
+      <label className="grid gap-1">
+        USD per {unit}
+        <Input
+          type="number"
+          min="0"
+          step="0.000001"
+          aria-label={`USD per ${unit}`}
+          value={amount}
+          onChange={(event) => {
+            setAmount(event.target.value);
+            setNotice(null);
+          }}
+          className="h-8 text-xs"
+        />
+      </label>
+      <label className="grid gap-1">
+        Pricing source URL (optional)
+        <Input
+          type="url"
+          aria-label="Pricing source URL (optional)"
+          value={source}
+          onChange={(event) => setSource(event.target.value)}
+          className="h-8 text-xs"
+          placeholder="https://…"
+        />
+      </label>
+      {error && (
+        <p role="alert" className="text-destructive">
+          {error}
+        </p>
+      )}
+      {notice && <p role="status">{notice}</p>}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          disabled={saving || !amount.trim()}
+          onClick={() => void save()}
+        >
+          Save rate
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setAmount("");
+            setSource("");
+            setError(null);
+          }}
+        >
+          Cancel
+        </Button>
+        {price?.source_kind === "manual" && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void reset()}
+          >
+            Use provider rate
+          </Button>
+        )}
+      </div>
+    </fieldset>
+  );
 }
