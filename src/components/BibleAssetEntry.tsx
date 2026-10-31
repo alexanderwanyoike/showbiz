@@ -70,6 +70,9 @@ export function BibleAssetEntry({
   onExpand: (url: string) => void;
 }) {
   const primary = primaryPicture(takes);
+  const orderedTakes = [...takes].sort((left, right) =>
+    ((Date.parse(left.created_at) || 0) - (Date.parse(right.created_at) || 0)) || left.id.localeCompare(right.id),
+  );
   const pictureModel = getAvailableImageModels().find(
     (model) => model.id === primary?.model_id,
   );
@@ -83,6 +86,15 @@ export function BibleAssetEntry({
   const opener = useRef<HTMLButtonElement>(null);
   const back = useRef<HTMLButtonElement>(null);
   const wasActive = useRef(false);
+  const takeFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!active) { takeFocus.current = null; return; }
+    if (!busy && takeFocus.current) {
+      const target = takeFocus.current;
+      takeFocus.current = null;
+      if (target.isConnected && document.activeElement === document.body) target.focus();
+    }
+  }, [active, busy]);
   useEffect(() => {
     if (active) back.current?.focus();
     else if (wasActive.current) opener.current?.focus();
@@ -200,7 +212,7 @@ export function BibleAssetEntry({
               <span>{takes.length} · Select a take to use it</span>
             </div>
             <div className="bible-asset-take-list">
-              {takes.map((take, index) => (
+              {orderedTakes.map((take, index) => (
                 <BiblePictureTile
                   key={take.id}
                   url={take.media_url}
@@ -208,7 +220,10 @@ export function BibleAssetEntry({
                   actionLabel={`Use take ${index + 1} for ${asset.name}`}
                   disabled={busy}
                   active={take.is_primary}
-                  onClick={() => onSetPrimary(take)}
+                  onClick={() => {
+                    takeFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+                    onSetPrimary(take);
+                  }}
                   onDelete={() => onDeleteTake(take)}
                   onExpand={() => take.media_url && onExpand(take.media_url)}
                 />
