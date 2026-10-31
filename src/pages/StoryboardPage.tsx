@@ -1,3 +1,7 @@
+import { ShotModelControls } from "../components/ShotModelControls";
+import { resolveShotModels } from "../lib/shot-models";
+import { DEFAULT_STORYBOARD_MODELS } from "../../shared/model-defaults";
+import type { ShotModelOverrides } from "../../shared/shot-models";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -24,11 +28,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ModelPicker } from "../components/ModelPicker";
 import {
   getStoryboard,
   updateStoryboard,
   updateStoryboardModels,
+  setShotModels,
   getShots,
   createShot,
   updateShot,
@@ -84,8 +88,6 @@ import {
   VideoModelId,
   getAvailableImageModels,
   getAvailableVideoModels,
-  getGroupedVideoModels,
-  getGroupedImageModels,
 } from "../lib/models";
 import type { VideoGenerationSettings } from "../lib/models/types";
 import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
@@ -100,7 +102,7 @@ import {
   type GenerationRunMap,
 } from "../lib/generation/run-guard";
 
-interface Shot {
+interface Shot extends ShotModelOverrides {
   id: string;
   storyboard_id: string;
   order: number;
@@ -124,6 +126,8 @@ function shotFromShotWithUrls(s: ShotWithUrls): Shot {
     storyboard_id: s.storyboard_id,
     order: s.order,
     duration: s.duration,
+    image_model: s.image_model ?? null,
+    video_model: s.video_model ?? null,
     image_prompt: s.image_prompt,
     image_url: s.image_url,
     end_frame_url: s.end_frame_url,
@@ -167,12 +171,17 @@ export default function StoryboardPage() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   // Model Selection
-  const [imageModel, setImageModel] = useState<ImageModelId>("imagen4");
-  const [videoModel, setVideoModel] = useState<VideoModelId>("seedance-2-fal");
+  const [defaultImageModel, setDefaultImageModel] = useState<ImageModelId>(DEFAULT_STORYBOARD_MODELS.image_model);
+  const [defaultVideoModel, setDefaultVideoModel] = useState<VideoModelId>(DEFAULT_STORYBOARD_MODELS.video_model);
   const imageModels = getAvailableImageModels();
   const videoModels = getAvailableVideoModels();
-  const videoGroups = getGroupedVideoModels();
-  const imageGroups = getGroupedImageModels();
+  const [modelSaving, setModelSaving] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
+  const defaultModels = {image_model:defaultImageModel, video_model:defaultVideoModel};
+  const selectedShot = shots.find(shot => shot.id === selectedShotId) ?? null;
+  const selectedModels = resolveShotModels(selectedShot, defaultModels);
+  const imageModel = selectedModels.image_model as ImageModelId;
+  const videoModel = selectedModels.video_model as VideoModelId;
 
   // Video Settings
   const [videoSettings, setVideoSettings] = useState<VideoGenerationSettings>(() => {
@@ -184,6 +193,11 @@ export default function StoryboardPage() {
     () => videoModels.find((m) => m.id === videoModel),
     [videoModel, videoModels]
   );
+
+  useEffect(() => {
+    const model = getAvailableVideoModels().find(item => item.id === videoModel);
+    if (model) setVideoSettings({...model.defaults});
+  }, [videoModel]);
 
   // Frames composed in the Bible (scene assets) that a shot can pick as start/end.
   const frameOptions: FrameOption[] = useMemo(
@@ -291,11 +305,11 @@ export default function StoryboardPage() {
       setTimelineTracks(tracksData);
       setTimelineClipRows(clipsData);
       setEditedName(storyboardData.name);
-      setImageModel((storyboardData.image_model as ImageModelId) || "imagen4");
+      setDefaultImageModel((storyboardData.image_model as ImageModelId) || DEFAULT_STORYBOARD_MODELS.image_model);
       const loadedVideoModel: VideoModelId = videoModels.some((m) => m.id === storyboardData.video_model)
         ? (storyboardData.video_model as VideoModelId)
         : "seedance-2-fal";
-      setVideoModel(loadedVideoModel);
+      setDefaultVideoModel(loadedVideoModel);
       const loadedModel = videoModels.find((m) => m.id === loadedVideoModel);
       if (loadedModel) {
         setVideoSettings({ ...loadedModel.defaults });
@@ -394,29 +408,26 @@ export default function StoryboardPage() {
     }
   }
 
-  async function handleChangeImageModel(newModel: ImageModelId) {
-    if (!id) return;
-    setImageModel(newModel);
+  async function handleShotModels(shotId: string, models: Partial<ShotModelOverrides>) {
+    setModelSaving(true); setModelError(null);
     try {
-      await updateStoryboardModels(id, newModel, videoModel);
-    } catch (error) {
-      console.error("Failed to update model selection:", error);
-    }
+      const result = await setShotModels(shotId, models);
+      if (!result.ok) { setModelError(result.error.message); return; }
+      setShots(previous => previous.map(shot => shot.id === shotId ? {...shot,...result.value} : shot));
+    } catch (cause) { setModelError(String(cause)); }
+    finally { setModelSaving(false); }
   }
 
-  async function handleChangeVideoModel(newModel: VideoModelId) {
+  async function handleDefaultModels(models: {image_model:string;video_model:string}) {
     if (!id) return;
-    setVideoModel(newModel);
-    // Reset settings to new model's defaults
-    const model = videoModels.find((m) => m.id === newModel);
-    if (model) {
-      setVideoSettings({ ...model.defaults });
-    }
+    setModelSaving(true); setModelError(null);
     try {
-      await updateStoryboardModels(id, imageModel, newModel);
-    } catch (error) {
-      console.error("Failed to update model selection:", error);
-    }
+      const updated = await updateStoryboardModels(id, models.image_model, models.video_model);
+      setStoryboard(updated);
+      setDefaultImageModel(models.image_model as ImageModelId);
+      setDefaultVideoModel(models.video_model as VideoModelId);
+    } catch (cause) { setModelError(String(cause)); }
+    finally { setModelSaving(false); }
   }
 
   // --- Shot Actions ---
@@ -516,7 +527,8 @@ export default function StoryboardPage() {
     setIsGeneratingImage(true);
     try {
       await withApplicationWork("generation", async () => {
-        const imageDataUrl = await generateImageAction(imagePrompt, imageModel);
+        const targetModel = resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model as ImageModelId;
+        const imageDataUrl = await generateImageAction(imagePrompt, targetModel);
 
         // Get current version to use as parent (if exists)
         const currentVersion = shotCurrentVersions[activeShotId];
@@ -689,7 +701,8 @@ export default function StoryboardPage() {
         }
 
         // Call edit image action
-        const resultBase64 = await editImageAction(sourceBase64, editPrompt, imageModel);
+        const targetModel = resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model as ImageModelId;
+        const resultBase64 = await editImageAction(sourceBase64, editPrompt, targetModel);
 
         // Create a new remix version
         await createRemixVersion(shotId, versionId, editPrompt, resultBase64);
@@ -714,7 +727,10 @@ export default function StoryboardPage() {
   async function handleGenerateVideo(shotId: string) {
     const shot = shots.find((s) => s.id === shotId);
     if (!shot) return;
-    if (!currentVideoModel) return;
+    const targetModelId = resolveShotModels(shot, defaultModels).video_model as VideoModelId;
+    const targetModel = videoModels.find(model => model.id === targetModelId);
+    if (!targetModel) { setModelError("Choose an available video model for this shot."); return; }
+    const targetSettings = selectedShotId === shotId ? videoSettings : {...targetModel.defaults};
     const runId = startGenerationRun(videoGenerationRuns.current, shotId);
 
     const prompt = shot.video_prompt?.trim() ?? "";
@@ -740,22 +756,22 @@ export default function StoryboardPage() {
     try {
       await withApplicationWork("generation", async () => {
         const startImage = shot.image_url ? await getShotImageBase64(shotId) : null;
-        const supportsEndFrame = currentVideoModel.modeCapabilities.imageToVideo?.supportsEndImage === true;
+        const supportsEndFrame = targetModel.modeCapabilities.imageToVideo?.supportsEndImage === true;
         const endImage =
           supportsEndFrame && shot.end_frame_url ? await getShotEndFrameBase64(shotId) : null;
-        const mode = chooseVideoGenerationMode(currentVideoModel.modeCapabilities, {
+        const mode = chooseVideoGenerationMode(targetModel.modeCapabilities, {
           hasStartImage: !!startImage,
         });
         const request: VideoGenerationRequest = {
           mode,
           prompt,
-          settings: videoSettings,
+          settings: targetSettings,
           startImage,
           endImage: mode === "image-to-video" ? endImage : null,
         };
-        validateVideoGenerationRequest(currentVideoModel.modeCapabilities, request);
+        validateVideoGenerationRequest(targetModel.modeCapabilities, request);
 
-        const result = await generateAndSaveVideoRequestAction(shotId, videoModel, request);
+        const result = await generateAndSaveVideoRequestAction(shotId, targetModelId, request);
         if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
 
         if (result.success && result.videoUrl) {
@@ -951,34 +967,6 @@ export default function StoryboardPage() {
         <div className="flex items-center gap-4">
           <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
-          {/* Model Selectors — storyboard tab only */}
-          {activeTab === "storyboard" && <div className="flex items-center gap-2">
-            <ModelPicker
-              groups={imageGroups}
-              value={imageModel}
-              onSelect={(id) => handleChangeImageModel(id as ImageModelId)}
-              trigger={
-                <Button variant="outline" size="sm" className="gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  {imageModels.find((m) => m.id === imageModel)?.name || "Image"}
-                </Button>
-              }
-            />
-
-            <ModelPicker
-              groups={videoGroups}
-              value={videoModel}
-              onSelect={(id) => handleChangeVideoModel(id as VideoModelId)}
-              trigger={
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Video className="h-4 w-4" />
-                  {videoModels.find((m) => m.id === videoModel)?.name || "Video"}
-                </Button>
-              }
-            />
-
-          </div>}
-
           <Badge variant="secondary" className="text-sm">
             {shots.length} Shots • {totalDuration}s Total
           </Badge>
@@ -1042,12 +1030,15 @@ export default function StoryboardPage() {
           }
           inspectorSlot={
             <ShotInspector
+              modelControls={<ShotModelControls shot={selectedShot} defaults={defaultModels} onShotChange={handleShotModels} onDefaultsChange={handleDefaultModels} disabled={modelSaving} error={modelError}/>}
               shot={selectedShotId ? (() => {
                 const s = shots.find(s => s.id === selectedShotId);
                 return s ? {
                   id: s.id,
                   order: s.order,
-                  image_prompt: s.image_prompt,
+                  image_model: s.image_model ?? null,
+    video_model: s.video_model ?? null,
+    image_prompt: s.image_prompt,
                   image_url: s.image_url,
                   end_frame_url: s.end_frame_url,
                   video_prompt: s.video_prompt,

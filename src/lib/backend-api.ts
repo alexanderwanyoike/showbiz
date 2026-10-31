@@ -1,3 +1,4 @@
+import type { ShotModelOverrides, ShotModelsResult } from "../../shared/shot-models";
 import { invoke } from "./bridge";
 import { electronMediaUrlResolver } from "./electron-media-url";
 export type {
@@ -39,6 +40,8 @@ export interface StoryboardWithPreview extends Storyboard {
 }
 
 export interface ShotWithUrls {
+  image_model: string | null;
+  video_model: string | null;
   id: string;
   storyboard_id: string;
   order: number;
@@ -586,4 +589,8 @@ export async function getMediaBasePath(): Promise<string> {
 export async function saveAndCompleteVideo(shotId: string, videoData: number[], mimeType: string): Promise<ShotWithUrls> {
   const shot: ShotWithUrls = await invoke("save_and_complete_video", { shotId, videoData, mimeType });
   return convertShotUrls(shot, true);
+}
+
+export function setShotModels(shotId: string, models: Partial<ShotModelOverrides>): Promise<ShotModelsResult> {
+  return invoke("set_shot_models", {shot_id:shotId, ...models});
 }
