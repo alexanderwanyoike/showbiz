@@ -436,7 +436,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <section role="region" aria-label="Project bible" className="bible-workspace flex h-full flex-col">
       {/* Tabs + model */}
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
         <div className="flex gap-1">
@@ -508,7 +508,7 @@ export default function ProjectBibleView({ projectId }: ProjectBibleViewProps) {
       </div>
 
       {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
-    </div>
+    </section>
   );
 }
 

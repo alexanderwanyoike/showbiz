@@ -2,7 +2,7 @@
   <h1 align="center">Showbiz</h1>
   <p align="center">
     AI-powered video storyboard desktop app.<br/>
-    Generate images, turn them into videos, trim and arrange on a timeline, and export a final movie.
+    Build a project bible, generate storyboard images and shots, and take the media into your editor.
   </p>
   <p align="center">
     <a href="https://github.com/alexanderwanyoike/showbiz/actions/workflows/ci.yml"><img src="https://github.com/alexanderwanyoike/showbiz/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -15,12 +15,6 @@
   <img src="docs/assets/storyboard.png" alt="Showbiz — storyboard mode: shots, start/end frames, and video generation" width="800">
   <br/>
   <em>Storyboard mode — build each shot from a start/end frame and a prompt, pick a model, generate</em>
-</p>
-
-<p align="center">
-  <img src="docs/assets/timeline.png" alt="Showbiz — editor mode: multi-track timeline with preview and export" width="800">
-  <br/>
-  <em>Editor mode — arrange, trim and split shots on a multi-track timeline, then export with native ffmpeg</em>
 </p>
 
 ## Download
@@ -45,8 +39,7 @@ updates also use manual downloads.
 - **Image generation & editing** — Nano Banana family, GPT Image 2, Flux; inpainting and prompt-based edits
 - **Image & video version trees** — every generation/edit creates a version; switch non-destructively
 - **Video generation** — Veo 3.1, Seedance 2, Kling 3, LTX-2.3, Wan 2.1, MiniMax H3 with start/end-frame support where the model has it
-- **Timeline editor** — multi-track arrange, trim, split, preview playback
-- **Video export** — native ffmpeg assembles the final movie with progress reporting
+- **Storyboard handoff**: export selected shot images, end frames and videos as ZIP or a Forgecut-compatible `.sbz` package
 - **Dark/light theme** — system-aware with manual toggle
 - **Config-driven models** — add new models by dropping a JSON file, no code changes needed
 
@@ -91,7 +84,7 @@ Keys are stored in the local SQLite database and never leave your machine except
 | Styling | Tailwind CSS v4, shadcn/ui, Radix |
 | Backend | Electron main process — SQLite (`node:sqlite`), file I/O |
 | Video playback | HTML5 `<video>` (Chromium) |
-| Video export | Native ffmpeg (`ffmpeg-static`) |
+| Storyboard packages | Streaming ZIP (`yazl`) |
 | Testing | Vitest |
 
 ## Architecture
@@ -141,3 +134,6 @@ See the [PR template](.github/pull_request_template.md) and [issue templates](.g
 ## Work with agents
 
 Showbiz includes an MCP adapter for the running application. Agents can work with project bibles, draft and reorder storyboard shots, inspect and select takes, and request media package exports. Changes appear in the same workspace and respect unsaved UI work. See the [MCP guide](docs/mcp.md) for setup, supported tools and limits.
+### Project files
+
+Create or open a `.showbiz` document, work in its bible and storyboards, then close it or use Save As for an independent copy. The file includes the project data and all media, so it can be moved or backed up on its own. Existing library projects can be converted without changing the original library. See [project documents](docs/project-documents.md).
