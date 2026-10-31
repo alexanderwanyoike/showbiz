@@ -12,6 +12,7 @@ export interface GenerationPrice {
   model_id: string;
   currency: "USD";
   source_url: string;
+  source_kind?: "provider" | "manual";
   checked_at: string;
   rates: GenerationPriceRate[];
   excludes_input_cost?: boolean;

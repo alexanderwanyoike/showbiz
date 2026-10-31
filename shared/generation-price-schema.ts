@@ -4,6 +4,7 @@ export const generationPriceSchema = z.strictObject({
   provider: z.string().min(1).max(256),
   model_id: z.string().min(1).max(256),
   currency: z.literal("USD"),
+  source_kind: z.enum(["provider", "manual"]).optional(),
   source_url: z
     .url()
     .max(2048)
