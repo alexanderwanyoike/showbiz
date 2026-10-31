@@ -33,3 +33,8 @@ it("does not overwrite a user's unsaved work when an agent requests a mutation",
   expect(await session.call({ tool: "create_project", args: { name: "Agent project", expected_revision: 0, request_id: "blocked" } })).toMatchObject({ ok: false, error: { code: "BUSY" } });
   expect(dispatch).not.toHaveBeenCalled();
 });
+
+it("reports native Result failures as MCP errors instead of a successful export", async () => {
+  const session = createMcpSession(async () => ({ ok: false, error: { code: "IO_ERROR", message: "Missing shot media" } }));
+  expect(await session.call({ tool: "export_storyboard_package", args: { storyboard_id: "sb", format: "sbz", expected_revision: 0, request_id: "export" } })).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+});
