@@ -81,7 +81,6 @@ it("retains the frame draft and its usage identity when generation fails", async
   );
   await user.click(screen.getByRole("button", { name: "Make frame" }));
   expect(await screen.findByText("Provider unavailable")).toBeTruthy();
-  expect(await screen.findByText("Saved frame draft")).toBeTruthy();
   expect((screen.getByRole("textbox", { name: "Frame prompt" }) as HTMLTextAreaElement).value).toBe("Saved frame draft");
   expect(generateImageAction).toHaveBeenCalledWith(
     "Saved frame draft",
