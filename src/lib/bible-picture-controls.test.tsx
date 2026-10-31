@@ -93,3 +93,18 @@ it("confirms a picture deletion and keeps an unsuccessful deletion available to 
   expect(await within(reopened).findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("alertdialog", { name: "Delete picture" })).toBeTruthy();
 });
+it("keeps separate edit and variation drafts visible and lets each be cancelled", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Edit…" }));
+  await user.type(screen.getByRole("textbox", { name: "Edit instruction for Ada" }), "Warmer light");
+  await user.click(screen.getByRole("button", { name: "Variation…" }));
+  expect(applicationWork.getStatus().unsaved).toContain("draft");
+  await user.click(screen.getByRole("button", { name: "Cancel variation for Ada" }));
+  expect(applicationWork.getStatus().unsaved).toContain("draft");
+  await user.click(screen.getByRole("button", { name: "Edit…" }));
+  expect((screen.getByRole("textbox", { name: "Edit instruction for Ada" }) as HTMLTextAreaElement).value).toBe("Warmer light");
+  await user.click(screen.getByRole("button", { name: "Cancel edit for Ada" }));
+  expect(screen.queryByRole("textbox", { name: "Edit instruction for Ada" })).toBeNull();
+  expect(applicationWork.getStatus().unsaved).not.toContain("draft");
+});
