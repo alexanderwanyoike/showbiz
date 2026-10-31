@@ -409,7 +409,10 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
     setBusyId("make-frame");
     try {
       await withApplicationWork("generation", async () => {
-        const asset = await createBibleAsset(bibleId, {
+        const draftKey = `frame:${JSON.stringify(recipe)}`;
+        let asset = pendingAssets.current.get(draftKey);
+        if (!asset || !assets.some((entry) => entry.id === asset?.id)) {
+          asset = await createBibleAsset(bibleId, {
           asset_type: "reference",
           name: recipe.prompt.slice(0, 50) || "Frame",
           summary: null,
@@ -418,8 +421,11 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
           rules_json: JSON.stringify(recipe),
           consent_confirmed: false,
         });
-        setAssets((prev) => [asset, ...prev]);
-        setVariants((prev) => ({ ...prev, [asset.id]: [] }));
+          const created = asset;
+          setAssets((prev) => [created, ...prev]);
+          setVariants((prev) => ({ ...prev, [created.id]: [] }));
+          pendingAssets.current.set(draftKey, asset);
+        }
         const dataUrl = await composeFromVariantIds(recipeVariantIds(recipe, variants), recipe.prompt, asset.id);
         await createBibleAssetVariant(asset.id, {
           name: recipe.prompt.slice(0, 40),
@@ -431,6 +437,7 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
           is_primary: true,
         });
         await refreshAsset(asset.id);
+        pendingAssets.current.delete(draftKey);
       });
       return { ok: true, value: undefined };
     } catch (e) {
@@ -573,6 +580,7 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
             variants={variants}
             busyId={busyId}
             onMakeFrame={handleMakeFrame}
+            onClearDraft={() => { for (const key of pendingAssets.current.keys()) if (key.startsWith("frame:")) pendingAssets.current.delete(key); }}
             onRetake={handleRetake}
             onEdit={handleEdit}
             imageCapabilities={imageCapabilities}
@@ -737,6 +745,7 @@ function FramesTab({
   variants,
   busyId,
   onMakeFrame,
+  onClearDraft,
   onRetake,
   onEdit,
   imageCapabilities,
@@ -752,6 +761,7 @@ function FramesTab({
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
   onMakeFrame: (recipe: FrameRecipe) => Promise<Result<void>>;
+  onClearDraft: () => void;
   onRetake: (frame: BibleAsset, promptOverride?: string) => Promise<Result<void>>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
@@ -880,7 +890,7 @@ function FramesTab({
           {making ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
           Generate frame
         </Button>
-        <Button type="button" variant="ghost" size="sm" className="ml-2 text-xs" aria-label="Clear frame draft" disabled={busyId !== null || (!prompt && !selectedChars.size && !locationId)} onClick={() => { setPrompt(""); setSelectedChars(new Set()); setLocationId(null); setLocationVariantId(null); }}>Clear draft</Button>
+        <Button type="button" variant="ghost" size="sm" className="ml-2 text-xs" aria-label="Clear frame draft" disabled={busyId !== null || (!prompt && !selectedChars.size && !locationId)} onClick={() => { setPrompt(""); setSelectedChars(new Set()); setLocationId(null); setLocationVariantId(null); onClearDraft(); }}>Clear draft</Button>
         {!imageCapabilities.composition && (selectedChars.size > 0 || !!locationId) && <p className="mt-2 text-xs text-muted-foreground">Choose a model that accepts reference images to include these characters or locations.</p>}
       </div>
 
