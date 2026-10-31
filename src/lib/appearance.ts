@@ -2,7 +2,7 @@ export const MATERIALS = [
   {
     id: "native",
     name: "Showbiz native",
-    detail: "The original muted Showbiz surfaces.",
+    detail: "Clean neutral surfaces with a vivid Showbiz accent.",
   },
   {
     id: "aluminium",
@@ -29,12 +29,12 @@ export const MATERIALS = [
   },
 ] as const;
 export const ACCENTS = [
-  { id: "native", name: "Showbiz blue", color: "#94a6b8" },
-  { id: "cobalt", name: "Cobalt", color: "#94b8e5" },
-  { id: "sage", name: "Sage", color: "#a6c8ad" },
-  { id: "copper", name: "Copper", color: "#e0a48d" },
-  { id: "plum", name: "Plum", color: "#c6a5c4" },
-  { id: "amber", name: "Amber", color: "#dcc08b" },
+  {id:"native",name:"Showbiz blue",color:"#328dff",light:{background:"#0066eb",foreground:"#ffffff"},dark:{background:"#328dff",foreground:"#07101f"}},
+  {id:"cobalt",name:"Cobalt",color:"#427eff",light:{background:"#1554ed",foreground:"#ffffff"},dark:{background:"#427eff",foreground:"#07101f"}},
+  {id:"sage",name:"Emerald",color:"#00d87b",light:{background:"#008341",foreground:"#ffffff"},dark:{background:"#00d87b",foreground:"#062117"}},
+  {id:"copper",name:"Vermilion",color:"#ff701f",light:{background:"#bf400b",foreground:"#ffffff"},dark:{background:"#ff701f",foreground:"#211009"}},
+  {id:"plum",name:"Violet",color:"#ce4dff",light:{background:"#9421d9",foreground:"#ffffff"},dark:{background:"#ce4dff",foreground:"#180422"}},
+  {id:"amber",name:"Amber",color:"#ffbc0a",light:{background:"#9d6200",foreground:"#ffffff"},dark:{background:"#ffbc0a",foreground:"#211703"}},
 ] as const;
 export interface Appearance {
   material: (typeof MATERIALS)[number]["id"];
@@ -82,6 +82,11 @@ export function readAppearance(): PreferenceResult<Appearance> {
 export function applyAppearance(value: Appearance) {
   document.documentElement.dataset.material = value.material;
   document.documentElement.dataset.accent = value.accent;
+  const accent = ACCENTS.find(item => item.id === value.accent)!;
+  for (const mode of ["light", "dark"] as const) {
+    document.documentElement.style.setProperty(`--chosen-accent-${mode}`, accent[mode].background);
+    document.documentElement.style.setProperty(`--chosen-on-accent-${mode}`, accent[mode].foreground);
+  }
 }
 export function saveAppearance(
   value: Appearance,
