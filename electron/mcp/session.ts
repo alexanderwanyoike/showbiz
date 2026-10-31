@@ -66,7 +66,7 @@ export function createMcpSession(dispatch: Invoke, changed: () => void = () => {
       if (requestId) {
         cache.set(requestId, { fingerprint, result });
         if (cache.size > 128) cache.delete(cache.keys().next().value!);
-        changed();
+        try { changed(); } catch (cause) { console.warn("An agent edit was saved but the window could not be refreshed:", cause); }
       }
       return result;
     } catch (cause) {
