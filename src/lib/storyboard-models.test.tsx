@@ -13,7 +13,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import StoryboardPage from "../pages/StoryboardPage";
 import type { GenerationCostRequest } from "../../shared/generation-cost";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: ({request}: {request: GenerationCostRequest}) => createElement("output", {"aria-label": "Generation cost mode"}, request.mode ?? "unknown") }));
-import { setShotModels, updateStoryboardSettings } from "./backend-api";
+import { setShotModels, updateStoryboardSettings, setShotVideoSettings } from "./backend-api";
 import { generateAndSaveVideoRequestAction } from "../actions/generation-actions";
 vi.stubGlobal(
   "ResizeObserver",
@@ -24,6 +24,9 @@ vi.stubGlobal(
   },
 );
 Element.prototype.scrollIntoView = vi.fn();
+Element.prototype.hasPointerCapture = vi.fn(() => false);
+Element.prototype.setPointerCapture = vi.fn();
+Element.prototype.releasePointerCapture = vi.fn();
 vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
 vi.mock("../components/Header", () => ({
   Header: ({ children, title }: { children: ReactNode; title: string }) =>
@@ -63,6 +66,7 @@ vi.mock("./backend-api", async (original) => ({
   getVersionCount: async () => 0,
   getVideoVersionCount: async () => 0,
   getShotImageBase64: async () => "data:image/png;base64,ZnJhbWU=",
+  setShotVideoSettings: vi.fn(async (_id: string, settings: import("../../shared/shot-video-settings").StoredShotVideoSettings) => ({ok:true,value:settings})),
   setShotModels: vi.fn(
     async (_id: string, models: Record<string, unknown>) => ({
       ok: true,
@@ -218,4 +222,17 @@ it("quotes the same frame-based video mode that the shot will generate", async (
   await screen.findByText("Opening");
   await userEvent.setup().click(screen.getByRole("button",{name:"Shot controls"}));
   expect(screen.getByLabelText("Generation cost mode").textContent).toBe("image-to-video");
+});
+
+it("keeps duration choices on their selected shot instead of leaking to another shot with the same model", async () => {
+  render(createElement(MemoryRouter,{initialEntries:["/storyboard/board"]},createElement(Routes,null,createElement(Route,{path:"/storyboard/:id",element:createElement(StoryboardPage)}))));
+  const user=userEvent.setup();
+  await user.click(await screen.findByRole("button",{name:"Shot controls"}));
+  await user.click(screen.getByRole("combobox",{name:"Video duration"}));
+  await user.click(screen.getByRole("option",{name:"4s",exact:true}));
+  await waitFor(()=>expect(setShotVideoSettings).toHaveBeenCalledWith("shot-1",expect.objectContaining({model_id:"seedance-2-fal",settings:expect.objectContaining({duration:"4"})})));
+  await user.click(screen.getByRole("button",{name:"Select shot 2"}));
+  expect(screen.getByRole("combobox",{name:"Video duration"}).textContent).toBe("Auto");
+  await user.click(screen.getByRole("button",{name:"Select shot 1"}));
+  expect(screen.getByRole("combobox",{name:"Video duration"}).textContent).toBe("4s");
 });
