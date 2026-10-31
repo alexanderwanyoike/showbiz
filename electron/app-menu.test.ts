@@ -27,6 +27,6 @@ it("offers native project-file commands with desktop accelerators", async () => 
     { type: "separator" },
     { role: "quit" },
   ]);
-  if (Array.isArray(file?.submenu)) file.submenu[1].click?.();
+  if (Array.isArray(file?.submenu) && "click" in file.submenu[1]) file.submenu[1].click?.();
   expect(send).toHaveBeenCalledWith("open");
 });
