@@ -23,14 +23,14 @@ export function DocumentMenu() {
             void document.action("new");
           }}
         >
-          New Project…<DropdownMenuShortcut>⌘/Ctrl N</DropdownMenuShortcut>
+          New Project…<DropdownMenuShortcut>Ctrl+N</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => {
             void document.action("open");
           }}
         >
-          Open Project…<DropdownMenuShortcut>⌘/Ctrl O</DropdownMenuShortcut>
+          Open Project…<DropdownMenuShortcut>Ctrl+O</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -39,7 +39,7 @@ export function DocumentMenu() {
             void document.action("save");
           }}
         >
-          Save<DropdownMenuShortcut>⌘/Ctrl S</DropdownMenuShortcut>
+          Save<DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem
           disabled={!document.current}
@@ -47,7 +47,7 @@ export function DocumentMenu() {
             void document.action("save_as");
           }}
         >
-          Save As…<DropdownMenuShortcut>⇧ ⌘/Ctrl S</DropdownMenuShortcut>
+          Save As…<DropdownMenuShortcut>Ctrl+Shift+S</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -56,7 +56,7 @@ export function DocumentMenu() {
             void document.action("close");
           }}
         >
-          Close Project<DropdownMenuShortcut>⇧ ⌘/Ctrl W</DropdownMenuShortcut>
+          Close Project<DropdownMenuShortcut>Ctrl+Shift+W</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
