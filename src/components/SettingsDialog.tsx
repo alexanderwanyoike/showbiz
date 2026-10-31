@@ -1,3 +1,4 @@
+import { LocalGenerationSettings } from "./LocalGenerationSettings";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -380,6 +381,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
                         {isExpanded && (
                           <div id={editorId} ref={expandedEditorRef}>
                             {renderProviderEditor(provider)}
+                            {provider.id === "local" && <LocalGenerationSettings />}
                           </div>
                         )}
                       </li>
