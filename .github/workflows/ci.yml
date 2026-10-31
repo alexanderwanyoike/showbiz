@@ -30,6 +30,7 @@ jobs:
           node-version: 22
           cache: yarn
       - run: yarn install --frozen-lockfile
+      - run: yarn typecheck
       - run: yarn test
 
   build-check:

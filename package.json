@@ -20,7 +20,8 @@
     "test:distribution": "node --test scripts/prepare-release.test.mjs",
     "prepare:release": "node scripts/prepare-release.mjs",
     "build:mcp": "node scripts/build-mcp.mjs",
-    "mcp": "node dist-electron/showbiz-mcp.cjs"
+    "mcp": "node dist-electron/showbiz-mcp.cjs",
+    "typecheck": "tsc --noEmit"
   },
   "build": {
     "appId": "com.showbiz.app",
