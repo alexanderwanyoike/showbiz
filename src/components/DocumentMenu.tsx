@@ -110,9 +110,9 @@ export function DocumentMenu({
             onSelect={onQuit}
           >
             Quit Showbiz
-            <span className="app-menu-shortcut" aria-hidden="true">
-              {menuShortcut("Q", mac)}
-            </span>
+            {canQuit && window.showbiz?.desktop?.platform !== "win32" && (
+              <span className="app-menu-shortcut" aria-hidden="true">{menuShortcut("Q", mac)}</span>
+            )}
           </Menubar.Item>
         </Menubar.Content>
       </Menubar.Portal>
