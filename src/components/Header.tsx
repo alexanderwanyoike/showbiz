@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Clapperboard, Download, Palette, Settings } from "lucide-react";
+import { AppMark } from "./AppMark";
+import { Download, Palette, Settings } from "lucide-react";
 import { useUpdates } from "../hooks/useUpdates";
 import { SettingsDialog } from "./SettingsDialog";
 import { WorkspaceCommand } from "./WorkspaceCommand";
@@ -54,7 +55,7 @@ export function Header({
       data-desktop-platform={window.showbiz?.desktop?.platform}
     >
       <div className="desktop-wordmark" aria-label="Showbiz">
-        <Clapperboard size={20} />
+        <AppMark />
         <span>Showbiz</span>
       </div>
       {menu?.({
