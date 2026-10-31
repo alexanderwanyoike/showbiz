@@ -97,6 +97,7 @@ export function createElectronMediaUrlResolver({
     },
 
     invalidateAll(): void {
+      mediaBasePathPromise = null;
       const entries = [...cache.values()];
       cache.clear();
       for (const entry of entries) {

@@ -1,8 +1,10 @@
+import { useProjectDocument } from "../contexts/ProjectDocumentContext";
 import { CircleCheck, Loader2 } from "lucide-react";
 import { useApplicationWork } from "../hooks/useApplicationWork";
 import { version } from "../../package.json";
 export function ApplicationStatus() {
   const work = useApplicationWork();
+  const { current } = useProjectDocument();
   const active = work.active.length > 0;
   return (
     <footer className="desktop-statusbar" aria-label="Application status">
@@ -21,7 +23,7 @@ export function ApplicationStatus() {
       <span>
         Showbiz <span className="status-version">{version}</span>
       </span>
-      <span>Bible & storyboard workspace</span>
+      <span title={current?.file_path}>{current?.file_path ?? "No project open"}</span>
     </footer>
   );
 }

@@ -4,6 +4,8 @@ import type { UpdateStatus } from "../../shared/update-status";
 // Runtime bridge to the Electron main process, exposed by the preload script
 // as window.showbiz.
 export interface ElectronBridge {
+  onProjectDocument?(cb: () => void): () => void;
+  onDocumentAction?(cb: (action: "new" | "open" | "save" | "save_as" | "close") => void): () => void;
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
   readMediaBytes(relativePath: string): Promise<Uint8Array>;
   /** Subscribe to native export progress; returns an unsubscribe function. */

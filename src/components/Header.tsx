@@ -1,11 +1,10 @@
-import { useState } from "react";
-import { Link } from "react-router";
+import { useState, type ReactNode } from "react";
 import { Clapperboard, Download, Palette, Settings } from "lucide-react";
 import { useUpdates } from "../hooks/useUpdates";
 import { SettingsDialog } from "./SettingsDialog";
 import { Button } from "@/components/ui/button";
 
-export function Header() {
+export function Header({ caption = "Bible & storyboard", children }: { caption?: string; children?: ReactNode }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
     "providers" | "updates" | "appearance"
@@ -13,11 +12,12 @@ export function Header() {
   const { status: updateStatus } = useUpdates();
   return (
     <header className="desktop-chrome">
-      <Link to="/" className="desktop-wordmark" aria-label="Showbiz">
+      <div className="desktop-wordmark" aria-label="Showbiz">
         <Clapperboard size={20} />
         <span>Showbiz</span>
-      </Link>
-      <span className="desktop-chrome-caption">Bible & storyboard</span>
+      </div>
+      {children}
+      <span className="desktop-chrome-caption">{caption}</span>
       <div className="desktop-chrome-actions">
         {(updateStatus?.state === "available" ||
           updateStatus?.state === "downloaded") && (

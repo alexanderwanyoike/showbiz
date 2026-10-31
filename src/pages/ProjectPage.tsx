@@ -1,3 +1,4 @@
+import { useProjectDocument } from "../contexts/ProjectDocumentContext";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
@@ -17,7 +18,9 @@ import {
 import type { Project, StoryboardWithPreview } from "../lib/backend-api";
 
 export default function ProjectPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeId } = useParams<{ id: string }>();
+  const { current } = useProjectDocument();
+  const id = routeId ?? current?.project_id;
   const navigate = useNavigate();
 
   const [project, setProject] = useState<Project | null>(null);
@@ -151,7 +154,7 @@ export default function ProjectPage() {
 
   return (
     <div className="desktop-page">
-      <Header backHref="/" backLabel="Projects" title={project.name}>
+      <Header title={activeTab === "bible" ? "Project bible" : "Storyboards"}>
         {isEditingName ? (
           <Input
             aria-label="Project name"

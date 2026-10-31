@@ -1,146 +1,39 @@
 import { useEffect, useState } from "react";
-import {
-  BookOpen,
-  ChevronDown,
-  Clapperboard,
-  Folder,
-  Folders,
-  HardDrive,
-  LayoutGrid,
-} from "lucide-react";
+import { BookOpen, Clapperboard, File, LayoutGrid } from "lucide-react";
 import { Link, useLocation } from "react-router";
-import {
-  getProjects,
-  getStoryboard,
-  getStoryboardsWithPreview,
-  type Project,
-  type StoryboardWithPreview,
-} from "../lib/backend-api";
-
+import { getProject, getStoryboardsWithPreview, type StoryboardWithPreview } from "../lib/backend-api";
+import { useProjectDocument } from "../contexts/ProjectDocumentContext";
 export function ProjectNavigator() {
+  const { current } = useProjectDocument();
   const location = useLocation();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [storyboards, setStoryboards] = useState<StoryboardWithPreview[]>([]);
-  const [projectId, setProjectId] = useState<string | null>(null);
+  const [name, setName] = useState(current?.name ?? "");
+  const [boards, setBoards] = useState<StoryboardWithPreview[]>([]);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
+    let stopped = false;
+    const load = async () => {
+      if (!current) return;
       try {
-        const list = await getProjects();
-        const project = location.pathname.match(/^\/project\/([^/]+)/)?.[1];
-        const storyboard = location.pathname.match(
-          /^\/storyboard\/([^/]+)/,
-        )?.[1];
-        const currentId =
-          project ??
-          (storyboard ? (await getStoryboard(storyboard))?.project_id : null) ??
-          null;
-        const boards = currentId
-          ? await getStoryboardsWithPreview(currentId)
-          : [];
-        if (!cancelled) {
-          setProjects(list);
-          setProjectId(currentId);
-          setStoryboards(boards);
-          setError(null);
-        }
-      } catch (cause) {
-        if (!cancelled)
-          setError(cause instanceof Error ? cause.message : String(cause));
-      }
-    }
+        const [project, storyboards] = await Promise.all([getProject(current.project_id), getStoryboardsWithPreview(current.project_id)]);
+        if (!stopped) { setName(project?.name ?? current.name); setBoards(storyboards); setError(null); }
+      } catch (cause) { if (!stopped) setError(String(cause)); }
+    };
     const refresh = () => { void load(); };
     window.addEventListener("showbiz:project-changed", refresh);
     void load();
-    return () => {
-      window.removeEventListener("showbiz:project-changed", refresh);
-      cancelled = true;
-    };
-  }, [location.pathname]);
+    return () => { stopped = true; window.removeEventListener("showbiz:project-changed", refresh); };
+  }, [current?.project_id, current?.file_path, location.pathname]);
+  if (!current) return null;
   const bible = location.search.includes("view=bible");
-  return (
-    <aside className="desktop-sidebar">
-      <nav aria-label="Project navigator">
-        <div className="sidebar-caption">WORKSPACE</div>
-        <Link
-          className={`sidebar-item ${location.pathname === "/" ? "is-selected" : ""}`}
-          to="/"
-          aria-current={location.pathname === "/" ? "page" : undefined}
-        >
-          <Folders size={15} />
-          All projects<span className="sidebar-count">{projects.length}</span>
-        </Link>
-        <div className="sidebar-caption sidebar-caption-projects">
-          <ChevronDown size={11} />
-          PROJECTS
-        </div>
-        <div className="sidebar-projects">
-          {projects.map((project) => (
-            <div key={project.id}>
-              <Link
-                to={`/project/${project.id}`}
-                className={`sidebar-item ${projectId === project.id ? "is-current-project" : ""}`}
-                aria-current={
-                  projectId === project.id &&
-                  !location.pathname.startsWith("/storyboard/") &&
-                  !bible
-                    ? "page"
-                    : undefined
-                }
-              >
-                <Folder size={15} />
-                <span className="truncate">{project.name}</span>
-              </Link>
-              {projectId === project.id && (
-                <div className="sidebar-project-content">
-                  <Link
-                    to={`/project/${project.id}`}
-                    className={`sidebar-item ${!bible && !location.pathname.startsWith("/storyboard/") ? "is-selected" : ""}`}
-                  >
-                    <LayoutGrid size={14} />
-                    Storyboards
-                  </Link>
-                  <Link
-                    to={`/project/${project.id}?view=bible`}
-                    className={`sidebar-item ${bible ? "is-selected" : ""}`}
-                  >
-                    <BookOpen size={14} />
-                    Bible
-                  </Link>
-                  {storyboards.map((board) => (
-                    <Link
-                      key={board.id}
-                      to={`/storyboard/${board.id}`}
-                      className={`sidebar-item sidebar-board ${location.pathname === `/storyboard/${board.id}` ? "is-selected" : ""}`}
-                      aria-current={
-                        location.pathname === `/storyboard/${board.id}`
-                          ? "page"
-                          : undefined
-                      }
-                    >
-                      <Clapperboard size={13} />
-                      <span className="truncate">{board.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        {error && (
-          <p role="alert" className="sidebar-error">
-            {error}
-          </p>
-        )}
-      </nav>
-      <div className="sidebar-storage">
-        <HardDrive size={14} />
-        <div>
-          <strong>Local workspace</strong>
-          <span>Projects saved on this device</span>
-        </div>
-      </div>
-    </aside>
-  );
+  return <aside className="desktop-sidebar">
+    <div className="sidebar-document"><File size={17} /><strong>{name}</strong><small>Project</small></div>
+    <nav aria-label="Project navigator">
+      <Link className={`sidebar-item ${!bible && location.pathname.startsWith("/project/") ? "is-selected" : ""}`} to={`/project/${current.project_id}`}><LayoutGrid size={15} />Storyboards</Link>
+      <Link className={`sidebar-item ${bible ? "is-selected" : ""}`} to={`/project/${current.project_id}?view=bible`}><BookOpen size={15} />Bible</Link>
+      <div className="sidebar-caption sidebar-caption-projects">STORYBOARDS</div>
+      {boards.map((board) => <Link key={board.id} className={`sidebar-item ${location.pathname === `/storyboard/${board.id}` ? "is-selected" : ""}`} to={`/storyboard/${board.id}`}><Clapperboard size={14} /><span className="truncate">{board.name}</span></Link>)}
+      {error && <p role="alert" className="sidebar-error">{error}</p>}
+    </nav>
+    <div className="sidebar-document-file"><File size={13} /><span title={current.file_path}>{current.file_path.split(/[/\\]/).pop()}</span><small>Changes saved automatically</small></div>
+  </aside>;
 }
