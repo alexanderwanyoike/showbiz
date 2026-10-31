@@ -23,7 +23,7 @@ it("keeps search and New in one context toolbar and offers clear filtered recove
   expect(within(toolbar).getByRole("button", { name: "New Storyboard" })).toBeTruthy();
   expect(within(toolbar).getByRole("searchbox", { name: "Search storyboards" })).toBe(search);
   expect(screen.getByRole("region", { name: "Storyboards library" })).toBeTruthy();
-  expect(screen.getByRole("link", { name: "Open storyboard Opening scene" })).toBeTruthy();
+  expect(await screen.findByRole("link", { name: "Open storyboard Opening scene" })).toBeTruthy();
   await user.type(search, "Missing");
   expect(screen.getByText("No matching storyboards")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Clear search" }));
