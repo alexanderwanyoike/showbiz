@@ -49,8 +49,8 @@ export function estimateGenerationCost(price: GenerationPrice | null, request: G
     else if (request.duration_range) units = request.duration_range;
     else return unavailable("Choose a duration to estimate the video cost.");
   } else if (rate.unit === "megapixel") {
-    if (!request.width || !request.height) return unavailable("Choose image dimensions to estimate the cost.");
-    const megapixels = request.width * request.height / 1000000;
+    if (!Number.isSafeInteger(request.width) || !Number.isSafeInteger(request.height) || Number(request.width) <= 0 || Number(request.height) <= 0) return unavailable("Choose image dimensions to estimate the cost.");
+    const megapixels = Number(request.width) * Number(request.height) / 1000000;
     units = [megapixels,megapixels];
   } else if (request.kind === "video") return unavailable("The price unit does not match this generation.");
   const count = request.count ?? 1;
