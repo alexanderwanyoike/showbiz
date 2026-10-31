@@ -2,7 +2,7 @@
 
 Usage & billing belongs to the open project. Only requests recorded by this project are included. Totals are not an account balance, invoice or a view of all activity on a provider account. History and immutable preflight price snapshots travel inside the self-contained `.showbiz` file. Credentials, custom rates and cached prices stay on the device.
 
-Generation controls show an approximate cost before submission. Each request retains its provider, model, generation kind, shot or asset identity, bounded settings, price basis, outcome and provider request ID when returned. Reported monetary charges are separate from unconfirmed estimates, including a genuine reported zero. A failed download can still have a provider charge. A missing price or receipt is never treated as free.
+Generation controls show an approximate cost before submission. Last request shows the subject's latest image or video attempt, with its original model, provider and outcome, even when a different model is selected for future work. It is not a claim about the currently visible take. Each request retains its provider, model, generation kind, shot or asset identity, bounded settings, price basis, outcome and provider request ID when returned. Reported monetary charges are separate from unconfirmed estimates, including a genuine reported zero. A failed download can still have a provider charge. A missing price or receipt is never treated as free.
 
 ## Provider behavior
 
