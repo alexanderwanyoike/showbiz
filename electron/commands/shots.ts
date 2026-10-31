@@ -182,7 +182,7 @@ export function createShotCommands(db: DatabaseSync, mediaDir: string) {
   }
 
   function reorderShots(storyboardId: string, shotIds: string[]): void {
-    db.exec("BEGIN");
+    db.exec("SAVEPOINT reorder_shots");
     try {
       const stmt = db.prepare(
         `UPDATE shots SET "order" = ? WHERE id = ? AND storyboard_id = ?`
@@ -190,9 +190,9 @@ export function createShotCommands(db: DatabaseSync, mediaDir: string) {
       shotIds.forEach((shotId, index) => {
         stmt.run(index + 1, shotId, storyboardId);
       });
-      db.exec("COMMIT");
+      db.exec("RELEASE reorder_shots");
     } catch (e) {
-      db.exec("ROLLBACK");
+      db.exec("ROLLBACK TO reorder_shots; RELEASE reorder_shots");
       throw e;
     }
   }
