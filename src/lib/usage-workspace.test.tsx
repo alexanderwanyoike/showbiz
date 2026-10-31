@@ -78,3 +78,36 @@ it('refreshes the current page and resets pagination before opening another proj
   expect(billing.loadUsageWithBilling).toHaveBeenLastCalledWith('other', 0);
   expect(screen.getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
 });
+
+it('distinguishes a reported zero from an unconfirmed zero estimate and an unknown failed charge', async () => {
+  const unknown = { ...request, request_id: 'unknown', provider_request_id: 'pending-job',
+    reported_microusd: null, estimated_min_microusd: null, estimated_max_microusd: null,
+    status: 'failed' as const };
+  const value = page([request, { ...request, request_id: 'estimate-zero', reported_microusd: null,
+    estimated_min_microusd: 0, estimated_max_microusd: 0, status: 'interrupted' }, unknown]);
+  value.summary.unknown_count = 1;
+  value.billing_notes = [{ request_id: 'unknown', message: 'Provider receipt is pending.' }];
+  billing.loadUsageWithBilling.mockResolvedValue({ ok: true, value });
+  renderUsage();
+  await screen.findByText('$0.00 reported');
+  expect(screen.getByText('~$0.00 estimated')).toBeTruthy();
+  const unknownCell = screen.getByRole('cell', { name: 'Unknown Charge unconfirmed' });
+  expect(unknownCell.textContent).not.toContain('$0');
+  expect(screen.getByText('1 unknown charge')).toBeTruthy();
+  const user = userEvent.setup();
+  await user.click(within(unknownCell.closest('tr')!).getByRole('button', { name: 'View request details' }));
+  expect(within(screen.getByRole('dialog', { name: 'Request details' })).getByText('Provider receipt is pending.')).toBeTruthy();
+});
+
+it('shows a recoverable ledger error without invented totals, then reloads on retry', async () => {
+  billing.loadUsageWithBilling.mockResolvedValueOnce({ ok: false, error: { code: 'IO_ERROR', message: 'Recorded usage could not be read.' } })
+    .mockResolvedValueOnce({ ok: true, value: page([]) });
+  renderUsage();
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Recorded usage could not be read.');
+  expect(screen.queryByLabelText('Project cost totals')).toBeNull();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Retry usage' }));
+  await screen.findByText('No generations recorded yet.');
+  expect(screen.getByText('0 requests')).toBeTruthy();
+  expect(screen.queryByRole('alert')).toBeNull();
+});
