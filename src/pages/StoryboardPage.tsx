@@ -149,6 +149,7 @@ export default function StoryboardPage() {
   const [storyboard, setStoryboard] = useState<Storyboard | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
   const [shotToDelete, setShotToDelete] = useState<Shot | null>(null);
+  const shotDeletionFocus = useRef<(() => void) | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Selection State
@@ -933,7 +934,7 @@ export default function StoryboardPage() {
 
 
 
-      <ConfirmDeletion open={!!shotToDelete} onOpenChange={(open)=>{if(!open)setShotToDelete(null);}} title={`Delete shot ${shotToDelete?.order ?? ""}?`} description="This permanently deletes the shot and its image and video takes from this project. This cannot be undone." actionLabel="Delete shot" onConfirm={()=>shotToDelete ? handleDeleteShot(shotToDelete.id) : Promise.resolve({ok:false,error:{code:"NOT_FOUND",message:"The shot no longer exists."}})} />
+      <ConfirmDeletion restoreFocus={()=>shotDeletionFocus.current?.()} open={!!shotToDelete} onOpenChange={(open)=>{if(!open)setShotToDelete(null);}} title={`Delete shot ${shotToDelete?.order ?? ""}?`} description="This permanently deletes the shot and its image and video takes from this project. This cannot be undone." actionLabel="Delete shot" onConfirm={()=>shotToDelete ? handleDeleteShot(shotToDelete.id) : Promise.resolve({ok:false,error:{code:"NOT_FOUND",message:"The shot no longer exists."}})} />
       {inactiveVideoDraft && <div role="status" className="border-b border-border px-4 py-2 text-xs">Shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order} has unsaved video settings. <Button variant="link" size="sm" onClick={()=>setSelectedShotId(inactiveVideoDraft)}>Return to shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order}</Button></div>}
       {exportMessage && <p role="status" className="border-b border-border px-4 py-2 text-sm">{exportMessage}</p>}
       {(
@@ -954,7 +955,7 @@ export default function StoryboardPage() {
               onSelectShot={setSelectedShotId}
               onAddShot={handleAddShot}
               onMoveShot={handleMoveShot}
-              onDeleteShot={(shotId)=>setShotToDelete(shots.find((shot)=>shot.id===shotId) ?? null)}
+              onDeleteShot={(shotId,restoreFocus)=>{shotDeletionFocus.current=restoreFocus ?? null;setShotToDelete(shots.find((shot)=>shot.id===shotId) ?? null);}}
             />
           }
           previewSlot={

@@ -1,3 +1,4 @@
+import { WorkspaceCommand } from "./WorkspaceCommand";
 import { InspectorHelp } from "./InspectorHelp";
 import { ShotVideoSettings } from "./ShotVideoSettings";
 import { Link } from "react-router";
@@ -20,6 +21,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import ImageVersionTimeline from "./ImageVersionTimeline";
@@ -140,17 +142,34 @@ function InspectorSection({
 }
 
 function FramePreview({ url, label }: { url: string | null; label: string }) {
+  if (!url)
+    return (
+      <span className="shot-frame-thumbnail shot-frame-empty">
+        <ImageIcon size={18} />
+        <span>No frame</span>
+      </span>
+    );
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded border border-border/60 bg-muted">
-      {url ? (
-        <img src={url} alt={label} className="h-full w-full object-cover" />
-      ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground/50">
-          <ImageIcon className="h-5 w-5" />
-          <span className="text-xs">No {label.toLowerCase()}</span>
-        </div>
-      )}
-    </div>
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="shot-frame-thumbnail"
+          aria-label={`Preview ${label.toLowerCase()}`}
+        >
+          <img src={url} alt="" />
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        className="shot-frame-preview-dialog"
+        aria-describedby={undefined}
+      >
+        <DialogHeader>
+          <DialogTitle>{label} preview</DialogTitle>
+        </DialogHeader>
+        <img className="shot-frame-full-image" src={url} alt={label} />
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -274,6 +293,7 @@ function FramePicker({
   onClear,
   libraryHref,
   disabled = false,
+  extraActions,
 }: {
   label: string;
   previewUrl: string | null;
@@ -283,68 +303,65 @@ function FramePicker({
   onClear?: () => void;
   libraryHref?: string;
   disabled?: boolean;
+  extraActions?: ReactNode;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerOpener = useRef<HTMLButtonElement | null>(null);
   return (
     <>
-      <FramePreview url={previewUrl} label={label} />
-      <div className="frame-actions mt-2 flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="min-w-0 flex-1 basis-32 text-xs"
-          aria-label={`Choose ${label.toLowerCase()}`}
-          onClick={(event) => {
-            pickerOpener.current = event.currentTarget;
-            setPickerOpen(true);
-          }}
-          disabled={disabled || frameOptions.length === 0}
-          title={
-            frameOptions.length === 0
-              ? "Compose frames in the Bible first"
-              : undefined
-          }
-        >
-          <ImageIcon className="h-3 w-3 mr-1" />
-          Choose
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-xs"
-          disabled={disabled}
-          aria-label={`Upload ${label.toLowerCase()}`}
-          onClick={() => uploadFramePicker(onUpload)}
-        >
-          <Upload className="h-3 w-3 mr-1" />
-          Upload
-        </Button>
-        {onClear && previewUrl && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-xs"
-            disabled={disabled}
-            aria-label={`Remove ${label.toLowerCase()}`}
-            onClick={onClear}
-          >
-            <X className="h-3 w-3 mr-1" />
-            Remove
-          </Button>
-        )}
+      <div className="shot-frame-source">
+        <FramePreview url={previewUrl} label={label} />
+        <div className="shot-frame-controls">
+          <div className="frame-actions flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="min-w-0 flex-1 basis-32 text-xs"
+              aria-label={`Choose ${label.toLowerCase()}`}
+              onClick={(event) => {
+                pickerOpener.current = event.currentTarget;
+                setPickerOpen(true);
+              }}
+              disabled={disabled || frameOptions.length === 0}
+              title={
+                frameOptions.length === 0
+                  ? "Compose frames in the Bible first"
+                  : undefined
+              }
+            >
+              <ImageIcon className="h-3 w-3 mr-1" />
+              Choose
+            </Button>
+            <WorkspaceCommand
+              label={`Upload ${label.toLowerCase()}`}
+              disabled={disabled}
+              onClick={() => uploadFramePicker(onUpload)}
+            >
+              <Upload size={15} />
+            </WorkspaceCommand>
+            {onClear && previewUrl && (
+              <WorkspaceCommand
+                label={`Remove ${label.toLowerCase()}`}
+                disabled={disabled}
+                onClick={onClear}
+              >
+                <X size={15} />
+              </WorkspaceCommand>
+            )}
+            {extraActions}
+          </div>
+          {frameOptions.length === 0 && libraryHref && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              <Link
+                to={libraryHref}
+                className="text-primary underline underline-offset-2"
+              >
+                Create a frame in the Bible
+              </Link>
+            </p>
+          )}
+        </div>
       </div>
-      {frameOptions.length === 0 && libraryHref && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          <Link
-            to={libraryHref}
-            className="text-primary underline underline-offset-2"
-          >
-            Create a frame in the Bible
-          </Link>{" "}
-          or upload an image.
-        </p>
-      )}
       <FramePickerDialog
         openerRef={pickerOpener}
         label={label}
@@ -417,7 +434,7 @@ export default function ShotInspector({
 
   return (
     <div className="shot-inspector h-full min-h-0 flex flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="shot-inspector-content min-h-0 flex-1 overflow-y-auto">
         {modelControls}
 
         {/* Start Frame Section */}
@@ -434,58 +451,40 @@ export default function ShotInspector({
               frameOptions={frameOptions}
               onPick={(variantId) => onPickFrame(shot.id, "start", variantId)}
               onUpload={(file) => onUploadFrame(shot.id, "start", file)}
+              extraActions={
+                shot.image_url ? (
+                  <>
+                    <WorkspaceCommand
+                      label={`Edit frame for shot ${shot.order}`}
+                      disabled={
+                        frameSaving ||
+                        !currentVersion ||
+                        !imageModel?.supportsImageEditing
+                      }
+                      onClick={() => {
+                        if (currentVersion)
+                          onEditImage(shot.id, currentVersion.id);
+                      }}
+                    >
+                      <Sparkles size={15} />
+                    </WorkspaceCommand>
+                    {(!currentVersion || !imageModel?.supportsImageEditing) && (
+                      <InspectorHelp label="About frame editing">
+                        {!currentVersion
+                          ? "Choose or upload a frame to create an editable take."
+                          : `${imageModel?.name ?? "The image model"} does not support editing. Choose an editing model in Models for this shot.`}
+                      </InspectorHelp>
+                    )}
+                  </>
+                ) : null
+              }
             />
-            {shot.image_url && (
-              <div className="mt-2 space-y-1.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start"
-                  aria-label={`Edit frame for shot ${shot.order}`}
-                  disabled={
-                    frameSaving ||
-                    !currentVersion ||
-                    !imageModel?.supportsImageEditing
-                  }
-                  onClick={() => {
-                    if (currentVersion) onEditImage(shot.id, currentVersion.id);
-                  }}
-                >
-                  <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                  Edit frame
-                </Button>
-                {(!currentVersion || !imageModel?.supportsImageEditing) && (
-                  <p className="text-xs text-muted-foreground">
-                    {!currentVersion
-                      ? "Choose or upload a frame to create an editable take."
-                      : `${imageModel?.name ?? "The image model"} does not support editing. Choose an editing model in Models for this shot.`}
-                  </p>
-                )}
-              </div>
-            )}
           </InspectorSection>
         ) : (
           <p className="border-b border-border/50 px-3 py-3 text-xs text-muted-foreground">
             {videoModel?.name ?? "This model"} uses the video prompt; frames are
             not sent.
           </p>
-        )}
-
-        {/* Image Versions Section */}
-        {versionCount > 0 && (
-          <InspectorSection title="Image takes">
-            <ImageVersionTimeline
-              versions={versions}
-              currentVersionId={currentVersion?.id || null}
-              onVersionSelect={(versionId) =>
-                onVersionSelect(shot.id, versionId)
-              }
-              onBranchFrom={(versionId) => onBranchFrom(shot.id, versionId)}
-              onEditFrom={(versionId) => onEditImage(shot.id, versionId)}
-              compact
-            />
-          </InspectorSection>
         )}
 
         {/* End Frame Section */}
@@ -548,7 +547,7 @@ export default function ShotInspector({
         <InspectorSection title="Video prompt">
           <Textarea
             aria-label="Video prompt"
-            className="min-h-[72px] text-sm resize-y"
+            className="shot-video-prompt text-sm resize-y"
             placeholder="Describe the motion between the frames..."
             value={shot.video_prompt ?? ""}
             onChange={(e) =>
@@ -609,9 +608,25 @@ export default function ShotInspector({
           />
         </InspectorSection>
 
+        {/* Image Versions Section */}
+        {versionCount > 0 && (
+          <InspectorSection title="Image takes" defaultOpen={false}>
+            <ImageVersionTimeline
+              versions={versions}
+              currentVersionId={currentVersion?.id || null}
+              onVersionSelect={(versionId) =>
+                onVersionSelect(shot.id, versionId)
+              }
+              onBranchFrom={(versionId) => onBranchFrom(shot.id, versionId)}
+              onEditFrom={(versionId) => onEditImage(shot.id, versionId)}
+              compact
+            />
+          </InspectorSection>
+        )}
+
         {/* Video Versions Section */}
         {videoVersionCount > 0 && (
-          <InspectorSection title="Video takes">
+          <InspectorSection title="Video takes" defaultOpen={false}>
             <VideoVersionTimeline
               versions={videoVersions}
               currentVersionId={currentVideoVersion?.id || null}
@@ -625,7 +640,7 @@ export default function ShotInspector({
       </div>
       <footer
         aria-label="Shot generation"
-        className="shrink-0 border-t border-border bg-background px-3 py-2"
+        className="shot-generation-footer shrink-0 border-t border-border bg-background px-3 py-2"
       >
         {frameSaving && (
           <p role="status" className="mb-2 text-xs text-muted-foreground">
