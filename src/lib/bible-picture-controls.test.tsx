@@ -251,3 +251,16 @@ it("opens picture commands from More, keeps edit drafts across Escape and return
   await user.click(more);
   expect((screen.getByRole("textbox", { name: "Edit instruction for Ada" }) as HTMLTextAreaElement).value).toBe("Warm light");
 });
+
+it("returns to the picture command when a take preview closes without changing its selection", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Picture actions for Ada" }));
+  const preview = screen.getByRole("button", { name: "View take 2 for Ada" });
+  await user.click(preview);
+  await screen.findByRole("dialog", { name: "Picture preview" });
+  await user.keyboard("{Escape}");
+  expect(screen.getByRole("dialog", { name: "Picture actions for Ada" })).toBeTruthy();
+  expect(document.activeElement).toBe(preview);
+  expect(screen.getByRole("button", { name: "Use take 1 for Ada" }).getAttribute("aria-pressed")).toBe("true");
+});
