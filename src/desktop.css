@@ -107,3 +107,20 @@ html, body, #root { height: 100%; margin: 0; }
 .native-preferences .appearance-accents label { min-width: 56px; font-size: 9px; }
 .native-preferences .appearance-swatch { width: 23px; height: 23px; }
 @media(max-width: 1100px) { .desktop-shell { grid-template-columns: 182px minmax(0, 1fr); } .desktop-wordmark { width: 152px; } .storyboard-workspace { grid-template-columns: 165px minmax(0, 1fr) 255px; } .workspace-toolbar { flex-wrap: wrap; gap: 5px; padding: 8px 12px; } .workspace-toolbar-actions { width: 100%; margin-left: 0; } .workspace-toolbar-actions > div { width: 100%; } }
+.shot-browser { display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0; }
+.shot-browser-heading { display: flex; justify-content: space-between; align-items: center; height: 31px; padding: 0 11px; border-bottom: 1px solid var(--border); color: var(--muted-foreground); font-size: 10px; }
+.shot-browser-list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 4px; list-style: none; }
+.shot-browser-row { position: relative; border: 1px solid transparent; border-radius: 3px; }
+.shot-browser-row.is-selected { background: color-mix(in srgb, var(--primary) 15%, var(--native-sidebar)); border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
+.shot-browser-select { display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; padding: 9px 6px; text-align: left; }
+.shot-browser-thumbnail { display: flex; align-items: center; justify-content: center; width: 54px; aspect-ratio: 16 / 10; flex-shrink: 0; background: var(--muted); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; color: var(--muted-foreground); font-size: 10px; }
+.shot-browser-thumbnail img { height: 100%; width: 100%; object-fit: cover; }
+.shot-browser-copy { display: grid; gap: 4px; min-width: 0; }
+.shot-browser-copy strong { color: var(--foreground); font-size: 10px; font-weight: 600; }
+.shot-browser-copy > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted-foreground); font-size: 9px; }
+.shot-browser-copy small { display: flex; align-items: center; gap: 4px; font-size: 8px; color: var(--muted-foreground); }
+.shot-browser-actions { position: absolute; top: 3px; right: 3px; display: flex; gap: 2px; opacity: 0; background: var(--native-sidebar); border: 1px solid var(--border); border-radius: 3px; padding: 2px; }
+.shot-browser-row:hover .shot-browser-actions, .shot-browser-row:focus-within .shot-browser-actions { opacity: 1; }
+.shot-browser-actions button { padding: 2px; }
+.shot-browser-actions button:disabled { opacity: .3; }
+.shot-browser-add { display: flex; justify-content: center; align-items: center; gap: 6px; height: 29px; margin: 7px; border: 1px solid var(--border); border-radius: 4px; background: var(--card); font-size: 10px; box-shadow: inset 0 1px var(--native-highlight); }
