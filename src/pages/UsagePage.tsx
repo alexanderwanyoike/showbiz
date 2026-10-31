@@ -91,10 +91,12 @@ export default function UsagePage() {
               </div>
             </div>
             <p className="usage-explanation">
-              USD. Reported charges are the amounts returned by the provider.
-              Unconfirmed estimates are separate and may differ from your
-              invoice. Unknown charges are not counted as free. Gemini estimates use published rates; its generation API does not return a monetary receipt. Local compute estimates use your saved rate; hardware and electricity costs are otherwise unknown. Refresh checks the requests on this page; totals cover this project, not your provider account balance.
+              Only generations recorded in this project are included. Reported charges come from provider receipts; estimates are unconfirmed and may differ from invoices.
             </p>
+            <details className="usage-explanation">
+              <summary>How costs are recorded</summary>
+              <p>USD. Unknown charges are not counted as free. Refresh checks the requests on this page; totals are not your provider account balance. Gemini estimates use published rates; its generation API does not return a monetary receipt. Local compute estimates use your saved rate; hardware and electricity costs are otherwise unknown.</p>
+            </details>
             {data.items.length ? (
               <div className="usage-table-scroll">
                 <table className="usage-table">
@@ -119,7 +121,7 @@ export default function UsagePage() {
                         <td>{item.status}</td>
                         <td>
                           <strong>{charge(item)}</strong>
-                          {data.billing_notes.filter((note) => note.request_id === item.request_id).map((note) => <span key={note.message}>{note.message}</span>)}
+                          {data.billing_notes.filter((note) => note.request_id === item.request_id).map((note) => <details key={note.message}><summary>Charge unconfirmed</summary><p>{note.message}</p></details>)}
                           {item.provider_request_id && <span className="select-text break-all">Request: {item.provider_request_id}</span>}
                           {item.estimated_min_microusd !== null &&
                             item.reported_microusd !== null && (

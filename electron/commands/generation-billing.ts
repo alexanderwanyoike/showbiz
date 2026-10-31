@@ -38,7 +38,7 @@ export function createGenerationBillingCommands(db: DatabaseSync, readKey: (prov
                 if (amount !== undefined) {
                   db.prepare("UPDATE generation_usage SET reported_microusd = ? WHERE request_id = ? AND project_id = ? AND reported_microusd IS NULL").run(amount, row.request_id, project_id);
                   result.reported++;
-                } else result.notes.push({ request_id: row.request_id, message: charges.ok ? "FAL has not published a billing event for this request yet. The charge remains unconfirmed." : charges.error.message });
+                } else result.notes.push({ request_id: row.request_id, message: charges.ok ? "FAL did not return a billing event for this request. Its charge remains unconfirmed." : charges.error.message });
               }
             }
           }
@@ -52,7 +52,7 @@ export function createGenerationBillingCommands(db: DatabaseSync, readKey: (prov
             if (charge.ok && charge.value !== null) {
               db.prepare("UPDATE generation_usage SET reported_microusd = ? WHERE request_id = ? AND project_id = ? AND reported_microusd IS NULL").run(charge.value, row.request_id, project_id);
               result.reported++;
-            } else result.notes.push({ request_id: row.request_id, message: charge.ok ? "OpenRouter has not published the final charge yet. This cost remains unconfirmed." : charge.error.message });
+            } else result.notes.push({ request_id: row.request_id, message: charge.ok ? "OpenRouter did not return a final charge for this request. Its cost remains unconfirmed." : charge.error.message });
           }));
         }
         return { ok: true, value: result };
