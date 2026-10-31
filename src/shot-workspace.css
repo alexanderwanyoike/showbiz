@@ -1,3 +1,23 @@
+.storyboard-page > .workspace-toolbar {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.storyboard-page > .workspace-toolbar .workspace-location {
+  flex: 1;
+  overflow: hidden;
+}
+.storyboard-page > .workspace-toolbar .workspace-back {
+  flex-shrink: 0;
+}
+.storyboard-page > .workspace-toolbar .workspace-toolbar-actions {
+  flex: 0 0 auto;
+  width: auto;
+  margin-left: auto;
+}
+.storyboard-page > .workspace-toolbar .storyboard-workspace-actions {
+  width: auto;
+  flex-wrap: nowrap;
+}
 .shot-workspace.storyboard-workspace {
   grid-template-rows: minmax(0, 1fr) 108px;
 }
