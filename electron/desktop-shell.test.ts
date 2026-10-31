@@ -225,6 +225,7 @@ it("detaches a closed native window without reading its destroyed webContents", 
 
   destroyed = true;
   expect(() => window.emit("closed")).not.toThrow();
+  expect(cleanup).not.toThrow();
   expect(shell.runMenuCommand(event, "copy").ok).toBe(false);
   expect(contents.copy).not.toHaveBeenCalled();
   expect(shell.runMenuCommand(live.event, "copy")).toEqual({
