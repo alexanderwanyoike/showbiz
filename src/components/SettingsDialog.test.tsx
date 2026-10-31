@@ -158,9 +158,9 @@ describe("SettingsDialog", () => {
     const geminiInput = screen.getByLabelText("Google AI API key");
     await user.type(geminiInput, "draft-gemini-key");
 
-    await user.click(screen.getByRole("button", { name: "Configure OpenAI" }));
+    await user.click(screen.getByRole("button", { name: "Configure OpenRouter" }));
     expect(screen.queryByLabelText("Google AI API key")).toBeNull();
-    expect(screen.getByLabelText("OpenAI API key")).toBeTruthy();
+    expect(screen.getByLabelText("OpenRouter API key")).toBeTruthy();
 
     await user.click(
       screen.getByRole("button", {
@@ -212,7 +212,7 @@ describe("SettingsDialog", () => {
     );
 
     await user.click(
-      await screen.findByRole("button", { name: "Configure Replicate" }),
+      await screen.findByRole("button", { name: "Configure OpenRouter" }),
     );
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });

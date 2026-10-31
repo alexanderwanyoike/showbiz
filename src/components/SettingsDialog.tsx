@@ -64,7 +64,7 @@ function createProviderRecord<T>(initialValue: T): Record<ApiKeyProvider, T> {
 function modelSummary(provider: ProviderSetting): string {
   if (provider.id === "fal-billing") return "Actual charges only; generation uses your fal.ai key.";
   if (provider.modelNames.length === 0) {
-    return "No generation models currently enabled";
+    return "Saved credential; no enabled generation models";
   }
 
   const visibleNames = provider.modelNames.slice(0, 3).join(", ");
@@ -92,7 +92,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
         API_KEY_PROVIDERS,
         apiKeyStatus,
         MODEL_CREDENTIAL_REQUIREMENTS
-      ),
+      ).filter((provider) => provider.isConfigured || provider.modelNames.length > 0 || provider.id === "fal-billing"),
     [apiKeyStatus]
   );
   const visibleProviders = useMemo(
