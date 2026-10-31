@@ -85,6 +85,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
   const [keyValues, setKeyValues] = useState(() => createProviderRecord(""));
   const [visibleKeys, setVisibleKeys] = useState(() => createProviderRecord(false));
   const [replacingKeys, setReplacingKeys] = useState(() => createProviderRecord(false));
+  const [keyErrors, setKeyErrors] = useState(() => createProviderRecord<string | null>(null));
   const expandedEditorRef = useRef<HTMLDivElement>(null);
 
   const providerSettings = useMemo(
@@ -154,6 +155,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
 
   function updateKey(provider: ApiKeyProvider, value: string) {
     setKeyValues((current) => ({ ...current, [provider]: value }));
+    setKeyErrors((current) => ({ ...current, [provider]: null }));
   }
 
   function toggleKeyVisibility(provider: ApiKeyProvider) {
@@ -172,7 +174,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
       await withApplicationWork("saving", async () => {
         const result = await saveApiKeyAction(provider, key);
         if (!result.success) {
-          alert(result.error || "Failed to save API key");
+          setKeyErrors((current) => ({ ...current, [provider]: result.error || "The key could not be saved." }));
           return;
         }
         updateKey(provider, "");
@@ -181,7 +183,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
       });
     } catch (error) {
       console.error("Failed to save API key:", error);
-      alert("Failed to save API key");
+      setKeyErrors((current) => ({ ...current, [provider]: "The key could not be saved. Try again." }));
     } finally {
       setSavingProvider(null);
     }
@@ -253,6 +255,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
       <div className="space-y-3 border-t bg-muted/25 px-4 py-3">
         <p className="text-xs text-muted-foreground">{provider.helpText}</p>
         {provider.isConfigured && <p className="text-xs text-muted-foreground">Your current key stays in use until you save a replacement.</p>}
+        {keyErrors[provider.id] && <p role="alert" className="text-xs text-destructive">{keyErrors[provider.id]}</p>}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative min-w-0 flex-1">
             <Input
