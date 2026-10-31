@@ -24,9 +24,9 @@ it("discovers model metadata and prices and changes defaults and independent sho
     const override = { tool: "set_shot_models", args: { shot_id: shot.id, video_model: "local-video", expected_revision: 1, request_id: "override" } };
     expect(await session.call(override)).toMatchObject({ ok: true, value: { revision: 2 } });
     expect(await session.call(override)).toMatchObject({ ok: true, value: { revision: 2 } });
-    expect(commands.get_shot({ id: shot.id })).toMatchObject({ image_model: null, video_model: "local-video" });
+    expect(commands.get_shots({ storyboardId: board.id }).find((item) => item.id === shot.id)).toMatchObject({ image_model: null, video_model: "local-video" });
     expect(await session.call({ tool: "set_shot_models", args: { shot_id: shot.id, video_model: null, expected_revision: 2, request_id: "inherit" } })).toMatchObject({ ok: true });
-    expect(commands.get_shot({ id: shot.id })).toMatchObject({ video_model: null });
+    expect(commands.get_shots({ storyboardId: board.id }).find((item) => item.id === shot.id)).toMatchObject({ video_model: null });
     expect(commands.get_storyboard({ id: board.id })).toMatchObject({ image_model: "seedream-4.5-openrouter", video_model: "veo-3.1-openrouter" });
     expect(await session.call({ tool: "save_generation_price", args: {} })).toMatchObject({ ok: false });
   } finally { db.close(); }
