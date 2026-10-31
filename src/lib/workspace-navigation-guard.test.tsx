@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
@@ -47,5 +47,37 @@ it("discards drafts held by a persistent project view without leaving navigation
   await user.click(screen.getByRole("link", { name: "Storyboards" }));
   expect(screen.queryByRole("alertdialog", { name: "Discard unsaved changes?" })).toBeNull();
   expect(await screen.findByRole("button", { name: "New Storyboard" })).toBeTruthy();
+  router.dispose();
+});
+
+it("protects browser Back navigation before a dirty workspace unmounts", async () => {
+  const router = createMemoryRouter([{ path: "*", element: createElement(Application) }]);
+  render(createElement(RouterProvider, { router }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("link", { name: "Bible" }));
+  await user.type(await screen.findByRole("textbox", { name: "Character name" }), "Ada");
+  await act(async () => { await router.navigate(-1); });
+  await user.click(within(await screen.findByRole("alertdialog", { name: "Discard unsaved changes?" })).getByRole("button", { name: "Stay" }));
+  expect((screen.getByRole("textbox", { name: "Character name" }) as HTMLInputElement).value).toBe("Ada");
+  await act(async () => { await router.navigate(-1); });
+  await user.click(within(await screen.findByRole("alertdialog", { name: "Discard unsaved changes?" })).getByRole("button", { name: "Discard and continue" }));
+  expect(await screen.findByRole("button", { name: "New Storyboard" })).toBeTruthy();
+  router.dispose();
+});
+it("keeps same-Bible section navigation available and navigates cleanly after clearing a draft", async () => {
+  const router = createMemoryRouter([{ path: "*", element: createElement(Application) }]);
+  render(createElement(RouterProvider, { router }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("link", { name: "Bible" }));
+  await user.type(await screen.findByRole("textbox", { name: "Character name" }), "Ada");
+  await act(async () => { await router.navigate("/project/film?view=bible&bibleTab=frames"); });
+  expect((await screen.findByRole("tab", { name: "Frames" })).getAttribute("aria-selected")).toBe("true");
+  expect(screen.queryByRole("alertdialog", { name: "Discard unsaved changes?" })).toBeNull();
+  await user.click(screen.getByRole("tab", { name: "Characters" }));
+  expect((screen.getByRole("textbox", { name: "Character name" }) as HTMLInputElement).value).toBe("Ada");
+  await user.click(screen.getByRole("button", { name: "Clear character draft" }));
+  await user.click(screen.getByRole("link", { name: "Opening scene" }));
+  expect(await screen.findByRole("region", { name: "Opening canvas" })).toBeTruthy();
+  expect(screen.queryByRole("alertdialog", { name: "Discard unsaved changes?" })).toBeNull();
   router.dispose();
 });
