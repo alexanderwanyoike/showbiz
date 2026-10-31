@@ -30,7 +30,6 @@ export function ModelPricingDialog({
   price?: GenerationPrice;
 }) {
   const [open, setOpen] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [savedPrice, setSavedPrice] = useState(price);
   const [error, setError] = useState<string | null>(null);
@@ -59,13 +58,8 @@ export function ModelPricingDialog({
     };
   }, [open, price, modelId, request.kind]);
   function changeOpen(next: boolean) {
-    if (
-      !next &&
-      (busy || (dirty && !window.confirm("Discard the unsaved model rate?")))
-    )
-      return;
+    if (!next && busy) return;
     setOpen(next);
-    if (!next) setDirty(false);
   }
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
@@ -106,11 +100,9 @@ export function ModelPricingDialog({
           provider={provider}
           request={request}
           price={savedPrice}
-          onDirtyChange={setDirty}
           onBusyChange={setBusy}
           onCancel={() => {
             setOpen(false);
-            setDirty(false);
           }}
         />
       </DialogContent>
