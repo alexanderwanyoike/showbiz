@@ -49,16 +49,6 @@
       ],
       "category": "AudioVideo",
       "icon": "build/icons/icon.png",
-      "extraResources": [
-        {
-          "from": "node_modules/ffmpeg-static/ffmpeg",
-          "to": "bin/ffmpeg"
-        },
-        {
-          "from": "node_modules/ffprobe-static/bin/linux/${arch}/ffprobe",
-          "to": "bin/ffprobe"
-        }
-      ],
       "syncDesktopName": true
     },
     "mac": {
@@ -77,16 +67,6 @@
         }
       ],
       "icon": "build/icons/icon.icns",
-      "extraResources": [
-        {
-          "from": "node_modules/ffmpeg-static/ffmpeg",
-          "to": "bin/ffmpeg"
-        },
-        {
-          "from": "node_modules/ffprobe-static/bin/darwin/${arch}/ffprobe",
-          "to": "bin/ffprobe"
-        }
-      ],
       "artifactName": "Showbiz-${version}-arm64-mac.${ext}"
     },
     "win": {
@@ -98,17 +78,7 @@
           ]
         }
       ],
-      "icon": "build/icons/icon.ico",
-      "extraResources": [
-        {
-          "from": "node_modules/ffmpeg-static/ffmpeg.exe",
-          "to": "bin/ffmpeg.exe"
-        },
-        {
-          "from": "node_modules/ffprobe-static/bin/win32/${arch}/ffprobe.exe",
-          "to": "bin/ffprobe.exe"
-        }
-      ]
+      "icon": "build/icons/icon.ico"
     },
     "publish": {
       "provider": "github",
@@ -145,8 +115,6 @@
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "electron-updater": "^6.8.9",
-    "ffmpeg-static": "^5.3.0",
-    "ffprobe-static": "^3.1.0",
     "lucide-react": "^0.555.0",
     "next-themes": "^0.4.6",
     "radix-ui": "^1.4.3",

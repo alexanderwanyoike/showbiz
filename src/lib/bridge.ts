@@ -6,8 +6,6 @@ import type { UpdateStatus } from "../../shared/update-status";
 export interface ElectronBridge {
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
   readMediaBytes(relativePath: string): Promise<Uint8Array>;
-  /** Subscribe to native export progress; returns an unsubscribe function. */
-  onExportProgress(cb: (payload: { percent: number }) => void): () => void;
   onApplicationWork(cb: (status: ApplicationWorkStatus) => void): () => void;
   onPrepareShutdown(cb: (request_id: string) => void): () => void;
   onUpdateStatus(cb: (status: UpdateStatus) => void): () => void;
