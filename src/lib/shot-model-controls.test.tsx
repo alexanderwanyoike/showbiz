@@ -85,7 +85,7 @@ it("keeps storyboard defaults out of the selected shot's controls", () => {
     screen.queryByRole("button", { name: "Storyboard image default" }),
   ).toBeNull();
 });
-it("explains that model choices apply to new takes rather than changing existing media", () => {
+it("explains that model choices apply to new takes rather than changing existing media", async () => {
   render(
     createElement(ShotModelControls, {
       shot: { id: "shot", order: 1, image_model: null, video_model: null },
@@ -95,6 +95,7 @@ it("explains that model choices apply to new takes rather than changing existing
       error: null,
     }),
   );
+  await userEvent.setup().click(screen.getByRole("button", { name: "About shot models" }));
   expect(
     screen.getByText("Used for new takes. Existing media stays unchanged."),
   ).toBeTruthy();
