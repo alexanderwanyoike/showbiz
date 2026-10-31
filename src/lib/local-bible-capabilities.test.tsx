@@ -10,7 +10,7 @@ Element.prototype.scrollIntoView = vi.fn();
 afterEach(cleanup);
 it("keeps text generation available but disables image editing for a local model without that capability", async () => {
   render(createElement(ProjectBibleView, {projectId: "film"}));
-  await screen.findByText("Morning");
+  await screen.findByRole("button", {name: "Edit"});
   const user = userEvent.setup();
   await user.click(screen.getByRole("combobox"));
   await user.click(screen.getByRole("option", {name: /Local image.*LocalAI/}));
