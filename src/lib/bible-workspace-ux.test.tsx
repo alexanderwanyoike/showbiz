@@ -5,20 +5,20 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ProjectBibleView from "../components/ProjectBibleView";
 import { generateImageAction } from "../actions/generation-actions";
-import { getBibles } from "./backend-api";
+import { createBibleAsset, getBibles } from "./backend-api";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: () => null }));
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
   getBibles: vi.fn(async () => [{ id: "bible" }]),
   getBibleAssets: async () => [],
   getBibleAssetVariants: async () => [],
-  createBibleAsset: async (_id: string, values: Record<string, unknown>) => ({ ...values, id: "draft-asset" }),
+  createBibleAsset: vi.fn(async (_id: string, values: Record<string, unknown>) => ({ ...values, id: crypto.randomUUID() })),
 }));
 vi.mock("../actions/generation-actions", async (original) => ({
   ...(await original<typeof import("../actions/generation-actions")>()),
   generateImageAction: vi.fn(async () => { throw new Error("Provider unavailable"); }),
 }));
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
 it("opens a linked Bible section and preserves independent drafts when switching sections with the keyboard", async () => {
   render(createElement(ProjectBibleView, { projectId: "film", initialTab: "frames" }));
   const user = userEvent.setup();
@@ -95,4 +95,18 @@ it("shows a failed Bible load with a retry action instead of leaving an endless 
   expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Could not load Bible.");
   await user.click(screen.getByRole("button", { name: "Try again" }));
   expect(await screen.findByRole("textbox", { name: "Character name" })).toBeTruthy();
+});
+
+it("retries a failed first picture on its existing entry instead of creating duplicate characters", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  await user.type(await screen.findByRole("textbox", { name: "Character name" }), "Ada");
+  await user.type(screen.getByRole("textbox", { name: "Character prompt" }), "A quiet portrait");
+  await user.click(screen.getByRole("button", { name: "Generate character" }));
+  await screen.findByText("Provider unavailable");
+  await user.click(screen.getByRole("button", { name: "Generate character" }));
+  await screen.findByText("Provider unavailable");
+  expect(createBibleAsset).toHaveBeenCalledTimes(1);
+  expect(generateImageAction).toHaveBeenCalledTimes(2);
+  expect(vi.mocked(generateImageAction).mock.calls[0][2]?.subject_id).toBe(vi.mocked(generateImageAction).mock.calls[1][2]?.subject_id);
 });
