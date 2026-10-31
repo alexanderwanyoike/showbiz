@@ -58,8 +58,9 @@ it('keeps a primary-take deletion pending, then selects the surviving take and r
     await user.keyboard('{Escape}');
     expect(screen.getByRole('alertdialog', { name: 'Delete picture' })).toBeTruthy();
   } finally { await act(async () => { finish?.(); }); }
-  expect(screen.queryByRole('button', { name: 'Use take 1 for Ada' })).toBeNull();
-  expect(screen.getByRole('button', { name: 'Use take 2 for Ada' }).getAttribute('aria-pressed')).toBe('true');
+  const remainingTakes = screen.getAllByRole('button', { name: /^Use take/ });
+  expect(remainingTakes).toHaveLength(1);
+  expect(remainingTakes[0].getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByRole('img', { name: 'Ada current take' }).getAttribute('src')).toBe('/take-2.png');
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'View Ada picture' }));
 });
