@@ -230,6 +230,7 @@ export default function StoryboardPage() {
   }>({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null });
   const [editPrompt, setEditPrompt] = useState("");
   const [isEditingImage, setIsEditingImage] = useState(false);
+  const [imageEditError, setImageEditError] = useState<string | null>(null);
 
   // Prompt Generation State - track per shot
   const [generatingPromptShots, setGeneratingPromptShots] = useState<Set<string>>(new Set());
@@ -651,14 +652,16 @@ export default function StoryboardPage() {
       sourceImageUrl: version.image_url,
     });
     setEditPrompt("");
+    setImageEditError(null);
   }
 
   async function handleEditImage() {
     if (!id) return;
     const { shotId, versionId } = editModalState;
-    if (!shotId || !versionId || !editPrompt.trim()) return;
+    if (isEditingImage || !shotId || !versionId || !editPrompt.trim()) return;
 
     setIsEditingImage(true);
+    setImageEditError(null);
     try {
       await withApplicationWork("generation", async () => {
         // Get source image as base64
@@ -683,7 +686,7 @@ export default function StoryboardPage() {
       });
     } catch (error) {
       console.error("Image edit failed:", error);
-      alert("Failed to edit image");
+      setImageEditError(error instanceof Error ? error.message : "Failed to edit frame. Try again.");
     } finally {
       setIsEditingImage(false);
     }
@@ -1081,7 +1084,7 @@ export default function StoryboardPage() {
       <Dialog
         open={editModalState.isOpen}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !isEditingImage) {
             setEditModalState({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null });
           }
         }}
@@ -1115,15 +1118,18 @@ export default function StoryboardPage() {
                 aria-label="Frame edit prompt"
                 placeholder="Describe the changes (e.g., 'Make the sky more dramatic' or 'Add fog in the background')"
                 value={editPrompt}
-                onChange={(e) => setEditPrompt(e.target.value)}
+                disabled={isEditingImage}
+                onChange={(e) => {setEditPrompt(e.target.value);setImageEditError(null);}}
                 autoFocus
               />
             </div>
           </div>
+          {imageEditError && <p role="alert" className="text-sm text-destructive">{imageEditError}</p>}
           <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model} request={{kind: "image_edit"}} subject={{project_id: storyboard?.project_id, subject_id: editModalState.shotId ?? undefined}} />
           <DialogFooter>
             <Button
               variant="ghost"
+              disabled={isEditingImage}
               onClick={() =>
                 setEditModalState({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null })
               }

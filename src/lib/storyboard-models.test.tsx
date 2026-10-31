@@ -26,8 +26,12 @@ import {
   setShotVideoSettings,
   deleteShot,
   clearShotStartFrame,
+  getCurrentImageVersion,
 } from "./backend-api";
-import { generateAndSaveVideoRequestAction } from "../actions/generation-actions";
+import {
+  editImageAction,
+  generateAndSaveVideoRequestAction,
+} from "../actions/generation-actions";
 vi.stubGlobal(
   "ResizeObserver",
   class {
@@ -87,7 +91,8 @@ vi.mock("./backend-api", async (original) => ({
   getTimelineClips: async () => [],
   getImageVersions: async () => [],
   getVideoVersions: async () => [],
-  getCurrentImageVersion: async () => null,
+  getCurrentImageVersion: vi.fn(async () => null),
+  getVersionImageBase64: vi.fn(async () => "data:image/png;base64,ZnJhbWU="),
   getCurrentVideoVersion: async () => null,
   getVersionCount: async () => 0,
   getVideoVersionCount: async () => 0,
@@ -107,6 +112,7 @@ vi.mock("./backend-api", async (original) => ({
 }));
 vi.mock("../actions/generation-actions", async (original) => ({
   ...(await original<typeof import("../actions/generation-actions")>()),
+  editImageAction: vi.fn(async () => "data:image/png;base64,ZWRpdA=="),
   generateAndSaveVideoRequestAction: vi.fn(async () => ({
     success: false,
     error: "Verification only",
@@ -507,5 +513,76 @@ it("returns the shot and its estimate to text-to-video after removing a start fr
   );
   expect(
     screen.getByRole("button", { name: "Generate video for shot 1" }),
+  ).toHaveProperty("disabled", false);
+});
+
+it("keeps an in-flight frame edit visible and retains its prompt after provider failure", async () => {
+  vi.mocked(getCurrentImageVersion).mockResolvedValueOnce({
+    id: "take-3",
+    shot_id: "shot-1",
+    parent_version_id: null,
+    version_number: 3,
+    edit_type: "generation",
+    image_path: "images/3.png",
+    prompt: null,
+    edit_prompt: null,
+    mask_path: null,
+    is_current: true,
+    created_at: "now",
+    image_url: "frame-1.png",
+    mask_url: null,
+  });
+  let rejectEdit: (error: Error) => void = () => {};
+  vi.mocked(editImageAction).mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        rejectEdit = reject;
+      }),
+  );
+  render(
+    createElement(
+      MemoryRouter,
+      { initialEntries: ["/storyboard/board"] },
+      createElement(
+        Routes,
+        null,
+        createElement(Route, {
+          path: "/storyboard/:id",
+          element: createElement(StoryboardPage),
+        }),
+      ),
+    ),
+  );
+  const user = userEvent.setup();
+  await screen.findByText("Opening");
+  const controls = screen.queryByRole("button", { name: "Shot controls" });
+  if (controls) await user.click(controls);
+  await user.click(
+    await screen.findByRole("button", { name: "Edit frame for shot 1" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Edit frame for shot 1" });
+  await user.type(
+    within(dialog).getByRole("textbox", { name: "Frame edit prompt" }),
+    "Add morning mist",
+  );
+  await user.click(within(dialog).getByRole("button", { name: "Edit Image" }));
+  expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveProperty(
+    "disabled",
+    true,
+  );
+  await user.keyboard("{Escape}");
+  expect(
+    screen.getByRole("dialog", { name: "Edit frame for shot 1" }),
+  ).toBeTruthy();
+  rejectEdit(new Error("Provider rejected this edit"));
+  expect(await within(dialog).findByRole("alert")).toHaveProperty(
+    "textContent",
+    "Provider rejected this edit",
+  );
+  expect(
+    within(dialog).getByRole("textbox", { name: "Frame edit prompt" }),
+  ).toHaveProperty("value", "Add morning mist");
+  expect(
+    within(dialog).getByRole("button", { name: "Edit Image" }),
   ).toHaveProperty("disabled", false);
 });
