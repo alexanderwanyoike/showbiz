@@ -39,3 +39,21 @@ it.each([
   expect(screen.queryByRole('region', { name: `${name} details` })).toBeNull();
   expect(screen.getByRole('complementary', { name: composerName })).toBeTruthy();
 });
+
+
+it('keeps independent creation and picture-action drafts across detail and library visits', async () => {
+  render(<ProjectBibleView projectId="film" />);
+  const user = userEvent.setup();
+  await user.type(await screen.findByRole('textbox', { name: 'Character name' }), 'New person');
+  await user.type(screen.getByRole('textbox', { name: 'Character prompt' }), 'A quiet portrait');
+  await user.click(screen.getByRole('button', { name: 'Open Ada details' }));
+  await user.click(screen.getByRole('button', { name: 'Variation…' }));
+  await user.clear(screen.getByRole('textbox', { name: 'Variation prompt for Ada' }));
+  await user.type(screen.getByRole('textbox', { name: 'Variation prompt for Ada' }), 'Warmer light');
+  await user.click(screen.getByRole('button', { name: 'Back to library' }));
+  expect(screen.getByRole('textbox', { name: 'Character name' })).toHaveProperty('value', 'New person');
+  expect(screen.getByRole('textbox', { name: 'Character prompt' })).toHaveProperty('value', 'A quiet portrait');
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open Ada details' }));
+  await user.click(screen.getByRole('button', { name: 'Open Ada details' }));
+  expect(screen.getByRole('textbox', { name: 'Variation prompt for Ada' })).toHaveProperty('value', 'Warmer light');
+});

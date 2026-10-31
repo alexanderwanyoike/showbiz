@@ -19,6 +19,7 @@ vi.mock('./backend-api', async (original) => ({
   })),
   updateBibleAssetVariantStatus: state.update,
   deleteBibleAssetVariant: state.remove,
+  deleteBibleAsset: async () => true,
 }));
 beforeEach(() => {
   state.removed.clear(); state.primary = 'take-1';
@@ -76,4 +77,17 @@ it('keeps the saved current picture and shows a retryable selection error', asyn
   await user.click(screen.getByRole('button', { name: 'Use take 2 for Ada' }));
   expect(screen.getByRole('img', { name: 'Ada current take' }).getAttribute('src')).toBe('/take-2.png');
   expect(screen.queryByRole('alert')).toBeNull();
+});
+
+
+it('returns to the library after deleting its selected entry', async () => {
+  render(<ProjectBibleView projectId="film" />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Open Ada details' }));
+  await user.click(screen.getByRole('button', { name: 'Delete Ada' }));
+  const confirmation = await screen.findByRole('alertdialog', { name: 'Delete Bible entry' });
+  await user.click(within(confirmation).getByRole('button', { name: 'Delete entry' }));
+  expect(await screen.findByText('No characters yet')).toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Ada details' })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'New character' }));
 });
