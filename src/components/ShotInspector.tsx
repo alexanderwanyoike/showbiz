@@ -192,12 +192,15 @@ function FramePickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-w-3xl" onCloseAutoFocus={(event) => {
-        if (openerRef.current?.isConnected) {
-          event.preventDefault();
-          openerRef.current.focus();
-        }
-      }}>
+      <DialogContent
+        className="max-w-3xl"
+        onCloseAutoFocus={(event) => {
+          if (openerRef.current?.isConnected) {
+            event.preventDefault();
+            openerRef.current.focus();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Choose {label.toLowerCase()}</DialogTitle>
         </DialogHeader>

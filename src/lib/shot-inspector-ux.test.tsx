@@ -256,26 +256,50 @@ it("keeps prompt tool routing visible and offers keyboard access to charge detai
   ).toBeTruthy();
 });
 async function openPopulatedFramePicker() {
-  const props=inspectorProps("seedance-2-fal");
-  props.frameOptions=[{variantId:"window",label:"Window light",prompt:"Window light",url:"window.png"},{variantId:"hallway",label:"Hallway",prompt:"Quiet interior",url:"hallway.png"}];
-  render(createElement(MemoryRouter,null,createElement(ShotInspector,props)));
-  const user=userEvent.setup();
-  const opener=screen.getByRole("button",{name:"Choose start frame"});
+  const props = inspectorProps("seedance-2-fal");
+  props.frameOptions = [
+    {
+      variantId: "window",
+      label: "Window light",
+      prompt: "Window light",
+      url: "window.png",
+    },
+    {
+      variantId: "hallway",
+      label: "Hallway",
+      prompt: "Quiet interior",
+      url: "hallway.png",
+    },
+  ];
+  render(
+    createElement(MemoryRouter, null, createElement(ShotInspector, props)),
+  );
+  const user = userEvent.setup();
+  const opener = screen.getByRole("button", { name: "Choose start frame" });
   await user.click(opener);
-  return {user,opener};
+  return { user, opener };
 }
 it("labels frame search and filters the available choices", async () => {
-  const {user}=await openPopulatedFramePicker();
-  await user.type(screen.getByRole("textbox",{name:"Search frames"}),"Hallway");
-  expect(screen.getByRole("button",{name:"Choose frame Hallway"})).toBeTruthy();
-  expect(screen.queryByRole("button",{name:"Choose frame Window light"})).toBeNull();
+  const { user } = await openPopulatedFramePicker();
+  await user.type(
+    screen.getByRole("textbox", { name: "Search frames" }),
+    "Hallway",
+  );
+  expect(
+    screen.getByRole("button", { name: "Choose frame Hallway" }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Choose frame Window light" }),
+  ).toBeNull();
 });
 it("names each frame choice once rather than repeating its thumbnail and prompt", async () => {
   await openPopulatedFramePicker();
-  expect(screen.getByRole("button",{name:"Choose frame Window light"})).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Choose frame Window light" }),
+  ).toBeTruthy();
 });
 it("returns focus to Choose frame after dismissing the frame picker", async () => {
-  const {user,opener}=await openPopulatedFramePicker();
+  const { user, opener } = await openPopulatedFramePicker();
   await user.keyboard("{Escape}");
-  await waitFor(()=>expect(document.activeElement).toBe(opener));
+  await waitFor(() => expect(document.activeElement).toBe(opener));
 });
