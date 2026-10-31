@@ -1,3 +1,4 @@
+import type { Result } from "../../shared/result";
 import { GenerationCost } from "./GenerationCost";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
@@ -274,8 +275,8 @@ export default function ProjectBibleView({ projectId, initialTab = "characters" 
   }
 
   // Create a new character/location from a first picture.
-  async function handleNewAsset(type: "character" | "location", name: string, prompt: string, file: File | null) {
-    if (!bibleId || !name.trim()) return;
+  async function handleNewAsset(type: "character" | "location", name: string, prompt: string, file: File | null): Promise<Result<void>> {
+    if (!bibleId || !name.trim()) return { ok: false, error: { code: "INVALID_INPUT", message: "Enter a name before creating a Bible entry." } };
     setError(null);
     setBusyId(`new-${type}`);
     try {
@@ -297,8 +298,11 @@ export default function ProjectBibleView({ projectId, initialTab = "characters" 
           await addVariant(asset.id, await imageFromPrompt(prompt, asset.id), { name: name.trim(), source: "generated", prompt });
         }
       });
+      return { ok: true, value: undefined };
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      return { ok: false, error: { code: "IO_ERROR", message } };
     } finally {
       setBusyId(null);
     }
@@ -555,7 +559,7 @@ function AssetTab({
   assets: BibleAsset[];
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
-  onNew: (type: "character" | "location", name: string, prompt: string, file: File | null) => Promise<void>;
+  onNew: (type: "character" | "location", name: string, prompt: string, file: File | null) => Promise<Result<void>>;
   onRetake: (asset: BibleAsset, promptOverride?: string) => Promise<void>;
   imageCapabilities: ImageCapabilities;
   generationContext: BibleGenerationContext;
@@ -598,9 +602,8 @@ function AssetTab({
               className="text-xs"
               disabled={creating || !newName.trim() || !newPrompt.trim()}
               onClick={async () => {
-                await onNew(type, newName, newPrompt, null);
-                setNewName("");
-                setNewPrompt("");
+                const result = await onNew(type, newName, newPrompt, null);
+                if (result.ok) { setNewName(""); setNewPrompt(""); }
               }}
             >
               {creating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
@@ -614,9 +617,8 @@ function AssetTab({
               disabled={creating || !newName.trim()}
               onClick={() =>
                 pickImageFile(async (file) => {
-                  await onNew(type, newName, "", file);
-                  setNewName("");
-                  setNewPrompt("");
+                  const result = await onNew(type, newName, "", file);
+                  if (result.ok) { setNewName(""); setNewPrompt(""); }
                 })
               }
             >
