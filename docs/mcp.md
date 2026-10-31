@@ -29,14 +29,16 @@ Packaged builds include the same standalone adapter and its dependency licences 
 
 ## Workflow
 
+In the document workspace from PR #100, first create or open a `.showbiz` file through the app. Project tools then address only that open document. The legacy `create_project` tool belongs to library-based builds; it does not create project files.
+
 1. Call `list_sessions` and explicitly choose the intended running instance with `attach_session`.
 2. Call `read_context`. Read projects, storyboards, shots, bibles, assets and take trees by their stable IDs.
 3. To edit, pass `expected_revision` from the latest response and a unique `request_id` along with the tool arguments. Fields use snake_case.
 4. Retry uncertain results with exactly the same request ID and arguments. A different payload cannot reuse an ID. A conflict means the application changed; read it again before deciding what to do.
 
-Writes are blocked while the UI has unsaved drafts or other active work. Selecting a take verifies it belongs to the requested shot. Reordering requires every shot exactly once. The app retains a bounded 128-request replay window for the current running instance; do not replay old requests after that window or across an application restart.
+Writes are blocked while the UI has unsaved drafts or other active work. Selecting a take verifies it belongs to the requested shot. Reordering requires every shot exactly once. Switching project files expires the replay cache and invalidates stale edit revisions. The app retains a bounded 128-request replay window for the current running instance; do not replay old requests after that window or across an application restart.
 
-Tools cover project and storyboard creation/naming, bible guidance, characters/locations/other bible entries, shot prompts and duration, ordering, take inspection/selection and storyboard package export. Reads that return lists accept `offset` and `limit` (up to 100). `export_storyboard_package` requires the package feature from PR #99, uses the native save dialog and exports media only. It never places clips on an editor timeline.
+Tools cover project naming, storyboard creation/naming, bible guidance, characters/locations/other bible entries, shot prompts and duration, ordering, take inspection/selection and storyboard package export. Reads that return lists accept `offset` and `limit` (up to 100). `export_storyboard_package` requires the package feature from PR #99, uses the native save dialog and exports media only. It never places clips on an editor timeline.
 
 This initial MCP boundary does not expose credentials, arbitrary HTTP requests, filesystem access, shell commands or destructive delete operations. Generation continues through the app's existing controls; automated generation and provider billing are separate capabilities.
 
