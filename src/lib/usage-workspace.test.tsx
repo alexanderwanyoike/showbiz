@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { Link, MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, expect, it, vi } from 'vitest';
 import UsagePage from '../pages/UsagePage';
 import type { GenerationUsage } from '../../shared/generation-usage';
@@ -28,7 +28,7 @@ function page(items: GenerationUsage[] = [request]): UsageWithBilling {
   } };
 }
 function renderUsage() {
-  return render(<MemoryRouter initialEntries={['/usage/film']}><Routes>
+  return render(<MemoryRouter initialEntries={['/usage/film']}><Link to="/usage/other">Other project</Link><Routes>
     <Route path="/usage/:id" element={<UsagePage />} />
   </Routes></MemoryRouter>);
 }
@@ -54,4 +54,27 @@ it('keeps human request rows compact and exposes exact receipt identity in reque
   expect(within(details).getByText('~$0.025')).toBeTruthy();
   await user.keyboard('{Escape}');
   expect(screen.queryByRole('dialog')).toBeNull();
+});
+
+
+it('refreshes the current page and resets pagination before opening another project', async () => {
+  const initial = page(Array.from({ length: 50 }, (_, index) => ({ ...request, request_id: `request-${index}` })));
+  initial.total_count = 51;
+  const last = { ...page([{ ...request, request_id: 'last-request' }]), total_count: 51 };
+  billing.loadUsageWithBilling.mockImplementation(async (projectId: string, offset: number) => ({
+    ok: true, value: projectId === 'other' ? page([]) : offset === 50 ? last : initial,
+  }));
+  renderUsage();
+  const user = userEvent.setup();
+  await screen.findByText('1 to 50 of 51 requests');
+  await user.click(screen.getByRole('button', { name: 'Next' }));
+  await screen.findByText('51 to 51 of 51 requests');
+  expect(billing.loadUsageWithBilling).toHaveBeenLastCalledWith('film', 50);
+  await user.click(screen.getByRole('button', { name: 'Refresh charges' }));
+  await screen.findByText('51 to 51 of 51 requests');
+  expect(billing.loadUsageWithBilling).toHaveBeenLastCalledWith('film', 50);
+  await user.click(screen.getByRole('link', { name: 'Other project' }));
+  await screen.findByText('No generations recorded yet.');
+  expect(billing.loadUsageWithBilling).toHaveBeenLastCalledWith('other', 0);
+  expect(screen.getByRole('button', { name: 'Previous' }).hasAttribute('disabled')).toBe(true);
 });
