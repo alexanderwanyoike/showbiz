@@ -40,6 +40,7 @@ export function NewStoryboardDialog({
   const [creationError, setCreationError] = useState<string | null>(null);
   const [newStoryboardName, setNewStoryboardName] = useState("");
   const creating = useRef(false);
+  const completed = useRef<Storyboard | null>(null);
   useUnsavedWork("draft", open && !!newStoryboardName, newStoryboardName);
   useEffect(() => {
     const discard = () => {
@@ -51,6 +52,12 @@ export function NewStoryboardDialog({
     return () =>
       window.removeEventListener("showbiz:discard-workspace-drafts", discard);
   }, [onOpenChange]);
+  useEffect(() => {
+    if (open || !completed.current) return;
+    const storyboard = completed.current;
+    completed.current = null;
+    onCreated(storyboard);
+  }, [open, onCreated]);
   function changeOpen(next: boolean) {
     if (creating.current) return;
     setNewStoryboardName("");
@@ -95,9 +102,9 @@ export function NewStoryboardDialog({
     setCreationError(null);
     const result = await createDraft(name);
     if (result.ok) {
+      completed.current = result.value;
       setNewStoryboardName("");
       onOpenChange(false);
-      onCreated(result.value);
     } else setCreationError(result.error.message);
     creating.current = false;
     setIsCreating(false);
