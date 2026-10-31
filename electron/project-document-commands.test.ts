@@ -39,3 +39,10 @@ it("treats cancelled file dialogs as no change and refuses switching after work 
   });
   expect(documents.close).not.toHaveBeenCalled();
 });
+
+it("reports a failed package save instead of acknowledging only the project name", async()=>{
+ const current={file_path:"/Films/Film.showbiz",project_id:"film",name:"Film"};
+ const save=vi.fn(async()=>({ok:false as const,error:{code:"DOCUMENT_ERROR",message:"Disk full"}}));
+ const commands=createProjectDocumentCommands({documents:{current:()=>current,recent:()=>[],legacy:()=>[],create:vi.fn(),open:vi.fn(),close:vi.fn(),saveAs:vi.fn(),importLegacy:vi.fn(),save},chooseOpen:async()=>null,chooseSave:async()=>null,canSwitch:()=>true,changed:vi.fn(),beginSave:()=>()=>{}});
+ expect(await commands.save_project_document()).toEqual({ok:false,error:{code:"DOCUMENT_ERROR",message:"Disk full"}});
+});
