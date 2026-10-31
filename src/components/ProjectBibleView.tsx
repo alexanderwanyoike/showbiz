@@ -621,7 +621,7 @@ function AssetTab({
 
       {/* List */}
       {assets.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No {label}s yet. Make one above.</p>
+        <p className="text-sm text-muted-foreground">{label === "character" ? "No characters yet. Create one above." : "No locations yet. Create one above."}</p>
       ) : (
         <div className="space-y-3">
           {assets.map((asset) => {
