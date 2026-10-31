@@ -48,3 +48,7 @@ it("lets users remove a saved end frame that the current model does not use", as
   await userEvent.setup().click(screen.getByRole("button",{name:"Remove saved end frame"}));
   expect(props.onClearEndFrame).toHaveBeenCalledWith("shot");
 });
+it("shows a model's fixed duration even when it cannot be changed", () => {
+  render(createElement(MemoryRouter,null,createElement(ShotInspector,inspectorProps("wan-flf2v-fal"))));
+  expect(screen.getByText("5s",{exact:true})).toBeTruthy();
+});
