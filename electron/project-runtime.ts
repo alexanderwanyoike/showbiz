@@ -31,7 +31,9 @@ export function createProjectRuntime(options: {
       createDataCommands(db, media, options.exports(db, media)),
   });
   const globals: CommandMap = {
-    ...createGenerationModelCommands(options.modelDirectory ?? path.resolve("src/lib/models/providers")),
+    ...createGenerationModelCommands(
+      options.modelDirectory ?? path.resolve("src/lib/models/providers"),
+    ),
     ...createSettingsCommands(options.legacyDb),
     ...createHttpCommands(),
     ...createProjectDocumentCommands({ ...options, documents }),

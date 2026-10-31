@@ -14,7 +14,10 @@ const modelSchema = z.object({
   supportsEditing: z.boolean().optional(),
   supportsComposition: z.boolean().optional(),
 });
-type GenerationModel = Omit<z.infer<typeof modelSchema>, "apiKeyProvider" | "enabled"> & {
+type GenerationModel = Omit<
+  z.infer<typeof modelSchema>,
+  "apiKeyProvider" | "enabled"
+> & {
   provider: string;
   kind: "image" | "video";
 };
@@ -25,8 +28,12 @@ export function createGenerationModelCommands(directory: string) {
         const models: GenerationModel[] = [];
         for (const kind of ["image", "video"] as const) {
           const folder = path.join(directory, kind);
-          for (const filename of readdirSync(folder).filter((file) => file.endsWith(".json")).sort()) {
-            const parsed = modelSchema.parse(JSON.parse(readFileSync(path.join(folder, filename), "utf8")));
+          for (const filename of readdirSync(folder)
+            .filter((file) => file.endsWith(".json"))
+            .sort()) {
+            const parsed = modelSchema.parse(
+              JSON.parse(readFileSync(path.join(folder, filename), "utf8")),
+            );
             if (!parsed.enabled) continue;
             const { apiKeyProvider, enabled, ...metadata } = parsed;
             models.push({ ...metadata, provider: apiKeyProvider, kind });
@@ -34,7 +41,13 @@ export function createGenerationModelCommands(directory: string) {
         }
         return { ok: true, value: models };
       } catch {
-        return { ok: false, error: { code: "IO_ERROR", message: "Could not read the installed generation model catalog." } };
+        return {
+          ok: false,
+          error: {
+            code: "IO_ERROR",
+            message: "Could not read the installed generation model catalog.",
+          },
+        };
       }
     },
   };

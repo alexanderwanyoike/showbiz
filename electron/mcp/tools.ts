@@ -77,15 +77,49 @@ const asset = z.object({
   consent_confirmed: z.boolean(),
 });
 export const mcpTools: ToolDefinition[] = [
-  define("get_generation_models", {}, "Read installed image and video model IDs, providers, capabilities and defaults. Credentials are omitted."),
-  define("get_generation_price", { model_id: id, kind: z.enum(["image", "image_edit", "image_compose", "video"]) }, "Read the device price basis and source for a model. A missing rate is unknown, not free."),
+  define(
+    "get_generation_models",
+    {},
+    "Read installed image and video model IDs, providers, capabilities and defaults. Credentials are omitted.",
+  ),
+  define(
+    "get_generation_price",
+    {
+      model_id: id,
+      kind: z.enum(["image", "image_edit", "image_compose", "video"]),
+    },
+    "Read the device price basis and source for a model. A missing rate is unknown, not free.",
+  ),
   {
-    ...define("update_storyboard_models", { id, image_model: id, video_model: id }, "Set both storyboard model defaults. Existing shot overrides remain independent.", true),
-    args: (input) => ({ id: input.id, imageModel: input.image_model, videoModel: input.video_model }),
+    ...define(
+      "update_storyboard_models",
+      { id, image_model: id, video_model: id },
+      "Set both storyboard model defaults. Existing shot overrides remain independent.",
+      true,
+    ),
+    args: (input) => ({
+      id: input.id,
+      imageModel: input.image_model,
+      videoModel: input.video_model,
+    }),
   },
   {
-    ...define("set_shot_models", { shot_id: id, image_model: id.nullable().optional(), video_model: id.nullable().optional() }, "Set independent shot model overrides. Pass null to inherit the storyboard default; omit a field to preserve it.", true),
-    args: (input) => Object.fromEntries(Object.entries(input).filter(([key]) => ["shot_id", "image_model", "video_model"].includes(key))),
+    ...define(
+      "set_shot_models",
+      {
+        shot_id: id,
+        image_model: id.nullable().optional(),
+        video_model: id.nullable().optional(),
+      },
+      "Set independent shot model overrides. Pass null to inherit the storyboard default; omit a field to preserve it.",
+      true,
+    ),
+    args: (input) =>
+      Object.fromEntries(
+        Object.entries(input).filter(([key]) =>
+          ["shot_id", "image_model", "video_model"].includes(key),
+        ),
+      ),
   },
   ...["get_generation_usage", "get_generation_cost_summary"].map((command) => ({
     ...define(
