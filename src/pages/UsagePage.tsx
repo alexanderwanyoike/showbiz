@@ -1,3 +1,4 @@
+import { loadUsageWithBilling, type UsageWithBilling } from "../lib/generation-billing";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { WorkspaceToolbar } from "../components/WorkspaceToolbar";
@@ -6,8 +7,6 @@ import { useAgentChanges } from "../hooks/useAgentChanges";
 import {
   formatGenerationCost,
   formatGenerationEstimate,
-  getGenerationUsage,
-  getGenerationCostSummary,
 } from "../lib/generation-usage";
 import type {
   GenerationUsage,
@@ -29,11 +28,7 @@ export default function UsagePage() {
   const { id } = useParams();
   const [offset, setOffset] = useState(0);
   const [refresh, setRefresh] = useState(0);
-  const [data, setData] = useState<{
-    items: GenerationUsage[];
-    total_count: number;
-    summary: GenerationCostSummary;
-  } | null>(null);
+  const [data, setData] = useState<UsageWithBilling | null>(null);
   const [error, setError] = useState<string | null>(null);
   useAgentChanges(() => setRefresh((value) => value + 1));
   useEffect(() => {
@@ -41,15 +36,11 @@ export default function UsagePage() {
     setData(null);
     setError(null);
     if (id)
-      Promise.all([
-        getGenerationUsage(id, offset),
-        getGenerationCostSummary(id),
-      ])
-        .then(([page, summary]) => {
+      loadUsageWithBilling(id, offset)
+        .then((result) => {
           if (stopped) return;
-          if (!page.ok) setError(page.error.message);
-          else if (!summary.ok) setError(summary.error.message);
-          else setData({ ...page.value, summary: summary.value });
+          if (!result.ok) setError(result.error.message);
+          else setData(result.value);
         })
         .catch((cause: unknown) => {
           if (!stopped) setError(String(cause));
@@ -66,7 +57,7 @@ export default function UsagePage() {
           size="sm"
           onClick={() => setRefresh((value) => value + 1)}
         >
-          Refresh
+          Refresh charges
         </Button>
       </WorkspaceToolbar>
       <div className="usage-content">
@@ -129,6 +120,8 @@ export default function UsagePage() {
                         <td>{item.status}</td>
                         <td>
                           <strong>{charge(item)}</strong>
+                          {data.billing_notes.filter((note) => note.request_id === item.request_id).map((note) => <span key={note.message}>{note.message}</span>)}
+                          {item.provider_request_id && <span className="select-text break-all">Request: {item.provider_request_id}</span>}
                           {item.estimated_min_microusd !== null &&
                             item.reported_microusd !== null && (
                               <span>
