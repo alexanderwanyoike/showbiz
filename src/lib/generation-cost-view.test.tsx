@@ -140,6 +140,6 @@ it("does not hide recorded history while a future pricing change is being calcul
   render(createElement(GenerationCost, { modelId: "veo-3.1-openrouter", request: { kind: "video" }, subject: { project_id: "film", subject_id: "shot" } }));
   expect((await screen.findByLabelText("Last generation cost")).textContent).toContain("$3.20 reported");
   mocks.invoke.mockImplementation(() => new Promise(() => {}));
-  act(() => { window.dispatchEvent(new Event("showbiz:pricing-changed")); });
+  await act(async () => { window.dispatchEvent(new Event("showbiz:pricing-changed")); });
   expect(screen.getByLabelText("Last generation cost").textContent).toContain("$3.20 reported");
 });
