@@ -142,3 +142,10 @@ describe("falImageTransport", () => {
     await expect(falImageTransport.composeImage!(gptConfig, "x", [], "key")).rejects.toThrow("at least one reference image");
   });
 });
+it("retains the queued image request identity before media delivery fails", async () => {
+  const { pollFalResult } = await import("../fal-shared");
+  vi.mocked(pollFalResult).mockRejectedValueOnce(new Error("Download unavailable"));
+  const receipt = vi.fn();
+  await expect(falImageTransport.generateImage({ ...config, transportOptions: { endpoint: "fal-ai/flux/dev" } }, "portrait", "key", { receipt })).rejects.toThrow("Download unavailable");
+  expect(receipt).toHaveBeenCalledWith({ provider_request_id: "req-1", reported_microusd: null });
+});

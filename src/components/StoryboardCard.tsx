@@ -1,24 +1,22 @@
+import { useRef, useState } from "react";
+import type { Result } from "../../shared/result";
+import { ConfirmDeletion } from "./ConfirmDeletion";
 import { Link } from "react-router";
-import { Trash2, ImageIcon } from "lucide-react";
+import { MoreHorizontal, Trash2, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface StoryboardCardProps {
   id: string;
   name: string;
   updatedAt: string;
   previewImageUrl?: string | null;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => Promise<Result<null>>;
 }
 
 export default function StoryboardCard({
@@ -28,6 +26,8 @@ export default function StoryboardCard({
   previewImageUrl,
   onDelete,
 }: StoryboardCardProps) {
+  const actions = useRef<HTMLButtonElement | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const formattedDate = new Date(updatedAt).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -35,14 +35,18 @@ export default function StoryboardCard({
   });
 
   return (
-    <div className="group relative">
-      <Link to={`/storyboard/${id}`} className="block">
+    <article className="storyboard-card group">
+      <Link
+        to={`/storyboard/${id}`}
+        className="block"
+        aria-label={`Open storyboard ${name}`}
+      >
         {/* 16:9 Thumbnail */}
-        <div className="aspect-video relative rounded-md overflow-hidden bg-muted/50 group-hover:brightness-125 transition-all duration-200">
+        <div className="storyboard-card-preview aspect-video relative overflow-hidden bg-muted/50">
           {previewImageUrl ? (
             <img
               src={previewImageUrl}
-              alt={`Preview of ${name}`}
+              alt=""
               className="absolute inset-0 w-full h-full object-cover"
             />
           ) : (
@@ -53,48 +57,44 @@ export default function StoryboardCard({
         </div>
 
         {/* Text below thumbnail */}
-        <div className="mt-2 px-0.5">
-          <h3 className="text-sm font-medium text-foreground truncate">
+        <div className="storyboard-card-caption">
+          <h2 className="text-sm font-medium text-foreground truncate">
             {name}
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Last modified: {formattedDate}
-          </p>
+          </h2>
+          <time dateTime={updatedAt}>{formattedDate}</time>
         </div>
       </Link>
 
-      {/* Delete button — appears on hover */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
+      <div className="storyboards-card-actions">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
+              ref={actions}
               variant="ghost"
               size="icon"
-              className="h-7 w-7 bg-black/60 hover:bg-black/80 text-white hover:text-white rounded-sm"
+              aria-label={`Storyboard actions for ${name}`}
+              title={`Storyboard actions for ${name}`}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Storyboard</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete &quot;{name}&quot;? This will also delete all
-                shots within this storyboard. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => onDelete(id)}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setDeleteOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete storyboard…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-    </div>
+      <ConfirmDeletion
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete storyboard"
+        description={`Delete “${name}” and all its shots? This cannot be undone.`}
+        actionLabel="Delete storyboard"
+        restoreFocus={() => actions.current?.focus()}
+        onConfirm={() => onDelete(id)}
+      />
+    </article>
   );
 }

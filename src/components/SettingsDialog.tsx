@@ -1,3 +1,4 @@
+import { LocalGenerationSettings } from "./LocalGenerationSettings";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AppearancePanel } from "./AppearancePanel";
 import { UpdatesPanel } from "./UpdatesPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +46,7 @@ import {
 
 interface SettingsDialogProps {
   open: boolean;
-  initialSection?: "providers" | "updates";
+  initialSection?: "providers" | "updates" | "appearance";
   onOpenChange: (open: boolean) => void;
 }
 
@@ -60,8 +62,9 @@ function createProviderRecord<T>(initialValue: T): Record<ApiKeyProvider, T> {
 }
 
 function modelSummary(provider: ProviderSetting): string {
+  if (provider.id === "fal-billing") return "Actual charges only; generation uses your fal.ai key.";
   if (provider.modelNames.length === 0) {
-    return "No generation models currently enabled";
+    return "Saved credential; no enabled generation models";
   }
 
   const visibleNames = provider.modelNames.slice(0, 3).join(", ");
@@ -81,6 +84,8 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
   const [searchQuery, setSearchQuery] = useState("");
   const [keyValues, setKeyValues] = useState(() => createProviderRecord(""));
   const [visibleKeys, setVisibleKeys] = useState(() => createProviderRecord(false));
+  const [replacingKeys, setReplacingKeys] = useState(() => createProviderRecord(false));
+  const [keyErrors, setKeyErrors] = useState(() => createProviderRecord<string | null>(null));
   const expandedEditorRef = useRef<HTMLDivElement>(null);
 
   const providerSettings = useMemo(
@@ -89,6 +94,10 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
         API_KEY_PROVIDERS,
         apiKeyStatus,
         MODEL_CREDENTIAL_REQUIREMENTS
+      ).filter((provider) =>
+        provider.isConfigured ||
+        provider.modelNames.length > 0 ||
+        provider.id === "fal-billing"
       ),
     [apiKeyStatus]
   );
@@ -146,6 +155,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
 
   function updateKey(provider: ApiKeyProvider, value: string) {
     setKeyValues((current) => ({ ...current, [provider]: value }));
+    setKeyErrors((current) => ({ ...current, [provider]: null }));
   }
 
   function toggleKeyVisibility(provider: ApiKeyProvider) {
@@ -164,22 +174,25 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
       await withApplicationWork("saving", async () => {
         const result = await saveApiKeyAction(provider, key);
         if (!result.success) {
-          alert(result.error || "Failed to save API key");
+          setKeyErrors((current) => ({ ...current, [provider]: result.error || "The key could not be saved." }));
           return;
         }
         updateKey(provider, "");
+        setReplacingKeys((current) => ({ ...current, [provider]: false }));
+        setVisibleKeys((current) => ({ ...current, [provider]: false }));
+        window.dispatchEvent(new Event("showbiz:pricing-changed"));
         await loadApiKeyStatus(false);
       });
     } catch (error) {
       console.error("Failed to save API key:", error);
-      alert("Failed to save API key");
+      setKeyErrors((current) => ({ ...current, [provider]: "The key could not be saved. Try again." }));
     } finally {
       setSavingProvider(null);
     }
   }
 
   async function handleDeleteKey(provider: ApiKeyProvider) {
-    if (!confirm("Remove this API key from the database?")) return;
+    if (!confirm("Remove this saved key from Showbiz on this device? This does not revoke the key at the provider.")) return;
 
     setSavingProvider(provider);
     try {
@@ -189,6 +202,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
           alert(result.error || "Failed to delete API key");
           return;
         }
+        window.dispatchEvent(new Event("showbiz:pricing-changed"));
         await loadApiKeyStatus(false);
       });
     } catch (error) {
@@ -202,15 +216,28 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
   function renderProviderEditor(provider: ProviderSetting) {
     const isSaving = savingProvider === provider.id;
 
-    if (provider.isConfigured) {
+    if (provider.isConfigured && !replacingKeys[provider.id]) {
       return (
         <div className="space-y-3 border-t bg-muted/25 px-4 py-3">
           <p className="text-xs text-muted-foreground">{provider.helpText}</p>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted-foreground">
               <KeyRound className="h-4 w-4 shrink-0" />
-              <span className="truncate">Saved in the local database</span>
+              <span className="truncate">Saved on this device</span>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isSaving}
+              aria-label={`Replace ${provider.name} API key`}
+              onClick={() => {
+                setReplacingKeys((current) => ({ ...current, [provider.id]: true }));
+                setVisibleKeys((current) => ({ ...current, [provider.id]: false }));
+              }}
+            >
+              Replace key…
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -229,10 +256,13 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
     return (
       <div className="space-y-3 border-t bg-muted/25 px-4 py-3">
         <p className="text-xs text-muted-foreground">{provider.helpText}</p>
+        {provider.isConfigured && <p className="text-xs text-muted-foreground">Your current key stays in use until you save a replacement.</p>}
+        {keyErrors[provider.id] && <p role="alert" className="text-xs text-destructive">{keyErrors[provider.id]}</p>}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative min-w-0 flex-1">
             <Input
               type={visibleKeys[provider.id] ? "text" : "password"}
+              disabled={isSaving}
               aria-label={provider.credentialLabel}
               placeholder={`Enter ${provider.credentialLabel.toLocaleLowerCase()}…`}
               value={keyValues[provider.id]}
@@ -246,6 +276,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
               size="icon"
               className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
               onClick={() => toggleKeyVisibility(provider.id)}
+              disabled={isSaving}
               aria-label={`${visibleKeys[provider.id] ? "Hide" : "Show"} ${provider.credentialLabel}`}
             >
               {visibleKeys[provider.id] ? (
@@ -261,8 +292,13 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
             disabled={!keyValues[provider.id].trim() || isSaving}
           >
             {isSaving ? <Loader2 className="animate-spin" /> : <Check />}
-            Save key
+            {provider.isConfigured ? "Save replacement" : "Save key"}
           </Button>
+          {provider.isConfigured && <Button type="button" variant="ghost" size="sm" disabled={isSaving} aria-label={`Cancel replacing ${provider.name} API key`} onClick={() => {
+            updateKey(provider.id, "");
+            setReplacingKeys((current) => ({ ...current, [provider.id]: false }));
+            setVisibleKeys((current) => ({ ...current, [provider.id]: false }));
+          }}>Cancel</Button>}
         </div>
       </div>
     );
@@ -270,20 +306,21 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[640px]">
-        <Tabs value={section} onValueChange={(value) => setSection(value as "providers" | "updates")} className="contents">
-          <DialogHeader className="px-5 pt-5 pb-4 text-left sm:px-6 sm:pt-6">
+      <DialogContent className="native-preferences">
+        <Tabs orientation="vertical" value={section} onValueChange={(value) => setSection(value as "providers" | "updates" | "appearance")} className="contents">
+          <DialogHeader className="preferences-header">
             <DialogTitle>Settings</DialogTitle>
             <DialogDescription>
-              Manage your providers and application updates.
+              Showbiz preferences
             </DialogDescription>
-            <TabsList aria-label="Settings sections" className="mt-3 w-full">
+            <TabsList aria-label="Settings sections" className="preferences-navigation">
               <TabsTrigger value="providers">Providers</TabsTrigger>
               <TabsTrigger value="updates">Updates</TabsTrigger>
+              <TabsTrigger value="appearance">Appearance</TabsTrigger>
             </TabsList>
           </DialogHeader>
 
-          <TabsContent value="providers" className="min-h-0 overflow-hidden">
+          <TabsContent value="providers" className="preferences-content min-h-0 overflow-hidden">
 
             <div
               role="region"
@@ -360,7 +397,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
                               </span>
                               {provider.isConfigured && (
                                 <Badge variant="secondary" className="shrink-0">
-                                  Connected
+                                  Key saved
                                 </Badge>
                               )}
                             </span>
@@ -378,6 +415,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
                         {isExpanded && (
                           <div id={editorId} ref={expandedEditorRef}>
                             {renderProviderEditor(provider)}
+                            {provider.id === "local" && <LocalGenerationSettings />}
                           </div>
                         )}
                       </li>
@@ -388,19 +426,23 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "providers
               <div className="h-4" />
             </div>
           </TabsContent>
-          <TabsContent value="updates" className="min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6">
+          <TabsContent value="updates" className="preferences-content min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6">
             <UpdatesPanel />
           </TabsContent>
 
-          <DialogFooter className="flex-row items-center justify-between gap-3 border-t bg-background px-5 py-3 sm:px-6">
+          <TabsContent value="appearance" className="preferences-content min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6">
+            <AppearancePanel />
+          </TabsContent>
+
+          <DialogFooter className="preferences-footer">
             {section === "providers" ? <>
             <p className="text-xs text-muted-foreground">
-              {configuredCount} of {providerSettings.length} connected
+              {configuredCount} of {providerSettings.length} credentials saved
             </p>
             <p className="text-right text-xs text-muted-foreground">
-              Keys are stored in the local Showbiz database.
+              Keys are saved on this device and are not included in project files.
             </p>
-            </> : <p className="text-xs text-muted-foreground">Download and install updates when you are ready.</p>}
+            </> : <p className="text-xs text-muted-foreground">{section === "appearance" ? "Appearance changes are saved on this device." : "Download and install updates when you are ready."}</p>}
           </DialogFooter>
         </Tabs>
       </DialogContent>

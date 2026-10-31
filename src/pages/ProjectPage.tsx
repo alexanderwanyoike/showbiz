@@ -1,301 +1,309 @@
-import { useUnsavedWork } from "../hooks/useApplicationWork";
-import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router";
-import { Plus, Clapperboard, Loader2, Search } from "lucide-react";
-import { Header } from "../components/Header";
+import "../storyboards-library.css";
+import type { Result } from "../../shared/result";
+import { useAgentChanges } from "../hooks/useAgentChanges";
+import { useProjectDocument } from "../contexts/ProjectDocumentContext";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router";
+import { Plus, Clapperboard, Loader2, Search, X } from "lucide-react";
 import StoryboardCard from "../components/StoryboardCard";
 import ProjectBibleView from "../components/ProjectBibleView";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { NewStoryboardDialog } from "../components/NewStoryboardDialog";
 import {
   getProject,
   getStoryboardsWithPreview,
-  createStoryboard,
   deleteStoryboard,
-  updateProject,
 } from "../lib/backend-api";
-import type { Project, StoryboardWithPreview } from "../lib/backend-api";
+import type {
+  Project,
+  Storyboard,
+  StoryboardWithPreview,
+} from "../lib/backend-api";
+
+async function readProjectLibrary(
+  id: string,
+): Promise<Result<{ project: Project; storyboards: StoryboardWithPreview[] }>> {
+  try {
+    const [project, storyboards] = await Promise.all([
+      getProject(id),
+      getStoryboardsWithPreview(id),
+    ]);
+    return project
+      ? { ok: true, value: { project, storyboards } }
+      : {
+          ok: false,
+          error: {
+            code: "NOT_FOUND",
+            message:
+              "This project is unavailable. Retry loading the open document.",
+          },
+        };
+  } catch (cause) {
+    return {
+      ok: false,
+      error: {
+        code: "IO_ERROR",
+        message:
+          cause instanceof Error
+            ? cause.message
+            : "Could not load this project's storyboards.",
+      },
+    };
+  }
+}
 
 export default function ProjectPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeId } = useParams<{ id: string }>();
+  const { current, bibleGenerationModel, setBibleGenerationModel } =
+    useProjectDocument();
+  const id = routeId ?? current?.project_id;
   const navigate = useNavigate();
-
   const [project, setProject] = useState<Project | null>(null);
   const [storyboards, setStoryboards] = useState<StoryboardWithPreview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreating, setIsCreating] = useState(false);
-  const [newStoryboardName, setNewStoryboardName] = useState("");
-  const [showNewStoryboardInput, setShowNewStoryboardInput] = useState(false);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editedName, setEditedName] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [creationOpen, setCreationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"storyboards" | "bible">("storyboards");
-
-  useUnsavedWork("draft", showNewStoryboardInput && !!newStoryboardName, newStoryboardName);
-  useUnsavedWork("draft", isEditingName && editedName !== project?.name, editedName);
-
-  // Load project and storyboards on mount
+  const [searchParams] = useSearchParams();
+  const bibleView = searchParams.get("view") === "bible";
+  const newAction = useRef<HTMLButtonElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const loadRequest = useRef(0);
+  useAgentChanges(loadData);
   useEffect(() => {
-    if (id) loadData();
+    if (id) void loadData();
+    return () => {
+      loadRequest.current++;
+    };
   }, [id]);
 
   async function loadData() {
     if (!id) return;
+    const request = ++loadRequest.current;
     setIsLoading(true);
-    try {
-      const [projectData, storyboardsData] = await Promise.all([
-        getProject(id),
-        getStoryboardsWithPreview(id),
-      ]);
-
-      if (!projectData) {
-        navigate("/");
-        return;
-      }
-
-      setProject(projectData);
-      setStoryboards(storyboardsData);
-      setEditedName(projectData.name);
-    } catch (error) {
-      console.error("Failed to load project:", error);
-      navigate("/");
-    } finally {
-      setIsLoading(false);
-    }
+    setLoadError(null);
+    const result = await readProjectLibrary(id);
+    if (request !== loadRequest.current) return;
+    if (result.ok) {
+      setProject(result.value.project);
+      setStoryboards(result.value.storyboards);
+    } else setLoadError(result.error.message);
+    setIsLoading(false);
   }
 
-  async function handleCreateStoryboard() {
-    if (!id || !newStoryboardName.trim()) return;
-
-    setIsCreating(true);
+  function handleCreatedStoryboard(storyboard: Storyboard) {
+    setStoryboards((previous) => [
+      { ...storyboard, preview_image_path: null },
+      ...previous,
+    ]);
+    window.dispatchEvent(new Event("showbiz:project-changed"));
+    navigate(`/storyboard/${storyboard.id}`);
+  }
+  async function handleDeleteStoryboard(
+    storyboardId: string,
+  ): Promise<Result<null>> {
     try {
-      const storyboard = await createStoryboard(id, newStoryboardName.trim());
-      setStoryboards((prev) => [{ ...storyboard, preview_image_path: null }, ...prev]);
-      setNewStoryboardName("");
-      setShowNewStoryboardInput(false);
-      // Navigate to the new storyboard
-      navigate(`/storyboard/${storyboard.id}`);
-    } catch (error) {
-      console.error("Failed to create storyboard:", error);
-      alert("Failed to create storyboard");
-    } finally {
-      setIsCreating(false);
+      const removed = await deleteStoryboard(storyboardId);
+      if (!removed)
+        return {
+          ok: false,
+          error: {
+            code: "NOT_FOUND",
+            message:
+              "The storyboard could not be deleted. Refresh and try again.",
+          },
+        };
+      setStoryboards((previous) =>
+        previous.filter((storyboard) => storyboard.id !== storyboardId),
+      );
+      window.dispatchEvent(new Event("showbiz:project-changed"));
+      return { ok: true, value: null };
+    } catch (cause) {
+      return {
+        ok: false,
+        error: {
+          code: "IO_ERROR",
+          message:
+            cause instanceof Error
+              ? cause.message
+              : "Could not delete storyboard.",
+        },
+      };
     }
   }
-
-  async function handleDeleteStoryboard(storyboardId: string) {
-    try {
-      await deleteStoryboard(storyboardId);
-      setStoryboards((prev) => prev.filter((s) => s.id !== storyboardId));
-    } catch (error) {
-      console.error("Failed to delete storyboard:", error);
-      alert("Failed to delete storyboard");
-    }
+  function clearSearch() {
+    setSearchQuery("");
+    searchInput.current?.focus();
   }
-
-  async function handleUpdateProjectName() {
-    if (!id || !editedName.trim() || editedName === project?.name) {
-      setIsEditingName(false);
-      setEditedName(project?.name || "");
-      return;
-    }
-
-    try {
-      const updated = await updateProject(id, editedName.trim());
-      if (updated) {
-        setProject(updated);
-      }
-      setIsEditingName(false);
-    } catch (error) {
-      console.error("Failed to update project name:", error);
-      alert("Failed to update project name");
-    }
-  }
-
-  const filteredStoryboards = storyboards.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredStoryboards = storyboards.filter((storyboard) =>
+    storyboard.name.toLowerCase().includes(searchQuery.trim().toLowerCase()),
   );
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="flex items-center justify-center py-24">
-          <div className="text-muted-foreground flex items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Loading project...
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!project) {
-    return null;
-  }
-
   return (
-    <div className="min-h-screen bg-background">
-      <Header backHref="/" backLabel="Projects" title={project.name} />
-
-      {/* Main Content */}
-      <main className="px-6 py-6">
-        {/* Project Name Editor */}
-        <div className="mb-4">
-          {isEditingName ? (
+    <div
+      className={
+        bibleView
+          ? "desktop-page"
+          : "desktop-page storyboards-library-workspace"
+      }
+    >
+      {!bibleView && (
+        <header
+          className="storyboards-context-toolbar"
+          role="toolbar"
+          aria-label="Storyboards"
+        >
+          <h1>Storyboards</h1>
+          <div className="storyboards-search">
+            <Search aria-hidden="true" size={14} />
             <Input
-              type="text"
-              value={editedName}
-              onChange={(e) => setEditedName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleUpdateProjectName();
-                if (e.key === "Escape") {
-                  setIsEditingName(false);
-                  setEditedName(project.name);
-                }
-              }}
-              onBlur={handleUpdateProjectName}
-              className="text-xl font-bold h-auto py-1 px-2 max-w-md"
-              autoFocus
-            />
-          ) : (
-            <h1
-              className="text-xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors inline-block"
-              onClick={() => setIsEditingName(true)}
-              title="Click to edit"
-            >
-              {project.name}
-            </h1>
-          )}
-        </div>
-
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "storyboards" | "bible")} className="mb-6">
-          <TabsList>
-            <TabsTrigger value="storyboards">Storyboards</TabsTrigger>
-            <TabsTrigger value="bible">Bible</TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        {activeTab === "bible" ? (
-          <ProjectBibleView projectId={project.id} />
-        ) : (
-          <>
-        {/* Top bar: search + new storyboard */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search storyboards..."
+              ref={searchInput}
+              type="search"
+              aria-label="Search storyboards"
+              placeholder="Search storyboards"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              disabled={!project}
             />
-          </div>
-          <div className="flex-1" />
-          {showNewStoryboardInput ? (
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                placeholder="Storyboard name..."
-                value={newStoryboardName}
-                onChange={(e) => setNewStoryboardName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCreateStoryboard();
-                  if (e.key === "Escape") {
-                    setShowNewStoryboardInput(false);
-                    setNewStoryboardName("");
-                  }
-                }}
-                className="h-9 w-56"
-                autoFocus
-              />
-              <Button
-                size="sm"
-                onClick={handleCreateStoryboard}
-                disabled={isCreating || !newStoryboardName.trim()}
-              >
-                {isCreating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Create"
-                )}
-              </Button>
+            {searchQuery && (
               <Button
                 variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowNewStoryboardInput(false);
-                  setNewStoryboardName("");
-                }}
+                size="icon"
+                aria-label="Clear search"
+                onClick={clearSearch}
               >
-                Cancel
-              </Button>
-            </div>
-          ) : (
-            <Button size="sm" onClick={() => setShowNewStoryboardInput(true)}>
-              <Plus className="h-4 w-4 mr-1.5" />
-              New Storyboard
-            </Button>
-          )}
-        </div>
-
-        {/* Storyboards */}
-        {filteredStoryboards.length === 0 && storyboards.length === 0 ? (
-          <div className="text-center py-24">
-            <Clapperboard className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-            <h3 className="text-base font-medium text-foreground mb-1">
-              No storyboards yet
-            </h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              Create a storyboard to start building your video
-            </p>
-            {!showNewStoryboardInput && (
-              <Button size="sm" onClick={() => setShowNewStoryboardInput(true)}>
-                <Plus className="h-4 w-4 mr-1.5" />
-                Create Storyboard
+                <X size={12} />
               </Button>
             )}
           </div>
-        ) : filteredStoryboards.length === 0 ? (
-          <div className="text-center py-24">
-            <Search className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="text-sm text-muted-foreground">
-              No storyboards matching &quot;{searchQuery}&quot;
-            </p>
-          </div>
-        ) : (
-          <div
-            className="grid gap-6"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            }}
+          <Button
+            ref={newAction}
+            size="sm"
+            disabled={!project}
+            onClick={() => setCreationOpen(true)}
           >
-            {filteredStoryboards.map((storyboard) => (
-              <StoryboardCard
-                key={storyboard.id}
-                id={storyboard.id}
-                name={storyboard.name}
-                updatedAt={storyboard.updated_at}
-                previewImageUrl={storyboard.preview_image_path}
-                onDelete={handleDeleteStoryboard}
+            <Plus size={14} />
+            New Storyboard
+          </Button>
+        </header>
+      )}
+      <main
+        className={bibleView ? "workspace-body" : "storyboards-library-main"}
+      >
+        {bibleView ? (
+          project ? (
+            <>
+              <h1 className="sr-only">Project bible</h1>
+              <ProjectBibleView
+                projectId={project.id}
+                generationModel={
+                  bibleGenerationModel && setBibleGenerationModel
+                    ? {
+                        value: bibleGenerationModel,
+                        onChange: setBibleGenerationModel,
+                      }
+                    : undefined
+                }
+                initialTab={
+                  searchParams.get("bibleTab") === "frames"
+                    ? "frames"
+                    : undefined
+                }
               />
-            ))}
-          </div>
-        )}
-
-        {/* Bottom status bar */}
-        {!isLoading && storyboards.length > 0 && (
-          <div className="mt-8 text-xs text-muted-foreground">
-            {filteredStoryboards.length === storyboards.length
-              ? `${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`
-              : `${filteredStoryboards.length} of ${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`}
-          </div>
-        )}
-          </>
+            </>
+          ) : (
+            <section
+              className="flex flex-1 flex-col items-center justify-center gap-3 p-6"
+              aria-label="Project bible"
+            >
+              <h1 className="sr-only">Project bible</h1>
+              <p role={loadError ? "alert" : "status"}>
+                {loadError ?? "Loading the open project…"}
+              </p>
+              {loadError && (
+                <Button variant="outline" onClick={() => void loadData()}>
+                  Retry loading project
+                </Button>
+              )}
+            </section>
+          )
+        ) : (
+          <section
+            className="storyboards-gallery"
+            aria-label="Storyboards library"
+            aria-busy={isLoading}
+          >
+            <div className="storyboards-gallery-heading">
+              <output aria-label="Storyboard count">
+                {filteredStoryboards.length === storyboards.length
+                  ? `${storyboards.length} storyboard${storyboards.length === 1 ? "" : "s"}`
+                  : `${filteredStoryboards.length} of ${storyboards.length} storyboards`}
+              </output>
+              {isLoading && (
+                <span role="status">
+                  <Loader2 className="animate-spin" size={12} />
+                  {project ? "Refreshing…" : "Loading project…"}
+                </span>
+              )}
+            </div>
+            {loadError && (
+              <div className="storyboards-load-error">
+                <p role="alert">{loadError}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadData()}
+                >
+                  Retry loading storyboards
+                </Button>
+              </div>
+            )}
+            {!project && isLoading ? (
+              <div className="storyboards-library-empty">
+                <Clapperboard />
+                <p>Loading the open project…</p>
+              </div>
+            ) : !project ? null : storyboards.length === 0 ? (
+              <div className="storyboards-library-empty">
+                <Clapperboard />
+                <h2>No storyboards yet</h2>
+                <p>Use New Storyboard to start building a sequence of shots.</p>
+              </div>
+            ) : filteredStoryboards.length === 0 ? (
+              <div className="storyboards-library-empty">
+                <Search />
+                <h2>No matching storyboards</h2>
+                <p>No storyboard names match “{searchQuery}”.</p>
+                <Button variant="outline" size="sm" onClick={clearSearch}>
+                  Show all storyboards
+                </Button>
+              </div>
+            ) : (
+              <div className="storyboards-gallery-grid">
+                {filteredStoryboards.map((storyboard) => (
+                  <StoryboardCard
+                    key={storyboard.id}
+                    id={storyboard.id}
+                    name={storyboard.name}
+                    updatedAt={storyboard.updated_at}
+                    previewImageUrl={storyboard.preview_image_path}
+                    onDelete={handleDeleteStoryboard}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         )}
       </main>
+      <NewStoryboardDialog
+        open={creationOpen}
+        onOpenChange={setCreationOpen}
+        projectId={id}
+        projectName={project?.name ?? "this project"}
+        opener={newAction}
+        onCreated={handleCreatedStoryboard}
+      />
     </div>
   );
 }
