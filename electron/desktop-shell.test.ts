@@ -206,3 +206,30 @@ it("keeps integrated Quit behind the existing unsaved-work cancellation guard", 
   expect(quit).not.toHaveBeenCalled();
   expect(work.work.getStatus().closing).toBe(false);
 });
+it("detaches a closed native window without reading its destroyed webContents", () => {
+  const { shell, window, contents, event, detach } = fixture();
+  detach();
+  let destroyed = false;
+  Object.defineProperty(window, "webContents", {
+    get() {
+      if (destroyed) throw new TypeError("Object has been destroyed");
+      return contents;
+    },
+  });
+  window.isDestroyed.mockImplementation(() => destroyed);
+  const cleanup = shell.attachWindow(window);
+  window.once("closed", cleanup);
+  const live = fixture();
+  live.contents.id = 8;
+  shell.attachWindow(live.window);
+
+  destroyed = true;
+  expect(() => window.emit("closed")).not.toThrow();
+  expect(shell.runMenuCommand(event, "copy").ok).toBe(false);
+  expect(contents.copy).not.toHaveBeenCalled();
+  expect(shell.runMenuCommand(live.event, "copy")).toEqual({
+    ok: true,
+    value: null,
+  });
+  expect(live.contents.copy).toHaveBeenCalledOnce();
+});
