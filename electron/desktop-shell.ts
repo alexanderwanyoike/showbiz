@@ -154,13 +154,15 @@ export function createDesktopShell(options: {
   }
   return {
     attachWindow(window: DesktopWindow) {
-      windows.set(window.webContents.id, window);
+      // Closed handlers run after BrowserWindow accessors become invalid.
+      const webContentsId = window.webContents.id;
+      windows.set(webContentsId, window);
       if (options.platform === "linux" || options.platform === "win32") {
         window.setAutoHideMenuBar(false);
         window.setMenuBarVisibility(false);
       }
       return () => {
-        windows.delete(window.webContents.id);
+        windows.delete(webContentsId);
       };
     },
     runMenuCommand(event: DesktopSender, command: unknown): Result<null> {
