@@ -1,3 +1,4 @@
+import { ConfirmDeletion } from "./ConfirmDeletion";
 import type { Result } from "../../shared/result";
 import { GenerationCost } from "./GenerationCost";
 import { useAgentChanges } from "../hooks/useAgentChanges";
@@ -45,6 +46,7 @@ import { getAvailableImageModels, getImageModel, type ImageModelId } from "../li
 type BibleGenerationContext = { modelId: string; projectId: string };
 
 type ImageCapabilities = { editing: boolean; composition: boolean };
+type BibleDeletion = { kind: "asset"; asset: BibleAsset } | { kind: "picture"; variant: BibleAssetVariant };
 
 const MAX_BIBLE_IMAGE_SIDE = 1600;
 const BIBLE_IMAGE_QUALITY = 0.9;
@@ -212,6 +214,7 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [deletion, setDeletion] = useState<BibleDeletion | null>(null);
   useAgentChanges(load);
   useEffect(() => { setTab(initialTab); }, [initialTab, projectId]);
 
@@ -329,15 +332,33 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
     await refreshAsset(variant.asset_id);
   }
 
-  async function handleDeletePicture(variant: BibleAssetVariant) {
-    await deleteBibleAssetVariant(variant.id);
-    await refreshAsset(variant.asset_id);
+  function handleDeletePicture(variant: BibleAssetVariant) {
+    setDeletion({ kind: "picture", variant });
   }
 
-  async function handleDeleteAsset(asset: BibleAsset) {
-    if (!window.confirm(`Delete "${asset.name}"?`)) return;
-    await deleteBibleAsset(asset.id);
-    setAssets((prev) => prev.filter((a) => a.id !== asset.id));
+  function handleDeleteAsset(asset: BibleAsset) {
+    setDeletion({ kind: "asset", asset });
+  }
+
+  async function confirmDeletion(): Promise<Result<null>> {
+    if (!deletion) return { ok: false, error: { code: "INVALID_INPUT", message: "Choose a Bible entry or picture to delete." } };
+    const target = deletion;
+    try {
+      return await withApplicationWork("saving", async () => {
+        const removed = target.kind === "asset" ? await deleteBibleAsset(target.asset.id) : await deleteBibleAssetVariant(target.variant.id);
+        if (!removed) return { ok: false, error: { code: "NOT_FOUND", message: "The item could not be deleted. Refresh and try again." } };
+        if (target.kind === "asset") {
+          setAssets((prev) => prev.filter((asset) => asset.id !== target.asset.id));
+          setVariants((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => id !== target.asset.id)));
+        } else {
+          setVariants((prev) => ({ ...prev, [target.variant.asset_id]: (prev[target.variant.asset_id] ?? []).filter((variant) => variant.id !== target.variant.id) }));
+          void refreshAsset(target.variant.asset_id).catch(() => setError("The picture was deleted, but its list could not be refreshed."));
+        }
+        return { ok: true, value: null };
+      });
+    } catch (cause) {
+      return { ok: false, error: { code: "IO_ERROR", message: cause instanceof Error ? cause.message : "Could not delete the Bible item." } };
+    }
   }
 
   // Compose from reference pictures + a prompt (falls back to text-to-image when
@@ -547,6 +568,7 @@ export default function ProjectBibleView({ projectId, initialTab = "characters",
       </div>
 
       {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
+      <ConfirmDeletion open={!!deletion} onOpenChange={(open) => { if (!open) setDeletion(null); }} title={deletion?.kind === "asset" ? "Delete Bible entry" : "Delete picture"} description={deletion?.kind === "asset" ? `Delete “${deletion.asset.name}” and all its pictures? This cannot be undone.` : "Delete this picture from the Bible? This cannot be undone."} actionLabel={deletion?.kind === "asset" ? "Delete entry" : "Delete picture"} onConfirm={confirmDeletion} />
     </section>
     </Tabs>
   );
@@ -725,6 +747,17 @@ function FramesTab({
   const [prompt, setPrompt] = useState("");
   useUnsavedWork("draft", !!prompt || selectedChars.size > 0 || !!locationId, JSON.stringify({ prompt, characters: [...selectedChars], locationId, locationVariantId }));
   const making = busyId === "make-frame";
+  useEffect(() => {
+    setSelectedChars((previous) => {
+      const next = new Set([...previous].filter((id) => characters.some((character) => character.id === id)));
+      return next.size === previous.size ? previous : next;
+    });
+    if (locationId && !locations.some((location) => location.id === locationId)) {
+      setLocationId(null);
+      setLocationVariantId(null);
+    }
+  }, [characters, locations, locationId]);
+
 
   function toggleChar(id: string) {
     setSelectedChars((prev) => {
