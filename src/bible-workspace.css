@@ -332,8 +332,29 @@
   margin-top: 2px;
   font-size: 9px;
 }
+.bible-reference-list > .relative > button:first-child {
+  padding-right: 32px;
+}
 .bible-reference-list > .relative > button + button {
-  display: none;
+  display: flex;
+  position: absolute;
+  top: 8px;
+  right: 5px;
+  bottom: auto;
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  justify-content: center;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+.bible-reference-list > .relative > button + button:hover {
+  background: var(--muted);
+}
+.bible-reference-list > .relative > button + button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 @container (max-width: 650px) {
   .bible-section-layout {
