@@ -123,6 +123,7 @@ function Tile({
   label,
   actionLabel,
   active,
+  disabled = false,
   size = "sm",
   onClick,
   onDelete,
@@ -132,6 +133,7 @@ function Tile({
   label?: string;
   actionLabel?: string;
   active?: boolean;
+  disabled?: boolean;
   size?: "sm" | "lg";
   onClick?: () => void;
   onDelete?: () => void;
@@ -143,7 +145,7 @@ function Tile({
       <button
         type="button"
         onClick={onClick ?? onExpand}
-        disabled={!onClick && !url}
+        disabled={disabled || (!onClick && !url)}
         aria-label={actionLabel ?? label}
         aria-pressed={active}
         title={actionLabel ?? label}
@@ -180,6 +182,7 @@ function Tile({
         <button
           type="button"
           onClick={onDelete}
+          disabled={disabled}
           className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground opacity-80 hover:opacity-100"
           aria-label={`Delete ${label ?? "picture"}`}
           title={`Delete ${label ?? "picture"}`}
@@ -835,6 +838,7 @@ function FramesTab({
                 key={c.id}
                 url={url}
                 label={c.name}
+                disabled={busyId !== null}
                 active={selectedChars.has(c.id)}
                 onClick={() => toggleChar(c.id)}
                 onExpand={() => url && onExpand(url)}
@@ -853,6 +857,7 @@ function FramesTab({
                 key={l.id}
                 url={url}
                 label={l.name}
+                disabled={busyId !== null}
                 active={locationId === l.id}
                 onClick={() => pickLocation(l.id)}
                 onExpand={() => url && onExpand(url)}
@@ -869,6 +874,7 @@ function FramesTab({
                   key={v.id}
                   url={v.media_url}
                   label={`View ${i + 1}`}
+                  disabled={busyId !== null}
                   active={locationVariantId === v.id}
                   onClick={() => setLocationVariantId(v.id)}
                 />
@@ -987,7 +993,7 @@ function AssetCard({
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-start justify-between gap-2">
             <span className="truncate text-sm font-medium">{asset.name}</span>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onDeleteAsset(asset)} aria-label={`Delete ${asset.name}`} title={`Delete ${asset.name}`}>
+            <Button size="icon" variant="ghost" className="h-7 w-7" disabled={busy} onClick={() => onDeleteAsset(asset)} aria-label={`Delete ${asset.name}`} title={`Delete ${asset.name}`}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -1004,6 +1010,7 @@ function AssetCard({
                     url={t.media_url}
                     label={`take ${index + 1} for ${asset.name}`}
                     actionLabel={`Use take ${index + 1} for ${asset.name}`}
+                    disabled={busy}
                     active={t.is_primary}
                     onClick={() => onSetPrimary(t)}
                     onDelete={() => onDeleteTake(t)}
