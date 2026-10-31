@@ -9,7 +9,7 @@ The previous controls inherited a 2px theme radius, negative derived radii and a
 - Use named icon commands with real pointer and keyboard tooltips in the toolbar. Keep model/provider/inheritance visible in compact inspector rows; make longer scope explanations available through accessible help.
 - Give the Bible one visible tabs/creation toolbar. Its media grid owns the main area; a bounded creation dock owns the model, references and draft fields. Its footer keeps the estimate and generation action reachable while the controls scroll.
 - Closing the creation dock preserves independent drafts and returns focus to its opener. Picture actions disclose the effective model and estimate before a paid action. Compact references retain a separate picture-preview action.
-- Keep native Electron window controls and application menus. The renderer does not imitate platform window buttons.
+- Keep native Electron window controls. Application menus now live in the themed header as described in [Integrated application menu](integrated-application-menu.md); the renderer does not imitate platform window buttons.
 
 ## Established patterns
 

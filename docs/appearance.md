@@ -18,4 +18,4 @@ Muzo's surface hierarchy and Auto Digger's aluminium framing informed the separa
 
 ## Project navigation
 
-The title bar keeps File, one Project navigator control, and the document name. Storyboards and Bible live in that navigator alongside the project’s boards. The active view is marked in the navigator; the workspace toolbar names the active board and contains its actions. The navigator opens by default in project views and closes by default on the canvas. An explicit open or close choice is retained while navigating within that document.
+The title bar keeps File/Edit/View/Help menus, one Project navigator control, and the document name. Storyboards and Bible live in that navigator alongside the project’s boards. The active view is marked in the navigator; the workspace toolbar names the active board and contains its actions. The navigator opens by default in project views and closes by default on the canvas. An explicit open or close choice is retained while navigating within that document.

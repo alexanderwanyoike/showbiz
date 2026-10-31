@@ -20,7 +20,7 @@ The start window's conversion section lists projects from the previous applicati
 
 ## Implementation pattern
 
-This uses [SQLite's documented application-file pattern](https://www.sqlite.org/appfileformat.html), its [application ID](https://www.sqlite.org/fileformat.html#application_id), and [VACUUM INTO snapshots](https://www.sqlite.org/lang_vacuum.html). Embedded media follows the [SQLite Archive pattern](https://www.sqlite.org/sqlar.html) with custom chunk tables for bounded memory use. This is a Showbiz application format, not SQLAR-compatible storage. [Electron menus](https://www.electronjs.org/docs/latest/api/menu) provide native File commands and platform accelerators; a renderer File menu supports browser verification. Existing SQLite and Electron licences remain applicable; no additional storage library is introduced.
+This uses [SQLite's documented application-file pattern](https://www.sqlite.org/appfileformat.html), its [application ID](https://www.sqlite.org/fileformat.html#application_id), and [VACUUM INTO snapshots](https://www.sqlite.org/lang_vacuum.html). Embedded media follows the [SQLite Archive pattern](https://www.sqlite.org/sqlar.html) with custom chunk tables for bounded memory use. This is a Showbiz application format, not SQLAR-compatible storage. The integrated File menu uses the same guarded document controller in desktop and browser views. Hidden [Electron menus](https://www.electronjs.org/docs/latest/api/menu) retain platform accelerators; the separate in-window operating system menu bar is hidden. Existing SQLite and Electron licences remain applicable; no additional storage library is introduced.
 
 ## Storyboard workspace
 
