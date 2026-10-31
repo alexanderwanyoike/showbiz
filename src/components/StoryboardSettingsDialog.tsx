@@ -8,7 +8,8 @@ import { GenerationModelField, type StoryboardModelDefaults } from "./Generation
 import type { StoryboardSettingsValues } from "../../shared/storyboard-settings";
 import type { Result } from "../../shared/result";
 
-export function StoryboardSettingsDialog({ name, defaults, onSave }: {
+export function StoryboardSettingsDialog({ name, defaults, onSave, disabled = false }: {
+  disabled?: boolean;
   name: string;
   defaults: StoryboardModelDefaults;
   onSave: (values: StoryboardSettingsValues) => Promise<Result<null>>;
@@ -35,7 +36,7 @@ export function StoryboardSettingsDialog({ name, defaults, onSave }: {
   }
   return (
     <Dialog open={open} onOpenChange={(next) => {if (!saving) setOpen(next);}}>
-      <DialogTrigger asChild><Button variant="outline" size="sm">Storyboard settings</Button></DialogTrigger>
+      <DialogTrigger asChild><Button variant="outline" size="sm" disabled={disabled} title={disabled ? "Save or discard the unsaved shot settings first." : undefined}>Storyboard settings</Button></DialogTrigger>
       <DialogContent className="sm:max-w-md max-h-[calc(100dvh-4rem)] overflow-y-auto">
         <DialogHeader><DialogTitle>Storyboard settings</DialogTitle><DialogDescription>Name and model defaults for this storyboard.</DialogDescription></DialogHeader>
         <form className="space-y-5" onSubmit={(event) => {event.preventDefault();void save();}}>

@@ -43,6 +43,11 @@ export interface ShotInspectorProps {
   frameLibraryHref?: string;
   generationCost?: ReactNode;
   generationDisabled?: boolean;
+  videoSettingsSaving?: boolean;
+  videoSettingsError?: string | null;
+  videoSettingsNotice?: string;
+  onRetryVideoSettingsSave?: () => void;
+  onDiscardVideoSettings?: () => void;
   shot: {
     id: string;
     order: number;
@@ -285,6 +290,7 @@ export default function ShotInspector({
   frameLibraryHref,
   generationCost,
   generationDisabled = false,
+  videoSettingsSaving = false, videoSettingsError, videoSettingsNotice, onRetryVideoSettingsSave, onDiscardVideoSettings,
   shot,
   frameOptions,
   onPickFrame,
@@ -433,6 +439,7 @@ export default function ShotInspector({
 
       {/* Generate Video Section */}
       <InspectorSection title="Video settings">
+        {videoSettingsNotice && <p role="status" className="mb-2 text-[11px] text-muted-foreground">{videoSettingsNotice}</p>}
         {videoModel && (
           <div className="mb-3 rounded border border-border/60 p-2">
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -444,7 +451,7 @@ export default function ShotInspector({
                 {videoModel.capabilities.durations.length > 1 && (
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground">Duration</label>
-                    <Select
+                    <Select disabled={videoSettingsSaving}
                       value={videoSettings.duration}
                       onValueChange={(duration) => onVideoSettingsChange({ ...videoSettings, duration })}
                     >
@@ -465,7 +472,7 @@ export default function ShotInspector({
                 {(videoModel.capabilities.resolutions?.length ?? 0) > 1 && (
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground">Resolution</label>
-                    <Select
+                    <Select disabled={videoSettingsSaving}
                       value={videoSettings.resolution ?? ""}
                       onValueChange={(resolution) => onVideoSettingsChange({ ...videoSettings, resolution })}
                     >
@@ -486,7 +493,7 @@ export default function ShotInspector({
                 {(videoModel.capabilities.aspectRatios?.length ?? 0) > 1 && (
                   <div className="space-y-1">
                     <label className="text-[11px] font-medium text-muted-foreground">Aspect Ratio</label>
-                    <Select
+                    <Select disabled={videoSettingsSaving}
                       value={videoSettings.aspectRatio ?? ""}
                       onValueChange={(aspectRatio) => onVideoSettingsChange({ ...videoSettings, aspectRatio })}
                     >
@@ -507,7 +514,7 @@ export default function ShotInspector({
                 {videoModel.capabilities.hasAudio && (
                   <div className="flex items-center justify-between gap-2 self-end rounded border border-border/50 px-2 py-1.5">
                     <label className="text-[11px] font-medium text-muted-foreground">Audio</label>
-                    <Switch aria-label="Generate audio"
+                    <Switch disabled={videoSettingsSaving} aria-label="Generate audio"
                       checked={videoSettings.audio ?? false}
                       onCheckedChange={(audio) => onVideoSettingsChange({ ...videoSettings, audio })}
                     />
@@ -534,6 +541,7 @@ export default function ShotInspector({
       )}
       </div>
       <footer aria-label="Shot generation" className="shrink-0 border-t border-border bg-background px-3 py-2">
+        {videoSettingsError && <div className="mb-2 space-y-2"><p role="alert" className="text-xs text-destructive">{videoSettingsError}</p><div className="flex gap-2"><Button size="sm" variant="outline" onClick={onRetryVideoSettingsSave} disabled={videoSettingsSaving}>Retry settings save</Button><Button size="sm" variant="outline" onClick={onDiscardVideoSettings} disabled={videoSettingsSaving}>Discard changes</Button></div></div>}
         <div className="max-h-[28vh] overflow-y-auto">{generationCost}</div>
         {!readiness.ok && <p role="status" className="mb-2 text-[11px] text-muted-foreground">{readiness.error.message}</p>}
         <Button

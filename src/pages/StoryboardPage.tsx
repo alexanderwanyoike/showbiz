@@ -1,3 +1,4 @@
+import { resolveShotVideoSettings, storeShotVideoSettings } from "../lib/shot-video-settings";
 import type { StoryboardSettingsValues } from "../../shared/storyboard-settings";
 import type { Result } from "../../shared/result";
 import { StoryboardSettingsDialog } from "../components/StoryboardSettingsDialog";
@@ -35,6 +36,7 @@ import {
   getStoryboard,
   updateStoryboardSettings,
   setShotModels,
+  setShotVideoSettings,
   getShots,
   createShot,
   updateShot,
@@ -99,6 +101,7 @@ import {
 } from "../lib/generation/run-guard";
 
 interface Shot extends ShotModelOverrides {
+  video_settings_json?: string | null;
   id: string;
   storyboard_id: string;
   order: number;
@@ -124,6 +127,7 @@ function shotFromShotWithUrls(s: ShotWithUrls): Shot {
     duration: s.duration,
     image_model: s.image_model ?? null,
     video_model: s.video_model ?? null,
+    video_settings_json: s.video_settings_json ?? null,
     image_prompt: s.image_prompt,
     image_url: s.image_url,
     end_frame_url: s.end_frame_url,
@@ -174,16 +178,13 @@ export default function StoryboardPage() {
   const imageModel = selectedModels.image_model as ImageModelId;
   const videoModel = selectedModels.video_model as VideoModelId;
 
-  // Video Settings
-  const [videoSettings, setVideoSettings] = useState<VideoGenerationSettings>(() => {
-    const model = videoModels.find((m) => m.id === "seedance-2-fal");
-    return model?.defaults ?? { duration: "8" };
-  });
-
-  const currentVideoModel = useMemo(
-    () => videoModels.find((m) => m.id === videoModel),
-    [videoModel, videoModels]
-  );
+  const [videoSettingsDrafts, setVideoSettingsDrafts] = useState<Record<string, {model_id:string;settings:VideoGenerationSettings;error:string|null}>>({});
+  const [videoSettingsSaving, setVideoSettingsSaving] = useState(false);
+  const currentVideoModel = useMemo(() => videoModels.find((model) => model.id === videoModel), [videoModel, videoModels]);
+  const storedVideoSettings = currentVideoModel ? resolveShotVideoSettings(selectedShot?.video_settings_json, currentVideoModel) : {settings:{duration:"auto"},notice:"Choose a video model."};
+  const selectedVideoDraft = selectedShot && videoSettingsDrafts[selectedShot.id]?.model_id === videoModel ? videoSettingsDrafts[selectedShot.id] : null;
+  const videoSettings: VideoGenerationSettings = selectedVideoDraft?.settings ?? storedVideoSettings.settings;
+  const inactiveVideoDraft = Object.keys(videoSettingsDrafts).find((shotId) => shotId !== selectedShotId);
 
   const videoCostRequest = {
     kind: "video" as const,
@@ -195,10 +196,7 @@ export default function StoryboardPage() {
     has_end_frame: !!(selectedShot?.end_frame_url && currentVideoModel?.modeCapabilities.imageToVideo?.supportsEndImage),
   };
 
-  useEffect(() => {
-    const model = getAvailableVideoModels().find(item => item.id === videoModel);
-    if (model) setVideoSettings({...model.defaults});
-  }, [videoModel]);
+
 
   // Frames composed in the Bible (scene assets) that a shot can pick as start/end.
   const frameOptions: FrameOption[] = useMemo(
@@ -241,6 +239,7 @@ export default function StoryboardPage() {
     return () => { loadRequest.current++; };
   }, [id]);
 
+  useUnsavedWork("draft", Object.keys(videoSettingsDrafts).length > 0, videoSettingsDrafts);
   useUnsavedWork("draft", isModalOpen && !!imagePrompt, imagePrompt);
   useUnsavedWork("draft", editModalState.isOpen && !!editPrompt, editPrompt);
 
@@ -270,10 +269,6 @@ export default function StoryboardPage() {
         ? (storyboardData.video_model as VideoModelId)
         : "seedance-2-fal";
       setDefaultVideoModel(loadedVideoModel);
-      const loadedModel = videoModels.find((m) => m.id === loadedVideoModel);
-      if (loadedModel) {
-        setVideoSettings({ ...loadedModel.defaults });
-      }
 
       await loadBibleData(storyboardData);
 
@@ -372,6 +367,27 @@ export default function StoryboardPage() {
       setShots(previous => previous.map(shot => shot.id === shotId ? {...shot,...result.value} : shot));
     } catch (cause) { setModelError(String(cause)); }
     finally { setModelSaving(false); }
+  }
+
+  async function handleVideoSettingsChange(settings: VideoGenerationSettings) {
+    if (!selectedShot || !currentVideoModel || videoSettingsSaving) return;
+    const shotId=selectedShot.id;
+    const modelId=currentVideoModel.id;
+    setVideoSettingsDrafts((previous)=>({...previous,[shotId]:{model_id:modelId,settings,error:null}}));
+    setVideoSettingsSaving(true);
+    try {
+      const result=await setShotVideoSettings(shotId,storeShotVideoSettings(modelId,settings));
+      if (!result.ok) {
+        setVideoSettingsDrafts((previous)=>({...previous,[shotId]:{model_id:modelId,settings,error:result.error.message}}));
+        return;
+      }
+      setShots((previous)=>previous.map((shot)=>shot.id===shotId?{...shot,video_settings_json:JSON.stringify(result.value)}:shot));
+      setVideoSettingsDrafts((previous)=>{const next={...previous};delete next[shotId];return next;});
+    } finally {setVideoSettingsSaving(false);}
+  }
+  function discardVideoSettings() {
+    if(!selectedShot || videoSettingsSaving) return;
+    setVideoSettingsDrafts((previous)=>{const next={...previous};delete next[selectedShot.id];return next;});
   }
 
   // --- Shot Actions ---
@@ -674,7 +690,8 @@ export default function StoryboardPage() {
     const targetModelId = resolveShotModels(shot, defaultModels).video_model as VideoModelId;
     const targetModel = videoModels.find(model => model.id === targetModelId);
     if (!targetModel) { setModelError("Choose an available video model for this shot."); return; }
-    const targetSettings = selectedShotId === shotId ? videoSettings : {...targetModel.defaults};
+    if (videoSettingsDrafts[shotId]) return;
+    const targetSettings = selectedShotId === shotId ? videoSettings : resolveShotVideoSettings(shot.video_settings_json,targetModel).settings;
     const runId = startGenerationRun(videoGenerationRuns.current, shotId);
 
     const prompt = shot.video_prompt?.trim() ?? "";
@@ -880,7 +897,7 @@ export default function StoryboardPage() {
           <Badge variant="secondary" className="text-sm">
             {shots.length} {shots.length === 1 ? "shot" : "shots"}
           </Badge>
-          <StoryboardSettingsDialog name={storyboard.name} defaults={defaultModels} onSave={handleStoryboardSettingsSave} />
+          <StoryboardSettingsDialog name={storyboard.name} defaults={defaultModels} onSave={handleStoryboardSettingsSave} disabled={Object.keys(videoSettingsDrafts).length > 0} />
           <Button ref={shotControlsToggle} variant="outline" size="sm" aria-label="Shot controls" aria-expanded={shotControlsOpen} aria-controls={shotControlsId} disabled={!selectedShot} onClick={() => setShotControlsOpen(!shotControlsOpen)}><PanelRight className="h-4 w-4" />Shot controls</Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={isExporting || !hasMedia}>{isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Export…</Button></DropdownMenuTrigger>
@@ -894,6 +911,7 @@ export default function StoryboardPage() {
 
 
 
+      {inactiveVideoDraft && <div role="status" className="border-b border-border px-4 py-2 text-xs">Shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order} has unsaved video settings. <Button variant="link" size="sm" onClick={()=>setSelectedShotId(inactiveVideoDraft)}>Return to shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order}</Button></div>}
       {exportMessage && <p role="status" className="border-b border-border px-4 py-2 text-sm">{exportMessage}</p>}
       {(
         <StoryboardModeView controlsOpen={shotControlsOpen} controlsId={shotControlsId} onCloseControls={() => { setShotControlsOpen(false); shotControlsToggle.current?.focus(); }}
@@ -933,8 +951,13 @@ export default function StoryboardPage() {
             <ShotInspector
               generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={videoCostRequest} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
               frameLibraryHref={`/project/${storyboard.project_id}?view=bible&bibleTab=frames`}
-              generationDisabled={modelSaving}
-              modelControls={<ShotModelControls shot={selectedShot} defaults={defaultModels} onShotChange={handleShotModels} disabled={modelSaving} error={modelError}/>}
+              generationDisabled={modelSaving || videoSettingsSaving || !!selectedVideoDraft}
+              videoSettingsSaving={videoSettingsSaving}
+              videoSettingsError={selectedVideoDraft?.error ?? null}
+              videoSettingsNotice={selectedVideoDraft ? (videoSettingsSaving ? "Saving settings…" : "Not saved") : storedVideoSettings.notice}
+              onRetryVideoSettingsSave={() => {if(selectedVideoDraft) void handleVideoSettingsChange(selectedVideoDraft.settings);}}
+              onDiscardVideoSettings={discardVideoSettings}
+              modelControls={<ShotModelControls shot={selectedShot} defaults={defaultModels} onShotChange={handleShotModels} disabled={modelSaving || !!selectedVideoDraft} error={modelError}/>}
               shot={selectedShotId ? (() => {
                 const s = shots.find(s => s.id === selectedShotId);
                 return s ? {
@@ -960,7 +983,7 @@ export default function StoryboardPage() {
               onUpdateShot={(shotId, updates) => handleUpdateShot(shotId, updates)}
               videoModel={currentVideoModel ?? null}
               videoSettings={videoSettings}
-              onVideoSettingsChange={setVideoSettings}
+              onVideoSettingsChange={handleVideoSettingsChange}
               versions={versionsForShot(shotVersions, selectedShotId)}
               currentVersion={valueForShot(shotCurrentVersions, selectedShotId, null)}
               versionCount={valueForShot(shotVersionCounts, selectedShotId, 0)}
