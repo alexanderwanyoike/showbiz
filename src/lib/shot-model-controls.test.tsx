@@ -99,3 +99,7 @@ it("explains that model choices apply to new takes rather than changing existing
     screen.getByText("Used for new takes. Existing media stays unchanged."),
   ).toBeTruthy();
 });
+it("names the provider even when an image configuration omits a display provider", () => {
+  render(createElement(ShotModelControls,{shot:{id:"shot",order:1,image_model:null,video_model:null},defaults:{image_model:"nano-banana-2",video_model:"seedance-2-fal"},onShotChange:vi.fn(),disabled:false,error:null}));
+  expect(screen.getByRole("button",{name:"Image model for shot 1"}).textContent).toContain("Google AI (Gemini)");
+});
