@@ -13,3 +13,14 @@ it("submits first and last frames, polls the job and downloads through OpenRoute
   expect(http.fetch.mock.calls[2][0]).toBe("https://openrouter.ai/api/v1/videos/job/content?index=0");
   if(result.ok)expect(await result.value.media.text()).toBe("video");
 });
+it("retains a reported zero when generated video delivery fails", async () => {
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({id: "charged-job", status: "pending"})))
+    .mockResolvedValueOnce(new Response(JSON.stringify({id: "charged-job", status: "completed", usage: {cost: 0}})))
+    .mockResolvedValueOnce(new Response("missing", {status: 404}));
+  expect(await generateOpenRouterVideo("google/veo-3.1", {mode: "text-to-video", prompt: "Morning", settings: {duration: "8s"}}, "test-key")).toMatchObject({ok: false, receipt: {reported_microusd: 0, provider_request_id: "charged-job"}});
+});
+it("rejects an image-to-video request without its required starting frame before charging", async () => {
+  const calls = http.fetch.mock.calls.length;
+  expect(await generateOpenRouterVideo("google/veo-3.1", {mode: "image-to-video", prompt: "Morning", settings: {duration: "8s"}}, "test-key")).toMatchObject({ok: false, error: {code: "INVALID_INPUT"}});
+  expect(http.fetch.mock.calls.length).toBe(calls);
+});
