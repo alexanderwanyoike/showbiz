@@ -31,39 +31,31 @@ export function useGenerationCost(
   useEffect(() => {
     let stopped = false;
     setEstimate(null);
-    setLast(null);
-    setError(null);
     void getGenerationEstimate(modelId, request).then((value) => {
       if (!stopped) setEstimate(value);
     });
+    return () => { stopped = true; };
+  }, [modelId, requestKey, refresh]);
+  const family = request.kind === "video" ? "video" : "image";
+  useEffect(() => {
+    let stopped = false;
+    setLast(null);
+    setError(null);
     if (subject?.project_id && subject.subject_id) {
       invoke<Result<{ items: GenerationUsage[] }>>("get_generation_usage", {
         project_id: subject.project_id,
         subject_id: subject.subject_id,
-        limit: 50,
+        kind_family: family,
+        limit: 1,
       })
         .then((result) => {
           if (stopped) return;
           if (!result.ok) setError(result.error.message);
-          else
-            setLast(
-              result.value.items.find(
-                (item) =>
-                  item.model_id === modelId &&
-                  (request.kind === "video"
-                    ? item.kind === "video"
-                    : item.kind !== "video"),
-              ) ?? null,
-            );
+          else setLast(result.value.items.find((item) => family === "video" ? item.kind === "video" : item.kind !== "video") ?? null);
         })
-        .catch(() => {
-          if (!stopped)
-            setError("The last generation cost could not be loaded.");
-        });
+        .catch(() => { if (!stopped) setError("The last request cost could not be loaded."); });
     }
-    return () => {
-      stopped = true;
-    };
-  }, [modelId, requestKey, subject?.project_id, subject?.subject_id, refresh]);
+    return () => { stopped = true; };
+  }, [subject?.project_id, subject?.subject_id, family, refresh]);
   return { estimate, last, error };
 }
