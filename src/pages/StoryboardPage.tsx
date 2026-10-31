@@ -1,3 +1,4 @@
+import { StoryboardSettingsDialog } from "../components/StoryboardSettingsDialog";
 import { GenerationCost } from "../components/GenerationCost";
 import { ShotModelControls } from "../components/ShotModelControls";
 import { resolveShotModels } from "../lib/shot-models";
@@ -165,6 +166,7 @@ export default function StoryboardPage() {
   const videoModels = getAvailableVideoModels();
   const [modelSaving, setModelSaving] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
+  const [storyboardSettingsError, setStoryboardSettingsError] = useState<string | null>(null);
   const defaultModels = {image_model:defaultImageModel, video_model:defaultVideoModel};
   const selectedShot = shots.find(shot => shot.id === selectedShotId) ?? null;
   const selectedModels = resolveShotModels(selectedShot, defaultModels);
@@ -341,21 +343,20 @@ export default function StoryboardPage() {
 
   async function handleUpdateStoryboardName() {
     if (!id || !editedName.trim() || editedName === storyboard?.name) {
-      setIsEditingName(false);
       setEditedName(storyboard?.name || "");
       return;
     }
 
+    setStoryboardSettingsError(null);
     try {
       const updated = await updateStoryboard(id, editedName.trim());
       if (updated) {
         setStoryboard(updated);
+        setEditedName(updated.name);
         window.dispatchEvent(new Event("showbiz:project-changed"));
       }
-      setIsEditingName(false);
     } catch (error) {
-      console.error("Failed to update storyboard name:", error);
-      alert("Failed to update storyboard name");
+      setStoryboardSettingsError(error instanceof Error ? error.message : "Could not rename the storyboard.");
     }
   }
 
@@ -371,13 +372,13 @@ export default function StoryboardPage() {
 
   async function handleDefaultModels(models: {image_model:string;video_model:string}) {
     if (!id) return;
-    setModelSaving(true); setModelError(null);
+    setModelSaving(true); setStoryboardSettingsError(null);
     try {
       const updated = await updateStoryboardModels(id, models.image_model, models.video_model);
       setStoryboard(updated);
       setDefaultImageModel(models.image_model as ImageModelId);
       setDefaultVideoModel(models.video_model as VideoModelId);
-    } catch (cause) { setModelError(String(cause)); }
+    } catch (cause) { setStoryboardSettingsError(String(cause)); }
     finally { setModelSaving(false); }
   }
 
@@ -888,6 +889,7 @@ export default function StoryboardPage() {
           <Badge variant="secondary" className="text-sm">
             {shots.length} Shots • {totalDuration}s Total
           </Badge>
+          <Button variant="outline" size="sm" onClick={() => { setEditedName(storyboard.name); setStoryboardSettingsError(null); setIsEditingName(true); }}>Storyboard settings</Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline" size="sm" disabled={isExporting || !hasMedia}>{isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Export…</Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -897,6 +899,11 @@ export default function StoryboardPage() {
           </DropdownMenu>
         </div>
       </Header>
+
+      <StoryboardSettingsDialog open={isEditingName} onOpenChange={(open) => {
+        if (!open && editedName.trim() !== storyboard.name && !window.confirm("Discard the unsaved storyboard name?")) return;
+        setIsEditingName(open);
+      }} name={storyboard.name} editedName={editedName} onNameChange={setEditedName} onRename={() => void handleUpdateStoryboardName()} defaults={defaultModels} onDefaultsChange={handleDefaultModels} disabled={modelSaving} error={storyboardSettingsError} />
 
       {exportMessage && <p role="status" className="border-b border-border px-4 py-2 text-sm">{exportMessage}</p>}
       {(
@@ -937,7 +944,7 @@ export default function StoryboardPage() {
             <ShotInspector
               generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={{kind: "video", duration: videoSettings.duration, resolution: videoSettings.resolution, audio: videoSettings.audio}} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
               generationDisabled={modelSaving}
-              modelControls={<ShotModelControls shot={selectedShot} defaults={defaultModels} onShotChange={handleShotModels} onDefaultsChange={handleDefaultModels} disabled={modelSaving} error={modelError}/>}
+              modelControls={<ShotModelControls shot={selectedShot} defaults={defaultModels} onShotChange={handleShotModels} disabled={modelSaving} error={modelError}/>}
               shot={selectedShotId ? (() => {
                 const s = shots.find(s => s.id === selectedShotId);
                 return s ? {
