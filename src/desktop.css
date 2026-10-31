@@ -1028,6 +1028,7 @@ body,
   grid-template-areas: "preview inspector" "shot-list inspector";
 }
 .canvas-preview {
+  isolation: isolate;
   grid-area: preview;
   position: relative;
   min-height: 0;

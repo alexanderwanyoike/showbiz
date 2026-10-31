@@ -293,6 +293,7 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
               {showVideo && hasVideo && (
                 <button
                   onClick={stopVideo}
+                  aria-label="Stop preview"
                   className="absolute top-2 right-2 z-20 bg-black/60 hover:bg-black/80 rounded p-1 text-white transition-colors"
                 >
                   <X className="h-4 w-4" />
