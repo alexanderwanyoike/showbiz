@@ -192,7 +192,7 @@ it.each(["project", "storyboard"] as const)(
         await screen.findByRole("menuitem", { name: /Open Project/ }),
       );
       await screen.findByRole("button", {
-        name: "Rename project",
+        name: "New Storyboard",
         
       });
       await act(async () => {

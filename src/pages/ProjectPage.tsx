@@ -1,9 +1,10 @@
+import type { Result } from "../../shared/result";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useProjectDocument } from "../contexts/ProjectDocumentContext";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { Plus, Clapperboard, Loader2, Search, Pencil } from "lucide-react";
+import { Plus, Clapperboard, Loader2, Search } from "lucide-react";
 import { WorkspaceToolbar as Header } from "../components/WorkspaceToolbar";
 import StoryboardCard from "../components/StoryboardCard";
 import ProjectBibleView from "../components/ProjectBibleView";
@@ -14,13 +15,12 @@ import {
   getStoryboardsWithPreview,
   createStoryboard,
   deleteStoryboard,
-  updateProject,
 } from "../lib/backend-api";
 import type { Project, StoryboardWithPreview } from "../lib/backend-api";
 
 export default function ProjectPage() {
   const { id: routeId } = useParams<{ id: string }>();
-  const { current } = useProjectDocument();
+  const { current, bibleGenerationModel, setBibleGenerationModel } = useProjectDocument();
   const id = routeId ?? current?.project_id;
   const navigate = useNavigate();
 
@@ -30,8 +30,6 @@ export default function ProjectPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [newStoryboardName, setNewStoryboardName] = useState("");
   const [showNewStoryboardInput, setShowNewStoryboardInput] = useState(false);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [editedName, setEditedName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchParams] = useSearchParams();
   const activeTab =
@@ -42,13 +40,14 @@ export default function ProjectPage() {
     showNewStoryboardInput && !!newStoryboardName,
     newStoryboardName,
   );
-  useUnsavedWork(
-    "draft",
-    isEditingName && editedName !== project?.name,
-    editedName,
-  );
+
 
   useAgentChanges(loadData);
+  useEffect(() => {
+    const discard = () => { setNewStoryboardName(""); setShowNewStoryboardInput(false); };
+    window.addEventListener("showbiz:discard-workspace-drafts", discard);
+    return () => window.removeEventListener("showbiz:discard-workspace-drafts", discard);
+  }, []);
 
   const loadRequest = useRef(0);
   // Load project and storyboards on mount
@@ -76,7 +75,6 @@ export default function ProjectPage() {
 
       setProject(projectData);
       setStoryboards(storyboardsData);
-      setEditedName(projectData.name);
     } catch (error) {
       if (request !== loadRequest.current) return;
       console.error("Failed to load project:", error);
@@ -108,34 +106,15 @@ export default function ProjectPage() {
     }
   }
 
-  async function handleDeleteStoryboard(storyboardId: string) {
+  async function handleDeleteStoryboard(storyboardId: string): Promise<Result<null>> {
     try {
-      await deleteStoryboard(storyboardId);
+      const removed = await deleteStoryboard(storyboardId);
+      if (!removed) return { ok: false, error: { code: "NOT_FOUND", message: "The storyboard could not be deleted. Refresh and try again." } };
       setStoryboards((prev) => prev.filter((s) => s.id !== storyboardId));
       window.dispatchEvent(new Event("showbiz:project-changed"));
+      return { ok: true, value: null };
     } catch (error) {
-      console.error("Failed to delete storyboard:", error);
-      alert("Failed to delete storyboard");
-    }
-  }
-
-  async function handleUpdateProjectName() {
-    if (!id || !editedName.trim() || editedName === project?.name) {
-      setIsEditingName(false);
-      setEditedName(project?.name || "");
-      return;
-    }
-
-    try {
-      const updated = await updateProject(id, editedName.trim());
-      if (updated) {
-        setProject(updated);
-      window.dispatchEvent(new Event("showbiz:project-changed"));
-      }
-      setIsEditingName(false);
-    } catch (error) {
-      console.error("Failed to update project name:", error);
-      alert("Failed to update project name");
+      return { ok: false, error: { code: "IO_ERROR", message: error instanceof Error ? error.message : "Could not delete storyboard." } };
     }
   }
 
@@ -163,38 +142,10 @@ export default function ProjectPage() {
 
   return (
     <div className="desktop-page">
-      <Header title={activeTab === "bible" ? "Project bible" : "Storyboards"}>
-        {isEditingName ? (
-          <Input
-            aria-label="Project name"
-            value={editedName}
-            onChange={(event) => setEditedName(event.target.value)}
-            onBlur={handleUpdateProjectName}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void handleUpdateProjectName();
-              if (event.key === "Escape") {
-                setIsEditingName(false);
-                setEditedName(project.name);
-              }
-            }}
-            className="h-7 w-56 text-xs"
-            autoFocus
-          />
-        ) : (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Rename project"
-            title="Rename project"
-            onClick={() => setIsEditingName(true)}
-          >
-            <Pencil size={13} />
-          </Button>
-        )}
-      </Header>
+      <Header title={activeTab === "bible" ? "Project bible" : "Storyboards"} />
       <main className="workspace-body">
         {activeTab === "bible" ? (
-          <ProjectBibleView projectId={project.id} />
+          <ProjectBibleView projectId={project.id} generationModel={bibleGenerationModel && setBibleGenerationModel ? { value: bibleGenerationModel, onChange: setBibleGenerationModel } : undefined} initialTab={searchParams.get("bibleTab") === "frames" ? "frames" : undefined} />
         ) : (
           <>
             {/* Top bar: search + new storyboard */}

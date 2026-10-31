@@ -27,6 +27,7 @@ const commands: Record<DocumentAction, string> = {
 };
 function useDocumentController() {
   const [state, setState] = useState(empty);
+  const [bibleGenerationModel, setBibleGenerationModel] = useState("nano-banana");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +40,7 @@ function useDocumentController() {
       file.current = next.current?.file_path ?? null;
       setState(next);
       if (changed) {
+        setBibleGenerationModel("nano-banana");
         electronMediaUrlResolver.invalidateAll();
         navigate(next.current ? `/project/${next.current.project_id}` : "/", {
           replace: true,
@@ -117,6 +119,8 @@ function useDocumentController() {
   }, [refresh, action]);
   return {
     ...state,
+    bibleGenerationModel,
+    setBibleGenerationModel,
     loading,
     busy,
     error,

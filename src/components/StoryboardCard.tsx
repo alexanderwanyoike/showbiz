@@ -1,24 +1,17 @@
+import { useState } from "react";
+import type { Result } from "../../shared/result";
+import { ConfirmDeletion } from "./ConfirmDeletion";
 import { Link } from "react-router";
-import { Trash2, ImageIcon } from "lucide-react";
+import { MoreHorizontal, Trash2, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface StoryboardCardProps {
   id: string;
   name: string;
   updatedAt: string;
   previewImageUrl?: string | null;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => Promise<Result<null>>;
 }
 
 export default function StoryboardCard({
@@ -28,6 +21,7 @@ export default function StoryboardCard({
   previewImageUrl,
   onDelete,
 }: StoryboardCardProps) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const formattedDate = new Date(updatedAt).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -63,40 +57,19 @@ export default function StoryboardCard({
         </div>
       </Link>
 
-      {/* Delete button — appears on hover */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 bg-card text-foreground"
-              aria-label={`Delete ${name}`}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
+      <div className="absolute top-2 right-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="h-7 w-7 bg-card text-foreground" aria-label={`Storyboard actions for ${name}`} title={`Storyboard actions for ${name}`}>
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Storyboard</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete &quot;{name}&quot;? This will
-                also delete all shots within this storyboard. This action cannot
-                be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => onDelete(id)}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setDeleteOpen(true)}><Trash2 className="h-3.5 w-3.5" />Delete storyboard…</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+      <ConfirmDeletion open={deleteOpen} onOpenChange={setDeleteOpen} title="Delete storyboard" description={`Delete “${name}” and all its shots? This cannot be undone.`} actionLabel="Delete storyboard" onConfirm={() => onDelete(id)} />
     </div>
   );
 }

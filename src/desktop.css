@@ -1179,3 +1179,7 @@ body,
   background: var(--accent);
   border-color: var(--primary);
 }
+
+.sidebar-document { position: relative; padding-right: 38px; }
+.sidebar-project-settings { position: absolute; right: 6px; top: 8px; height: 26px; width: 26px; }
+.sidebar-project-settings svg { grid-row: auto; }

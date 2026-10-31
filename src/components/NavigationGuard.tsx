@@ -1,0 +1,63 @@
+import { useEffect } from "react";
+import { useBlocker, type Location } from "react-router";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useApplicationWork } from "../hooks/useApplicationWork";
+
+function workspace(location: Pick<Location, "pathname" | "search">) {
+  const view = new URLSearchParams(location.search).get("view");
+  return location.pathname.startsWith("/project/")
+    ? `${location.pathname}:${view === "bible" ? "bible" : "storyboards"}`
+    : location.pathname;
+}
+export function NavigationGuard() {
+  const dirty = useApplicationWork().unsaved.includes("draft");
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      dirty && workspace(currentLocation) !== workspace(nextLocation),
+  );
+  useEffect(() => {
+    if (!dirty && blocker.state === "blocked") blocker.proceed();
+  }, [dirty, blocker]);
+  return (
+    <AlertDialog
+      open={dirty && blocker.state === "blocked"}
+      onOpenChange={(open) => {
+        if (!open && blocker.state === "blocked") blocker.reset();
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Leaving this workspace will discard its unsaved input.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Stay</AlertDialogCancel>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              if (blocker.state === "blocked") {
+                window.dispatchEvent(
+                  new Event("showbiz:discard-workspace-drafts"),
+                );
+                blocker.proceed();
+              }
+            }}
+          >
+            Discard and continue
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}

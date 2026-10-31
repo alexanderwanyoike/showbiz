@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "../App";
+import { updateProject } from "./backend-api";
 vi.mock("./bridge", () => ({
   invoke: async () => ({
     ok: true,
@@ -26,6 +27,7 @@ vi.mock("./backend-api", async (original) => ({
     { id: "opening", project_id: "film", name: "Opening scene" },
   ],
   getApiKeyStatusAction: async () => [],
+  updateProject: vi.fn(async (id: string, name: string) => ({ id, name, created_at: "", updated_at: "" })),
 }));
 vi.mock("./update-client", () => ({
   updateClient: {
@@ -94,4 +96,27 @@ it("keeps project views in one navigator that can be opened from any workspace",
   expect(
     screen.queryByRole("navigation", { name: "Project navigator" }),
   ).toBeNull();
+});
+
+it("keeps project naming in project settings and saves only on an explicit action", async () => {
+  const user = userEvent.setup();
+  render(createElement(MemoryRouter, null, createElement(App)));
+  await user.click(await screen.findByRole("button", { name: "Project settings" }));
+  const dialog = await screen.findByRole("dialog", { name: "Project settings" });
+  const field = within(dialog).getByRole("textbox", { name: "Project name" });
+  await user.clear(field);
+  await user.type(field, "Evening");
+  await user.click(within(dialog).getByText("Project name"));
+  expect(updateProject).not.toHaveBeenCalled();
+  await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(updateProject).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Project settings" }));
+  const reopened = screen.getByRole("dialog", { name: "Project settings" });
+  const reopenedField = within(reopened).getByRole("textbox", { name: "Project name" });
+  expect((reopenedField as HTMLInputElement).value).toBe("Morning");
+  await user.clear(reopenedField);
+  await user.type(reopenedField, "Evening");
+  await user.click(within(reopened).getByRole("button", { name: "Save changes" }));
+  expect(updateProject).toHaveBeenCalledWith("film", "Evening");
+  expect(screen.queryByRole("dialog", { name: "Project settings" })).toBeNull();
 });
