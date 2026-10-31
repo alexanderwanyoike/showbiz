@@ -181,9 +181,43 @@ it("preserves the quoted price basis and scopes receipts to their shot", () => {
   try {
     db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
     const commands = createGenerationUsageCommands(db);
-    const price = { provider: "fal", model_id: "image", currency: "USD", source_url: "https://fal.ai", checked_at: "2026-10-31T12:00:00Z", rates: [{ unit: "image", microusd: 40000 }] };
-    expect(commands.begin_generation_usage({request_id: "quoted", project_id: "film", subject_id: "shot-a", kind: "image", provider: "fal", model_id: "image", estimated_min_microusd: 40000, estimated_max_microusd: 40000, price_basis: price})).toMatchObject({ok: true});
-    expect(commands.get_generation_usage({project_id: "film", subject_id: "shot-b"})).toMatchObject({ok: true, value: {items: [], total_count: 0}});
-    expect(commands.get_generation_usage({project_id: "film", subject_id: "shot-a"})).toMatchObject({ok: true, value: {items: [{subject_id: "shot-a", price_basis: price}]}});
-  } finally { db.close(); }
+    const price = {
+      provider: "fal",
+      model_id: "image",
+      currency: "USD",
+      source_url: "https://fal.ai",
+      checked_at: "2026-10-31T12:00:00Z",
+      rates: [{ unit: "image", microusd: 40000 }],
+    };
+    expect(
+      commands.begin_generation_usage({
+        request_id: "quoted",
+        project_id: "film",
+        subject_id: "shot-a",
+        kind: "image",
+        provider: "fal",
+        model_id: "image",
+        estimated_min_microusd: 40000,
+        estimated_max_microusd: 40000,
+        price_basis: price,
+      }),
+    ).toMatchObject({ ok: true });
+    expect(
+      commands.get_generation_usage({
+        project_id: "film",
+        subject_id: "shot-b",
+      }),
+    ).toMatchObject({ ok: true, value: { items: [], total_count: 0 } });
+    expect(
+      commands.get_generation_usage({
+        project_id: "film",
+        subject_id: "shot-a",
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { items: [{ subject_id: "shot-a", price_basis: price }] },
+    });
+  } finally {
+    db.close();
+  }
 });

@@ -7,7 +7,10 @@ import type {
 import type { Result } from "../../shared/result";
 
 type Args = Record<string, unknown>;
-type UsageRow = Omit<GenerationUsage, "settings" | "price_basis"> & { settings_json: string; price_basis_json: string | null };
+type UsageRow = Omit<GenerationUsage, "settings" | "price_basis"> & {
+  settings_json: string;
+  price_basis_json: string | null;
+};
 const success = <T>(value: T): Result<T> => ({ ok: true, value });
 const invalid = (message: string): Result<never> => ({
   ok: false,
@@ -65,7 +68,9 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
         )
         .all(projectId, subject, subject, limit, offset) as UsageRow[]
     ).map(({ settings_json, price_basis_json, ...row }) => ({
-      price_basis: price_basis_json ? generationPriceSchema.parse(JSON.parse(price_basis_json)) : null,
+      price_basis: price_basis_json
+        ? generationPriceSchema.parse(JSON.parse(price_basis_json))
+        : null,
       ...row,
       settings: JSON.parse(settings_json) as GenerationUsage["settings"],
     }));
@@ -95,9 +100,21 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
         if (usage(args.request_id))
           return invalid("This generation request has already started.");
         const subject = args.subject_id ?? null;
-        if (subject !== null && !identifier(subject)) return invalid("The generation subject is invalid.");
-        const basis = args.price_basis == null ? null : generationPriceSchema.safeParse(args.price_basis);
-        if (basis && (!basis.success || basis.data.provider !== args.provider || basis.data.model_id !== args.model_id)) return invalid("The quoted price basis does not match the provider and model.");
+        if (subject !== null && !identifier(subject))
+          return invalid("The generation subject is invalid.");
+        const basis =
+          args.price_basis == null
+            ? null
+            : generationPriceSchema.safeParse(args.price_basis);
+        if (
+          basis &&
+          (!basis.success ||
+            basis.data.provider !== args.provider ||
+            basis.data.model_id !== args.model_id)
+        )
+          return invalid(
+            "The quoted price basis does not match the provider and model.",
+          );
         const price = basis?.success ? basis.data : null;
         const min = args.estimated_min_microusd ?? null;
         const max = args.estimated_max_microusd ?? null;
@@ -137,7 +154,9 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
             : null;
         const checked =
           typeof (args.price_checked_at ?? price?.checked_at) === "string" &&
-          Number.isFinite(Date.parse(String(args.price_checked_at ?? price?.checked_at)))
+          Number.isFinite(
+            Date.parse(String(args.price_checked_at ?? price?.checked_at)),
+          )
             ? String(args.price_checked_at ?? price?.checked_at)
             : null;
         db.prepare(
@@ -215,7 +234,8 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
         if (!identifier(args.project_id))
           return invalid("Choose a project to view usage.");
         const subject = args.subject_id ?? null;
-        if (subject !== null && !identifier(subject)) return invalid("The generation subject is invalid.");
+        if (subject !== null && !identifier(subject))
+          return invalid("The generation subject is invalid.");
         const limit = args.limit ?? 50;
         const offset = args.offset ?? 0;
         if (
@@ -230,9 +250,18 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
           .prepare(
             "SELECT COUNT(*) AS count FROM generation_usage WHERE project_id = ? AND (? IS NULL OR subject_id = ?)",
           )
-          .get(args.project_id, subject as string | null, subject as string | null) as { count: number };
+          .get(
+            args.project_id,
+            subject as string | null,
+            subject as string | null,
+          ) as { count: number };
         return success({
-          items: items(args.project_id, Number(limit), Number(offset), subject as string | null),
+          items: items(
+            args.project_id,
+            Number(limit),
+            Number(offset),
+            subject as string | null,
+          ),
           total_count: total.count,
         });
       }),

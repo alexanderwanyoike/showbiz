@@ -130,14 +130,43 @@ it("expires edit retries when the UI switches project files", async () => {
   });
 });
 
-it("reads project usage through agents without exposing receipt-writing or credential commands",async()=>{
- const db=openDatabase(":memory:",loadMigrations(path.resolve("electron/migrations")));
- try{
- const commands=createDataCommands(db,root,{});
- const project=commands.create_project({name:"Usage film"});
- commands.begin_generation_usage({request_id:"receipt",project_id:project.id,kind:"image",provider:"fal",model_id:"image"});
- const session=createMcpSession(createInvokeHandler(commands));
- expect(await session.call({tool:"get_generation_usage",args:{project_id:project.id,limit:1,offset:0}})).toMatchObject({ok:true,value:{data:{ok:true,value:{items:[{request_id:"receipt"}],total_count:1}}}});
- expect(await session.call({tool:"record_generation_receipt",args:{request_id:"receipt",reported_microusd:0}})).toMatchObject({ok:false});
- }finally{db.close();}
+it("reads project usage through agents without exposing receipt-writing or credential commands", async () => {
+  const db = openDatabase(
+    ":memory:",
+    loadMigrations(path.resolve("electron/migrations")),
+  );
+  try {
+    const commands = createDataCommands(db, root, {});
+    const project = commands.create_project({ name: "Usage film" });
+    commands.begin_generation_usage({
+      request_id: "receipt",
+      project_id: project.id,
+      kind: "image",
+      provider: "fal",
+      model_id: "image",
+    });
+    const session = createMcpSession(createInvokeHandler(commands));
+    expect(
+      await session.call({
+        tool: "get_generation_usage",
+        args: { project_id: project.id, limit: 1, offset: 0 },
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        data: {
+          ok: true,
+          value: { items: [{ request_id: "receipt" }], total_count: 1 },
+        },
+      },
+    });
+    expect(
+      await session.call({
+        tool: "record_generation_receipt",
+        args: { request_id: "receipt", reported_microusd: 0 },
+      }),
+    ).toMatchObject({ ok: false });
+  } finally {
+    db.close();
+  }
 });
