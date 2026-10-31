@@ -13,10 +13,15 @@ export default function StoryboardModeView({
   shotListSlot,
   previewSlot,
   inspectorSlot,
-  controlsOpen, controlsId, onCloseControls,
+  controlsOpen,
+  controlsId,
+  onCloseControls,
 }: StoryboardModeViewProps) {
   return (
-    <StoryboardLayout controlsOpen={controlsOpen} controlsId={controlsId} onCloseControls={onCloseControls}
+    <StoryboardLayout
+      controlsOpen={controlsOpen}
+      controlsId={controlsId}
+      onCloseControls={onCloseControls}
       shotListSlot={shotListSlot}
       previewSlot={previewSlot}
       inspectorSlot={inspectorSlot}

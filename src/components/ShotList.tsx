@@ -46,12 +46,18 @@ export default function ShotList({
   useEffect(() => {
     let cancelled = false;
     for (const shot of shots) {
-      if (shot.image_url || !shot.video_url || Object.hasOwn(posters, shot.video_url)) continue;
+      if (
+        shot.image_url ||
+        !shot.video_url ||
+        Object.hasOwn(posters, shot.video_url)
+      )
+        continue;
       const videoUrl = shot.video_url;
       thumbnailGenerator
         .extractFrame(videoUrl, 0)
         .then((frame) => {
-          if (!cancelled) setPosters((prev) => ({ ...prev, [videoUrl]: frame }));
+          if (!cancelled)
+            setPosters((prev) => ({ ...prev, [videoUrl]: frame }));
         })
         .catch((error: unknown) => {
           console.warn("Could not prepare a shot preview:", error);
@@ -133,8 +139,14 @@ export default function ShotList({
                 </button>
                 <button
                   aria-label={`Delete shot ${shot.order}`}
-                  title={shot.status === "generating" || shot.generationPending ? "Wait for this shot's current request to finish." : "Delete shot"}
-                  disabled={shot.status === "generating" || shot.generationPending}
+                  title={
+                    shot.status === "generating" || shot.generationPending
+                      ? "Wait for this shot's current request to finish."
+                      : "Delete shot"
+                  }
+                  disabled={
+                    shot.status === "generating" || shot.generationPending
+                  }
                   onClick={() => onDeleteShot(shot.id)}
                 >
                   <Trash2 size={12} />

@@ -14,9 +14,13 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
+import {
+  modelProviderName,
+  type ModelProviderIdentity,
+} from "../lib/model-provider";
 import type { ModelGroup } from "../lib/models/registry";
 
-interface ModelItem {
+interface ModelItem extends ModelProviderIdentity {
   id: string;
   name: string;
   provider?: string;
@@ -48,14 +52,20 @@ export function ModelPicker<T extends ModelItem>({
             {groups.map((group) => (
               <CommandGroup
                 key={group.family}
-                heading={group.models.length > 1 ? group.displayName : undefined}
+                heading={
+                  group.models.length > 1 ? group.displayName : undefined
+                }
               >
                 {group.models.map((model) => (
                   <CommandItem
                     key={model.id}
                     value={model.id}
                     aria-current={value === model.id ? "true" : undefined}
-                    keywords={[model.name, model.provider ?? "", group.displayName]}
+                    keywords={[
+                      model.name,
+                      modelProviderName(model) ?? "",
+                      group.displayName,
+                    ]}
                     onSelect={(id) => {
                       if (id !== value) onSelect(id);
                       setOpen(false);
@@ -67,9 +77,12 @@ export function ModelPicker<T extends ModelItem>({
                       }`}
                     />
                     <span className="flex-1 truncate">{model.name}</span>
-                    {model.provider && (
-                      <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0">
-                        {model.provider}
+                    {modelProviderName(model) && (
+                      <Badge
+                        variant="outline"
+                        className="ml-auto text-[10px] px-1.5 py-0"
+                      >
+                        {modelProviderName(model)}
                       </Badge>
                     )}
                   </CommandItem>

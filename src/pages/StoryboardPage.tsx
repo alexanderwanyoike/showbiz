@@ -968,6 +968,7 @@ export default function StoryboardPage() {
           }
           inspectorSlot={
             <ShotInspector
+              imageModel={imageModels.find(model => model.id === imageModel) ?? null}
               generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={videoCostRequest} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
               frameLibraryHref={`/project/${storyboard.project_id}?view=bible&bibleTab=frames`}
               generationDisabled={modelSaving || videoSettingsSaving || !!selectedVideoDraft || !!(selectedShotId && (pendingVideoShots.has(selectedShotId) || savingFrameShots.has(selectedShotId) || frameErrors[selectedShotId]))}
@@ -1089,10 +1090,10 @@ export default function StoryboardPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Edit Image with {imageModels.find((m) => m.id === imageModel)?.name}
+              Edit frame for shot {shots.find(shot => shot.id === editModalState.shotId)?.order}
             </DialogTitle>
             <DialogDescription>
-              Describe how you want to modify this image.
+              Describe the changes for {imageModels.find(model => model.id === resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model)?.name}. This creates a new take and keeps the source frame.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -1111,6 +1112,7 @@ export default function StoryboardPage() {
               </label>
               <Textarea
                 className="min-h-[80px]"
+                aria-label="Frame edit prompt"
                 placeholder="Describe the changes (e.g., 'Make the sky more dramatic' or 'Add fog in the background')"
                 value={editPrompt}
                 onChange={(e) => setEditPrompt(e.target.value)}

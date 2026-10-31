@@ -87,6 +87,7 @@ describe("shot commands", () => {
           "updated_at",
           "video_path",
           "video_prompt",
+          "video_settings_json",
           "video_url",
         ].sort()
       );

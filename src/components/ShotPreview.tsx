@@ -1,5 +1,20 @@
-import { useRef, useState, useEffect, useCallback, type SyntheticEvent } from "react";
-import { ImageIcon, Play, Pause, Film, Loader2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  useRef,
+  useState,
+  useEffect,
+  useCallback,
+  type SyntheticEvent,
+} from "react";
+import {
+  ImageIcon,
+  Play,
+  Pause,
+  Film,
+  Loader2,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { thumbnailGenerator } from "../lib/thumbnail-generator";
 import {
@@ -106,26 +121,29 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
     }
   }, [status, shot?.video_url, metadataLoaded, duration]);
 
-  const seekTo = useCallback((nextPosition: number) => {
-    const clamped = clampPlaybackTime(nextPosition, duration);
-    setPosition(clamped);
-    if (!showVideo) {
-      pendingSeekRef.current = clamped;
-      setStatus("playing");
-      return;
-    }
-
-    const video = videoRef.current;
-    if (video && metadataLoaded) {
-      try {
-        video.currentTime = clamped;
-      } catch (error) {
-        console.error("Failed to seek preview video:", error);
+  const seekTo = useCallback(
+    (nextPosition: number) => {
+      const clamped = clampPlaybackTime(nextPosition, duration);
+      setPosition(clamped);
+      if (!showVideo) {
+        pendingSeekRef.current = clamped;
+        setStatus("playing");
+        return;
       }
-    } else {
-      pendingSeekRef.current = clamped;
-    }
-  }, [duration, metadataLoaded, showVideo]);
+
+      const video = videoRef.current;
+      if (video && metadataLoaded) {
+        try {
+          video.currentTime = clamped;
+        } catch (error) {
+          console.error("Failed to seek preview video:", error);
+        }
+      } else {
+        pendingSeekRef.current = clamped;
+      }
+    },
+    [duration, metadataLoaded, showVideo],
+  );
 
   const togglePlayback = useCallback(() => {
     if (!shot?.video_url) return;
@@ -158,41 +176,59 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
     }
   }, [shot?.video_url, status, position, duration, metadataLoaded]);
 
-  const handleLoadedMetadata = useCallback((event: SyntheticEvent<HTMLVideoElement>) => {
-    const video = event.currentTarget;
-    const loadedDuration = Number.isFinite(video.duration) ? video.duration : 0;
-    setDuration(loadedDuration);
-    setMetadataLoaded(true);
+  const handleLoadedMetadata = useCallback(
+    (event: SyntheticEvent<HTMLVideoElement>) => {
+      const video = event.currentTarget;
+      const loadedDuration = Number.isFinite(video.duration)
+        ? video.duration
+        : 0;
+      setDuration(loadedDuration);
+      setMetadataLoaded(true);
 
-    if (pendingSeekRef.current > 0) {
-      const clamped = clampPlaybackTime(pendingSeekRef.current, loadedDuration);
-      try {
-        video.currentTime = clamped;
-        setPosition(clamped);
-      } catch (error) {
-        console.error("Failed to apply pending preview seek:", error);
+      if (pendingSeekRef.current > 0) {
+        const clamped = clampPlaybackTime(
+          pendingSeekRef.current,
+          loadedDuration,
+        );
+        try {
+          video.currentTime = clamped;
+          setPosition(clamped);
+        } catch (error) {
+          console.error("Failed to apply pending preview seek:", error);
+        }
+        pendingSeekRef.current = 0;
       }
-      pendingSeekRef.current = 0;
-    }
-  }, []);
+    },
+    [],
+  );
 
-  const handleVideoPositionChange = useCallback((event: SyntheticEvent<HTMLVideoElement>) => {
-    if (isSeeking) return;
-    const video = event.currentTarget;
-    const loadedDuration = Number.isFinite(video.duration) ? video.duration : duration;
-    const clamped = clampPlaybackTime(video.currentTime, loadedDuration);
-    setPosition(clamped);
-    if (hasReachedEnd(clamped, loadedDuration)) {
+  const handleVideoPositionChange = useCallback(
+    (event: SyntheticEvent<HTMLVideoElement>) => {
+      if (isSeeking) return;
+      const video = event.currentTarget;
+      const loadedDuration = Number.isFinite(video.duration)
+        ? video.duration
+        : duration;
+      const clamped = clampPlaybackTime(video.currentTime, loadedDuration);
+      setPosition(clamped);
+      if (hasReachedEnd(clamped, loadedDuration)) {
+        setStatus((prev) => (prev === "playing" ? "paused" : prev));
+      }
+    },
+    [duration, isSeeking],
+  );
+
+  const handleEnded = useCallback(
+    (event: SyntheticEvent<HTMLVideoElement>) => {
+      const video = event.currentTarget;
+      const loadedDuration = Number.isFinite(video.duration)
+        ? video.duration
+        : duration;
+      setPosition(clampPlaybackTime(video.currentTime, loadedDuration));
       setStatus((prev) => (prev === "playing" ? "paused" : prev));
-    }
-  }, [duration, isSeeking]);
-
-  const handleEnded = useCallback((event: SyntheticEvent<HTMLVideoElement>) => {
-    const video = event.currentTarget;
-    const loadedDuration = Number.isFinite(video.duration) ? video.duration : duration;
-    setPosition(clampPlaybackTime(video.currentTime, loadedDuration));
-    setStatus((prev) => (prev === "playing" ? "paused" : prev));
-  }, [duration]);
+    },
+    [duration],
+  );
 
   useEffect(() => {
     if (!shot?.video_url) return;
@@ -201,7 +237,9 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
       const target = e.target;
       if (!(target instanceof HTMLElement) || e.defaultPrevented) return;
       if (
-        target.closest("button, a, select, [role=dialog], [role=alertdialog], [role=combobox], [role=listbox], [role=menu], [role=switch]") ||
+        target.closest(
+          "button, a, select, summary, [role=dialog], [role=alertdialog], [role=combobox], [role=listbox], [role=menu], [role=switch]",
+        ) ||
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
         target.isContentEditable
@@ -251,7 +289,9 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
           {isEmpty ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
               <ImageIcon className="h-10 w-10 mb-2 opacity-40" />
-              <p className="text-sm">Choose a frame or add a video prompt in Shot controls.</p>
+              <p className="text-sm">
+                Choose a frame or add a video prompt in Shot controls.
+              </p>
             </div>
           ) : (
             <>
@@ -266,7 +306,10 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
                   onSeeked={handleVideoPositionChange}
                   onEnded={handleEnded}
                   onError={(event) => {
-                    console.error("Failed to load preview video:", event.currentTarget.error);
+                    console.error(
+                      "Failed to load preview video:",
+                      event.currentTarget.error,
+                    );
                     setStatus((prev) => (prev === "playing" ? "paused" : prev));
                   }}
                   className={`absolute inset-0 h-full w-full bg-black object-contain ${
@@ -373,7 +416,8 @@ export default function ShotPreview({ shot }: ShotPreviewProps) {
             }}
             onChange={(event) => setPosition(Number(event.currentTarget.value))}
             onKeyDown={(event) => {
-              if (event.key === " " || event.key === "Enter") event.preventDefault();
+              if (event.key === " " || event.key === "Enter")
+                event.preventDefault();
             }}
           />
         )}
