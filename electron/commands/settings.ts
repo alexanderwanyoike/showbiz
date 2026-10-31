@@ -19,6 +19,10 @@ export function createSettingsCommands(db: DatabaseSync) {
     return row ? row.value : null;
   }
 
+  function clearAccountPrices(provider: ApiKeyProvider) {
+    db.prepare("DELETE FROM settings WHERE key GLOB 'generation_price_cache:*' AND CASE WHEN json_valid(value) THEN json_extract(value, '$.provider') END = ?").run(provider);
+  }
+
   return {
     ...createLocalGenerationCommands(db),
     ...createGenerationPricingCommands(db),
@@ -44,6 +48,7 @@ export function createSettingsCommands(db: DatabaseSync) {
       if (trimmed.length === 0) {
         throw new Error("API key cannot be empty");
       }
+      if (readValue(provider) !== trimmed) clearAccountPrices(provider);
       db.prepare(
         `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`
@@ -52,6 +57,7 @@ export function createSettingsCommands(db: DatabaseSync) {
 
     delete_api_key(args?: Record<string, unknown>): void {
       const provider = parseApiKeyProvider(args?.provider);
+      clearAccountPrices(provider);
       db.prepare("DELETE FROM settings WHERE key = ?").run(dbKeyFor(provider));
     },
   };
