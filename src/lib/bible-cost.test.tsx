@@ -1,0 +1,42 @@
+// @vitest-environment jsdom
+import { createElement } from "react";
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, expect, it, vi } from "vitest";
+import ProjectBibleView from "../components/ProjectBibleView";
+vi.mock("./backend-api", async (original) => ({
+  ...(await original<typeof import("./backend-api")>()),
+  getBibles: async () => [{ id: "bible" }],
+  getBibleAssets: async () => [
+    { id: "character", asset_type: "character", name: "Morning" },
+  ],
+  getBibleAssetVariants: async () => [
+    {
+      id: "take",
+      asset_id: "character",
+      is_primary: true,
+      status: "approved",
+      media_url: "/image.png",
+      prompt: "Morning",
+    },
+  ],
+}));
+vi.stubGlobal(
+  "ResizeObserver",
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  },
+);
+Element.prototype.scrollIntoView = vi.fn();
+Element.prototype.hasPointerCapture = () => false;
+Element.prototype.setPointerCapture = vi.fn();
+Element.prototype.releasePointerCapture = vi.fn();
+afterEach(cleanup);
+vi.mock("./generation-pricing",()=>({getGenerationEstimate:async()=>({kind:"estimate",min_microusd:67200,max_microusd:67200,stale:false,excludes_input_cost:true,price:{provider:"gemini",source_url:"https://ai.google.dev/gemini-api/docs/pricing",checked_at:"2026-10-31T12:00:00Z"}})}));
+it("shows an image estimate before creating a bible picture",async()=>{
+ render(createElement(ProjectBibleView,{projectId:"film"}));
+ await screen.findByRole("button",{name:"Edit"});
+ expect((await screen.findAllByLabelText("Estimated generation cost"))[0].textContent).toContain("~$0.0672");
+});
