@@ -28,7 +28,7 @@ export function createProjectRuntime(options: {
       media: path.join(options.appDirectory, "media"),
     },
     bind: (db, media) =>
-      createDataCommands(db, media, options.exports(db, media)),
+      createDataCommands(db, media, options.exports(db, media), (provider) => createSettingsCommands(options.legacyDb).get_api_key({ provider })),
   });
   const globals: CommandMap = {
     ...createGenerationModelCommands(
