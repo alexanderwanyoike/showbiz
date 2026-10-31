@@ -11,6 +11,8 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import StoryboardPage from "../pages/StoryboardPage";
+import type { GenerationCostRequest } from "../../shared/generation-cost";
+vi.mock("../components/GenerationCost", () => ({ GenerationCost: ({request}: {request: GenerationCostRequest}) => createElement("output", {"aria-label": "Generation cost mode"}, request.mode ?? "unknown") }));
 import { setShotModels, updateStoryboardModels } from "./backend-api";
 import { generateAndSaveVideoRequestAction } from "../actions/generation-actions";
 vi.stubGlobal(
@@ -207,4 +209,11 @@ it("edits model defaults from storyboard settings without requiring or changing 
   await user.click(screen.getByRole("option", {name: /GPT Image 2/}));
   await waitFor(() => expect(updateStoryboardModels).toHaveBeenCalledWith("board", "gpt-image-2", "seedance-2-fal"));
   expect(setShotModels).not.toHaveBeenCalled();
+});
+
+it("quotes the same frame-based video mode that the shot will generate", async () => {
+  render(createElement(MemoryRouter,{initialEntries:["/storyboard/board"]},createElement(Routes,null,createElement(Route,{path:"/storyboard/:id",element:createElement(StoryboardPage)}))));
+  await screen.findByText("Opening");
+  await userEvent.setup().click(screen.getByRole("button",{name:"Shot controls"}));
+  expect(screen.getByLabelText("Generation cost mode").textContent).toBe("image-to-video");
 });
