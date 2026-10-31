@@ -33,7 +33,8 @@
       "dist/**",
       "dist-electron/**",
       "electron/migrations/*.sql",
-      "!node_modules/**"
+      "!node_modules/**",
+      "src/lib/models/providers/**/*.json"
     ],
     "linux": {
       "target": [

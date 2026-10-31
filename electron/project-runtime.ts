@@ -1,3 +1,4 @@
+import { createGenerationModelCommands } from "./commands/generation-models";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { createDataCommands } from "./command-map";
@@ -9,6 +10,7 @@ import type { CommandMap } from "./ipc";
 
 export function createProjectRuntime(options: {
   appDirectory: string;
+  modelDirectory?: string;
   legacyDb: DatabaseSync;
   migrations: string[];
   exports: (db: DatabaseSync, media: string) => CommandMap;
@@ -29,6 +31,7 @@ export function createProjectRuntime(options: {
       createDataCommands(db, media, options.exports(db, media)),
   });
   const globals: CommandMap = {
+    ...createGenerationModelCommands(options.modelDirectory ?? path.resolve("src/lib/models/providers")),
     ...createSettingsCommands(options.legacyDb),
     ...createHttpCommands(),
     ...createProjectDocumentCommands({ ...options, documents }),

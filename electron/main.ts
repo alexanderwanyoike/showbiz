@@ -34,6 +34,7 @@ async function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work
   const filters = [{ name: "Showbiz project", extensions: ["showbiz"] }];
   const projects = createProjectRuntime({
     appDirectory: appDataDir(), legacyDb: db,
+    modelDirectory: path.join(app.getAppPath(), "src/lib/models/providers"),
     migrations: loadMigrations(path.join(app.getAppPath(), "electron/migrations")),
     exports: (db, media) => createStoryboardPackageCommands(db, media, (options) => dialog.showSaveDialog(options)),
     chooseOpen: async () => {

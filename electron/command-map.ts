@@ -1,3 +1,5 @@
+import path from "node:path";
+import { createGenerationModelCommands } from "./commands/generation-models";
 import { createGenerationUsageCommands } from "./commands/generation-usage";
 import type { DatabaseSync } from "node:sqlite";
 import type { CommandMap } from "./ipc";
@@ -18,6 +20,7 @@ export function createDataCommands(
   return {
     ...createProjectCommands(db, mediaDir),
     ...createGenerationUsageCommands(db),
+    ...createGenerationModelCommands(path.resolve("src/lib/models/providers")),
     ...createShotCommands(db, mediaDir),
     ...createMediaCommands(mediaDir),
     ...createSettingsCommands(db),
