@@ -236,3 +236,22 @@ it("keeps duration choices on their selected shot instead of leaking to another 
   await user.click(screen.getByRole("button",{name:"Select shot 1"}));
   expect(screen.getByRole("combobox",{name:"Video duration"}).textContent).toBe("4s");
 });
+it("retains a failed settings draft on its shot and blocks generation until saved or discarded", async () => {
+  vi.mocked(setShotVideoSettings).mockResolvedValueOnce({ok:false,error:{code:"IO_ERROR",message:"Could not save video settings."}});
+  render(createElement(MemoryRouter,{initialEntries:["/storyboard/board"]},createElement(Routes,null,createElement(Route,{path:"/storyboard/:id",element:createElement(StoryboardPage)}))));
+  const user=userEvent.setup();
+  await user.click(await screen.findByRole("button",{name:"Shot controls"}));
+  await user.click(screen.getByRole("combobox",{name:"Video duration"}));
+  await user.click(screen.getByRole("option",{name:"4s"}));
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent","Could not save video settings.");
+  expect(screen.getByRole("combobox",{name:"Video duration"}).textContent).toBe("4s");
+  expect(screen.getByRole("button",{name:"Generate video for shot 1"})).toHaveProperty("disabled",true);
+  await user.click(screen.getByRole("button",{name:"Select shot 2"}));
+  expect(screen.getByRole("combobox",{name:"Video duration"}).textContent).toBe("Auto");
+  await user.click(screen.getByRole("button",{name:"Return to shot 1"}));
+  expect(screen.getByRole("combobox",{name:"Video duration"}).textContent).toBe("4s");
+  await user.click(screen.getByRole("button",{name:"Discard changes"}));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByRole("combobox",{name:"Video duration"}).textContent).toBe("Auto");
+  expect(screen.getByRole("button",{name:"Generate video for shot 1"})).toHaveProperty("disabled",false);
+});
