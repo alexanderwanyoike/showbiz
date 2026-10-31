@@ -21,8 +21,8 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
   function usage(requestId: unknown): UsageRow | undefined {
     return identifier(requestId) ? db.prepare("SELECT * FROM generation_usage WHERE request_id = ?").get(requestId) as UsageRow | undefined : undefined;
   }
-  function items(projectId: string): GenerationUsage[] {
-    return (db.prepare("SELECT * FROM generation_usage WHERE project_id = ? ORDER BY started_at DESC, request_id").all(projectId) as UsageRow[]).map(({ settings_json, ...row }) => ({ ...row, settings: JSON.parse(settings_json) as GenerationUsage["settings"] }));
+  function items(projectId: string, limit: number, offset: number): GenerationUsage[] {
+    return (db.prepare("SELECT * FROM generation_usage WHERE project_id = ? ORDER BY started_at DESC, request_id LIMIT ? OFFSET ?").all(projectId, limit, offset) as UsageRow[]).map(({ settings_json, ...row }) => ({ ...row, settings: JSON.parse(settings_json) as GenerationUsage["settings"] }));
   }
   return {
     begin_generation_usage: (args: Args = {}): Result<GenerationUsage> => execute(() => {
@@ -57,19 +57,24 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
       db.prepare("UPDATE generation_usage SET status = ?, finished_at = COALESCE(finished_at, ?) WHERE request_id = ?").run(args.status, new Date().toISOString(), row.request_id);
       return success(null);
     }),
-    get_generation_usage: (args: Args = {}): Result<{ items: GenerationUsage[] }> => execute(() => identifier(args.project_id) ? success({ items: items(args.project_id) }) : invalid("Choose a project to view usage.")),
+    get_generation_usage: (args: Args = {}): Result<{ items: GenerationUsage[]; total_count: number }> => execute(() => {
+      if (!identifier(args.project_id)) return invalid("Choose a project to view usage.");
+      const limit = args.limit ?? 50;
+      const offset = args.offset ?? 0;
+      if (!Number.isSafeInteger(limit) || Number(limit) < 1 || Number(limit) > 100 || !Number.isSafeInteger(offset) || Number(offset) < 0) return invalid("The usage page is invalid.");
+      const total = db.prepare("SELECT COUNT(*) AS count FROM generation_usage WHERE project_id = ?").get(args.project_id) as { count: number };
+      return success({ items: items(args.project_id, Number(limit), Number(offset)), total_count: total.count });
+    }),
     get_generation_cost_summary: (args: Args = {}): Result<GenerationCostSummary> => execute(() => {
       if (!identifier(args.project_id)) return invalid("Choose a project to view costs.");
-      const rows = items(args.project_id);
-      const summary: GenerationCostSummary = { reported_microusd: 0, estimated_min_microusd: 0, estimated_max_microusd: 0, unknown_count: 0, total_count: rows.length };
-      for (const row of rows) {
-        if (row.reported_microusd !== null) summary.reported_microusd += row.reported_microusd;
-        else if (row.estimated_min_microusd !== null && row.estimated_max_microusd !== null) {
-          summary.estimated_min_microusd += row.estimated_min_microusd;
-          summary.estimated_max_microusd += row.estimated_max_microusd;
-        } else summary.unknown_count += 1;
-      }
-      return success(summary);
+      const summary = db.prepare(`SELECT
+        COALESCE(SUM(reported_microusd), 0) AS reported_microusd,
+        COALESCE(SUM(CASE WHEN reported_microusd IS NULL THEN estimated_min_microusd ELSE 0 END), 0) AS estimated_min_microusd,
+        COALESCE(SUM(CASE WHEN reported_microusd IS NULL THEN estimated_max_microusd ELSE 0 END), 0) AS estimated_max_microusd,
+        COALESCE(SUM(CASE WHEN reported_microusd IS NULL AND estimated_min_microusd IS NULL THEN 1 ELSE 0 END), 0) AS unknown_count,
+        COUNT(*) AS total_count
+        FROM generation_usage WHERE project_id = ?`).get(args.project_id) as unknown as GenerationCostSummary;
+      return Object.values(summary).every(Number.isSafeInteger) ? success(summary) : invalid("The usage total exceeds the supported amount.");
     }),
   };
 }
