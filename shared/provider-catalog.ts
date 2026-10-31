@@ -48,7 +48,14 @@ export const API_KEY_PROVIDERS = [
     helpText: "Use an API key from your OpenRouter account.",
     order: 70,
   },
-  { id: "local", name: "LocalAI", credentialLabel: "Local server API key (optional)", helpText: "Only needed if your LocalAI server requires authentication. Configure its address and installed models below.", order: 80 },
+  {
+    id: "local",
+    name: "LocalAI",
+    credentialLabel: "Local server API key (optional)",
+    helpText:
+      "Only needed if your LocalAI server requires authentication. Configure its address and installed models below.",
+    order: 80,
+  },
 ] as const;
 
 export type ApiKeyProvider = (typeof API_KEY_PROVIDERS)[number]["id"];
