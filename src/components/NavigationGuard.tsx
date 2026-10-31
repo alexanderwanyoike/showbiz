@@ -26,7 +26,8 @@ export function NavigationGuard() {
   const dirty = applicationWork.snapshot().unsaved.includes("draft");
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      applicationWork.snapshot().unsaved.includes("draft") && workspace(currentLocation) !== workspace(nextLocation),
+      applicationWork.snapshot().unsaved.includes("draft") &&
+      workspace(currentLocation) !== workspace(nextLocation),
   );
   useEffect(() => {
     if (!dirty && blocker.state === "blocked") blocker.proceed();
@@ -39,8 +40,16 @@ export function NavigationGuard() {
       }}
     >
       <AlertDialogContent
-        onOpenAutoFocus={() => { origin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }}
-        onCloseAutoFocus={(event) => { event.preventDefault(); if (origin.current?.isConnected) origin.current.focus(); }}
+        onOpenAutoFocus={() => {
+          origin.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          if (origin.current?.isConnected) origin.current.focus();
+        }}
       >
         <AlertDialogHeader>
           <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
