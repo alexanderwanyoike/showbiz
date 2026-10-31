@@ -33,7 +33,7 @@ export function NavigationGuard() {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Stay</AlertDialogCancel>
-          <Button variant="destructive" onClick={() => { if (blocker.state === "blocked") blocker.proceed(); }}>Discard and continue</Button>
+          <Button variant="destructive" onClick={() => { if (blocker.state === "blocked") { window.dispatchEvent(new Event("showbiz:discard-workspace-drafts")); blocker.proceed(); } }}>Discard and continue</Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

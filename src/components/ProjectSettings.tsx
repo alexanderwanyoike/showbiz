@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,12 @@ export function ProjectSettings({ projectId, name, onRenamed }: {
   const [draft, setDraft] = useState(name);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useUnsavedWork("draft", open && draft !== name, draft);
+  useUnsavedWork("draft", open && !saving && draft !== name, draft);
+  useEffect(() => {
+    const discard = () => { setDraft(name); setOpen(false); setError(null); };
+    window.addEventListener("showbiz:discard-workspace-drafts", discard);
+    return () => window.removeEventListener("showbiz:discard-workspace-drafts", discard);
+  }, [name]);
 
   function changeOpen(next: boolean) {
     if (saving) return;

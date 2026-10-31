@@ -43,6 +43,11 @@ export default function ProjectPage() {
 
 
   useAgentChanges(loadData);
+  useEffect(() => {
+    const discard = () => { setNewStoryboardName(""); setShowNewStoryboardInput(false); };
+    window.addEventListener("showbiz:discard-workspace-drafts", discard);
+    return () => window.removeEventListener("showbiz:discard-workspace-drafts", discard);
+  }, []);
 
   const loadRequest = useRef(0);
   // Load project and storyboards on mount
