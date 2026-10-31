@@ -150,3 +150,18 @@ it("rejects project media that escapes its companion folder and retains the acti
     expect(documents.current()?.file_path).toBe(safe);
   } finally { await documents.close(); }
 });
+
+it("still opens project files when the recent-file list is corrupt", async () => {
+  const { directory, documents } = setup();
+  const file = path.join(directory, "Film.showbiz");
+  await documents.create(file);
+  await documents.close();
+  fs.writeFileSync(path.join(directory, "recent.json"), "invalid json");
+  let reopened: ReturnType<typeof createProjectDocuments> | undefined;
+  try {
+    reopened = createProjectDocuments({ migrations: loadMigrations(path.resolve("electron/migrations")), recentPath: path.join(directory, "recent.json"), bind: (db, media) => createProjectCommands(db, media) });
+    expect(reopened.warning()).toContain("recent");
+    expect((await reopened.open(file)).ok).toBe(true);
+    expect(reopened.warning()).toBeNull();
+  } finally { await reopened?.close(); }
+});
