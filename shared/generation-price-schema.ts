@@ -5,10 +5,7 @@ export const generationPriceSchema = z.strictObject({
   model_id: z.string().min(1).max(256),
   currency: z.literal("USD"),
   source_kind: z.enum(["provider", "manual"]).optional(),
-  source_url: z
-    .url()
-    .max(2048)
-    .refine((value) => ["http:", "https:"].includes(new URL(value).protocol)),
+  source_url: z.union([z.literal(""), z.url().max(2048).refine(value => ["http:", "https:"].includes(new URL(value).protocol))]),
   checked_at: z.iso.datetime(),
   excludes_input_cost: z.boolean().optional(),
   rates: z
@@ -26,4 +23,4 @@ export const generationPriceSchema = z.strictObject({
     )
     .min(1)
     .max(100),
-});
+}).refine(price => price.source_kind === "manual" || !!price.source_url, "Provider rates require a source URL.");
