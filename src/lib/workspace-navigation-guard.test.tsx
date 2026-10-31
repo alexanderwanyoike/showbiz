@@ -62,11 +62,13 @@ it("keeps a dirty workspace mounted until Stay or Discard is chosen for an inter
     await screen.findByRole("textbox", { name: "Character name" }),
     "Ada",
   );
-  await user.click(screen.getByRole("link", { name: "Opening scene" }));
+  const openingLink = screen.getByRole("link", { name: "Opening scene" });
+  await user.click(openingLink);
   const prompt = await screen.findByRole("alertdialog", {
     name: "Discard unsaved changes?",
   });
   await user.click(within(prompt).getByRole("button", { name: "Stay" }));
+  expect(document.activeElement).toBe(openingLink);
   expect(
     (
       screen.getByRole("textbox", {
