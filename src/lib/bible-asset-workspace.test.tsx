@@ -70,6 +70,8 @@ it.each([
         name: `Delete take 2 for ${name}`,
       }),
     ).toBeTruthy();
+    await user.click(within(workspace).getByRole("button", { name: "Variation…" }));
+    expect(within(workspace).getByRole("textbox", { name: `Variation prompt for ${name}` })).toHaveProperty("value", "Warm morning light");
     await user.click(
       within(workspace).getByRole("button", { name: "Back to library" }),
     );
