@@ -98,3 +98,11 @@ it("distinguishes a published snapshot from live API pricing and opens device-wi
   expect(screen.getByRole("dialog", { name: "Model pricing" })).toBeTruthy();
   expect(screen.getByText(/applies to this model on this device across all projects/)).toBeTruthy();
 });
+it("names the generation type and video settings affected by a device-wide rate", async () => {
+  const { default: userEvent } = await import("@testing-library/user-event");
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockResolvedValue({ ok: true, value: null });
+  render(createElement(GenerationCost, { modelId: "veo-3.1-openrouter", request: { kind: "video", duration: "8s", resolution: "720p", audio: true } }));
+  await userEvent.setup().click(screen.getByRole("button", { name: "Model pricing…" }));
+  expect(screen.getByText("Video · 720p · Audio on")).toBeTruthy();
+});
