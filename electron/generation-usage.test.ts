@@ -221,3 +221,13 @@ it("preserves the quoted price basis and scopes receipts to their shot", () => {
     db.close();
   }
 });
+it("records provider job identity while its monetary charge remains unknown", () => {
+  const db = openTestDb();
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const commands = createGenerationUsageCommands(db);
+    commands.begin_generation_usage({request_id: "pending-receipt", project_id: "film", kind: "image", provider: "fal", model_id: "image"});
+    expect(commands.record_generation_receipt({request_id: "pending-receipt", reported_microusd: null, provider_request_id: "provider-job"})).toMatchObject({ok: true});
+    expect(commands.get_generation_usage({project_id: "film"})).toMatchObject({ok: true, value: {items: [{provider_request_id: "provider-job", reported_microusd: null}]}});
+  } finally { db.close(); }
+});
