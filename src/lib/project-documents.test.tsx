@@ -2,7 +2,7 @@
 import { createElement } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "../App";
 const native = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -108,4 +108,13 @@ it("keeps New and Open available while reporting a damaged recent-file list", as
   render(createElement(MemoryRouter, null, createElement(App)));
   expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("recent project list"));
   expect(screen.getByRole("button", { name: "Open Project", exact: true }).hasAttribute("disabled")).toBe(false);
+});
+
+
+it("opens the active document even if the saved window route belongs to another project", async () => {
+  native.invoke.mockResolvedValue({ ok: true, value: { current: { file_path: "/Films/Morning.showbiz", project_id: "film", name: "Morning" }, recent: [], legacy: [] } });
+  function Location() { return createElement("output", { "aria-label": "Current document route" }, useLocation().pathname); }
+  render(createElement(MemoryRouter, { initialEntries: ["/project/previous"] }, createElement(App), createElement(Location)));
+  await screen.findByRole("navigation", { name: "Project navigator" });
+  await waitFor(() => expect(screen.getByLabelText("Current document route").textContent).toBe("/project/film"));
 });
