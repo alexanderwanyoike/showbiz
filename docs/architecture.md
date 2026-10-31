@@ -1,6 +1,6 @@
 # Architecture
 
-Showbiz is an [Electron](https://www.electronjs.org/) desktop app. The main process owns all persistent state — database, file system, and video export. The TypeScript renderer owns the UI and makes API calls to external model providers. They communicate over a small IPC bridge (`window.showbiz`).
+Showbiz is an [Electron](https://www.electronjs.org/) desktop app. The main process owns all persistent state — database, file system, and storyboard package export. The TypeScript renderer owns the UI and makes API calls to external model providers. They communicate over a small IPC bridge (`window.showbiz`).
 
 ## High-Level Overview
 
@@ -19,8 +19,7 @@ graph LR
     end
 
     subgraph Output
-        VID --> TL["Timeline Editor<br/>Arrange · Trim · Split · Preview"]
-        TL --> EXP["Export Final Movie<br/>Native ffmpeg"]
+        VID --> EXP["Storyboard ZIP / SBZ<br/>Selected media for external editors"]
     end
 
     style P fill:#4f46e5,color:#fff
@@ -29,7 +28,6 @@ graph LR
     style Shots fill:#4f46e5,color:#fff
     style IMG fill:#059669,color:#fff
     style VID fill:#059669,color:#fff
-    style TL fill:#d97706,color:#fff
     style EXP fill:#d97706,color:#fff
 ```
 
@@ -47,10 +45,10 @@ graph TB
         end
 
         subgraph Main["Main Process (electron/)"]
-            Commands["IPC Commands<br/>projects · shots · bibles · settings<br/>image_versions · video_versions · timeline"]
+            Commands["IPC Commands<br/>projects · shots · bibles · settings<br/>image_versions · video_versions · packages"]
             DB["SQLite Database<br/>node:sqlite + .sql migrations"]
             Media["Media Storage<br/>images · videos · masks"]
-            Export["Native ffmpeg Export<br/>plan · spawn · progress"]
+            Export["Storyboard Package Export<br/>selected media · manifest · ZIP"]
             Http["http_request<br/>JSON proxy for cross-origin calls"]
         end
     end
@@ -88,7 +86,7 @@ API calls live in the renderer because:
 Persistence lives in the main process because:
 - `node:sqlite` gives synchronous, dependency-free SQLite
 - File I/O stays out of the sandboxed renderer
-- ffmpeg is a native child process
+- Package exports stream source media directly from disk
 
 Cross-origin API calls go through the main-process `http_request` command (the renderer's fetch is CORS-bound). It sends a single JSON string body, so providers must expose JSON endpoints (not multipart).
 
@@ -163,21 +161,11 @@ graph TD
     V2 --> V4
 ```
 
-Image versions and video versions are tracked independently per shot, stored in the `image_versions` and `video_versions` tables with self-referential `parent_version_id` foreign keys. Timeline clips may pin a specific video version; unpinned clips follow the shot's current version.
+Image versions and video versions are tracked independently per shot, stored in the `image_versions` and `video_versions` tables with self-referential `parent_version_id` foreign keys. Package exports use the selected image and video for each shot.
 
-## Video Export
+## Storyboard handoff
 
-Export runs native ffmpeg in the main process (`electron/export.ts`):
-
-1. The renderer sends clip identity + trim + position (its clip URLs are `blob:`, useless for ffmpeg)
-2. The main process resolves each clip's source file from the DB
-3. `buildExportPlan` orders clips by timeline position and inserts black+silence segments for gaps
-4. Trims map to `-ss`/`-to` input options (`-to` is absolute from file start)
-5. Output settings (resolution, fps) default to probing the first clip; `-progress pipe:1` streams progress back over IPC
-
-The storyboard-mode "assemble movie" flow reuses the same exporter, laying every completed shot end to end with probed durations.
-
-`ffmpeg-static` / `ffprobe-static` supply the binaries; packaged builds carry them in `resources/bin/`.
+The main process streams selected shot media into ZIP or SBZ packages. Both use a standard ZIP container with `storyboard.json` and relative media paths. There are no timeline placements, edits or encoded movie outputs. See [the package contract](storyboard-packages.md).
 
 ## Database
 
@@ -189,7 +177,7 @@ Eleven tables in SQLite with cascade deletes, opened with `node:sqlite`. Numbere
 | `storyboards` | Belongs to a project, stores selected image/video model |
 | `shots` | Belongs to a storyboard: prompts, start/end frame paths, ordering, status |
 | `image_versions` / `video_versions` | Version trees per shot (self-referential `parent_version_id`) |
-| `timeline_tracks` / `timeline_clips` | Multi-track timeline state; clips own trim windows and optional version pins |
+| `timeline_tracks` / `timeline_clips` | Legacy timeline records retained for existing databases; no editor commands |
 | `bibles` | Per-project asset bible (default auto-created via trigger) |
 | `bible_assets` | Characters, locations, props, styles, reference frames, scenes |
 | `bible_asset_variants` | The images: takes per asset, one primary |

@@ -1,13 +1,14 @@
+import { createMcpSession } from "./mcp/session";
+import { startLocalBridge } from "./mcp/local-bridge";
 import { app, BrowserWindow, ipcMain, Menu, dialog } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import { appDataDir, loadMigrations, openDatabase } from "./db";
-import { createDataCommands } from "./command-map";
-import { createExportCommandsForApp } from "./export-deps";
+import { createProjectRuntime } from "./project-runtime";
+import { createStoryboardPackageCommands } from "./commands/storyboard-package";
 import { createInvokeHandler } from "./ipc";
 import { resolveMediaPath } from "./media";
-import { initMediaDirs, mediaBaseDir } from "./media-files";
-import { hideDefaultApplicationMenu } from "./app-menu";
+import { projectApplicationMenu } from "./app-menu";
 import { createWorkRuntime } from "./work-runtime";
 import { createUpdateRuntime } from "./update-runtime";
 
@@ -28,22 +29,57 @@ function openShowbizDatabase() {
   return openDatabase(path.join(dataDir, "showbiz.db"), migrations);
 }
 
-function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: ReturnType<typeof createWorkRuntime>) {
+async function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work: ReturnType<typeof createWorkRuntime>) {
   const db = openShowbizDatabase();
-  const mediaDir = mediaBaseDir(appDataDir());
-  // Save helpers assume the media subdirectories exist, exactly like the Rust
-  // shell where main.rs calls media::init() at startup.
-  initMediaDirs(mediaDir);
-  const invokeHandler = createInvokeHandler({
-    ...createDataCommands(db, mediaDir, createExportCommandsForApp(db, mediaDir)),
-    ...updates.commands,
+  const filters = [{ name: "Showbiz project", extensions: ["showbiz"] }];
+  const projects = createProjectRuntime({
+    appDirectory: appDataDir(), legacyDb: db,
+    modelDirectory: path.join(app.getAppPath(), "src/lib/models/providers"),
+    migrations: loadMigrations(path.join(app.getAppPath(), "electron/migrations")),
+    exports: (db, media) => createStoryboardPackageCommands(db, media, (options) => dialog.showSaveDialog(options)),
+    chooseOpen: async () => {
+      const result = await dialog.showOpenDialog({ title: "Open Project", filters, properties: ["openFile"] });
+      return result.canceled ? null : result.filePaths[0] ?? null;
+    },
+    chooseSave: async (name) => {
+      const result = await dialog.showSaveDialog({ title: "Save Project", defaultPath: name, filters });
+      return result.canceled ? null : result.filePath ?? null;
+    },
+    canSwitch: () => {
+      const status = work.work.getStatus();
+      return !status.active.length && !status.unsaved.length && !status.closing;
+    },
+    beginSave: () => work.work.begin("saving"),
+    changed: (info) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.setTitle(info ? `${info.name} - Showbiz` : "Showbiz");
+        window.setRepresentedFilename(info?.file_path ?? "");
+        window.webContents.send("showbiz:project_document", info);
+      }
+      if (info) app.addRecentDocument(info.file_path);
+    },
   });
+  const updateHandler = createInvokeHandler(updates.commands);
+  const invokeHandler = (command: string, args?: Record<string, unknown>) => command in updates.commands ? updateHandler(command, args) : projects.invoke(command, args);
+  app.on("will-quit", () => { void projects.dispose(); db.close(); });
+
+  const session = createMcpSession(
+    (command, args) => work.invoke(-1, command, args, invokeHandler),
+    () => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send("showbiz:data_changed"); },
+    () => { const status = work.work.getStatus(); return status.unsaved.length === 0 && status.active.length === 0 && !status.closing; },
+  );
   ipcMain.handle("showbiz:invoke", (event, cmd: string, args?: Record<string, unknown>) => {
-    return work.invoke(event.sender.id, cmd, args, invokeHandler);
+    return work.invoke(event.sender.id, cmd, args, session.invoke);
   });
+  try {
+    const bridge = await startLocalBridge(session.call);
+    app.once("will-quit", () => { void bridge.close().catch((cause: unknown) => console.error("Could not close the agent connection:", cause)); });
+  } catch (cause) {
+    console.error("The Showbiz agent connection is unavailable:", cause);
+  }
 
   ipcMain.handle("showbiz:read-media-bytes", (_event, relativePath: string) =>
-    fs.promises.readFile(resolveMediaPath(mediaDir, relativePath))
+    fs.promises.readFile(resolveMediaPath(projects.mediaDirectory() ?? (() => { throw new Error("Open a project first."); })(), relativePath))
   );
 }
 
@@ -74,8 +110,14 @@ function createWindow(work: ReturnType<typeof createWorkRuntime>) {
   }
 }
 
-app.whenReady().then(() => {
-  hideDefaultApplicationMenu(Menu);
+app.whenReady().then(async () => {
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    ...(process.platform === "darwin" ? [{ role: "appMenu" as const }] : []),
+    ...projectApplicationMenu((action) => {
+      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+      window?.webContents.send("showbiz:document_action", action);
+    }),
+  ]));
   const work = createWorkRuntime({
     windows: () => BrowserWindow.getAllWindows(),
     confirm: (options) => {
@@ -86,7 +128,7 @@ app.whenReady().then(() => {
   });
   app.on("before-quit", work.beforeQuit);
   const updates = createUpdateRuntime({}, work.updateChanged, work.install);
-  registerIpc(updates, work);
+  await registerIpc(updates, work);
   createWindow(work);
   void updates.start();
 });
