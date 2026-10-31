@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { generateImageAction } from "../actions/generation-actions";
 import ProjectBibleView from "../components/ProjectBibleView";
+vi.mock("../actions/generation-actions", async original => ({...await original<typeof import("../actions/generation-actions")>(), generateImageAction: vi.fn(async () => {throw new Error("Provider unavailable");})}));
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
   createBibleAsset: async (_id:string,input:Record<string,unknown>) => ({...input,id:"new-frame"}), getBibles: async () => [{ id: "bible" }],
