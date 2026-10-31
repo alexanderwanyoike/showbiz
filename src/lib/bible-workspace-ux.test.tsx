@@ -241,3 +241,8 @@ it("retries a failed first picture on its existing entry instead of creating dup
     vi.mocked(generateImageAction).mock.calls[1][2]?.subject_id,
   );
 });
+
+it("names the provider for direct Bible generation models", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  expect((await screen.findByRole("combobox", { name: "Bible generation model" })).textContent).toContain("Google AI (Gemini)");
+});
