@@ -36,8 +36,13 @@ export function StoryboardLayout({
         hidden={!controlsOpen}
       >
         <div className="canvas-inspector-heading">
-          <div className="canvas-inspector-title">{inspectorTitle ?? "Shot controls"}</div>
-          <WorkspaceCommand label="Close shot controls" onClick={onCloseControls}>
+          <div className="canvas-inspector-title">
+            {inspectorTitle ?? "Shot controls"}
+          </div>
+          <WorkspaceCommand
+            label="Close shot controls"
+            onClick={onCloseControls}
+          >
             <X size={15} />
           </WorkspaceCommand>
         </div>

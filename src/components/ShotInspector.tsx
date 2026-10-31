@@ -538,7 +538,13 @@ export default function ShotInspector({
               onUpdateShot(shot.id, { video_prompt: e.target.value })
             }
           />
-          <div className="inspector-assistance"><span>Google AI prompt tools</span><InspectorHelp label="About prompt assistance">Prompt assistance uses Google AI (Gemini). Add its key in Settings. Any charges are outside the video estimate.</InspectorHelp></div>
+          <div className="inspector-assistance">
+            <span>Google AI prompt tools</span>
+            <InspectorHelp label="About prompt assistance">
+              Prompt assistance uses Google AI (Gemini). Add its key in
+              Settings. Any charges are outside the video estimate.
+            </InspectorHelp>
+          </div>
           <div className="flex gap-2 mt-2">
             <Button
               size="sm"

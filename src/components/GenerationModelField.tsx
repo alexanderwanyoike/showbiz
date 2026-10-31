@@ -66,7 +66,12 @@ export function GenerationModelField({
       <div className="generation-model-label">
         <span>{label}</span>
         {defaultValue && (
-          <span className="generation-model-scope"><span aria-hidden="true">{inherited ? "Default" : "Override"}</span><span className="sr-only">{inherited ? "Uses storyboard default" : "Shot override"}</span></span>
+          <span className="generation-model-scope">
+            <span aria-hidden="true">{inherited ? "Default" : "Override"}</span>
+            <span className="sr-only">
+              {inherited ? "Uses storyboard default" : "Shot override"}
+            </span>
+          </span>
         )}
       </div>
       <ModelPicker

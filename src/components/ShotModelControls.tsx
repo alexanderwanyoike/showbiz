@@ -23,11 +23,13 @@ export function ShotModelControls({
 }: Props) {
   if (!shot) return null;
   return (
-    <section
-      aria-label="Shot model controls"
-      className="shot-model-controls"
-    >
-      <div className="inspector-section-label"><h3>Models</h3><InspectorHelp label="About shot models">Used for new takes. Existing media stays unchanged.</InspectorHelp></div>
+    <section aria-label="Shot model controls" className="shot-model-controls">
+      <div className="inspector-section-label">
+        <h3>Models</h3>
+        <InspectorHelp label="About shot models">
+          Used for new takes. Existing media stays unchanged.
+        </InspectorHelp>
+      </div>
       {error && (
         <p role="alert" className="text-xs text-destructive">
           {error}

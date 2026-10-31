@@ -95,7 +95,9 @@ it("explains that model choices apply to new takes rather than changing existing
       error: null,
     }),
   );
-  await userEvent.setup().click(screen.getByRole("button", { name: "About shot models" }));
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "About shot models" }));
   expect(
     screen.getByText("Used for new takes. Existing media stays unchanged."),
   ).toBeTruthy();
