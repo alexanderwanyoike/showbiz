@@ -17,3 +17,12 @@ it("quotes a sourced image output and fetches a distinct OpenRouter provider rat
     expect(native.fetch.mock.calls[0][1]?.method ?? "GET").toBe("GET");
   } finally { db.close(); }
 });
+it("quotes Nano Banana image output tokens as a routing range without claiming input charges are included", async () => {
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createGenerationPricingCommands(db);
+    native.invoke.mockImplementation(async (command, args) => commands[command]?.(args));
+    native.fetch.mockResolvedValue(new Response(JSON.stringify({endpoints: [{pricing: [{billable: "output_image", unit: "token", cost_usd: 0.00006}]}, {pricing: [{billable: "output_image", unit: "token", cost_usd: 0.000066}]}]})));
+    expect(await getGenerationEstimate("nano-banana-2-openrouter", {kind: "image"})).toMatchObject({kind: "estimate", min_microusd: 67200, max_microusd: 73920, excludes_input_cost: true});
+  } finally { db.close(); }
+});
