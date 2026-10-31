@@ -10,17 +10,14 @@ contextBridge.exposeInMainWorld("showbiz", {
     return () => ipcRenderer.removeListener("showbiz:data_changed", callback);
   },
   onApplicationWork: (cb: (status: ApplicationWorkStatus) => void) => {
-    const listener = (_event: unknown, status: ApplicationWorkStatus) =>
-      cb(status);
+    const listener = (_event: unknown, status: ApplicationWorkStatus) => cb(status);
     ipcRenderer.on("showbiz:application_work", listener);
-    return () =>
-      ipcRenderer.removeListener("showbiz:application_work", listener);
+    return () => ipcRenderer.removeListener("showbiz:application_work", listener);
   },
   onPrepareShutdown: (cb: (request_id: string) => void) => {
     const listener = (_event: unknown, request_id: string) => cb(request_id);
     ipcRenderer.on("showbiz:prepare_shutdown", listener);
-    return () =>
-      ipcRenderer.removeListener("showbiz:prepare_shutdown", listener);
+    return () => ipcRenderer.removeListener("showbiz:prepare_shutdown", listener);
   },
   onUpdateStatus: (cb: (status: UpdateStatus) => void) => {
     const listener = (_event: unknown, status: UpdateStatus) => cb(status);
@@ -34,10 +31,8 @@ contextBridge.exposeInMainWorld("showbiz", {
   // Native export progress: main forwards ffmpeg percent here. Returns an
   // unsubscribe so the renderer can detach when an export ends.
   onExportProgress: (cb: (payload: { percent: number }) => void) => {
-    const listener = (_event: unknown, payload: { percent: number }) =>
-      cb(payload);
+    const listener = (_event: unknown, payload: { percent: number }) => cb(payload);
     ipcRenderer.on("showbiz:export-progress", listener);
-    return () =>
-      ipcRenderer.removeListener("showbiz:export-progress", listener);
+    return () => ipcRenderer.removeListener("showbiz:export-progress", listener);
   },
 });

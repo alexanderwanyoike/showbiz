@@ -89,18 +89,11 @@ import {
   getGroupedImageModels,
 } from "../lib/models";
 import type { VideoGenerationSettings } from "../lib/models/types";
-import {
-  chooseVideoGenerationMode,
-  validateVideoGenerationRequest,
-} from "../lib/generation/video-modes";
+import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
 import type { VideoGenerationRequest } from "../lib/generation/types";
 import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
 import { buildFrameOptions } from "../lib/bible-compose";
-import {
-  versionsForShot,
-  valueForShot,
-  flattenVersionTree,
-} from "../lib/shot-versions";
+import { versionsForShot, valueForShot, flattenVersionTree } from "../lib/shot-versions";
 import {
   invalidateGenerationRun,
   isCurrentGenerationRun,
@@ -157,19 +150,13 @@ export default function StoryboardPage() {
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<"storyboard" | "editor">(
-    "storyboard",
-  );
+  const [activeTab, setActiveTab] = useState<"storyboard" | "editor">("storyboard");
 
   // Timeline Edit State
   const [timelineTracks, setTimelineTracks] = useState<TimelineTrack[]>([]);
-  const [timelineClipRows, setTimelineClipRows] = useState<TimelineClipRow[]>(
-    [],
-  );
+  const [timelineClipRows, setTimelineClipRows] = useState<TimelineClipRow[]>([]);
   const [bibleAssets, setBibleAssets] = useState<BibleAsset[]>([]);
-  const [bibleVariants, setBibleVariants] = useState<
-    Record<string, BibleAssetVariant[]>
-  >({});
+  const [bibleVariants, setBibleVariants] = useState<Record<string, BibleAssetVariant[]>>({});
 
   // Assembly State
   const [isAssembling, setIsAssembling] = useState(false);
@@ -189,52 +176,39 @@ export default function StoryboardPage() {
   const imageGroups = getGroupedImageModels();
 
   // Video Settings
-  const [videoSettings, setVideoSettings] = useState<VideoGenerationSettings>(
-    () => {
-      const model = videoModels.find((m) => m.id === "seedance-2-fal");
-      return model?.defaults ?? { duration: "8" };
-    },
-  );
+  const [videoSettings, setVideoSettings] = useState<VideoGenerationSettings>(() => {
+    const model = videoModels.find((m) => m.id === "seedance-2-fal");
+    return model?.defaults ?? { duration: "8" };
+  });
 
   const currentVideoModel = useMemo(
     () => videoModels.find((m) => m.id === videoModel),
-    [videoModel, videoModels],
+    [videoModel, videoModels]
   );
 
   // Frames composed in the Bible (scene assets) that a shot can pick as start/end.
   const frameOptions: FrameOption[] = useMemo(
     () => buildFrameOptions(bibleAssets, bibleVariants),
-    [bibleAssets, bibleVariants],
+    [bibleAssets, bibleVariants]
   );
 
+
   // Image Version State - per shot
-  const [shotVersions, setShotVersions] = useState<
-    Record<string, ImageVersionNode[]>
-  >({});
-  const [shotCurrentVersions, setShotCurrentVersions] = useState<
-    Record<string, ImageVersionWithUrl | null>
-  >({});
-  const [shotVersionCounts, setShotVersionCounts] = useState<
-    Record<string, number>
-  >({});
+  const [shotVersions, setShotVersions] = useState<Record<string, ImageVersionNode[]>>({});
+  const [shotCurrentVersions, setShotCurrentVersions] = useState<Record<string, ImageVersionWithUrl | null>>({});
+  const [shotVersionCounts, setShotVersionCounts] = useState<Record<string, number>>({});
 
   // Video Version State - per shot
-  const [shotVideoVersions, setShotVideoVersions] = useState<
-    Record<string, VideoVersionNode[]>
-  >({});
-  const [shotCurrentVideoVersions, setShotCurrentVideoVersions] = useState<
-    Record<string, VideoVersionWithUrl | null>
-  >({});
-  const [shotVideoVersionCounts, setShotVideoVersionCounts] = useState<
-    Record<string, number>
-  >({});
+  const [shotVideoVersions, setShotVideoVersions] = useState<Record<string, VideoVersionNode[]>>({});
+  const [shotCurrentVideoVersions, setShotCurrentVideoVersions] = useState<Record<string, VideoVersionWithUrl | null>>({});
+  const [shotVideoVersionCounts, setShotVideoVersionCounts] = useState<Record<string, number>>({});
 
   // Flat video version lists for the editor: media pool chips + clip pins
   const videoVersionsFlat = useMemo(() => {
     const map: Record<string, VideoVersionWithUrl[]> = {};
     for (const [shotId, nodes] of Object.entries(shotVideoVersions)) {
       map[shotId] = flattenVersionTree(nodes).sort(
-        (a, b) => a.version_number - b.version_number,
+        (a, b) => a.version_number - b.version_number
       );
     }
     return map;
@@ -257,15 +231,7 @@ export default function StoryboardPage() {
   }, [videoVersionsFlat]);
 
   const mediaPoolVersions = useMemo(() => {
-    const map: Record<
-      string,
-      {
-        id: string;
-        version_number: number;
-        video_url: string;
-        is_current: boolean;
-      }[]
-    > = {};
+    const map: Record<string, { id: string; version_number: number; video_url: string; is_current: boolean }[]> = {};
     for (const [shotId, versions] of Object.entries(videoVersionsFlat)) {
       map[shotId] = versions.map((v) => ({
         id: v.id,
@@ -288,12 +254,8 @@ export default function StoryboardPage() {
   const [isEditingImage, setIsEditingImage] = useState(false);
 
   // Prompt Generation State - track per shot
-  const [generatingPromptShots, setGeneratingPromptShots] = useState<
-    Set<string>
-  >(new Set());
-  const [enhancingPromptShots, setEnhancingPromptShots] = useState<Set<string>>(
-    new Set(),
-  );
+  const [generatingPromptShots, setGeneratingPromptShots] = useState<Set<string>>(new Set());
+  const [enhancingPromptShots, setEnhancingPromptShots] = useState<Set<string>>(new Set());
   const videoGenerationRuns = useRef<GenerationRunMap>({});
 
   useAgentChanges(loadData);
@@ -305,23 +267,18 @@ export default function StoryboardPage() {
 
   useUnsavedWork("draft", isModalOpen && !!imagePrompt, imagePrompt);
   useUnsavedWork("draft", editModalState.isOpen && !!editPrompt, editPrompt);
-  useUnsavedWork(
-    "draft",
-    isEditingName && editedName !== storyboard?.name,
-    editedName,
-  );
+  useUnsavedWork("draft", isEditingName && editedName !== storyboard?.name, editedName);
 
   async function loadData() {
     if (!id) return;
     setIsLoading(true);
     try {
-      const [storyboardData, shotsData, tracksData, clipsData] =
-        await Promise.all([
-          getStoryboard(id),
-          getShots(id),
-          ensureDefaultTracks(id),
-          getTimelineClips(id),
-        ]);
+      const [storyboardData, shotsData, tracksData, clipsData] = await Promise.all([
+        getStoryboard(id),
+        getShots(id),
+        ensureDefaultTracks(id),
+        getTimelineClips(id),
+      ]);
 
       if (!storyboardData) {
         navigate("/");
@@ -331,18 +288,12 @@ export default function StoryboardPage() {
       setStoryboard(storyboardData);
       const mappedShots = shotsData.map(shotFromShotWithUrls);
       setShots(mappedShots);
-      setSelectedShotId((current) =>
-        mappedShots.some((shot) => shot.id === current)
-          ? current
-          : (mappedShots[0]?.id ?? null),
-      );
+      setSelectedShotId((current) => mappedShots.some((shot) => shot.id === current) ? current : mappedShots[0]?.id ?? null);
       setTimelineTracks(tracksData);
       setTimelineClipRows(clipsData);
       setEditedName(storyboardData.name);
       setImageModel((storyboardData.image_model as ImageModelId) || "imagen4");
-      const loadedVideoModel: VideoModelId = videoModels.some(
-        (m) => m.id === storyboardData.video_model,
-      )
+      const loadedVideoModel: VideoModelId = videoModels.some((m) => m.id === storyboardData.video_model)
         ? (storyboardData.video_model as VideoModelId)
         : "seedance-2-fal";
       setVideoModel(loadedVideoModel);
@@ -365,15 +316,10 @@ export default function StoryboardPage() {
 
   async function loadBibleData(storyboardData: Storyboard) {
     const bibles = await getBibles(storyboardData.project_id);
-    const assets = (
-      await Promise.all(bibles.map((bible) => getBibleAssets(bible.id)))
-    ).flat();
+    const assets = (await Promise.all(bibles.map((bible) => getBibleAssets(bible.id)))).flat();
     setBibleAssets(assets);
     const variantEntries = await Promise.all(
-      assets.map(
-        async (asset) =>
-          [asset.id, await getBibleAssetVariants(asset.id)] as const,
-      ),
+      assets.map(async (asset) => [asset.id, await getBibleAssetVariants(asset.id)] as const)
     );
     setBibleVariants(Object.fromEntries(variantEntries));
   }
@@ -383,20 +329,12 @@ export default function StoryboardPage() {
     const currentVersionsMap: Record<string, ImageVersionWithUrl | null> = {};
     const countsMap: Record<string, number> = {};
     const videoVersionsMap: Record<string, VideoVersionNode[]> = {};
-    const videoCurrentVersionsMap: Record<string, VideoVersionWithUrl | null> =
-      {};
+    const videoCurrentVersionsMap: Record<string, VideoVersionWithUrl | null> = {};
     const videoCountsMap: Record<string, number> = {};
 
     await Promise.all(
       shotsData.map(async (shot) => {
-        const [
-          versions,
-          currentVersion,
-          count,
-          videoVersions,
-          currentVideoVersion,
-          videoCount,
-        ] = await Promise.all([
+        const [versions, currentVersion, count, videoVersions, currentVideoVersion, videoCount] = await Promise.all([
           getImageVersions(shot.id),
           getCurrentImageVersion(shot.id),
           getVersionCount(shot.id),
@@ -410,7 +348,7 @@ export default function StoryboardPage() {
         videoVersionsMap[shot.id] = videoVersions;
         videoCurrentVersionsMap[shot.id] = currentVideoVersion;
         videoCountsMap[shot.id] = videoCount;
-      }),
+      })
     );
 
     setShotVersions(versionsMap);
@@ -422,14 +360,7 @@ export default function StoryboardPage() {
   }
 
   async function refreshVersionData(shotId: string) {
-    const [
-      versions,
-      currentVersion,
-      count,
-      videoVersions,
-      currentVideoVersion,
-      videoCount,
-    ] = await Promise.all([
+    const [versions, currentVersion, count, videoVersions, currentVideoVersion, videoCount] = await Promise.all([
       getImageVersions(shotId),
       getCurrentImageVersion(shotId),
       getVersionCount(shotId),
@@ -441,10 +372,7 @@ export default function StoryboardPage() {
     setShotCurrentVersions((prev) => ({ ...prev, [shotId]: currentVersion }));
     setShotVersionCounts((prev) => ({ ...prev, [shotId]: count }));
     setShotVideoVersions((prev) => ({ ...prev, [shotId]: videoVersions }));
-    setShotCurrentVideoVersions((prev) => ({
-      ...prev,
-      [shotId]: currentVideoVersion,
-    }));
+    setShotCurrentVideoVersions((prev) => ({ ...prev, [shotId]: currentVideoVersion }));
     setShotVideoVersionCounts((prev) => ({ ...prev, [shotId]: videoCount }));
   }
 
@@ -510,7 +438,10 @@ export default function StoryboardPage() {
     }
   }
 
-  async function handleUpdateShot(shotId: string, updates: ShotUpdateInput) {
+  async function handleUpdateShot(
+    shotId: string,
+    updates: ShotUpdateInput
+  ) {
     // Optimistic update for UI responsiveness
     setShots((prev) =>
       prev.map((s) =>
@@ -520,8 +451,8 @@ export default function StoryboardPage() {
               video_prompt: updates.video_prompt ?? s.video_prompt,
               status: updates.status ?? s.status,
             }
-          : s,
-      ),
+          : s
+      )
     );
 
     // Persist to database
@@ -571,10 +502,7 @@ export default function StoryboardPage() {
 
     // Persist reorder
     try {
-      await reorderShots(
-        id,
-        reordered.map((s) => s.id),
-      );
+      await reorderShots(id, reordered.map((s) => s.id));
     } catch (error) {
       console.error("Failed to reorder shots:", error);
       loadData();
@@ -599,7 +527,7 @@ export default function StoryboardPage() {
           activeShotId,
           imagePrompt,
           imageDataUrl,
-          currentVersion?.id || null,
+          currentVersion?.id || null
         );
 
         // Reload shot data and version data
@@ -618,11 +546,7 @@ export default function StoryboardPage() {
     }
   }
 
-  async function handleUploadFrame(
-    shotId: string,
-    role: ShotFrameRole,
-    file: File,
-  ) {
+  async function handleUploadFrame(shotId: string, role: ShotFrameRole, file: File) {
     if (!id) return;
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -639,20 +563,11 @@ export default function StoryboardPage() {
 
   // Set a shot's start or end frame from a base64 data URL.
   // The start frame is versioned (image_versions); the end frame is a single slot.
-  async function setShotFrameFromDataUrl(
-    shotId: string,
-    role: ShotFrameRole,
-    dataUrl: string,
-  ) {
+  async function setShotFrameFromDataUrl(shotId: string, role: ShotFrameRole, dataUrl: string) {
     if (!id) return;
     if (role === "start") {
       const currentVersion = shotCurrentVersions[shotId];
-      await createGenerationVersion(
-        shotId,
-        "Uploaded frame",
-        dataUrl,
-        currentVersion?.id || null,
-      );
+      await createGenerationVersion(shotId, "Uploaded frame", dataUrl, currentVersion?.id || null);
       await refreshVersionData(shotId);
     } else {
       await saveShotEndFrame(shotId, dataUrl);
@@ -673,11 +588,7 @@ export default function StoryboardPage() {
   }
 
   // Use a frame composed in the Bible as the shot's start/end frame.
-  async function handlePickFrame(
-    shotId: string,
-    role: ShotFrameRole,
-    variantId: string,
-  ) {
+  async function handlePickFrame(shotId: string, role: ShotFrameRole, variantId: string) {
     if (!id) return;
     try {
       const dataUrl = await getBibleVariantImageBase64(variantId);
@@ -695,16 +606,13 @@ export default function StoryboardPage() {
 
   // --- Copy Image from Another Shot ---
 
-  async function handleCopyImageFromShot(
-    targetShotId: string,
-    sourceShotId: string,
-  ) {
+  async function handleCopyImageFromShot(targetShotId: string, sourceShotId: string) {
     try {
       const updatedShot = await copyImageFromShot(targetShotId, sourceShotId);
       if (updatedShot) {
         const mapped = shotFromShotWithUrls(updatedShot);
         setShots((prev) =>
-          prev.map((s) => (s.id === targetShotId ? mapped : s)),
+          prev.map((s) => (s.id === targetShotId ? mapped : s))
         );
       }
       await refreshVersionData(targetShotId);
@@ -782,11 +690,7 @@ export default function StoryboardPage() {
         }
 
         // Call edit image action
-        const resultBase64 = await editImageAction(
-          sourceBase64,
-          editPrompt,
-          imageModel,
-        );
+        const resultBase64 = await editImageAction(sourceBase64, editPrompt, imageModel);
 
         // Create a new remix version
         await createRemixVersion(shotId, versionId, editPrompt, resultBase64);
@@ -796,12 +700,7 @@ export default function StoryboardPage() {
         setShots(updatedShots.map(shotFromShotWithUrls));
         await refreshVersionData(shotId);
 
-        setEditModalState({
-          isOpen: false,
-          shotId: null,
-          versionId: null,
-          sourceImageUrl: null,
-        });
+        setEditModalState({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null });
       });
     } catch (error) {
       console.error("Image edit failed:", error);
@@ -824,14 +723,9 @@ export default function StoryboardPage() {
       setShots((prev) =>
         prev.map((s) =>
           s.id === shotId
-            ? {
-                ...s,
-                status: "failed" as const,
-                error_message:
-                  "Add a start frame or a prompt before generating.",
-              }
-            : s,
-        ),
+            ? { ...s, status: "failed" as const, error_message: "Add a start frame or a prompt before generating." }
+            : s
+        )
       );
       return;
     }
@@ -839,34 +733,20 @@ export default function StoryboardPage() {
     setShots((prev) =>
       prev.map((s) =>
         s.id === shotId
-          ? {
-              ...s,
-              status: "generating" as const,
-              video_url: null,
-              error_message: null,
-            }
-          : s,
-      ),
+          ? { ...s, status: "generating" as const, video_url: null, error_message: null }
+          : s
+      )
     );
 
     try {
       await withApplicationWork("generation", async () => {
-        const startImage = shot.image_url
-          ? await getShotImageBase64(shotId)
-          : null;
-        const supportsEndFrame =
-          currentVideoModel.modeCapabilities.imageToVideo?.supportsEndImage ===
-          true;
+        const startImage = shot.image_url ? await getShotImageBase64(shotId) : null;
+        const supportsEndFrame = currentVideoModel.modeCapabilities.imageToVideo?.supportsEndImage === true;
         const endImage =
-          supportsEndFrame && shot.end_frame_url
-            ? await getShotEndFrameBase64(shotId)
-            : null;
-        const mode = chooseVideoGenerationMode(
-          currentVideoModel.modeCapabilities,
-          {
-            hasStartImage: !!startImage,
-          },
-        );
+          supportsEndFrame && shot.end_frame_url ? await getShotEndFrameBase64(shotId) : null;
+        const mode = chooseVideoGenerationMode(currentVideoModel.modeCapabilities, {
+          hasStartImage: !!startImage,
+        });
         const request: VideoGenerationRequest = {
           mode,
           prompt,
@@ -874,77 +754,56 @@ export default function StoryboardPage() {
           startImage,
           endImage: mode === "image-to-video" ? endImage : null,
         };
-        validateVideoGenerationRequest(
-          currentVideoModel.modeCapabilities,
-          request,
-        );
+        validateVideoGenerationRequest(currentVideoModel.modeCapabilities, request);
 
-        const result = await generateAndSaveVideoRequestAction(
-          shotId,
-          videoModel,
-          request,
-        );
-        if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId))
-          return;
+        const result = await generateAndSaveVideoRequestAction(shotId, videoModel, request);
+        if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
 
         if (result.success && result.videoUrl) {
           setShots((prev) =>
             prev.map((s) =>
               s.id === shotId
-                ? {
-                    ...s,
-                    status: "complete" as const,
-                    video_url: result.videoUrl,
-                  }
-                : s,
-            ),
+                ? { ...s, status: "complete" as const, video_url: result.videoUrl }
+                : s
+            )
           );
           await refreshVersionData(shotId);
           return;
         }
 
         const errorMessage = result.error || "Video generation failed";
-        console.error(
-          `Video generation failed for shot ${shotId}:`,
-          errorMessage,
-        );
+        console.error(`Video generation failed for shot ${shotId}:`, errorMessage);
         setShots((prev) =>
           prev.map((s) =>
             s.id === shotId
               ? { ...s, status: "failed" as const, error_message: errorMessage }
-              : s,
-          ),
+              : s
+          )
         );
       });
     } catch (error) {
-      if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId))
-        return;
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(
-        `Video generation preflight failed for shot ${shotId}:`,
-        errorMessage,
-      );
+      if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`Video generation preflight failed for shot ${shotId}:`, errorMessage);
       setShots((prev) =>
         prev.map((s) =>
           s.id === shotId
             ? { ...s, status: "failed" as const, error_message: errorMessage }
-            : s,
-        ),
+            : s
+        )
       );
     }
   }
 
   async function handleCancelVideoGeneration(shotId: string) {
     invalidateGenerationRun(videoGenerationRuns.current, shotId);
-    const errorMessage =
-      "Stopped waiting locally. The provider job may still finish remotely.";
+    const errorMessage = "Stopped waiting locally. The provider job may still finish remotely.";
     setShots((prev) =>
       prev.map((s) =>
         s.id === shotId
           ? { ...s, status: "failed" as const, error_message: errorMessage }
-          : s,
-      ),
+          : s
+      )
     );
     try {
       await updateShot(shotId, { status: "failed" });
@@ -975,9 +834,7 @@ export default function StoryboardPage() {
       });
     } catch (error) {
       console.error("Failed to generate video prompt:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to generate prompt",
-      );
+      alert(error instanceof Error ? error.message : "Failed to generate prompt");
     } finally {
       setGeneratingPromptShots((prev) => {
         const newSet = new Set(prev);
@@ -1005,9 +862,7 @@ export default function StoryboardPage() {
       });
     } catch (error) {
       console.error("Failed to enhance video prompt:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to enhance prompt",
-      );
+      alert(error instanceof Error ? error.message : "Failed to enhance prompt");
     } finally {
       setEnhancingPromptShots((prev) => {
         const newSet = new Set(prev);
@@ -1021,7 +876,7 @@ export default function StoryboardPage() {
 
   async function handleExport() {
     const completedShots = shots.filter(
-      (s) => s.status === "complete" && s.video_url,
+      (s) => s.status === "complete" && s.video_url
     );
 
     if (completedShots.length === 0) {
@@ -1037,7 +892,7 @@ export default function StoryboardPage() {
       await Promise.all(
         completedShots.map(async (s) => {
           durations[s.video_url!] = await videoDurationCache.get(s.video_url!);
-        }),
+        })
       );
       const clips = buildShotConcatClips(completedShots, durations);
       if (clips.length === 0) {
@@ -1098,35 +953,32 @@ export default function StoryboardPage() {
           <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
           {/* Model Selectors — storyboard tab only */}
-          {activeTab === "storyboard" && (
-            <div className="flex items-center gap-2">
-              <ModelPicker
-                groups={imageGroups}
-                value={imageModel}
-                onSelect={(id) => handleChangeImageModel(id as ImageModelId)}
-                trigger={
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <ImageIcon className="h-4 w-4" />
-                    {imageModels.find((m) => m.id === imageModel)?.name ||
-                      "Image"}
-                  </Button>
-                }
-              />
+          {activeTab === "storyboard" && <div className="flex items-center gap-2">
+            <ModelPicker
+              groups={imageGroups}
+              value={imageModel}
+              onSelect={(id) => handleChangeImageModel(id as ImageModelId)}
+              trigger={
+                <Button variant="outline" size="sm" className="gap-2">
+                  <ImageIcon className="h-4 w-4" />
+                  {imageModels.find((m) => m.id === imageModel)?.name || "Image"}
+                </Button>
+              }
+            />
 
-              <ModelPicker
-                groups={videoGroups}
-                value={videoModel}
-                onSelect={(id) => handleChangeVideoModel(id as VideoModelId)}
-                trigger={
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Video className="h-4 w-4" />
-                    {videoModels.find((m) => m.id === videoModel)?.name ||
-                      "Video"}
-                  </Button>
-                }
-              />
-            </div>
-          )}
+            <ModelPicker
+              groups={videoGroups}
+              value={videoModel}
+              onSelect={(id) => handleChangeVideoModel(id as VideoModelId)}
+              trigger={
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Video className="h-4 w-4" />
+                  {videoModels.find((m) => m.id === videoModel)?.name || "Video"}
+                </Button>
+              }
+            />
+
+          </div>}
 
           <Badge variant="secondary" className="text-sm">
             {shots.length} Shots • {totalDuration}s Total
@@ -1159,7 +1011,7 @@ export default function StoryboardPage() {
         <StoryboardModeView
           shotListSlot={
             <ShotList
-              shots={shots.map((shot) => ({
+              shots={shots.map(shot => ({
                 id: shot.id,
                 order: shot.order,
                 image_prompt: shot.image_prompt,
@@ -1177,92 +1029,58 @@ export default function StoryboardPage() {
           }
           previewSlot={
             <ShotPreview
-              shot={
-                selectedShotId
-                  ? (() => {
-                      const s = shots.find((s) => s.id === selectedShotId);
-                      return s
-                        ? {
-                            id: s.id,
-                            order: s.order,
-                            image_url: s.image_url,
-                            video_url: s.video_url,
-                            status: s.status,
-                          }
-                        : null;
-                    })()
-                  : null
-              }
+              shot={selectedShotId ? (() => {
+                const s = shots.find(s => s.id === selectedShotId);
+                return s ? {
+                  id: s.id,
+                  order: s.order,
+                  image_url: s.image_url,
+                  video_url: s.video_url,
+                  status: s.status,
+                } : null;
+              })() : null}
             />
           }
           inspectorSlot={
             <ShotInspector
-              shot={
-                selectedShotId
-                  ? (() => {
-                      const s = shots.find((s) => s.id === selectedShotId);
-                      return s
-                        ? {
-                            id: s.id,
-                            order: s.order,
-                            image_prompt: s.image_prompt,
-                            image_url: s.image_url,
-                            end_frame_url: s.end_frame_url,
-                            video_prompt: s.video_prompt,
-                            video_url: s.video_url,
-                            status: s.status,
-                            error_message: s.error_message,
-                          }
-                        : null;
-                    })()
-                  : null
-              }
+              shot={selectedShotId ? (() => {
+                const s = shots.find(s => s.id === selectedShotId);
+                return s ? {
+                  id: s.id,
+                  order: s.order,
+                  image_prompt: s.image_prompt,
+                  image_url: s.image_url,
+                  end_frame_url: s.end_frame_url,
+                  video_prompt: s.video_prompt,
+                  video_url: s.video_url,
+                  status: s.status,
+                  error_message: s.error_message,
+                } : null;
+              })() : null}
               frameOptions={frameOptions}
               onPickFrame={handlePickFrame}
               onUploadFrame={handleUploadFrame}
               onClearEndFrame={handleClearEndFrame}
               onGenerateVideo={handleGenerateVideo}
               onCancelVideoGeneration={handleCancelVideoGeneration}
-              onUpdateShot={(shotId, updates) =>
-                handleUpdateShot(shotId, updates)
-              }
+              onUpdateShot={(shotId, updates) => handleUpdateShot(shotId, updates)}
               videoModel={currentVideoModel ?? null}
               videoSettings={videoSettings}
               onVideoSettingsChange={setVideoSettings}
               versions={versionsForShot(shotVersions, selectedShotId)}
-              currentVersion={valueForShot(
-                shotCurrentVersions,
-                selectedShotId,
-                null,
-              )}
+              currentVersion={valueForShot(shotCurrentVersions, selectedShotId, null)}
               versionCount={valueForShot(shotVersionCounts, selectedShotId, 0)}
               videoVersions={versionsForShot(shotVideoVersions, selectedShotId)}
-              currentVideoVersion={valueForShot(
-                shotCurrentVideoVersions,
-                selectedShotId,
-                null,
-              )}
-              videoVersionCount={valueForShot(
-                shotVideoVersionCounts,
-                selectedShotId,
-                0,
-              )}
+              currentVideoVersion={valueForShot(shotCurrentVideoVersions, selectedShotId, null)}
+              videoVersionCount={valueForShot(shotVideoVersionCounts, selectedShotId, 0)}
               onVersionSelect={handleVersionSelect}
               onBranchFrom={handleBranchFrom}
               onEditImage={handleOpenEditModal}
               onVideoVersionSelect={handleVideoVersionSelect}
               onGenerateVideoPrompt={handleGenerateVideoPrompt}
               onEnhanceVideoPrompt={handleEnhanceVideoPrompt}
-              isGeneratingPrompt={
-                selectedShotId
-                  ? generatingPromptShots.has(selectedShotId)
-                  : false
-              }
-              isEnhancingPrompt={
-                selectedShotId
-                  ? enhancingPromptShots.has(selectedShotId)
-                  : false
-              }
+              isGeneratingPrompt={selectedShotId ? generatingPromptShots.has(selectedShotId) : false}
+              isEnhancingPrompt={selectedShotId ? enhancingPromptShots.has(selectedShotId) : false}
             />
           }
         />
@@ -1273,7 +1091,7 @@ export default function StoryboardPage() {
           {/* Media Pool — left sidebar */}
           <div className="w-56 flex-shrink-0 border-r border-border overflow-hidden">
             <MediaPool
-              shots={shots.map((s) => ({
+              shots={shots.map(s => ({
                 id: s.id,
                 order: s.order,
                 image_url: s.image_url,
@@ -1298,14 +1116,14 @@ export default function StoryboardPage() {
         </div>
       )}
 
+
       {/* Image Generation Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Generate Image with{" "}
-              {imageModels.find((m) => m.id === imageModel)?.name}
+              Generate Image with {imageModels.find((m) => m.id === imageModel)?.name}
             </DialogTitle>
             <DialogDescription>
               Describe the scene you want to generate for this shot.
@@ -1352,12 +1170,7 @@ export default function StoryboardPage() {
         open={editModalState.isOpen}
         onOpenChange={(open) => {
           if (!open) {
-            setEditModalState({
-              isOpen: false,
-              shotId: null,
-              versionId: null,
-              sourceImageUrl: null,
-            });
+            setEditModalState({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null });
           }
         }}
       >
@@ -1365,8 +1178,7 @@ export default function StoryboardPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Edit Image with{" "}
-              {imageModels.find((m) => m.id === imageModel)?.name}
+              Edit Image with {imageModels.find((m) => m.id === imageModel)?.name}
             </DialogTitle>
             <DialogDescription>
               Describe how you want to modify this image.
@@ -1399,12 +1211,7 @@ export default function StoryboardPage() {
             <Button
               variant="ghost"
               onClick={() =>
-                setEditModalState({
-                  isOpen: false,
-                  shotId: null,
-                  versionId: null,
-                  sourceImageUrl: null,
-                })
+                setEditModalState({ isOpen: false, shotId: null, versionId: null, sourceImageUrl: null })
               }
             >
               Cancel

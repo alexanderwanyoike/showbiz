@@ -7,7 +7,11 @@ import { Header } from "../components/Header";
 import ProjectCard from "../components/ProjectCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getProjects, createProject, deleteProject } from "../lib/backend-api";
+import {
+  getProjects,
+  createProject,
+  deleteProject,
+} from "../lib/backend-api";
 import type { Project } from "../lib/backend-api";
 
 export default function WorkspacePage() {
@@ -19,11 +23,7 @@ export default function WorkspacePage() {
   const [showNewProjectInput, setShowNewProjectInput] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useUnsavedWork(
-    "draft",
-    showNewProjectInput && !!newProjectName,
-    newProjectName,
-  );
+  useUnsavedWork("draft", showNewProjectInput && !!newProjectName, newProjectName);
 
   useAgentChanges(loadProjects);
 
@@ -74,7 +74,7 @@ export default function WorkspacePage() {
   }
 
   const filteredProjects = projects.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()),
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (

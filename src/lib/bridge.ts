@@ -30,10 +30,7 @@ function toBareErrorMessage(e: unknown): string {
     .replace(/^Error: /, "");
 }
 
-export function invoke<T>(
-  cmd: string,
-  args?: Record<string, unknown>,
-): Promise<T> {
+export function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (typeof window === "undefined" || !window.showbiz) {
     return Promise.reject("Electron bridge (window.showbiz) is unavailable");
   }
