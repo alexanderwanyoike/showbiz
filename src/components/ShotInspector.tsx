@@ -344,7 +344,7 @@ export default function ShotInspector({
       {modelControls}
 
       {/* Start Frame Section */}
-      <InspectorSection title="Start frame">
+      {videoModel?.modeCapabilities.imageToVideo ? <InspectorSection title="Start frame">
         <FramePicker
           label="Start frame"
           libraryHref={frameLibraryHref}
@@ -353,7 +353,7 @@ export default function ShotInspector({
           onPick={(variantId) => onPickFrame(shot.id, "start", variantId)}
           onUpload={(file) => onUploadFrame(shot.id, "start", file)}
         />
-      </InspectorSection>
+      </InspectorSection> : <p className="border-b border-border/50 px-3 py-3 text-[11px] text-muted-foreground">{videoModel?.name ?? "This model"} uses the video prompt; frames are not sent.</p>}
 
       {/* Image Versions Section */}
       {versionCount > 0 && (
@@ -376,6 +376,8 @@ export default function ShotInspector({
             {videoModel?.name ?? "This model"} doesn't support an end frame. The start frame and prompt drive the shot.
           </p>
         ) : (
+          <>
+          {!shot.image_url && <p className="mb-2 text-[11px] text-muted-foreground">An end frame is used only with a start frame.</p>}
           <FramePicker
             label="End frame"
             previewUrl={shot.end_frame_url}
@@ -384,6 +386,7 @@ export default function ShotInspector({
             onUpload={(file) => onUploadFrame(shot.id, "end", file)}
             onClear={() => onClearEndFrame(shot.id)}
           />
+          </>
         )}
       </InspectorSection>}
 

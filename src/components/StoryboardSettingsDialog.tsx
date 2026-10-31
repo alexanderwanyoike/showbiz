@@ -44,7 +44,7 @@ export function StoryboardSettingsDialog({ name, defaults, onSave }: {
             <Input id="storyboard-name" value={values.name} onChange={(event) => setValues({...values,name:event.target.value})} disabled={saving} />
           </div>
           <section aria-label="Storyboard model defaults" className="space-y-3 border-t border-border pt-4">
-            <div className="space-y-1"><h3 className="text-sm font-medium">Model defaults</h3><p className="text-xs leading-relaxed text-muted-foreground">Used by new shots and shots set to use the storyboard default. Shot overrides stay unchanged.</p></div>
+            <div className="space-y-1"><h3 className="text-sm font-medium">Model defaults</h3><p className="text-xs leading-relaxed text-muted-foreground">Used for new takes in shots that use the storyboard default. Existing media and shot overrides stay unchanged.</p></div>
             {(["image_model", "video_model"] as const).map((kind) => <GenerationModelField key={kind} label={kind === "image_model" ? "Image model" : "Video model"} accessibleName={`Storyboard ${kind === "image_model" ? "image" : "video"} default`} value={values[kind]} groups={kind === "image_model" ? getGroupedImageModels() : getGroupedVideoModels()} disabled={saving} onSelect={(value) => setValues({...values,[kind]:value})} />)}
           </section>
           {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
