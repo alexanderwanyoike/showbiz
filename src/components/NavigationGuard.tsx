@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useApplicationWork } from "../hooks/useApplicationWork";
+import { applicationWork } from "../lib/application-work";
 
 function workspace(location: Pick<Location, "pathname" | "search">) {
   const view = new URLSearchParams(location.search).get("view");
@@ -20,10 +21,12 @@ function workspace(location: Pick<Location, "pathname" | "search">) {
 }
 export function NavigationGuard() {
   const origin = useRef<HTMLElement | null>(null);
-  const dirty = useApplicationWork().unsaved.includes("draft");
+  useApplicationWork();
+  // Native status includes delayed echoes; internal navigation leaves only this renderer's drafts.
+  const dirty = applicationWork.snapshot().unsaved.includes("draft");
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      dirty && workspace(currentLocation) !== workspace(nextLocation),
+      applicationWork.snapshot().unsaved.includes("draft") && workspace(currentLocation) !== workspace(nextLocation),
   );
   useEffect(() => {
     if (!dirty && blocker.state === "blocked") blocker.proceed();
