@@ -16,7 +16,7 @@ function containsVersion(nodes: unknown, shotId: string, versionId: string): boo
     return "children" in node && containsVersion(node.children, shotId, versionId);
   });
 }
-export function createMcpSession(dispatch: Invoke, changed: () => void = () => {}) {
+export function createMcpSession(dispatch: Invoke, changed: () => void = () => {}, canEdit: () => boolean = () => true) {
   let revision = 0;
   let tail = Promise.resolve();
   const cache = new Map<string, { fingerprint: string; result: McpResult }>();
@@ -38,6 +38,7 @@ export function createMcpSession(dispatch: Invoke, changed: () => void = () => {
     if (requestId) {
       const previous = cache.get(requestId);
       if (previous) return previous.fingerprint === fingerprint ? previous.result : failure("INVALID_INPUT", "The request ID was already used with different input");
+      if (!canEdit()) return failure("BUSY", "Finish or discard unsaved edits in Showbiz before changing project data through MCP.");
       if (args.expected_revision !== revision) return failure("CONFLICT", "Showbiz changed. Read context and reconsider the edit.");
     }
     try {
