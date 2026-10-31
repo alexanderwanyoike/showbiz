@@ -3,6 +3,7 @@ import { Clapperboard, Download, Palette, Settings } from "lucide-react";
 import { useUpdates } from "../hooks/useUpdates";
 import { SettingsDialog } from "./SettingsDialog";
 import { WorkspaceCommand } from "./WorkspaceCommand";
+import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 import { useTitlebarAppearance } from "../hooks/useTitlebarAppearance";
 import type { MenuSettingsSection } from "./ApplicationMenu";
 import "../application-menu.css";
@@ -15,9 +16,10 @@ export function Header({
 }: {
   caption?: string;
   children?: ReactNode;
-  menu?: (actions: { openSettings: (section: MenuSettingsSection) => void; reportError: (message: string) => void }) => ReactNode;
+  menu?: (actions: { openSettings: (section: MenuSettingsSection) => void; reportError: (message: string) => void; openShortcuts: () => void }) => ReactNode;
 }) {
   const chrome = useRef<HTMLElement>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [menuError, setMenuError] = useState<string | null>(null);
   const titlebar = useTitlebarAppearance(chrome);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -31,7 +33,7 @@ export function Header({
         <Clapperboard size={20} />
         <span>Showbiz</span>
       </div>
-      {menu?.({ openSettings: (section) => { setSettingsSection(section); setSettingsOpen(true); }, reportError: setMenuError })}
+      {menu?.({ openSettings: (section) => { setSettingsSection(section); setSettingsOpen(true); }, reportError: setMenuError, openShortcuts: () => setShortcutsOpen(true) })}
       {children}
       <span className="desktop-chrome-caption">{caption}</span>
       <div className="desktop-chrome-actions">
@@ -71,6 +73,7 @@ export function Header({
         </WorkspaceCommand>
       </div>
       {(menuError || titlebar.error) && <div role="alert" className="app-menu-error"><span>{menuError ?? titlebar.error}</span>{!menuError && <Button variant="ghost" size="sm" onClick={titlebar.retry}>Retry</Button>}<Button variant="ghost" size="sm" onClick={() => { setMenuError(null); titlebar.dismiss(); }}>Dismiss</Button></div>}
+      <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}

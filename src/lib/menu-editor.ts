@@ -23,3 +23,6 @@ export function restoreMenuEditor(editor: MenuEditor) {
 }
 export function isMacDesktop() { return window.showbiz?.desktop?.platform === "darwin" || !window.showbiz?.desktop && /Mac/i.test(navigator.platform); }
 export function menuShortcut(keys: string, mac = isMacDesktop()) { return mac ? `${keys.startsWith("Shift+") ? "⇧" : ""}⌘${keys.replace("Shift+", "")}` : `Ctrl+${keys}`; }
+
+export function redoShortcut() { return window.showbiz?.desktop?.platform === "win32" ? "Ctrl+Y" : menuShortcut("Shift+Z"); }
+export function fullscreenShortcut() { return isMacDesktop() ? "⌃⌘F" : "F11"; }

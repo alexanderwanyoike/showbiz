@@ -30,7 +30,7 @@ function DocumentWorkspace() {
     <div
       className={`desktop-shell ${navigatorOpen ? "" : "desktop-shell-start"}`}
     >
-      <Header caption={document.current?.name ?? ""} menu={({ openSettings, reportError }) => <ApplicationMenu onSettings={openSettings} onError={reportError} />}>
+      <Header caption={document.current?.name ?? ""} menu={({ openSettings, reportError, openShortcuts }) => <ApplicationMenu onSettings={openSettings} onError={reportError} onShortcuts={openShortcuts} />}>
         {document.current && (
           <WorkspaceCommand
             label="Project navigator"

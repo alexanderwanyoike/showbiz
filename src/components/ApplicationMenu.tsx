@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Menubar } from "radix-ui";
 import { DocumentMenu } from "./DocumentMenu";
-import { captureMenuEditor, restoreMenuEditor, isMacDesktop, menuShortcut } from "../lib/menu-editor";
+import { captureMenuEditor, restoreMenuEditor, isMacDesktop, menuShortcut, redoShortcut, fullscreenShortcut } from "../lib/menu-editor";
 import type { DesktopMenuCommand } from "../../shared/desktop-shell";
 export type MenuSettingsSection = "providers" | "appearance" | "updates";
-export function ApplicationMenu({ onSettings, onError }: { onSettings: (section: MenuSettingsSection) => void; onError: (message: string) => void }) {
+export function ApplicationMenu({ onSettings, onError, onShortcuts }:  { onSettings: (section: MenuSettingsSection) => void; onError: (message: string) => void; onShortcuts: () => void }) {
   const [value, setValue] = useState("");
   const [editor, setEditor] = useState(captureMenuEditor);
   const editorRef = useRef(editor);
@@ -42,16 +42,16 @@ export function ApplicationMenu({ onSettings, onError }: { onSettings: (section:
   const command = (label: string, commandId: DesktopMenuCommand, shortcut: string, disabled = false, restore = false) => <Menubar.Item className="app-menu-item" aria-label={label} disabled={!native || disabled} onSelect={() => nativeAction(commandId, restore)}>{label}<span className="app-menu-shortcut" aria-hidden="true">{shortcut}</span></Menubar.Item>;
   const separator = <Menubar.Separator className="app-menu-separator" />;
   return <Menubar.Root ref={root} aria-label="Application menu" className="app-menubar" value={value} onValueChange={(next) => { if (next) activeMenu.current = next; setValue(next); }} onPointerDownCapture={() => { if (!root.current?.contains(document.activeElement) && !(document.activeElement instanceof Element && document.activeElement.closest(".app-menu-content"))) capture(); }} onKeyDown={(event) => { if (event.key === "Escape" && !value) restoreMenuEditor(editorRef.current); }}>
-    <DocumentMenu mac={mac} canQuit={native} onQuit={() => { const run = window.showbiz?.runMenuCommand; if (run) void run("quit").then((result) => { if (!result.ok) onError(result.error.message); }).catch((cause: unknown) => onError(String(cause))); }} />
+    <DocumentMenu onSettings={() => showSettings("providers")} onCloseAutoFocus={closed} mac={mac} canQuit={native} onQuit={() => { const run = window.showbiz?.runMenuCommand; if (run) void run("quit").then((result) => { if (!result.ok) onError(result.error.message); }).catch((cause: unknown) => onError(String(cause))); }} />
     <Menubar.Menu value="edit"><Menubar.Trigger data-menu-trigger="edit" className="app-menu-trigger">Edit</Menubar.Trigger>{content(<>
-      {command("Undo", "undo", menuShortcut("Z", mac), !editor.writable, true)}{command("Redo", "redo", window.showbiz?.desktop?.platform === "win32" ? "Ctrl+Y" : menuShortcut("Shift+Z", mac), !editor.writable, true)}{separator}
+      {command("Undo", "undo", menuShortcut("Z", mac), !editor.writable, true)}{command("Redo", "redo", redoShortcut(), !editor.writable, true)}{separator}
       {command("Cut", "cut", menuShortcut("X", mac), !editor.writable || !editor.selected, true)}{command("Copy", "copy", menuShortcut("C", mac), !editor.selected, true)}{command("Paste", "paste", menuShortcut("V", mac), !editor.writable, true)}{separator}{command("Select All", "select_all", menuShortcut("A", mac), !editor.editable, true)}
     </>)}</Menubar.Menu>
     <Menubar.Menu value="view"><Menubar.Trigger data-menu-trigger="view" className="app-menu-trigger">View</Menubar.Trigger>{content(<>
-      {command("Zoom In", "zoom_in", menuShortcut("+", mac))}{command("Zoom Out", "zoom_out", menuShortcut("-", mac))}{command("Actual Size", "zoom_reset", menuShortcut("0", mac))}{separator}{command("Toggle Full Screen", "toggle_fullscreen", mac ? "⌃⌘F" : "F11")}{separator}<Menubar.Item className="app-menu-item" onSelect={() => showSettings("appearance")}>Appearance…</Menubar.Item>
+      {command("Zoom In", "zoom_in", menuShortcut("+", mac))}{command("Zoom Out", "zoom_out", menuShortcut("-", mac))}{command("Actual Size", "zoom_reset", menuShortcut("0", mac))}{separator}{command("Toggle Full Screen", "toggle_fullscreen", fullscreenShortcut())}{separator}<Menubar.Item className="app-menu-item" onSelect={() => showSettings("appearance")}>Appearance…</Menubar.Item>
     </>)}</Menubar.Menu>
     <Menubar.Menu value="help"><Menubar.Trigger data-menu-trigger="help" className="app-menu-trigger">Help</Menubar.Trigger>{content(<>
-      <Menubar.Item className="app-menu-item" onSelect={() => showSettings("providers")}>Settings…</Menubar.Item><Menubar.Item className="app-menu-item" onSelect={() => showSettings("updates")}>Check for Updates…</Menubar.Item>
+      <Menubar.Item className="app-menu-item" onSelect={() => { deferred.current = onShortcuts; }}>Keyboard Shortcuts…</Menubar.Item><Menubar.Item className="app-menu-item" onSelect={() => showSettings("updates")}>Check for Updates…</Menubar.Item>
     </>)}</Menubar.Menu>
   </Menubar.Root>;
 }

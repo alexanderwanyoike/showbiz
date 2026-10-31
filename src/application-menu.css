@@ -19,3 +19,9 @@
 .app-menu-error span { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 1100px) { .integrated-titlebar .desktop-chrome-caption { display: none; } .integrated-titlebar .desktop-chrome-actions { margin-left: auto; } }
 @media (max-width: 900px) { .desktop-update-label { display: none; } .integrated-titlebar .desktop-wordmark span { display: none; } .app-menu-trigger { padding-inline: 7px; } }
+.keyboard-shortcuts-dialog[data-slot="dialog-content"] { max-width: 480px; }
+.keyboard-shortcut-list { max-height: min(440px, 60vh); overflow-y: auto; scrollbar-width: thin; padding-right: 8px; }
+.keyboard-shortcut-list section + section { margin-top: 18px; }
+.keyboard-shortcut-list h3 { margin-bottom: 6px; font-size: 11px; font-weight: 650; color: var(--muted-foreground); }
+.keyboard-shortcut-list dl > div { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 4px 0; font-size: 12px; }
+.keyboard-shortcut-list kbd { font-family: inherit; color: var(--muted-foreground); font-size: 11px; }
