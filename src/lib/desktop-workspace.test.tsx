@@ -27,3 +27,15 @@ it("keeps desktop navigation and status visible while moving from the project li
   expect(await screen.findByRole("region", { name: "Project bible" })).toBeTruthy();
   expect(screen.getByRole("navigation", { name: "Project navigator" })).toBeTruthy();
 });
+
+it("renames a project from its desktop toolbar and lets Escape keep the saved name", async () => {
+  const user = userEvent.setup();
+  render(createElement(MemoryRouter, { initialEntries: ["/project/p"] }, createElement(App)));
+  await user.click(await screen.findByRole("button", { name: "Rename project", exact: true }));
+  const input = screen.getByRole("textbox", { name: "Project name", exact: true });
+  await user.clear(input);
+  await user.type(input, "Uncommitted name");
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("textbox", { name: "Project name", exact: true })).toBeNull();
+  expect(screen.getByRole("button", { name: "Rename project", exact: true })).toBeTruthy();
+});
