@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown, Loader2, Sparkles, Upload, Video, ImageIcon, AlertCircle, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,8 @@ export interface FrameOption {
 }
 
 export interface ShotInspectorProps {
+  modelControls?: ReactNode;
+  generationDisabled?: boolean;
   shot: {
     id: string;
     order: number;
@@ -269,6 +271,8 @@ function FramePicker({
 }
 
 export default function ShotInspector({
+  modelControls,
+  generationDisabled = false,
   shot,
   frameOptions,
   onPickFrame,
@@ -298,7 +302,7 @@ export default function ShotInspector({
   if (!shot) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
-        <p className="text-sm">Select a shot to inspect</p>
+        <div className="w-full self-start">{modelControls}<p className="p-3 text-sm">Select a shot to inspect</p></div>
       </div>
     );
   }
@@ -326,6 +330,8 @@ export default function ShotInspector({
           {shot.status}
         </Badge>
       </div>
+
+      {modelControls}
 
       {/* Start Frame Section */}
       <InspectorSection title="Start Frame">
@@ -501,8 +507,9 @@ export default function ShotInspector({
         <Button
           size="sm"
           className="w-full text-xs"
+          aria-label={`Generate video for shot ${shot.order}`}
           onClick={() => onGenerateVideo(shot.id)}
-          disabled={shot.status === "generating" || !canGenerateVideo}
+          disabled={generationDisabled || shot.status === "generating" || !canGenerateVideo}
         >
           {shot.status === "generating" ? (
             <>

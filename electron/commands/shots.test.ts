@@ -76,6 +76,8 @@ describe("shot commands", () => {
           "end_frame_path",
           "end_frame_url",
           "id",
+          "image_model",
+          "video_model",
           "image_path",
           "image_prompt",
           "image_url",
