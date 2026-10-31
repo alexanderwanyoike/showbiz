@@ -38,7 +38,8 @@ export const API_KEY_PROVIDERS = [
     id: "fal-billing",
     name: "fal.ai billing",
     credentialLabel: "fal.ai billing key (optional)",
-    helpText: "Optional billing-only key using the BILLING preset with billing:usage:read, auth:keys:read and account:users:read. Generation continues using your separate fal.ai API key.",
+    helpText:
+      "Optional billing-only key using the BILLING preset with billing:usage:read, auth:keys:read and account:users:read. Generation continues using your separate fal.ai API key.",
     order: 55,
   },
   {

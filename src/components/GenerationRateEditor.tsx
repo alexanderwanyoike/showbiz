@@ -32,8 +32,12 @@ export function GenerationRateEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  useEffect(() => { onDirtyChange?.(!!amount || !!source); }, [amount, source, onDirtyChange]);
-  useEffect(() => { onBusyChange?.(saving); }, [saving, onBusyChange]);
+  useEffect(() => {
+    onDirtyChange?.(!!amount || !!source);
+  }, [amount, source, onDirtyChange]);
+  useEffect(() => {
+    onBusyChange?.(saving);
+  }, [saving, onBusyChange]);
   const unit = request.kind === "video" ? "second" : "image";
   useUnsavedWork("draft", !!amount || !!source, `${amount}\0${source}`);
   async function save() {
@@ -101,7 +105,9 @@ export function GenerationRateEditor({
       else {
         setAmount("");
         setSource("");
-        setNotice("Custom rate removed. Provider pricing will be used if available.");
+        setNotice(
+          "Custom rate removed. Provider pricing will be used if available.",
+        );
         window.dispatchEvent(new Event("showbiz:pricing-changed"));
       }
     } catch {
@@ -113,7 +119,8 @@ export function GenerationRateEditor({
   return (
     <fieldset disabled={saving} className="mt-2 space-y-2">
       <p>
-        Enter a custom estimate, including local compute if needed. This is a device-wide model rate, not a setting for this shot or asset.
+        Enter a custom estimate, including local compute if needed. This is a
+        device-wide model rate, not a setting for this shot or asset.
       </p>
       <label className="grid gap-1">
         USD per {unit}

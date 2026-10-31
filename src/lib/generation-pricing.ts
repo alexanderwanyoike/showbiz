@@ -86,22 +86,61 @@ export async function getGenerationEstimate(
       let endpoint: string | undefined;
       if (request.kind === "video" && "imageToVideo" in config.models) {
         const video = videoConfigs.find((item) => item.id === modelId);
-        endpoint = request.mode === "text-to-video"
-          ? video?.generationModes?.textToVideo?.endpoint ?? String(options.textToVideoEndpoint ?? config.models.textToVideo ?? "")
-          : request.has_end_frame && video?.generationModes?.imageToVideo?.endFrameEndpoint
-            ? video.generationModes.imageToVideo.endFrameEndpoint.endpoint
-            : video?.generationModes?.imageToVideo?.endpoint ?? String(options.imageToVideoEndpoint ?? config.models.imageToVideo ?? "");
+        endpoint =
+          request.mode === "text-to-video"
+            ? (video?.generationModes?.textToVideo?.endpoint ??
+              String(
+                options.textToVideoEndpoint ?? config.models.textToVideo ?? "",
+              ))
+            : request.has_end_frame &&
+                video?.generationModes?.imageToVideo?.endFrameEndpoint
+              ? video.generationModes.imageToVideo.endFrameEndpoint.endpoint
+              : (video?.generationModes?.imageToVideo?.endpoint ??
+                String(
+                  options.imageToVideoEndpoint ??
+                    config.models.imageToVideo ??
+                    "",
+                ));
       } else if ("generate" in config.models) {
-        endpoint = request.kind === "image"
-          ? String(options.endpoint ?? config.models.generate)
-          : String(options.editEndpoint ?? config.models.edit ?? options.endpoint ?? config.models.generate);
+        endpoint =
+          request.kind === "image"
+            ? String(options.endpoint ?? config.models.generate)
+            : String(
+                options.editEndpoint ??
+                  config.models.edit ??
+                  options.endpoint ??
+                  config.models.generate,
+              );
       }
-      if (!endpoint) return { kind: "unavailable", reason: "FAL pricing requires a supported generation endpoint." };
-      if (!price || price.endpoint_id !== endpoint || price.estimate_basis !== "historical_request" || !Number.isFinite(Date.parse(price.checked_at)) || Date.now() - Date.parse(price.checked_at) > 60 * 60 * 1000) {
-        const key = await invoke<string | null>("get_api_key", { provider: "fal" });
-        if (!key) return { kind: "unavailable", reason: "Add your FAL key in Settings to retrieve account-specific live pricing." };
-        const fresh = await refreshFalPrice(modelId, endpoint, request.kind, key);
-        if (!fresh.ok) return { kind: "unavailable", reason: fresh.error.message };
+      if (!endpoint)
+        return {
+          kind: "unavailable",
+          reason: "FAL pricing requires a supported generation endpoint.",
+        };
+      if (
+        !price ||
+        price.endpoint_id !== endpoint ||
+        price.estimate_basis !== "historical_request" ||
+        !Number.isFinite(Date.parse(price.checked_at)) ||
+        Date.now() - Date.parse(price.checked_at) > 60 * 60 * 1000
+      ) {
+        const key = await invoke<string | null>("get_api_key", {
+          provider: "fal",
+        });
+        if (!key)
+          return {
+            kind: "unavailable",
+            reason:
+              "Add your FAL key in Settings to retrieve account-specific live pricing.",
+          };
+        const fresh = await refreshFalPrice(
+          modelId,
+          endpoint,
+          request.kind,
+          key,
+        );
+        if (!fresh.ok)
+          return { kind: "unavailable", reason: fresh.error.message };
         price = fresh.value;
       }
     }
@@ -132,7 +171,9 @@ export async function getGenerationEstimate(
         };
     }
     const estimate = estimateGenerationCost(price, quantities);
-    return estimate.kind === "estimate" && refreshUnconfirmed ? { ...estimate, stale: true } : estimate;
+    return estimate.kind === "estimate" && refreshUnconfirmed
+      ? { ...estimate, stale: true }
+      : estimate;
   } catch {
     return {
       kind: "unavailable",

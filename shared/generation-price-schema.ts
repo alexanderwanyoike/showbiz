@@ -19,7 +19,12 @@ export const generationPriceSchema = z
     endpoint_id: z.string().min(1).max(256).optional(),
     estimate_basis: z.literal("historical_request").optional(),
     billing_unit: z.string().min(1).max(128).optional(),
-    billing_unit_microusd: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
+    billing_unit_microusd: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(Number.MAX_SAFE_INTEGER)
+      .optional(),
     excludes_input_cost: z.boolean().optional(),
     rates: z
       .array(
