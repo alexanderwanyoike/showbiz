@@ -276,11 +276,11 @@ function FramePicker({
   return (
     <>
       <FramePreview url={previewUrl} label={label} />
-      <div className="mt-2 flex gap-2">
+      <div className="mt-2 flex flex-wrap gap-2">
         <Button
           size="sm"
           variant="outline"
-          className="flex-1 text-xs"
+          className="min-w-0 flex-1 basis-32 text-xs"
           aria-label={`Choose ${label.toLowerCase()}`}
           onClick={() => setPickerOpen(true)}
           disabled={disabled || frameOptions.length === 0}
