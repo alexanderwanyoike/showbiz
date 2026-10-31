@@ -1,3 +1,4 @@
+import { createGenerationPricingCommands } from "./generation-pricing";
 import { createLocalGenerationCommands } from "./local-generation";
 import type { DatabaseSync } from "node:sqlite";
 import {
@@ -20,6 +21,7 @@ export function createSettingsCommands(db: DatabaseSync) {
 
   return {
     ...createLocalGenerationCommands(db),
+    ...createGenerationPricingCommands(db),
     get_api_key(args?: Record<string, unknown>): string | null {
       return readValue(parseApiKeyProvider(args?.provider));
     },
