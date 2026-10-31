@@ -127,13 +127,15 @@ export async function generateAndSaveVideoRequestAction(
   }
 }
 
-export async function editImageAction(sourceImageBase64: string, editPrompt: string, modelId: ImageModelId = "nano-banana"): Promise<string> {
+export async function editImageAction(sourceImageBase64: string, editPrompt: string, modelId: ImageModelId = "nano-banana", subject?: GenerationSubject): Promise<string> {
   const model = getImageModel(modelId);
   const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
   if (!apiKey && model.apiKeyProvider !== "local") throw new Error(`${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`);
   if (!model.supportsImageEditing || !model.editImage) throw new Error(`${model.name} does not support image editing.`);
   try {
-    return await model.editImage(editPrompt, sourceImageBase64, apiKey);
+    const result = await accountModelGeneration(modelId, {kind: "image_edit", count: 1}, subject, observer => model.editImage!(editPrompt, sourceImageBase64, apiKey, observer));
+    if (!result.ok) throw new Error(result.error.message);
+    return result.value;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(`Image edit failed: ${errorMessage}`);
@@ -145,7 +147,8 @@ export async function editImageAction(sourceImageBase64: string, editPrompt: str
 export async function composeFrameAction(
   prompt: string,
   referenceImages: string[],
-  modelId: ImageModelId = "nano-banana"
+  modelId: ImageModelId = "nano-banana",
+  subject?: GenerationSubject
 ): Promise<string> {
   const model = getImageModel(modelId);
   const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
@@ -153,7 +156,9 @@ export async function composeFrameAction(
   if (!model.composeImage) throw new Error(`${model.name} does not support multi-reference composition.`);
   if (referenceImages.length === 0) throw new Error("Select at least one reference to compose a frame.");
   try {
-    return await model.composeImage(prompt, referenceImages, apiKey);
+    const result = await accountModelGeneration(modelId, {kind: "image_compose", count: 1}, subject, observer => model.composeImage!(prompt, referenceImages, apiKey, observer));
+    if (!result.ok) throw new Error(result.error.message);
+    return result.value;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(`Frame composition failed: ${errorMessage}`);
