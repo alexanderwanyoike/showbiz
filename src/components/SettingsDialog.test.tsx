@@ -194,7 +194,7 @@ describe("SettingsDialog", () => {
     expect(providerButtons[0].getAttribute("aria-label")).toBe(
       "Configure Replicate",
     );
-    expect(screen.getByText("Connected")).toBeTruthy();
+    expect(screen.getByText("Key saved")).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "Remove Replicate API key" }),
     ).toBeNull();
