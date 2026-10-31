@@ -7,6 +7,7 @@ it("treats cancelled file dialogs as no change and refuses switching after work 
     current: () => null,
     recent: () => [],
     legacy: () => [],
+    save: vi.fn(),
     create: vi.fn(),
     open: vi.fn(),
     close: vi.fn(),

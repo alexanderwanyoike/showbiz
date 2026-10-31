@@ -8,6 +8,7 @@ type DocumentOperation = Promise<DocumentResult<ProjectDocumentInfo | null>>;
 interface Documents {
   warning?(): string | null;
   current(): ProjectDocumentInfo | null;
+  save(): DocumentOperation;
   recent(): RecentProjectDocument[];
   legacy(): { id: string; name: string }[];
   create(path: string): DocumentOperation;
@@ -100,7 +101,7 @@ export function createProjectDocumentCommands(options: {
       run(async () => {
         const current = options.documents.current();
         return current
-          ? { ok: true, value: current }
+          ? change(() => options.documents.save())
           : {
               ok: false,
               error: {
