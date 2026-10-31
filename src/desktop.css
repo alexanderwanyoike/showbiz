@@ -1160,3 +1160,55 @@ body,
 .sidebar-document { position: relative; padding-right: 38px; }
 .sidebar-project-settings { position: absolute; right: 6px; top: 8px; height: 26px; width: 26px; }
 .sidebar-project-settings svg { grid-row: auto; }
+
+:root:is([data-material="native"], [data-material="carbon"]) .desktop-chrome,
+:root:is([data-material="native"], [data-material="carbon"]) .desktop-statusbar {
+  border-color: transparent;
+  box-shadow: none;
+}
+:root:is([data-material="native"], [data-material="carbon"]) .desktop-sidebar {
+  margin: 8px 0 8px 8px;
+  padding-top: 18px;
+  background: var(--card);
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+:root:is([data-material="native"], [data-material="carbon"]) .workspace-toolbar {
+  background: var(--background);
+  border-color: transparent;
+  box-shadow: none;
+}
+:root:is([data-material="native"], [data-material="carbon"]) .storyboard-workspace {
+  padding: 8px;
+  gap: 8px;
+  background: var(--background);
+}
+:root:is([data-material="native"], [data-material="carbon"]) .canvas-preview,
+:root:is([data-material="native"], [data-material="carbon"]) .canvas-filmstrip,
+:root:is([data-material="native"], [data-material="carbon"]) .canvas-inspector {
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card);
+}
+:root:is([data-material="native"], [data-material="carbon"]) .canvas-preview .shot-preview {
+  background: var(--card);
+}
+:root:is([data-material="native"], [data-material="carbon"]) .canvas-inspector-heading {
+  border-color: color-mix(in srgb, var(--border) 50%, transparent);
+}
+:root:is([data-material="native"], [data-material="carbon"]) .shot-browser-row.is-selected {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--primary) 15%, var(--card));
+  box-shadow: none;
+}
+@media (max-width: 1000px) {
+  :root:is([data-material="native"], [data-material="carbon"]) .canvas-inspector {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: min(310px, calc(100% - 16px));
+    box-shadow: var(--floating-shadow);
+  }
+}
