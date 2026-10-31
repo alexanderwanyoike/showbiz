@@ -1,3 +1,4 @@
+import { ProjectSettings } from "./ProjectSettings";
 import { useEffect, useState } from "react";
 import {
   BookOpen,
@@ -55,6 +56,7 @@ export function ProjectNavigator() {
         <File size={17} />
         <strong>{name}</strong>
         <small>Project</small>
+        <ProjectSettings projectId={current.project_id} name={name} onRenamed={setName} />
       </div>
       <nav aria-label="Project navigator">
         <Link
