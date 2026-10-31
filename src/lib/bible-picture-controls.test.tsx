@@ -4,6 +4,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ProjectBibleView from "../components/ProjectBibleView";
+import { composeFrameAction } from "../actions/generation-actions";
 import { deleteBibleAssetVariant, updateBibleAssetVariantStatus } from "./backend-api";
 import { applicationWork } from "./application-work";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: () => null }));
@@ -11,6 +12,7 @@ vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
   getBibles: async () => [{ id: "bible" }],
   getBibleAssets: async () => [{ id: "ada", asset_type: "character", name: "Ada" }],
+  createBibleAsset: async (_id: string, input: Record<string, unknown>) => ({ ...input, id: "pending-frame" }),
   getBibleAssetVariants: async () => [
     { id: "take-1", asset_id: "ada", is_primary: true, status: "approved", media_url: "/ada-1.png", prompt: "Portrait" },
     { id: "take-2", asset_id: "ada", is_primary: false, status: "approved", media_url: "/ada-2.png", prompt: "Portrait" },
@@ -107,4 +109,21 @@ it("keeps separate edit and variation drafts visible and lets each be cancelled"
   await user.click(screen.getByRole("button", { name: "Cancel edit for Ada" }));
   expect(screen.queryByRole("textbox", { name: "Edit instruction for Ada" })).toBeNull();
   expect(applicationWork.getStatus().unsaved).not.toContain("draft");
+});
+
+it("keeps frame references fixed while their generation request is running", async () => {
+  let fail: ((error: Error) => void) | undefined;
+  vi.mocked(composeFrameAction).mockImplementationOnce(() => new Promise((_, reject) => { fail = reject; }));
+  render(createElement(ProjectBibleView, { projectId: "film", initialTab: "frames" }));
+  const user = userEvent.setup();
+  const character = await screen.findByRole("button", { name: "Ada" });
+  await user.click(character);
+  await user.type(screen.getByRole("textbox", { name: "Frame prompt" }), "At the window");
+  try {
+    await user.click(screen.getByRole("button", { name: "Generate frame" }));
+    expect(character.hasAttribute("disabled")).toBe(true);
+  } finally { fail?.(new Error("Provider unavailable")); }
+  await screen.findByText("Provider unavailable");
+  expect(character.hasAttribute("disabled")).toBe(false);
+  expect(character.getAttribute("aria-pressed")).toBe("true");
 });
