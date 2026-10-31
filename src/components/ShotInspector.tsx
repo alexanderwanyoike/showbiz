@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { ChevronDown, Loader2, Sparkles, Upload, Video, ImageIcon, AlertCircle, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ import {
 import ImageVersionTimeline from "./ImageVersionTimeline";
 import VideoVersionTimeline from "./VideoVersionTimeline";
 import type { ImageVersionNode, ImageVersionWithUrl, VideoVersionNode, VideoVersionWithUrl } from "../lib/backend-api";
-import { hasUsableShotVideoSource } from "../lib/bible-assets";
+import { shotGenerationReadiness } from "../lib/shot-generation-readiness";
 import { filterFrameOptions } from "../lib/bible-compose";
 import { formatDurationLabel } from "../lib/video-preview";
 import type { VideoGenerationSettings, VideoModelInfo } from "../lib/models/types";
@@ -92,16 +92,19 @@ function InspectorSection({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const sectionId = useId();
   return (
     <div className="border-b border-border/50 last:border-b-0">
       <button
+        aria-expanded={open}
+        aria-controls={sectionId}
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground"
       >
         {title}
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? "" : "-rotate-90"}`} />
       </button>
-      {open && <div className="px-3 pb-3">{children}</div>}
+      {open && <div id={sectionId} className="px-3 pb-3">{children}</div>}
     </div>
   );
 }
@@ -309,10 +312,7 @@ export default function ShotInspector({
     );
   }
 
-  const canGenerateVideo = hasUsableShotVideoSource({
-    imageUrl: shot.image_url,
-    prompt: shot.video_prompt,
-  });
+  const readiness = shotGenerationReadiness(shot, videoModel);
 
   const supportsEndFrame = videoModel?.modeCapabilities.imageToVideo?.supportsEndImage === true;
 
@@ -361,7 +361,7 @@ export default function ShotInspector({
       )}
 
       {/* End Frame Section */}
-      <InspectorSection title="End Frame" defaultOpen={!!shot.end_frame_url}>
+      {(supportsEndFrame || shot.end_frame_url) && <InspectorSection key={`end:${shot.id}:${videoModel?.id}`} title={videoModel?.modeCapabilities.imageToVideo?.requiresEndImage ? "End frame (required)" : "End frame (optional)"} defaultOpen={!!shot.end_frame_url || videoModel?.modeCapabilities.imageToVideo?.requiresEndImage}>
         {!supportsEndFrame ? (
           <p className="text-[11px] text-muted-foreground">
             {videoModel?.name ?? "This model"} doesn't support an end frame. The start frame and prompt drive the shot.
@@ -376,7 +376,7 @@ export default function ShotInspector({
             onClear={() => onClearEndFrame(shot.id)}
           />
         )}
-      </InspectorSection>
+      </InspectorSection>}
 
       {/* Prompt Section */}
       <InspectorSection title="Prompt">
@@ -507,12 +507,13 @@ export default function ShotInspector({
           </div>
         )}
         {generationCost}
+        {!readiness.ok && <p role="status" className="mb-2 text-[11px] text-muted-foreground">{readiness.error.message}</p>}
         <Button
           size="sm"
           className="w-full text-xs"
           aria-label={`Generate video for shot ${shot.order}`}
           onClick={() => onGenerateVideo(shot.id)}
-          disabled={generationDisabled || shot.status === "generating" || !canGenerateVideo}
+          disabled={generationDisabled || shot.status === "generating" || !readiness.ok}
         >
           {shot.status === "generating" ? (
             <>
