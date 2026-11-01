@@ -366,8 +366,6 @@ it("keeps take history available without displacing generation inputs", async ()
   expect(screen.getByRole("textbox", { name: "Video prompt" })).toBeTruthy();
   expect(screen.getByRole("combobox", { name: "Video duration" })).toBeTruthy();
 });
-<<<<<<< HEAD
-=======
 it.each([
   [false, true, "Wait for frame selection to finish saving."],
   [false, false, "Choose a saved frame take before editing this frame."],
@@ -393,7 +391,6 @@ it.each([
     expect(command.getAttribute("aria-description")).toBe(reason);
   },
 );
->>>>>>> e136a72
 
 it("remembers take disclosures per shot and reveals newly added takes", async () => {
   const props = { ...inspectorProps("seedance-2-fal"), versionCount: 1, videoVersionCount: 1 };
@@ -409,28 +406,3 @@ it("remembers take disclosures per shot and reveals newly added takes", async ()
   await waitFor(() => expect(screen.getByRole("button", { name: "Image takes" }).getAttribute("aria-expanded")).toBe("true"));
   expect(screen.getByRole("button", { name: "Video takes" }).getAttribute("aria-expanded")).toBe("true");
 });
-<<<<<<< HEAD
-it.each([
-  [true, "Wait for frame selection to finish saving."],
-  [false, "Choose a saved frame take before editing this frame."],
-] as const)(
-  "explains frame editing prerequisites when frame saving is %s",
-  async (frameSaving, reason) => {
-    const props = {
-      ...inspectorProps("seedance-2-fal"),
-      frameSaving,
-      imageModel: getAvailableImageModels().find(
-        (model) => model.supportsImageEditing,
-      ),
-    };
-    render(
-      createElement(MemoryRouter, null, createElement(ShotInspector, props)),
-    );
-    const command = screen.getByRole("button", {
-      name: "Edit frame for shot 1",
-    });
-    expect(command.getAttribute("aria-description")).toBe(reason);
-  },
-);
-=======
->>>>>>> e136a72
