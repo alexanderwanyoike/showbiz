@@ -1,3 +1,4 @@
+import { createStatusPollRetry } from "./status-poll-retry";
 import { readKieResponse } from "./kie-response";
 export { parseKieError } from "./kie-response";
 import { fetch } from "./http";
@@ -74,20 +75,36 @@ export async function pollKieTask(
 ): Promise<string> {
   const start = Date.now();
   let interval = POLL_INITIAL_MS;
+  const retries = createStatusPollRetry();
+  let lastFailure: string | null = null;
 
   while (Date.now() - start < POLL_TIMEOUT_MS) {
     await new Promise((r) => setTimeout(r, interval));
     interval = Math.min(interval + 1000, POLL_MAX_MS);
 
-    const res = await fetch(
-      `${KIE_API_BASE}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
-      {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      },
-    );
+    let parsedResponse: Awaited<ReturnType<typeof readKieResponse>>;
+    try {
+      const res = await fetch(
+        `${KIE_API_BASE}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
+        { headers: { Authorization: `Bearer ${apiKey}` } },
+      );
+      parsedResponse = await readKieResponse(res);
+    } catch {
+      if (retries.allowRetry()) continue;
+      throw new Error(
+        `${lastFailure ?? "Repeated connection failures."} Task: ${taskId}.`,
+      );
+    }
 
-    const parsedResponse = await readKieResponse(res);
-    if (!parsedResponse.ok) throw new Error(parsedResponse.error.message);
+    if (!parsedResponse.ok) {
+      lastFailure = parsedResponse.error.message;
+      if (parsedResponse.retryable) {
+        if (retries.allowRetry()) continue;
+      }
+      throw new Error(`${parsedResponse.error.message} Task: ${taskId}.`);
+    }
+    retries.reset();
+    lastFailure = null;
     const json = parsedResponse.value;
 
     const state: string = json?.data?.state ?? "";
@@ -115,7 +132,7 @@ export async function pollKieTask(
     // states: waiting, queuing, generating — keep polling
   }
 
-  throw new Error("kie.ai generation timed out after 10 minutes");
+  throw new Error(`kie.ai task ${taskId} timed out after 10 minutes`);
 }
 
 // Convenience: optionally upload image → createTask → pollKieTask → fetch Blob.

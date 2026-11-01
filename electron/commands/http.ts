@@ -19,6 +19,8 @@ interface HttpRequestArgs {
   method: string;
   headers: Header[];
   body: string | null;
+  /** Opts any host into zero inactivity timeouts plus this total deadline.
+   * Leave unset for ordinary cloud requests; reserved for long inference. */
   timeout_ms?: number;
 }
 

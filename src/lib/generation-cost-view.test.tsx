@@ -415,10 +415,154 @@ it("does not describe a provider's zero historical estimate as a free new reques
       request: { kind: "video", duration: "8s" },
     }),
   );
+  const headline = await screen.findByLabelText("Estimated generation cost");
+  expect(headline.textContent).toContain("Estimate unavailable");
+  expect(headline.textContent).not.toContain("$0");
   await userEvent.setup().click(await screen.findByText("Rate details"));
   expect(
     screen.getByText(
       "The provider returned a zero historical estimate. This does not confirm that a new request is free.",
     ),
   ).toBeTruthy();
+});
+
+it("recovers an accounting warning after the cost panel was absent during generation", async () => {
+  const { runAccountedGeneration } = await import("./generation-accounting");
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockImplementation(async (command: string) => {
+    if (command === "record_generation_receipt")
+      throw new Error("Receipt IPC disconnected.");
+    return { ok: true, value: { items: [] } };
+  });
+  expect(
+    await runAccountedGeneration(
+      {
+        project_id: "warning-recovery",
+        subject_id: "shot",
+        provider: "openrouter",
+        model_id: "image",
+        kind: "image",
+        settings: {},
+      },
+      { kind: "unavailable", reason: "No quote" },
+      async (observer) => {
+        await observer.receipt({
+          reported_microusd: 23000,
+          provider_request_id: "job",
+        });
+        return "saved-picture";
+      },
+    ),
+  ).toMatchObject({
+    ok: true,
+    value: "saved-picture",
+    warnings: [expect.stringContaining("Receipt IPC disconnected.")],
+  });
+  render(
+    createElement(GenerationCost, {
+      modelId: "seedream-4.5-openrouter",
+      request: { kind: "image" },
+      subject: { project_id: "warning-recovery", subject_id: "shot" },
+    }),
+  );
+  expect(await screen.findByText(/Receipt IPC disconnected/)).toBeTruthy();
+});
+it("shows a history read failure alongside a retained accounting warning", async () => {
+  const { runAccountedGeneration } = await import("./generation-accounting");
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockImplementation(async (command: string) =>
+    command === "record_generation_receipt"
+      ? {
+          ok: false,
+          error: { code: "IO_ERROR", message: "Receipt storage unavailable." },
+        }
+      : { ok: true, value: { items: [] } },
+  );
+  await runAccountedGeneration(
+    {
+      project_id: "warning-and-history",
+      subject_id: "shot",
+      provider: "openrouter",
+      model_id: "image",
+      kind: "image",
+      settings: {},
+    },
+    { kind: "unavailable", reason: "No quote" },
+    async (observer) => {
+      await observer.receipt({
+        reported_microusd: 1,
+        provider_request_id: "job",
+      });
+      return "picture";
+    },
+  );
+  mocks.invoke.mockResolvedValue({
+    ok: false,
+    error: { code: "IO_ERROR", message: "Usage history unavailable." },
+  });
+  render(
+    createElement(GenerationCost, {
+      modelId: "seedream-4.5-openrouter",
+      request: { kind: "image" },
+      subject: { project_id: "warning-and-history", subject_id: "shot" },
+    }),
+  );
+  expect(await screen.findByText(/Usage history unavailable/)).toBeTruthy();
+  expect(screen.getByText(/Receipt storage unavailable/)).toBeTruthy();
+});
+it("does not turn a pending provider receipt into an accounting failure warning", async () => {
+  const { act } = await import("@testing-library/react");
+  const { runAccountedGeneration } = await import("./generation-accounting");
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockImplementation(async (command: string) =>
+    command === "sync_generation_charges"
+      ? {
+          ok: true,
+          value: {
+            checked: 1,
+            reported: 0,
+            notes: [
+              {
+                request_id: "job",
+                kind: "pending",
+                message: "Provider receipt has not arrived yet.",
+              },
+            ],
+          },
+        }
+      : { ok: true, value: { items: [] } },
+  );
+  render(
+    createElement(GenerationCost, {
+      modelId: "seedream-4.5-openrouter",
+      request: { kind: "image" },
+      subject: { project_id: "pending-not-failure", subject_id: "shot" },
+    }),
+  );
+  await act(async () => {
+    await runAccountedGeneration(
+      {
+        project_id: "pending-not-failure",
+        subject_id: "shot",
+        provider: "openrouter",
+        model_id: "image",
+        kind: "image",
+        settings: {},
+      },
+      { kind: "unavailable", reason: "No quote" },
+      async (observer) => {
+        await observer.receipt({
+          reported_microusd: null,
+          provider_request_id: "job",
+        });
+        return "picture";
+      },
+    );
+  });
+  expect(
+    mocks.invoke.mock.calls.some(
+      ([command]) => command === "sync_generation_charges",
+    ),
+  ).toBe(true);
+  expect(screen.queryByText(/Provider receipt has not arrived yet/)).toBeNull();
 });
