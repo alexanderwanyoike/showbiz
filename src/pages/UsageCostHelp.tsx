@@ -36,7 +36,8 @@ export function UsageCostHelp() {
           <dd>
             Recorded preflight estimates for requests without confirmed charges.
             This includes failed, cancelled or interrupted requests. A failed
-            request may still incur a charge. Estimates may differ from invoices.
+            request may still incur a charge. Estimates may differ from
+            invoices.
           </dd>
           <dt>Unknown charges</dt>
           <dd>

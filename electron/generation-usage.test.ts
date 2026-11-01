@@ -316,20 +316,57 @@ it("rejects invalid or conflicting explicit provenance instead of contradicting 
     db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
     const commands = createGenerationUsageCommands(db);
     const price = {
-      provider: "fal", model_id: "image", currency: "USD",
-      source_url: "https://fal.ai/pricing", checked_at: "2026-10-31T12:00:00Z",
+      provider: "fal",
+      model_id: "image",
+      currency: "USD",
+      source_url: "https://fal.ai/pricing",
+      checked_at: "2026-10-31T12:00:00Z",
       rates: [{ unit: "image", microusd: 40000 }],
     };
     const invalid = [
-      { price_source: 42 }, { price_source: "not-a-url" },
+      { price_source: 42 },
+      { price_source: "not-a-url" },
       { price_source: "https://another.example/pricing" },
-      { price_checked_at: false }, { price_checked_at: "yesterday" },
+      { price_checked_at: false },
+      { price_checked_at: "yesterday" },
       { price_checked_at: "2026-10-30T12:00:00Z" },
     ];
     invalid.forEach((fields, index) => {
-      expect(commands.begin_generation_usage({ request_id: `invalid-${index}`, project_id: "film", kind: "image", provider: "fal", model_id: "image", price_basis: price, ...fields })).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
+      expect(
+        commands.begin_generation_usage({
+          request_id: `invalid-${index}`,
+          project_id: "film",
+          kind: "image",
+          provider: "fal",
+          model_id: "image",
+          price_basis: price,
+          ...fields,
+        }),
+      ).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
     });
-    expect(commands.get_generation_usage({ project_id: "film" })).toMatchObject({ ok: true, value: { items: [] } });
-    expect(commands.begin_generation_usage({ request_id: "valid", project_id: "film", kind: "image", provider: "fal", model_id: "image", price_basis: price, price_source: price.source_url, price_checked_at: price.checked_at })).toMatchObject({ ok: true, value: { price_source: price.source_url, price_checked_at: price.checked_at, price_basis: price } });
-  } finally { db.close(); }
+    expect(commands.get_generation_usage({ project_id: "film" })).toMatchObject(
+      { ok: true, value: { items: [] } },
+    );
+    expect(
+      commands.begin_generation_usage({
+        request_id: "valid",
+        project_id: "film",
+        kind: "image",
+        provider: "fal",
+        model_id: "image",
+        price_basis: price,
+        price_source: price.source_url,
+        price_checked_at: price.checked_at,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        price_source: price.source_url,
+        price_checked_at: price.checked_at,
+        price_basis: price,
+      },
+    });
+  } finally {
+    db.close();
+  }
 });
