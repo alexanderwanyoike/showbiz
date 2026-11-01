@@ -96,9 +96,12 @@ export function createProjectDocuments(options: {
     recent = next;
     warning = null;
   }
-  const cache = createProjectCache(path.join(path.dirname(options.recentPath), "project-cache"));
+  const cache = createProjectCache(
+    path.join(path.dirname(options.recentPath), "project-cache"),
+  );
   const recovered = cache.sweep();
-  if (!recovered.ok) warning = [warning, recovered.error.message].filter(Boolean).join("\n");
+  if (!recovered.ok)
+    warning = [warning, recovered.error.message].filter(Boolean).join("\n");
   const workspace = cache.create;
   function dispose(document: ActiveDocument) {
     document.db.close();
