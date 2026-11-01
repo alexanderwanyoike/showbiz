@@ -44,9 +44,11 @@ class TauriResponse {
   }
 }
 
+export interface HttpRequestInit extends RequestInit { timeout_ms?: number }
+
 export async function fetch(
   input: string | URL,
-  init?: RequestInit
+  init?: HttpRequestInit
 ): Promise<TauriResponse> {
   const url = typeof input === "string" ? input : input.toString();
   const method = (init?.method ?? "GET").toUpperCase();
@@ -75,6 +77,7 @@ export async function fetch(
     method,
     headers,
     body,
+    ...(init?.timeout_ms !== undefined ? { timeout_ms: init.timeout_ms } : {}),
   });
 
   return new TauriResponse(result.status, result.body_b64, result.headers);

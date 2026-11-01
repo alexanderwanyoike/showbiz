@@ -1,3 +1,5 @@
+import { Agent } from "undici";
+
 /**
  * Cross-origin HTTP proxy for the Electron shell. Ports
  * the retired Rust backend's commands/http_client.rs: a thin main-process fetch that
@@ -9,11 +11,14 @@
 
 type Header = [string, string];
 
+const inferenceDispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
+
 interface HttpRequestArgs {
   url: string;
   method: string;
   headers: Header[];
   body: string | null;
+  timeout_ms?: number;
 }
 
 interface HttpResponse {
@@ -54,6 +59,11 @@ export function buildFetchArgs(args: HttpRequestArgs): {
     method: args.method,
     headers: args.headers,
   };
+  if (args.timeout_ms !== undefined) {
+    if (!Number.isSafeInteger(args.timeout_ms) || args.timeout_ms < 1 || args.timeout_ms > 3600000) throw new Error("Choose an HTTP timeout between 1 millisecond and 1 hour.");
+    init.dispatcher = inferenceDispatcher;
+    init.signal = AbortSignal.timeout(args.timeout_ms);
+  }
   if (args.body !== null && args.body !== undefined) {
     init.body = args.body;
   }
