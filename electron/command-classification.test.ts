@@ -7,6 +7,12 @@ it("classifies every document handler explicitly before it can be dispatched", (
   const db = openTestDb();
   try {
     const commands = createTestDataCommands(db, "/unused");
-    expect(Object.keys(commands).filter(command => !commandIsDocumentScoped(command))).toEqual([]);
-  } finally { db.close(); }
+    expect(
+      Object.keys(commands).filter(
+        (command) => !commandIsDocumentScoped(command),
+      ),
+    ).toEqual([]);
+  } finally {
+    db.close();
+  }
 });
