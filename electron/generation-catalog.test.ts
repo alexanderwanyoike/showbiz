@@ -74,3 +74,11 @@ it("rejects unknown, disabled and wrong-kind shot overrides without changing the
     db.close();
   }
 });
+it.each([{ enabled: "yes" }, { name: 42 }, { description: false }, { supportsEditing: "yes" }])("rejects malformed scalar metadata at the shared catalog boundary: %j", (invalid) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "showbiz-model-catalog-"));
+  directories.push(directory);
+  fs.mkdirSync(path.join(directory, "image")); fs.mkdirSync(path.join(directory, "video"));
+  const model = JSON.parse(fs.readFileSync("src/lib/models/providers/image/local-image.json", "utf8")) as Record<string, unknown>;
+  fs.writeFileSync(path.join(directory, "image", "malformed.json"), JSON.stringify({ ...model, ...invalid }));
+  expect(createGenerationModelCommands(directory).get_generation_models()).toMatchObject({ ok: false, error: { code: "IO_ERROR", message: expect.stringMatching(/malformed\.json/) } });
+});
