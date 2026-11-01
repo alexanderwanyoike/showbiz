@@ -28,7 +28,7 @@ export const veoOperationSchema = z
   })
   .passthrough();
 
-export async function readVeoOperation(response: Response): Promise<Result<z.infer<typeof veoOperationSchema>>> {
+export async function readVeoOperation(response: Pick<Response, "ok" | "status" | "json">): Promise<Result<z.infer<typeof veoOperationSchema>>> {
   let body: unknown;
   try { body = await response.json(); } catch {
     return { ok: false, error: { code: "IO_ERROR", message: `Veo returned an unreadable response (${response.status}).` } };

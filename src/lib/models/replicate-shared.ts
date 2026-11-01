@@ -70,7 +70,7 @@ export async function pollPrediction(
   let consecutiveFailures = 0;
   return pollUntilDone<ReplicatePrediction>({
     check: async () => {
-      let res: Response;
+      let res: Awaited<ReturnType<typeof fetch>>;
       try {
         res = await fetch(`${REPLICATE_API_BASE}/predictions/${encodeURIComponent(predictionId)}`, {
           headers: { Authorization: `Bearer ${apiKey}` },

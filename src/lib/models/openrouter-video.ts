@@ -107,7 +107,7 @@ export async function generateOpenRouterVideo(
       backoff: { type: "linear", increment: 1000 },
       label: "OpenRouter video",
       check: async () => {
-        let response: Response;
+        let response: Awaited<ReturnType<typeof fetch>>;
         try {
           response = await fetch(url, { headers });
         } catch {
@@ -141,7 +141,8 @@ export async function generateOpenRouterVideo(
             ),
           };
         const updated = openRouterReceipt(parsed.data);
-        if (updated.reported_microusd !== null) receipt = updated;
+        const currentReceipt = { ...updated, reported_microusd: updated.reported_microusd ?? receipt?.reported_microusd ?? null };
+        receipt = currentReceipt;
         if (parsed.data.status === "failed")
           return {
             done: true,
@@ -162,7 +163,7 @@ export async function generateOpenRouterVideo(
           };
         return {
           done: true,
-          value: { ok: true, value: { media: await content.blob(), receipt } },
+          value: { ok: true, value: { media: await content.blob(), receipt: currentReceipt } },
         };
       },
     });

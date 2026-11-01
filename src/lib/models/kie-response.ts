@@ -26,7 +26,7 @@ export function parseKieError(code: number, msg: string): string {
   return msg || `kie.ai error (code ${code})`;
 }
 
-export async function readKieResponse(response: Response): Promise<Result<z.infer<typeof kieResponseSchema>>> {
+export async function readKieResponse(response: Pick<Response, "ok" | "status" | "json">): Promise<Result<z.infer<typeof kieResponseSchema>>> {
   let body: unknown;
   try { body = await response.json(); } catch {
     return { ok: false, error: { code: "IO_ERROR", message: response.ok ? "kie.ai returned an unreadable response." : parseKieError(response.status, "") } };
