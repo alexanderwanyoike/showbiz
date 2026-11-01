@@ -43,3 +43,5 @@ Read-only live verification used the configured FAL generation key: pricing and 
 ## Accounting failures after generation
 
 Receipt or outcome storage errors do not turn successful media delivery into a failed generation. The generated result is returned with explicit accounting warnings, also shown beside the affected subject's generation costs. No receipt amount is invented when storage fails. A failure to begin the usage record still stops the operation before submitting a generation request.
+
+Accounting warnings remain available for the current app session when a cost panel is unmounted, scoped to the project, subject and generation family. Returning to the subject restores its latest warning. A history-read failure remains visible alongside a storage warning. These bounded session notices do not claim that a failed database write was saved durably.
