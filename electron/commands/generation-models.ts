@@ -1,53 +1,44 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { z } from "zod";
+import { validateImageConfig, validateVideoConfig, type VideoModelCapabilities, type VideoGenerationSettings } from "../../shared/model-config";
 import type { Result } from "../../shared/result";
 
-const modelSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  description: z.string(),
-  enabled: z.boolean(),
-  apiKeyProvider: z.string(),
-  capabilities: z.record(z.string(), z.unknown()).optional(),
-  defaults: z.record(z.string(), z.unknown()).optional(),
-  supportsEditing: z.boolean().optional(),
-  supportsComposition: z.boolean().optional(),
-});
-type GenerationModel = Omit<
-  z.infer<typeof modelSchema>,
-  "apiKeyProvider" | "enabled"
-> & {
+export interface GenerationModel {
+  id: string;
+  name: string;
+  description: string;
   provider: string;
   kind: "image" | "video";
-};
+  capabilities?: VideoModelCapabilities;
+  defaults?: VideoGenerationSettings;
+  supportsEditing?: boolean;
+  supportsComposition?: boolean;
+}
+export type ReadGenerationModels = () => Result<GenerationModel[]>;
+
 export function createGenerationModelCommands(directory: string) {
   return {
     get_generation_models(): Result<GenerationModel[]> {
+      let source = directory;
       try {
         const models: GenerationModel[] = [];
         for (const kind of ["image", "video"] as const) {
           const folder = path.join(directory, kind);
-          for (const filename of readdirSync(folder)
-            .filter((file) => file.endsWith(".json"))
-            .sort()) {
-            const parsed = modelSchema.parse(
-              JSON.parse(readFileSync(path.join(folder, filename), "utf8")),
-            );
+          source = folder;
+          for (const filename of readdirSync(folder).filter((file) => file.endsWith(".json")).sort()) {
+            source = path.join(folder, filename);
+            const raw: unknown = JSON.parse(readFileSync(source, "utf8"));
+            const parsed = kind === "image" ? validateImageConfig(raw) : validateVideoConfig(raw);
             if (!parsed.enabled) continue;
-            const { apiKeyProvider, enabled, ...metadata } = parsed;
-            models.push({ ...metadata, provider: apiKeyProvider, kind });
+            const metadata: GenerationModel = { id: parsed.id, name: parsed.name, description: parsed.description, provider: parsed.apiKeyProvider, kind };
+            if ("capabilities" in parsed) { metadata.capabilities = parsed.capabilities; metadata.defaults = parsed.defaults; }
+            else { metadata.supportsEditing = parsed.supportsEditing; metadata.supportsComposition = parsed.supportsComposition; }
+            models.push(metadata);
           }
         }
         return { ok: true, value: models };
-      } catch {
-        return {
-          ok: false,
-          error: {
-            code: "IO_ERROR",
-            message: "Could not read the installed generation model catalog.",
-          },
-        };
+      } catch (error) {
+        return { ok: false, error: { code: "IO_ERROR", message: `Could not read generation model catalog ${source}: ${error instanceof Error ? error.message : String(error)}` } };
       }
     },
   };

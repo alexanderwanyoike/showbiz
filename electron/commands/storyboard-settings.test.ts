@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { openTestDb } from "../db.test";
-import { createDataCommands } from "../command-map";
+import { createTestDataCommands as createDataCommands } from "../test-support/data-commands";
 import { createInvokeHandler } from "../ipc";
 it("saves a storyboard name and both model defaults together and preserves them on invalid input", async () => {
   const db = openTestDb();

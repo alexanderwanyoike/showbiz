@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { createGenerationModelCommands } from "./commands/generation-models";
-import { createDataCommands } from "./command-map";
+import { createTestDataCommands as createDataCommands } from "./test-support/data-commands";
 import { openTestDb } from "./db.test";
 
 const directories: string[] = [];
