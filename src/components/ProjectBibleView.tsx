@@ -1,6 +1,6 @@
 import "../bible-workspace.css";
 import "../bible-asset-workspace.css";
-import { BibleAssetEntry } from "./BibleAssetEntry";
+import { BibleAssetEntry, type BibleDetailFocusTargets } from "./BibleAssetEntry";
 import { modelProviderName } from "../lib/model-provider";
 import { ConfirmDeletion } from "./ConfirmDeletion";
 import type { Result } from "../../shared/result";
@@ -139,8 +139,10 @@ export default function ProjectBibleView({
   const [composerOpen, setComposerOpen] = useState(true);
   const [activeAssetId, setActiveAssetId] = useState<string | null>(null);
   const newAction = useRef<HTMLButtonElement>(null);
-  const workspace = useRef<HTMLElement>(null);
   const deletionOrigin = useRef<HTMLElement | null>(null);
+  const currentPicture = useRef<HTMLButtonElement>(null);
+  const detailBack = useRef<HTMLButtonElement>(null);
+  const detailFocus = { picture: currentPicture, back: detailBack };
   const [bibleId, setBibleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const loadRequest = useRef(0);
@@ -717,8 +719,7 @@ export default function ProjectBibleView({
       asChild
     >
       <section
-        ref={workspace}
-        role="region"
+                role="region"
         aria-label="Project bible"
         className="bible-workspace flex h-full flex-col"
       >
@@ -771,6 +772,7 @@ export default function ProjectBibleView({
                 composerOpen={composerOpen}
                 onCloseComposer={closeComposer}
                 modelControl={modelControl(assetTab)}
+                detailFocus={detailFocus}
                 detailModelControl={modelControl(`${assetTab}-detail`)}
                 activeAssetId={selectedAssetId}
                 onOpenAsset={setActiveAssetId}
@@ -813,6 +815,7 @@ export default function ProjectBibleView({
               composerOpen={composerOpen}
               onCloseComposer={closeComposer}
               modelControl={modelControl("frames")}
+              detailFocus={detailFocus}
               detailModelControl={modelControl("frames-detail")}
               activeAssetId={selectedAssetId}
               onOpenAsset={setActiveAssetId}
@@ -851,15 +854,9 @@ export default function ProjectBibleView({
             if (deletionOrigin.current?.isConnected)
               deletionOrigin.current.focus();
             else
-              (
-                workspace.current?.querySelector<HTMLButtonElement>(
-                  "button[data-current-picture]:not(:disabled)",
-                ) ??
-                workspace.current?.querySelector<HTMLButtonElement>(
-                  'button[aria-label="Back to library"]',
-                ) ??
-                newAction.current
-              )?.focus();
+              (currentPicture.current && !currentPicture.current.disabled
+                ? currentPicture.current
+                : detailBack.current ?? newAction.current)?.focus();
           }}
           open={deletionOpen}
           onOpenChange={setDeletionOpen}
@@ -887,6 +884,7 @@ function AssetTab({
   onCloseComposer,
   modelControl,
   detailModelControl,
+  detailFocus,
   activeAssetId,
   onOpenAsset,
   onBack,
@@ -911,6 +909,7 @@ function AssetTab({
   onCloseComposer: () => void;
   modelControl: ReactNode;
   detailModelControl: ReactNode;
+  detailFocus: BibleDetailFocusTargets;
   activeAssetId: string | null;
   onOpenAsset: (id: string) => void;
   onBack: () => void;
@@ -1100,6 +1099,7 @@ function AssetTab({
                   hidden={!!activeAssetId && activeAssetId !== asset.id}
                   onOpen={() => onOpenAsset(asset.id)}
                   onBack={onBack}
+                  detailFocus={detailFocus}
                   modelControl={detailModelControl}
                   takes={takes}
                   busy={busyId !== null}
@@ -1133,6 +1133,7 @@ function FramesTab({
   onCloseComposer,
   modelControl,
   detailModelControl,
+  detailFocus,
   activeAssetId,
   onOpenAsset,
   onBack,
@@ -1156,6 +1157,7 @@ function FramesTab({
   onCloseComposer: () => void;
   modelControl: ReactNode;
   detailModelControl: ReactNode;
+  detailFocus: BibleDetailFocusTargets;
   activeAssetId: string | null;
   onOpenAsset: (id: string) => void;
   onBack: () => void;
@@ -1474,6 +1476,7 @@ function FramesTab({
                 hidden={!!activeAssetId && activeAssetId !== f.id}
                 onOpen={() => onOpenAsset(f.id)}
                 onBack={onBack}
+                detailFocus={detailFocus}
                 modelControl={detailModelControl}
                 takes={(variants[f.id] ?? []).filter((v) => v.media_url)}
                 busy={busyId !== null}

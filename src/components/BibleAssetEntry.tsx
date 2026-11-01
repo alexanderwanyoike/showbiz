@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   ArrowLeft,
   ImageIcon,
@@ -19,6 +19,11 @@ import { primaryPicture } from "../lib/bible-compose";
 import { getAvailableImageModels } from "../lib/models";
 import type { BibleAsset, BibleAssetVariant } from "../lib/backend-api";
 import type { Result } from "../../shared/result";
+
+export interface BibleDetailFocusTargets {
+  picture: RefObject<HTMLButtonElement | null>;
+  back: RefObject<HTMLButtonElement | null>;
+}
 
 export function BibleAssetEntry({
   asset,
@@ -41,6 +46,7 @@ export function BibleAssetEntry({
   onOpen,
   onBack,
   modelControl,
+  detailFocus,
 }: {
   asset: BibleAsset;
   takes: BibleAssetVariant[];
@@ -53,6 +59,7 @@ export function BibleAssetEntry({
   onOpen: () => void;
   onBack: () => void;
   modelControl: ReactNode;
+  detailFocus: BibleDetailFocusTargets;
   onRetake: (
     asset: BibleAsset,
     promptOverride?: string,
@@ -87,7 +94,7 @@ export function BibleAssetEntry({
   const [variationEdited, setVariationEdited] = useState(false);
   const [editInstruction, setEditInstruction] = useState("");
   const opener = useRef<HTMLButtonElement>(null);
-  const back = useRef<HTMLButtonElement>(null);
+  const back = detailFocus.back;
   const variationAction = useRef<HTMLButtonElement>(null);
   const editAction = useRef<HTMLButtonElement>(null);
   const wasActive = useRef(false);
@@ -183,6 +190,7 @@ export function BibleAssetEntry({
           <button
             type="button"
             className="bible-asset-preview"
+            ref={detailFocus.picture}
             data-current-picture
             aria-label={`View ${asset.name} picture`}
             disabled={!primary?.media_url}
