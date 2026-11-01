@@ -80,10 +80,10 @@ export function createGenerationBillingCommands(
                   ? charges.value.get(row.provider_request_id)
                   : undefined;
                 if (amount !== undefined) {
-                  db.prepare(
+                  const stored = db.prepare(
                     "UPDATE generation_usage SET reported_microusd = ? WHERE request_id = ? AND project_id = ? AND reported_microusd IS NULL",
                   ).run(amount, row.request_id, project_id);
-                  result.reported++;
+                  result.reported += Number(stored.changes);
                 } else
                   result.notes.push({
                     request_id: row.request_id,
@@ -115,10 +115,10 @@ export function createGenerationBillingCommands(
                 http,
               );
               if (charge.ok && charge.value !== null) {
-                db.prepare(
+                const stored = db.prepare(
                   "UPDATE generation_usage SET reported_microusd = ? WHERE request_id = ? AND project_id = ? AND reported_microusd IS NULL",
                 ).run(charge.value, row.request_id, project_id);
-                result.reported++;
+                result.reported += Number(stored.changes);
               } else
                 result.notes.push({
                   request_id: row.request_id,
