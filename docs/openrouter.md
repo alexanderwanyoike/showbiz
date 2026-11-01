@@ -12,9 +12,10 @@ Automated tests and the manual generation demo use local response fixtures. No p
 
 ### Recovering status checks
 
-OpenRouter and Replicate status polling retries up to three consecutive network,
+OpenRouter, Replicate and KIE status polling share a budget of three consecutive network,
 HTTP 429 or HTTP 5xx failures. A successful status response resets that allowance.
 The existing job is checked again; the generation POST is never resubmitted.
+KIE also recognizes transient API error codes inside HTTP-success envelopes.
 Terminal polling errors include the provider job identity so the request can be
 checked before starting another generation. OpenRouter preserves monetary usage
 from submission, including a reported zero, if later status responses omit usage.
