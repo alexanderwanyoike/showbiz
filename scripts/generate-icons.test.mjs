@@ -109,3 +109,26 @@ test("rejects invalid artwork while leaving previous native artifacts intact", (
   assert.match(result.stderr, /could not.*generat|conversion failed/i);
   assert.deepEqual(readFileSync(file("build/icons/icon.png")), before);
 });
+test("keeps committed icon byte comparison out of cross-platform packaging and the portable test command", () => {
+  const root = fileURLToPath(new URL("../", import.meta.url));
+  const manifest = JSON.parse(
+    readFileSync(path.join(root, "package.json"), "utf8"),
+  );
+  assert.doesNotMatch(manifest.scripts["package:electron"], /icons:check/);
+  assert.doesNotMatch(manifest.scripts.test, /icons:check/);
+  const workflow = readFileSync(
+    path.join(root, ".github/workflows/ci.yml"),
+    "utf8",
+  );
+  assert.match(
+    workflow,
+    /runs-on: ubuntu-latest[\s\S]*?- run: yarn icons:check/,
+  );
+});
+test("preserves the underlying source error when conversion fails", (t) => {
+  const { source, run } = fixture(t);
+  rmSync(source);
+  const result = run();
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /ENOENT.*public[/\\]icon\.svg/);
+});
