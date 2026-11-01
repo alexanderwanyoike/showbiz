@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
-import ProjectBibleView from "../components/ProjectBibleView";
+import ProjectBibleView from "../test/ProjectBibleView";
 import { generateImageAction } from "../actions/generation-actions";
 import {
   createBibleAsset,

@@ -1,6 +1,5 @@
 import "../bible-workspace.css";
 import "../bible-asset-workspace.css";
-import { DEFAULT_BIBLE_IMAGE_MODEL } from "../lib/bible-assets";
 import {
   BibleAssetEntry,
   type BibleDetailFocusTargets,
@@ -129,7 +128,7 @@ type Tab = "characters" | "locations" | "frames";
 interface ProjectBibleViewProps {
   projectId: string;
   initialTab?: Tab;
-  generationModel?: {
+  generationModel: {
     value: ImageModelId;
     onChange: (model: ImageModelId) => void;
   };
@@ -155,11 +154,8 @@ export default function ProjectBibleView({
     {},
   );
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [localImageModel, setLocalImageModel] = useState<ImageModelId>(
-    DEFAULT_BIBLE_IMAGE_MODEL,
-  );
-  const imageModel = generationModel?.value ?? localImageModel;
-  const setImageModel = generationModel?.onChange ?? setLocalImageModel;
+  const imageModel = generationModel.value;
+  const setImageModel = generationModel.onChange;
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [generatingAssetId, setGeneratingAssetId] = useState<string | null>(

@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { createBibleAsset } from "./backend-api";
 import { generateImageAction } from "../actions/generation-actions";
-import ProjectBibleView from "../components/ProjectBibleView";
+import ProjectBibleView from "../test/ProjectBibleView";
 vi.mock("../actions/generation-actions", async (original) => ({
   ...(await original<typeof import("../actions/generation-actions")>()),
   generateImageAction: vi.fn(async () => {

@@ -2,7 +2,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
-import ProjectBibleView from "../components/ProjectBibleView";
+import ProjectBibleView from "../test/ProjectBibleView";
 
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: () => null }));
 vi.mock("./backend-api", async (original) => ({

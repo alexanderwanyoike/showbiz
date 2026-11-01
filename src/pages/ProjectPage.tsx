@@ -197,14 +197,7 @@ export default function ProjectPage() {
               <h1 className="sr-only">Project bible</h1>
               <ProjectBibleView
                 projectId={project.id}
-                generationModel={
-                  bibleGenerationModel && setBibleGenerationModel
-                    ? {
-                        value: bibleGenerationModel,
-                        onChange: setBibleGenerationModel,
-                      }
-                    : undefined
-                }
+                generationModel={{ value: bibleGenerationModel, onChange: setBibleGenerationModel }}
                 initialTab={
                   searchParams.get("bibleTab") === "frames"
                     ? "frames"

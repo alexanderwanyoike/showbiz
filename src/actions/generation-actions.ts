@@ -1,3 +1,4 @@
+import { DEFAULT_BIBLE_IMAGE_MODEL } from "../lib/bible-assets";
 import {
   accountModelGeneration,
   type GenerationSubject,
@@ -130,7 +131,7 @@ export async function generateAndSaveVideoRequestAction(
 export async function editImageAction(
   sourceImageBase64: string,
   editPrompt: string,
-  modelId: ImageModelId = "nano-banana",
+  modelId: ImageModelId = DEFAULT_BIBLE_IMAGE_MODEL,
   subject?: GenerationSubject,
 ): Promise<string> {
   const model = getImageModel(modelId);
@@ -162,7 +163,7 @@ export async function editImageAction(
 export async function composeFrameAction(
   prompt: string,
   referenceImages: string[],
-  modelId: ImageModelId = "nano-banana",
+  modelId: ImageModelId = DEFAULT_BIBLE_IMAGE_MODEL,
   subject?: GenerationSubject,
 ): Promise<string> {
   const model = getImageModel(modelId);
