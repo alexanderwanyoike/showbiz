@@ -309,3 +309,17 @@ it("shows accounting warnings beside the affected generation while keeping its m
     ),
   ).toBeNull();
 });
+it("recovers an accounting warning after the cost panel was absent during generation", async () => {
+  const { runAccountedGeneration } = await import("./generation-accounting");
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockImplementation(async (command: string) => {
+    if (command === "record_generation_receipt") throw new Error("Receipt IPC disconnected.");
+    return { ok: true, value: { items: [] } };
+  });
+  expect(await runAccountedGeneration({ project_id: "warning-recovery", subject_id: "shot", provider: "openrouter", model_id: "image", kind: "image", settings: {} }, { kind: "unavailable", reason: "No quote" }, async observer => {
+    await observer.receipt({ reported_microusd: 23000, provider_request_id: "job" });
+    return "saved-picture";
+  })).toMatchObject({ ok: true, value: "saved-picture", warnings: [expect.stringContaining("Receipt IPC disconnected.")] });
+  render(createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" }, subject: { project_id: "warning-recovery", subject_id: "shot" } }));
+  expect(await screen.findByText(/Receipt IPC disconnected/)).toBeTruthy();
+});
