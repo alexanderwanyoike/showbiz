@@ -1,3 +1,4 @@
+import { retainAccountingNotice } from "./generation-accounting-notices";
 import { invoke } from "./bridge";
 import type { GenerationCostEstimate } from "../../shared/generation-cost";
 import type { GenerationObserver } from "../../shared/generation-output";
@@ -21,6 +22,7 @@ export interface GenerationUsageChangedDetail {
   warnings: string[];
   request_id: string;
   started: boolean;
+  kind_family?: "image" | "video";
 }
 function notify(
   request: GenerationAccountingRequest,
@@ -28,6 +30,13 @@ function notify(
   warnings: string[] = [],
   started = false,
 ) {
+  retainAccountingNotice({
+    ...request,
+    request_id: requestId,
+    warnings,
+    started,
+    kind_family: request.kind === "video" ? "video" : "image",
+  });
   if (typeof window !== "undefined")
     window.dispatchEvent(
       new CustomEvent<GenerationUsageChangedDetail>("showbiz:usage-changed", {
@@ -37,6 +46,7 @@ function notify(
           warnings: [...warnings],
           request_id: requestId,
           started,
+          kind_family: request.kind === "video" ? "video" : "image",
         },
       }),
     );
@@ -128,7 +138,9 @@ export async function runAccountedGeneration<T>(
       })
         .then((reconciled) => {
           const messages = reconciled.ok
-            ? reconciled.value.notes.map((note) => note.message)
+            ? reconciled.value.notes
+                .filter((note) => note.kind !== "pending")
+                .map((note) => note.message)
             : [reconciled.error.message];
           notify(request, request_id, [...warnings, ...messages]);
         })
