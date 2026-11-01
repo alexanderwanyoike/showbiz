@@ -122,18 +122,31 @@ export const mcpTools: ToolDefinition[] = [
         ),
       ),
   },
-  ...["get_generation_usage", "get_generation_cost_summary"].map((command) => ({
+  {
     ...define(
-      command,
-      { project_id: id },
-      "Read provider-reported costs, unconfirmed estimates and unknown generation charges.",
+      "get_generation_usage",
+      { project_id: id, subject_id: id.optional() },
+      "Read provider-reported costs, unconfirmed estimates and unknown generation charges for a project or subject.",
     ),
     args: (input: Record<string, unknown>) => ({
       project_id: input.project_id,
+      subject_id: input.subject_id,
       offset: input.offset,
       limit: input.limit,
     }),
-  })),
+  },
+  {
+    ...define(
+      "get_generation_cost_summary",
+      {},
+      "Read total provider-reported costs, unconfirmed estimates and unknown charges for a project or subject.",
+    ),
+    schema: z.strictObject({ project_id: id, subject_id: id.optional() }),
+    args: (input: Record<string, unknown>) => ({
+      project_id: input.project_id,
+      subject_id: input.subject_id,
+    }),
+  },
   define(
     "read_context",
     {},
