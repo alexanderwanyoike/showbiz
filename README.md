@@ -61,17 +61,21 @@ updates also use manual downloads.
 | Nano Banana / Nano Banana 2 / 2 Lite / Pro | Google (Gemini) |
 | GPT Image 2 | OpenAI (via fal.ai) |
 | Flux Dev / Flux Kontext | Black Forest Labs (via fal.ai) |
+| Nano Banana 2 / Seedream 4.5 | OpenRouter |
+| Local image | Compatible local server |
 
 ### Video Generation
 
 | Model | Provider | End frames |
 |-------|----------|------------|
 | Veo 3.1 | Google (via fal.ai) | Optional |
+| Veo 3.1 | OpenRouter | Optional |
 | Seedance 2.0 / 2.0 Fast | ByteDance (via fal.ai) | Optional |
 | Kling 3 | Kuaishou (via fal.ai) | No |
 | LTX-2.3 | Lightricks (via fal.ai) | No |
 | MiniMax H3 | MiniMax (via fal.ai) | Optional |
 | Wan 2.1 FLF | Alibaba (via fal.ai) | Required |
+| Local video | Compatible local server | Depends on server configuration |
 
 ## API Keys
 
