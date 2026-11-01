@@ -24,3 +24,10 @@ it("finishes closing a project and reports a cache cleanup failure without retai
   expect(await documents.open(file)).toMatchObject({ok:true});
  }finally{vi.restoreAllMocks();await documents.close();rm(directory,{recursive:true,force:true});}
 });
+
+it("returns the final persistence result synchronously before process teardown",async()=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),"showbiz-sync-close-"));
+ const documents=createProjectDocuments({migrations:loadMigrations(path.resolve("electron/migrations")),recentPath:path.join(directory,"recent.json"),bind:createProjectCommands});
+ try{await documents.create(path.join(directory,"Film.showbiz"));expect(documents.close()).toEqual({ok:true,value:null});}
+ finally{await documents.close();fs.rmSync(directory,{recursive:true,force:true});}
+});
