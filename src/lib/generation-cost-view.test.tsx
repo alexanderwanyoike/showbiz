@@ -359,3 +359,11 @@ it.each([
   await userEvent.setup().click(await screen.findByText("Rate details"));
   expect(screen.getByText(new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))).toBeTruthy();
 });
+
+it("does not describe a provider's zero historical estimate as a free new request", async () => {
+  const { default: userEvent } = await import("@testing-library/user-event");
+  mocks.estimate.mockResolvedValue({ kind: "estimate", min_microusd: 0, max_microusd: 0, stale: false, price_freshness: "live", excludes_input_cost: false, price: { provider: "fal", model_id: "seedance-2-fal", currency: "USD", source_kind: "provider", source_url: "https://api.fal.ai/v1/models/pricing/estimate", checked_at: new Date().toISOString(), estimate_basis: "historical_request", rates: [{ unit: "request", microusd: 0 }] } });
+  render(createElement(GenerationCost, { modelId: "seedance-2-fal", request: { kind: "video", duration: "8s" } }));
+  await userEvent.setup().click(await screen.findByText("Rate details"));
+  expect(screen.getByText("The provider returned a zero historical estimate. This does not confirm that a new request is free.")).toBeTruthy();
+});
