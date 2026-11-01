@@ -1,203 +1,98 @@
 # Showbiz
 
-AI-powered video storyboard desktop application. Each shot is built from a start frame and an optional end frame plus a prompt; the video model animates between the frames. A project "bible" keeps characters, locations, props and styles consistent and composes scene frames from them. Shots are assembled into a final movie.
+AI video storyboard desktop application. Users create or open one self-contained `.showbiz` project, build a reference bible, generate image and video takes, and export storyboard media for editing elsewhere. Showbiz has no NLE or movie-assembly workflow.
 
 ## Rules
 
-### 1. Research, don't guess
-**Always research before acting** - this applies to everything: bug fixes, new features, architecture decisions, planning, and ideation. Read source code, check docs, search the web, review GitHub issues. Understand the problem space before proposing or implementing a solution. Never trial-and-error your way through.
+1. Research before acting. Read relevant source, domain documentation, tests, provider documentation and review feedback before changing behavior.
+2. Use TDD for TypeScript changes. Run the meaningful failing regression first, commit the test, implement the smallest passing change in another commit, and keep later refactoring separate.
+3. Use clear names, small cohesive modules, explicit typed Results for expected failures, and existing conventions. Do not add unused abstractions, silent catches or production `any`.
+4. Always use yarn.
+5. Run `yarn build:frontend` and `yarn build:electron`. Packaging changes require `yarn build` too. Exercise finished workflows manually where feasible; visual PRs need actual rendered screenshots under Tested.
+6. Feature branches originate from `dev`; feature PRs target `dev`. Promote `dev` to `main` through a release PR. Never merge without explicit authorization, amend commits or force-push tags.
+7. Keep PRs focused and commits atomic. Do not rewrite published history to repair old commit structure.
 
-### 2. TDD for all TypeScript changes
-Write a **failing test first**, then implement the fix/feature to make it pass. This applies to:
-- All new functions in `src/lib/` (Vitest)
-- All new Electron main-process commands and utilities (`electron/`, Vitest)
-- Bug fixes: reproduce the bug in a test before fixing
+## Product boundaries
 
-### 3. Clean code practices
-- Meaningful names, small focused functions, single responsibility
-- No dead code, no commented-out code, no TODO comments without a tracking issue
-- DRY - extract shared logic, but don't abstract prematurely
-- Consistent patterns: if the codebase does something one way, follow that convention
-- Handle errors explicitly - no silent swallows
-
-### 4. Always use yarn (never npm)
-
-### 5. Always check the build
-Run `yarn build:frontend` and `yarn build:electron` before considering work done. For packaging changes, run `yarn build` (full electron-builder pass).
-
-## What It Does
-
-Showbiz lets users create video storyboards by:
-1. Creating projects to organize work
-2. Building a project **bible** of reusable, consistent assets (characters, locations, props, styles) and composing **scene frames** from them
-3. Creating storyboards within projects and adding shots
-4. Giving each shot a **start frame** and an optional **end frame** plus a prompt. Frames come from the bible composer, image generation, or upload
-5. Generating a video that animates between the start and end frames
-6. Assembling all shot videos into a final movie with native ffmpeg
-
-## Tech Stack
-
-- **Desktop Framework**: Electron (Chromium renderer + Node main process)
-- **Frontend**: React 19 + Vite
-- **Routing**: React Router v7 with `HashRouter` (path routing cannot match `file://` asar paths in packaged builds)
-- **Backend**: Electron main process (`electron/`) - database, file I/O, export
-- **Database**: SQLite via `node:sqlite`, numbered `.sql` migrations in `electron/migrations/` tracked via `user_version`
-- **Image generation / scene composition**: Gemini image models (Nano Banana = 2.5 Flash via `generateContent`; Nano Banana 2 = 3.1 Flash and Nano Banana Pro = 3 Pro via the Interactions API), OpenAI GPT Image 2 (fal-hosted), Flux (via fal). Multi-reference composition through a shared `composeImage` transport interface.
-- **Video generation**: Google Veo 3.1, Seedance 2, Kling 3, LTX-2.3, Wan 2.1 FLF (all via fal). Provider registry driven by JSON configs.
-- **Video export**: native ffmpeg spawned by the main process (`ffmpeg-static` / `ffprobe-static`, unpacked to `resources/bin/` in packaged builds)
-- **Video Playback**: HTML5 `<video>` (Chromium)
-- **Styling**: Tailwind CSS v4
+- File workflow: New Project, Open Project, Recent, Save, Save As and Close Project. A project contains its records and referenced media. Device credentials and preferences stay outside the package.
+- Bible: characters, locations and scene frames with takes, uploads, variations and edits. Each selected asset has its own detail workspace.
+- Storyboard: a preview, horizontal shot strip and optional shot controls. Image/video defaults belong to storyboard settings; each shot can override them independently.
+- Generation: text or frame inputs according to model capabilities. Image and video takes preserve generation history. Local inference and OpenRouter use the same model/transport boundary as other providers.
+- Usage: preflight quotes, provenance and recorded outcomes. Reported charges are distinct from estimates and unknown charges; provider billing availability varies.
+- Handoff: one Export menu offers ZIP or Forgecut `.sbz`. Packages contain current shot media and `storyboard.json`. Forgecut imports these as media without placing them on a timeline.
+- MCP: agents attach to a running instance, read context, and edit the same project through validated native commands. Unsaved UI work blocks agent mutations. The MCP adapter does not expose credential reads or generation HTTP access.
 
 ## Architecture
 
-**Split by process**: the Electron main process handles DB + file I/O + export. The renderer (TypeScript) handles UI and API calls to model providers (image, video, text). API keys are fetched from the main process per call, used, then discarded. Cross-origin API calls are proxied through the main-process `http_request` command, which sends a single JSON string body, so providers must use JSON endpoints (not multipart).
+React 19 and Vite render inside Electron. HashRouter supports packaged `file://` paths. The main process owns SQLite, project files, media, native HTTP requests, package export, application work and updates. The renderer owns editing state, model transport orchestration and presentation.
 
-**IPC bridge**: the preload script exposes `window.showbiz` (`invoke`, `readMediaBytes`, `onExportProgress`). `src/lib/bridge.ts` wraps it and strips Electron's IPC error wrapping so UI code sees bare error messages. Command names and JSON shapes are snake_case (preserved from the original Rust backend).
+`electron/preload.ts` exposes `window.showbiz`. `src/lib/bridge.ts` normalizes IPC failures; `src/lib/backend-api.ts` supplies typed command wrappers. Preserve existing command names and JSON shapes when extending the bridge. API requests cross the main-process `http_request` JSON proxy, so provider integrations use JSON endpoints rather than multipart uploads.
 
-**Media files**: served blob-over-IPC. `src/lib/electron-media-url.ts` reads bytes via `readMediaBytes` and caches `blob:` URLs per absolute path; saves that overwrite a file in place must pass `invalidate=true`. Do NOT use a custom streamed protocol - Electron's `protocol.handle` mishandles Chromium's abort/resume media fetches.
+The legacy SQLite library at `{appDataDir}/data/showbiz.db` holds device settings and projects awaiting conversion. An open `.showbiz` SQLite document holds one editable project's records, usage and embedded media. Append-only migrations live in `electron/migrations/`; legacy timeline tables remain for compatibility, not as an active editing feature. Do not edit or rename shipped migrations.
 
-**Video export**: the renderer sends clip identity + trim + position (`export_timeline_video`); the main process resolves file paths from the DB (renderer URLs are `blob:`), builds an ffmpeg filter graph (trims via `-ss`/`-to` input options where `-to` is ABSOLUTE from file start, black+silence for gaps, probe-based setting defaults), and streams `-progress pipe:1` back over IPC. Known limitation (issue #77): overlapping tracks concatenate instead of preview-style splicing.
+Media is embedded in bounded chunks and extracted to a disposable private workspace for playback. Only record-referenced paths are saved. The renderer reads bytes over IPC and caches `blob:` URLs through `electron-media-url.ts`; in-place overwrites must invalidate that cache. Do not replace this with `protocol.handle` streaming.
 
-## Project Structure
+Storyboard export resolves ordered shot identities to paths in the main process and streams ZIP output through `yazl`, then renames the completed temporary package. No ffmpeg runtime or bundled ffmpeg binaries are required by Showbiz.
 
-```
-src/                              # React app (Vite, renderer)
-  main.tsx                        # Entry point (HashRouter)
-  App.tsx                         # React Router setup (3 routes)
-  globals.css                     # Tailwind CSS theme
-  pages/
-    WorkspacePage.tsx              # Projects grid
-    ProjectPage.tsx                # Storyboards list + project bible
-    StoryboardPage.tsx             # Storyboard shell (storyboard + editor modes)
-  components/
-    ProjectBibleView.tsx          # Bible: assets, variants, scene-frame composer
-    ShotList.tsx ShotPreview.tsx ShotInspector.tsx  # Storyboard-mode zones
-    MediaPool.tsx                 # Editor-mode media grid
-    StoryboardModeView.tsx        # Slot-based storyboard-mode view
-    layout/                       # Zone layout system
-    timeline/                     # Multi-track timeline editor (HTML5 pool playback)
-    ImageVersionTimeline.tsx VideoVersionTimeline.tsx
-    SettingsDialog.tsx Header.tsx ProjectCard.tsx StoryboardCard.tsx
-  lib/
-    bridge.ts                     # window.showbiz IPC wrapper + error normalization
-    backend-api.ts                # Typed invoke wrappers for every command
-    electron-media-url.ts         # blob-over-IPC media URL cache
-    models/
-      providers/{image,video}/*.json  # One JSON config per model
-      transports/                 # Per-API adapters: google-image,
-                                  #   google-interactions-image, openai-image,
-                                  #   fal-*, kie-*, replicate-*
-      registry.ts config-schema.ts types.ts
-    generation/                   # video-modes (mode + validation), run-guard, types
-    bible-assets.ts               # Bible variant helpers
-    export-payload.ts             # Export clip payload builders (timeline + concat)
-    timeline-utils.ts             # Timeline clip utilities
-    video-duration.ts             # Probed video duration cache
-    thumbnail-generator.ts        # Video thumbnail generation
-  actions/
-    generation-actions.ts         # Image/video gen + composeFrameAction
-  hooks/
-    useHtml5TimelinePlayback.ts useVideoPool.ts useTrimDrag.ts useVideoDurations.ts
+## Source map
 
-electron/                         # Main process
-  main.ts                         # Window, IPC registration, app menu
-  preload.ts                      # window.showbiz bridge
-  db.ts                           # node:sqlite open + migration runner
-  migrations/                     # Numbered .sql migration files (append-only)
-  media-files.ts                  # File I/O (save/read/delete)
-  export.ts export-deps.ts        # ffmpeg export planning + binary resolution
-  commands/                       # projects, shots, bibles, settings,
-                                  #   image-versions, video-versions, timeline,
-                                  #   media, export, http (JSON proxy)
+```text
+src/
+  App.tsx, main.tsx                  Application shell and HashRouter
+  pages/WorkspacePage.tsx            New/Open/Recent and legacy conversion
+  pages/ProjectPage.tsx              Storyboard library and bible workspace
+  pages/StoryboardPage.tsx           Shot review, settings, generation and drafts
+  pages/UsagePage.tsx                Project request ledger and charge refresh
+  contexts/ProjectDocumentContext.tsx
+  components/ProjectNavigator.tsx    One collapsible project navigator
+  components/ProjectBibleView.tsx    Bible library and creation workspace
+  components/BibleAssetEntry.tsx     Selected asset details and actions
+  components/Shot*.tsx               Preview, strip, controls and model overrides
+  components/ApplicationMenu.tsx     Integrated desktop menu
+  components/SettingsDialog.tsx      Device, provider and appearance settings
+  lib/backend-api.ts, bridge.ts      Typed native command boundary
+  lib/electron-media-url.ts          Blob media cache
+  lib/generation-*.ts                Accounting, quotes and charge reconciliation
+  lib/models/providers/             Installed image/video JSON configurations
+  lib/models/transports/            Provider API adapters
+  hooks/useApplicationWork.ts        Native work and local draft state
 
-build/icons/                      # App icons (electron-builder buildResources)
-components/ui/                    # shadcn components
-lib/utils.ts                      # cn() utility
-scripts/dev-electron.mjs          # Dev harness (Vite + Electron together)
-index.html vite.config.ts package.json tsconfig.json
+electron/
+  main.ts, preload.ts                Electron assembly and bridge
+  db.ts, migrations/                 SQLite schema and migration runner
+  project-runtime.ts                Device/document command routing
+  project-documents.ts               Project lifecycle and transactional saves
+  project-document-media.ts          Embedded media synchronization/extraction
+  project-cache.ts, process-owner.ts Cache ownership and stale recovery
+  command-map.ts, commands/          Validated native domain operations
+  storyboard-package.ts             ZIP/SBZ media handoff
+  mcp/                              Instance discovery and bounded agent tools
+  desktop-shell.ts, work-runtime.ts  Caption controls and guarded shutdown
+
+shared/                             Cross-process domain types and schemas
+components/ui/                      Shared Radix/shadcn controls
+scripts/                            Development, MCP bundling and release tools
+build/icons/                        Generated platform icon assets
 ```
 
-## Tests
+## Models, accounting and credentials
 
-All tests run under Vitest (`yarn test` = run once, `yarn test:watch` = watch):
+Model JSON is discovered at build time in the renderer and read from the explicit installed catalog in the main process. Both boundaries share validation. IDs remain strings because the catalog is extensible; native mutations validate availability and image/video kind rather than treating arbitrary strings as valid models. Supported transports and capabilities determine which controls and input modes appear.
 
-- `src/lib/**` - co-located frontend unit tests: timeline + playback utilities, bridge, bible assets/compose, export payloads, generation modes, run guard, model registry/capabilities/schema/polling, per-API transport shapes
-- `electron/**` - main-process tests: migration validity + schema, media file I/O, export planning/args, every command module (CRUD, cascades, constraints) against in-memory SQLite
+Generation records freeze the estimate basis independently from later provider receipts. Some APIs expose live prices or actual per-request charges; others only support published rates or user-entered estimates. Do not label a published snapshot or estimate as a confirmed charge. Do not seed preview billing with fabricated prices or charges.
 
-## Database Schema
+Credentials currently live as plain text in device SQLite settings, excluded from project packages and MCP. OS-backed credential encryption is a separate security change; do not claim keyring protection exists. Local endpoints and cloud providers have different authentication and capability requirements.
 
-Eleven tables with cascade deletes (SQLite via `node:sqlite`). The schema lives in `electron/migrations/` and is applied by the runner in `electron/db.ts`, tracked via SQLite's `user_version`. To change the schema, add a new numbered `.sql` file; never edit a shipped migration.
+## Verification and limits
 
-- **projects**: id, name, timestamps
-- **storyboards**: id, project_id (FK), name, image_model, video_model, timestamps
-- **shots**: id, storyboard_id (FK), order, duration, image_prompt, image_path (start frame), **end_frame_path**, video_prompt, video_path, status, timestamps
-- **timeline_tracks / timeline_clips**: multi-track timeline state; each clip owns its trim window (trim_in/trim_out, source-file seconds) and may pin a video_version_id (NULL = follow the shot's current version)
-- **settings**: key (PK), value, updated_at
-- **image_versions / video_versions**: per-shot version trees (self-ref FK, edit_type, is_current)
-- **bibles**: id, project_id (FK), name, is_default (auto-created per project via trigger)
-- **bible_assets**: id, bible_id (FK), asset_type (`character`/`location`/`prop`/`style`/`reference`/`note`/`scene`), name, status
-- **bible_asset_variants**: id, asset_id (FK), media_path, prompt, source_kind, status, is_primary (the images, including composed scene frames)
+- `yarn typecheck`: strict TypeScript checks.
+- `yarn vitest run <files> --maxWorkers=1`: focused renderer/native regressions.
+- `yarn test`: icon checks, icon tests, the full Vitest suite and distribution tests.
+- `yarn build:frontend`, `yarn build:electron`: production bundles.
+- `yarn build`: electron-builder packages in `dist-package/`.
 
-Database stored at `{appDataDir}/data/showbiz.db` (appId `com.showbiz.app`).
+Native tests use real SQLite and temporary files where persistence matters. Renderer tests use Vitest/Testing Library. Provider request/response fixtures are not live paid-provider smoke tests. State exactly which workflows and platforms were manually exercised.
 
-## Media Storage
+Project persistence still queries referenced paths, checks their file stamps and synchronously writes changed chunks on the main thread. Large changed media can block the UI; bounded chunks limit allocation, not total work. See `docs/project-documents.md` for read-only handling, cache recovery and storage limits.
 
-- Start frame: `{appDataDir}/media/images/{shot-id}.{ext}`
-- End frame: `{appDataDir}/media/images/{shot-id}_end.{ext}`
-- Videos: `{appDataDir}/media/videos/{shot-id}.{ext}`
-- Version images: `{appDataDir}/media/images/versions/{shot-id}/vN.{ext}`
-- Bible variant images: `{appDataDir}/media/bible/{bible-id}/{variant-id}.{ext}`
-- Masks: `{appDataDir}/media/masks/{shot-id}/{version-id}.png`
-- Database stores relative paths; the renderer resolves them to `blob:` URLs via `electron-media-url.ts`
-
-## Key Implementation Details
-
-### Frame Composition
-1. `composeImage(prompt, referenceImages[])` on the image transport interface takes a prompt plus one or more base64 reference images and returns a single image
-2. The bible scene composer routes selected assets (their primary variant images) into `composeFrameAction`, which calls `composeImage` on the chosen engine
-3. Implemented per engine: `google-image` (Gemini 2.5, `generateContent` multi-part), `google-interactions-image` (Gemini 3, Interactions API), `openai-image` (GPT Image 2, Responses API)
-4. Composed frames are stored as bible `scene` variants, then assigned to a shot's start or end frame from the inspector
-
-### Video Generation Flow
-1. Mode is chosen from the shot's frames: a start frame (with optional end frame) gives image-to-video, otherwise text-to-video. Models declaring `inputs.endImage: "required"` are validated pre-submit; models with an `endFrameEndpoint` route start-only and start+end requests to different endpoints (e.g. Veo 3.1)
-2. The renderer gets the API key (`get_api_key`), reads the frame(s) as base64, calls the model API. fal polling retries transient failures (network errors, 5xx, 429) up to 5 consecutive before giving up with the request id in the message
-3. The renderer sends the video bytes to the main process (`save_and_complete_video` / video-version commands)
-4. The main process saves the file + updates the DB, returns the path, the renderer resolves it to a `blob:` URL
-
-### Video Export Flow
-1. Timeline export: `buildExportClips` maps timeline clips to identity + trim + position; storyboard-mode assemble: `buildShotConcatClips` lays completed shots end to end using probed durations
-2. `show_export_save_dialog` opens the native save dialog
-3. `export_timeline_video` runs ffmpeg in the main process with progress streamed over IPC
-
-### API Keys
-- Stored in the DB `settings` table, managed via the Settings dialog
-- Providers: `gemini`, `openai`, `ltx`, `kie`, `fal`, `replicate`
-- Fetched on demand from the main process for a single API call; not persisted in the renderer
-
-## Git Workflow
-
-```
-main  ← stable releases only (tagged here, CI builds release artifacts)
-  └── dev  ← integration branch (PRs target here)
-        └── feature/...  ← feature branches (branch off dev, PR back to dev)
-```
-
-- **Feature branches**: branch off `dev`, PR back to `dev`
-- **`dev`**: daily integration. PRs trigger tests + build verification (no artifacts persisted)
-- **`main`**: stable only. Merged from `dev` when ready to release
-- **Tags**: only on `main`. Push a `v*` tag → CI builds all platforms and creates a draft GitHub Release with artifacts
-- **Never force-push tags.** If a fix is needed after tagging, bump to the next patch version
-- **Release titles**: just the version number (e.g. `v0.6.1`), no subtitles
-- **Always create a new commit** instead of amending
-
-## Commands
-
-```bash
-yarn dev          # Launch Electron dev mode (Vite + Electron shell)
-yarn build        # Production Electron build (installers in dist-package/)
-yarn dev:frontend # Frontend-only dev server (Vite)
-yarn build:frontend # Frontend-only build
-yarn build:electron # Bundle the main process (esbuild → dist-electron/)
-yarn test         # Run all tests once (Vitest)
-yarn test:watch   # Run tests in watch mode
-```
+Feature PRs run tests. Release promotion PRs and tags also build platform packages; inspect `.github/workflows/ci.yml` before describing CI coverage. Tags on `main` create draft release artifacts. Release titles use the version number.
