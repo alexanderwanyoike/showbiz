@@ -1,6 +1,5 @@
 import "../bible-workspace.css";
 import "../bible-asset-workspace.css";
-import { DEFAULT_BIBLE_IMAGE_MODEL } from "../lib/bible-assets";
 import {
   BibleAssetEntry,
   type BibleDetailFocusTargets,
@@ -129,7 +128,7 @@ type Tab = "characters" | "locations" | "frames";
 interface ProjectBibleViewProps {
   projectId: string;
   initialTab?: Tab;
-  generationModel?: {
+  generationModel: {
     value: ImageModelId;
     onChange: (model: ImageModelId) => void;
   };
@@ -155,11 +154,8 @@ export default function ProjectBibleView({
     {},
   );
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [localImageModel, setLocalImageModel] = useState<ImageModelId>(
-    DEFAULT_BIBLE_IMAGE_MODEL,
-  );
-  const imageModel = generationModel?.value ?? localImageModel;
-  const setImageModel = generationModel?.onChange ?? setLocalImageModel;
+  const imageModel = generationModel.value;
+  const setImageModel = generationModel.onChange;
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [generatingAssetId, setGeneratingAssetId] = useState<string | null>(
@@ -220,6 +216,11 @@ export default function ProjectBibleView({
   async function refreshAsset(assetId: string) {
     setVariants((prev) => ({ ...prev }));
     const v = await getBibleAssetVariants(assetId);
+    if (v.length) {
+      for (const [key, pending] of pendingAssets.current) {
+        if (pending.id === assetId) pendingAssets.current.delete(key);
+      }
+    }
     setVariants((prev) => ({ ...prev, [assetId]: v }));
   }
 
@@ -285,8 +286,9 @@ export default function ProjectBibleView({
         !file && prompt.trim() ? "generation" : "saving",
         async () => {
           const draftKey = `${type}:creation`;
-          let asset = pendingAssets.current.get(draftKey);
-          if (!asset || !assets.some((entry) => entry.id === asset?.id)) {
+          const pending = pendingAssets.current.get(draftKey);
+          let asset = assets.find((entry) => entry.id === pending?.id);
+          if (!asset || variants[asset.id]?.length) {
             asset = await createBibleAsset(bibleId, {
               asset_type: type,
               name: name.trim(),
@@ -514,8 +516,9 @@ export default function ProjectBibleView({
     try {
       await withApplicationWork("generation", async () => {
         const draftKey = "frame:creation";
-        let asset = pendingAssets.current.get(draftKey);
-        if (!asset || !assets.some((entry) => entry.id === asset?.id)) {
+        const pending = pendingAssets.current.get(draftKey);
+        let asset = assets.find((entry) => entry.id === pending?.id);
+        if (!asset || variants[asset.id]?.length) {
           asset = await createBibleAsset(bibleId, {
             asset_type: "reference",
             name: recipe.prompt.slice(0, 50) || "Frame",

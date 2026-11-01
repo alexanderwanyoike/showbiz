@@ -2,7 +2,7 @@
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import ProjectBibleView from "../components/ProjectBibleView";
+import ProjectBibleView from "../test/ProjectBibleView";
 const state = vi.hoisted(() => ({
   removed: new Set<string>(),
   primary: "take-1",
