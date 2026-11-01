@@ -40,9 +40,14 @@ export async function exportStoryboardPackage(
       for (const role of ["image", "end_frame", "video"] as const) {
         const relative = shot[`${role}_path`];
         if (!relative) continue;
-        const source = await realpath(path.resolve(root, relative));
-        if (!source.startsWith(`${root}${path.sep}`) || !(await stat(source)).isFile()) {
-          return { ok: false, error: { code: "INVALID_INPUT", message: "Shot media must be files inside the media directory" } };
+        let source: string;
+        try {
+          source = await realpath(path.resolve(root, relative));
+          if (!source.startsWith(`${root}${path.sep}`) || !(await stat(source)).isFile()) {
+            return { ok: false, error: { code: "INVALID_INPUT", message: `Shot "${shot.id}" ${role} media "${relative}" must be a file inside the media directory.` } };
+          }
+        } catch (cause) {
+          return { ok: false, error: { code: "IO_ERROR", message: `Could not export shot "${shot.id}" ${role} media "${relative}": ${cause instanceof Error ? cause.message : String(cause)}` } };
         }
         const extension = path.extname(source).toLowerCase();
         if (!/^\.(png|jpe?g|webp|gif|mp4|mov|mkv|webm)$/.test(extension)) {

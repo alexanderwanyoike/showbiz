@@ -57,6 +57,7 @@ export async function copyProjectDocument(options: {
       ? await fs.realpath(options.sourceMedia)
       : options.sourceMedia;
     for (const relative of paths) {
+      try {
       const source = await fs.realpath(
         resolveMediaPath(options.sourceMedia, relative),
       );
@@ -65,6 +66,9 @@ export async function copyProjectDocument(options: {
       const target = resolveMediaPath(options.media, relative);
       await fs.mkdir(path.dirname(target), { recursive: true });
       await fs.copyFile(source, target);
+      } catch (cause) {
+        throw new Error(`Could not copy project media "${relative}": ${cause instanceof Error ? cause.message : String(cause)}`, { cause });
+      }
     }
     return db;
   } catch (cause) {
