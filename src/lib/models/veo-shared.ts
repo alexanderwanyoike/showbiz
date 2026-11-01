@@ -143,10 +143,6 @@ export async function generateVeoVideoBlob(
     );
 
     if (pollData.done) {
-      if (pollData.error) {
-        throw new Error(`Veo Generation Failed: ${pollData.error.message}`);
-      }
-
       const videoUri =
         pollData.response?.generateVideoResponse?.generatedSamples?.[0]?.video
           ?.uri;
