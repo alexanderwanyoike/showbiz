@@ -171,20 +171,46 @@ it("reads project usage through agents without exposing receipt-writing or crede
   }
 });
 
-it.each([false, true])("replays a terminal export failure without reopening the save dialog (throws=%s)", async (throws) => {
-  let finish: (() => void) | undefined;
-  const dispatch = vi.fn(() => new Promise<unknown>((resolve, reject) => {
-    finish = () => throws ? reject(new Error("Disk full")) : resolve({ok:false,error:{code:"IO_ERROR",message:"Disk full"}});
-  }));
-  const session = createMcpSession(dispatch);
-  const request = {tool:"export_storyboard_package",args:{storyboard_id:"board",format:"zip",expected_revision:0,request_id:"export-error"}};
-  const pending = session.call(request);
-  await vi.waitFor(() => expect(dispatch).toHaveBeenCalledOnce());
-  expect(await session.call(request)).toMatchObject({ok:false,error:{code:"PENDING"}});
-  finish?.();
-  const result = await pending;
-  expect(result).toMatchObject({ok:false,error:{message:"Disk full"}});
-  const replay = session.call(request);
-  expect(dispatch).toHaveBeenCalledOnce();
-  expect(await replay).toEqual(result);
-});
+it.each([false, true])(
+  "replays a terminal export failure without reopening the save dialog (throws=%s)",
+  async (throws) => {
+    let finish: (() => void) | undefined;
+    const dispatch = vi.fn(
+      () =>
+        new Promise<unknown>((resolve, reject) => {
+          finish = () =>
+            throws
+              ? reject(new Error("Disk full"))
+              : resolve({
+                  ok: false,
+                  error: { code: "IO_ERROR", message: "Disk full" },
+                });
+        }),
+    );
+    const session = createMcpSession(dispatch);
+    const request = {
+      tool: "export_storyboard_package",
+      args: {
+        storyboard_id: "board",
+        format: "zip",
+        expected_revision: 0,
+        request_id: "export-error",
+      },
+    };
+    const pending = session.call(request);
+    await vi.waitFor(() => expect(dispatch).toHaveBeenCalledOnce());
+    expect(await session.call(request)).toMatchObject({
+      ok: false,
+      error: { code: "PENDING" },
+    });
+    finish?.();
+    const result = await pending;
+    expect(result).toMatchObject({
+      ok: false,
+      error: { message: "Disk full" },
+    });
+    const replay = session.call(request);
+    expect(dispatch).toHaveBeenCalledOnce();
+    expect(await replay).toEqual(result);
+  },
+);

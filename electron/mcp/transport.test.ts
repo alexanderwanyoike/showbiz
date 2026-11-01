@@ -22,7 +22,13 @@ it("reports a timeout without claiming the live instance disappeared", async () 
         { tool: "read_context", args: {} },
         { timeoutMs: 30 },
       ),
-    ).toMatchObject({ ok: false, error: { code: "TIMEOUT", message: expect.not.stringContaining("request ID") } });
+    ).toMatchObject({
+      ok: false,
+      error: {
+        code: "TIMEOUT",
+        message: expect.not.stringContaining("request ID"),
+      },
+    });
   } finally {
     finish();
     await bridge.close();

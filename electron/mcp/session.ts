@@ -130,7 +130,7 @@ export function createMcpSession(
     }
     const remember = (result: McpResult): McpResult => {
       if (requestId) {
-        cache.set(requestId, {fingerprint,result});
+        cache.set(requestId, { fingerprint, result });
         if (cache.size > 128) cache.delete(cache.keys().next().value!);
       }
       return result;
@@ -185,10 +185,12 @@ export function createMcpSession(
         })
         .safeParse(data);
       if (nativeFailure.success)
-        return remember(failure(
-          nativeFailure.data.error.code,
-          nativeFailure.data.error.message,
-        ));
+        return remember(
+          failure(
+            nativeFailure.data.error.code,
+            nativeFailure.data.error.message,
+          ),
+        );
       if (Array.isArray(data))
         data = {
           items: data.slice(
@@ -211,10 +213,12 @@ export function createMcpSession(
       }
       return result;
     } catch (cause) {
-      return remember(failure(
-        "OPERATION_FAILED",
-        cause instanceof Error ? cause.message : String(cause),
-      ));
+      return remember(
+        failure(
+          "OPERATION_FAILED",
+          cause instanceof Error ? cause.message : String(cause),
+        ),
+      );
     } finally {
       if (activeRequest?.id === requestId) activeRequest = undefined;
     }
