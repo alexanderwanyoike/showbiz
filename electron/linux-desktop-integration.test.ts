@@ -171,6 +171,15 @@ it("reports unavailable user data and leaves the obstructing file intact", async
   expect(await readFile(options.dataHome!, "utf8")).toBe("Keep this file");
 });
 
+it("rejects an AppImage path that env would interpret as a variable assignment", async () => {
+  const { options, entry } = await fixture("Showbiz=scene.AppImage");
+  expect(await integrateLinuxDesktop(options)).toMatchObject({
+    ok: false,
+    error: { code: "INVALID_INPUT" },
+  });
+  await expect(readFile(entry)).rejects.toMatchObject({ code: "ENOENT" });
+});
+
 const gioAvailable = process.platform === "linux" &&
   spawnSync("gio", ["version"], { stdio: "ignore" }).status === 0;
 
