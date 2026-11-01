@@ -80,6 +80,7 @@ export async function getGenerationEstimate(
           Math.max(...durations),
         ];
     }
+    let refreshUnconfirmed = false;
     let price = stored.value;
     if (price && price.provider !== config.apiKeyProvider) price = null;
     if (
@@ -155,12 +156,13 @@ export async function getGenerationEstimate(
           request.kind,
           key,
         );
-        if (!fresh.ok)
-          return { kind: "unavailable", reason: fresh.error.message };
-        price = fresh.value;
+        if (!fresh.ok) {
+          const currentKey = await invoke<string | null>("get_api_key", { provider: "fal" });
+          if (price?.source_kind === "provider" && price.endpoint_id === endpoint && price.estimate_basis === "historical_request" && Number.isFinite(Date.parse(price.checked_at)) && currentKey === key && fresh.error.code !== "INVALID_INPUT") refreshUnconfirmed = true;
+          else return { kind: "unavailable", reason: fresh.error.message };
+        } else price = fresh.value;
       }
     }
-    let refreshUnconfirmed = false;
     const needsRefresh =
       !price ||
       (price.source_kind !== "manual" &&
