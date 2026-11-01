@@ -12,9 +12,9 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/storyboard.png" alt="Showbiz — storyboard mode: shots, start/end frames, and video generation" width="800">
+  <img src="docs/assets/storyboard.png" alt="Showbiz: storyboard mode: shots, start/end frames, and video generation" width="800">
   <br/>
-  <em>Storyboard mode — build each shot from a start/end frame and a prompt, pick a model, generate</em>
+  <em>Storyboard mode: build each shot from a start/end frame and a prompt, pick a model, generate</em>
 </p>
 
 ## Download
@@ -33,15 +33,17 @@ updates also use manual downloads.
 
 ## Features
 
-- **Project organization** — create projects, each containing multiple storyboards
-- **Project bible** — reusable characters, locations, props and styles; compose consistent scene frames from them
-- **Shot-based workflow** — each shot has a start frame, an optional end frame, and a prompt; the video model animates between the frames
-- **Image generation & editing** — Nano Banana family, GPT Image 2, Flux; inpainting and prompt-based edits
-- **Image & video version trees** — every generation/edit creates a version; switch non-destructively
-- **Video generation** — Veo 3.1, Seedance 2, Kling 3, LTX-2.3, Wan 2.1, MiniMax H3 with start/end-frame support where the model has it
+- **Project organization**: create projects, each containing multiple storyboards
+- **Project bible**: reusable characters, locations, props and styles; compose consistent scene frames from them
+- **Shot-based workflow**: each shot has a start frame, an optional end frame, and a prompt; the video model animates between the frames
+- **Image generation & editing**: Nano Banana family, GPT Image 2, Flux; inpainting and prompt-based edits
+- **Image & video version trees**: every generation/edit creates a version; switch non-destructively
+- **Video generation**: Veo 3.1, Seedance 2, Kling 3, LTX-2.3, Wan 2.1, MiniMax H3 with start/end-frame support where the model has it
 - **Storyboard handoff**: export selected shot images, end frames and videos as ZIP or a Forgecut-compatible `.sbz` package
-- **Dark/light theme** — system-aware with manual toggle
-- **Config-driven models** — add new models by dropping a JSON file, no code changes needed
+- **Usage and billing**: preflight estimates, recorded outcomes and actual charges where provider APIs support them; unknown charges remain labelled
+- **OpenRouter and local inference**: configured cloud models and compatible local image/video endpoints
+- **Dark/light theme**: system-aware with manual toggle
+- **Config-driven models**: add new models by dropping a JSON file, no code changes needed
 
 ## Supported Models
 
@@ -72,8 +74,10 @@ You need at least one API key to generate content. Configure them in **Settings*
 |-----|--------|
 | **Gemini** | Nano Banana family |
 | **fal.ai** | GPT Image 2, Flux, Veo 3.1, Seedance, Kling, LTX, Wan |
+| **OpenRouter** | Configured image models and Veo video models |
+| **Local** | Compatible local image/video endpoints; configure URLs and capabilities in Settings |
 
-Keys are stored in the local SQLite database and never leave your machine except to authenticate API calls.
+Keys currently use plain-text device SQLite settings and are excluded from project packages and MCP. OS keyring encryption is not implemented. Provider requests use the native HTTP proxy.
 
 ## Tech Stack
 
@@ -82,21 +86,21 @@ Keys are stored in the local SQLite database and never leave your machine except
 | Desktop framework | [Electron](https://www.electronjs.org/) |
 | Frontend | React 19, Vite, React Router v7 |
 | Styling | Tailwind CSS v4, shadcn/ui, Radix |
-| Backend | Electron main process — SQLite (`node:sqlite`), file I/O |
+| Backend | Electron main process: SQLite (`node:sqlite`), file I/O |
 | Video playback | HTML5 `<video>` (Chromium) |
 | Storyboard packages | Streaming ZIP (`yazl`) |
 | Testing | Vitest |
 
 ## Architecture
 
-Electron app — the main process owns persistent state (SQLite, file system, ffmpeg export), the renderer owns the UI and calls external model APIs directly. Models are config-driven: add a JSON file to `src/lib/models/providers/` and it's auto-discovered at build time with zero code changes.
+Electron main owns project SQLite packages, media files, ZIP/SBZ export and the native HTTP proxy. The renderer owns UI state and provider transport orchestration. Model JSON is discovered at build time and validated against the explicit installed catalog in the main process. See the [model configuration guide](src/lib/models/providers/README.md) before adding a transport or capability.
 
 See [**docs/architecture.md**](docs/architecture.md) for full documentation including system diagrams, generation flow, model registry internals, version trees, and database schema.
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) (v22+)
-- [Yarn](https://yarnpkg.com/) (`npm install -g yarn`)
+- [Yarn](https://yarnpkg.com/)
 
 ## Development
 
@@ -116,8 +120,8 @@ yarn test:watch       # Run tests in watch mode
 
 ## Platform Notes
 
-- **Data directory** — media and database are stored in your system's app data directory (`~/.local/share/com.showbiz.app/` on Linux).
-- **macOS** — unsigned builds need `xattr -cr /Applications/Showbiz.app` after install to clear Gatekeeper's "damaged" error.
+- **Data directory**: device settings, legacy-library data and disposable media caches use the app data directory (`~/.local/share/com.showbiz.app/` on Linux). Current projects live in the `.showbiz` files you choose.
+- **macOS**: unsigned builds need `xattr -cr /Applications/Showbiz.app` after install to clear Gatekeeper's "damaged" error.
 
 ## Contributing
 
