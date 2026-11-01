@@ -35,13 +35,21 @@ export function createDocumentMedia(db: DatabaseSync, directory: string) {
       try {
         entry = fs.lstatSync(current);
       } catch (cause) {
-        if (cause instanceof Error && "code" in cause && cause.code === "ENOENT")
-          throw new Error(`The referenced media ${relative} could not be included in the project.`);
+        if (
+          cause instanceof Error &&
+          "code" in cause &&
+          cause.code === "ENOENT"
+        )
+          throw new Error(
+            `The referenced media ${relative} could not be included in the project.`,
+          );
         throw cause;
       }
       if (entry.isSymbolicLink())
         throw new Error("Project media cannot contain symbolic links.");
-      if (index === segments.length - 1 ? !entry.isFile() : !entry.isDirectory())
+      if (
+        index === segments.length - 1 ? !entry.isFile() : !entry.isDirectory()
+      )
         throw new Error("Project media must contain regular files.");
     }
     return file;

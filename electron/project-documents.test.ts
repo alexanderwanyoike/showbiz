@@ -408,7 +408,10 @@ it("reopens embedded media larger than one chunk without an external media folde
     const copy = path.join(second.directory, "Large.showbiz");
     const created = await first.documents.create(file);
     if (!created.ok) throw new Error(created.error.message);
-    const shot = await createFixtureShot(first.documents, created.value.project_id);
+    const shot = await createFixtureShot(
+      first.documents,
+      created.value.project_id,
+    );
     const bytes = Buffer.alloc(9 * 1024 * 1024, 37);
     bytes[bytes.length - 1] = 91;
     await first.documents.invoke("save_shot_video", {
@@ -423,7 +426,11 @@ it("reopens embedded media larger than one chunk without an external media folde
     expect(
       fs
         .readFileSync(
-          path.join(second.documents.mediaDirectory()!, "videos", `${shot.id}.mp4`),
+          path.join(
+            second.documents.mediaDirectory()!,
+            "videos",
+            `${shot.id}.mp4`,
+          ),
         )
         .equals(bytes),
     ).toBe(true);
@@ -453,11 +460,18 @@ it("excludes deleted take bytes and unrelated cache files from a saved project c
       imageBase64: `data:image/png;base64,${Buffer.from("retained-take").toString("base64")}`,
     });
     await documents.invoke("delete_version", { versionId: removed.id });
-    fs.writeFileSync(path.join(documents.mediaDirectory()!, "images", "unrelated.png"), removedBytes);
+    fs.writeFileSync(
+      path.join(documents.mediaDirectory()!, "images", "unrelated.png"),
+      removedBytes,
+    );
     expect((await documents.saveAs(copy)).ok).toBe(true);
     expect(fs.readFileSync(copy).includes(removedBytes)).toBe(false);
-    expect(fs.existsSync(path.join(documents.mediaDirectory()!, removed.image_path))).toBe(false);
-    expect(await documents.invoke("get_shot_image_base64", { shotId: shot.id })).toBe(
+    expect(
+      fs.existsSync(path.join(documents.mediaDirectory()!, removed.image_path)),
+    ).toBe(false);
+    expect(
+      await documents.invoke("get_shot_image_base64", { shotId: shot.id }),
+    ).toBe(
       `data:image/png;base64,${Buffer.from("retained-take").toString("base64")}`,
     );
   } finally {
