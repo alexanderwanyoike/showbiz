@@ -23,8 +23,8 @@ export function createDataCommands(
   },
 ) {
   return {
-    ...createProjectCommands(db, mediaDir),
-    ...createStoryboardSettingsCommands(db),
+    ...createProjectCommands(db, mediaDir, options.readGenerationModels),
+    ...createStoryboardSettingsCommands(db, options.readGenerationModels),
     ...createGenerationUsageCommands(db),
     ...createGenerationBillingCommands(db, options.readBillingKey),
     ...createShotCommands(db, mediaDir, options.readGenerationModels),

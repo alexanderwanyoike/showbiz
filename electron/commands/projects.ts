@@ -1,3 +1,6 @@
+import type { Result } from "../../shared/result";
+import type { ReadGenerationModels } from "./generation-models";
+import { validateStoryboardModels } from "./storyboard-model-validation";
 import { DEFAULT_STORYBOARD_MODELS } from "../../shared/model-defaults";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
@@ -40,7 +43,7 @@ const STORYBOARD_COLUMNS =
  * needed to delete a project's/storyboard's media files on cascade delete (the
  * Rust commands derive it from the AppHandle).
  */
-export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
+export function createProjectCommands(db: DatabaseSync, mediaDir: string, readGenerationModels?: ReadGenerationModels) {
   function getProject(id: string): Project | null {
     const row = db
       .prepare(`SELECT ${PROJECT_COLUMNS} FROM projects WHERE id = ?`)
@@ -216,7 +219,9 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
       return changes > 0;
     },
 
-    update_storyboard_models(args?: Record<string, unknown>): Storyboard {
+    update_storyboard_models(args?: Record<string, unknown>): Storyboard | Result<never> {
+      const models = validateStoryboardModels(readGenerationModels, args?.imageModel, args?.videoModel);
+      if (!models.ok) return models;
       const id = args!.id as string;
       db.prepare(
         "UPDATE storyboards SET image_model = ?, video_model = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
