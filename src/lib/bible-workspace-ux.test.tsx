@@ -5,12 +5,12 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ProjectBibleView from "../components/ProjectBibleView";
 import { generateImageAction } from "../actions/generation-actions";
-import { createBibleAsset, getBibles, updateBibleAsset } from "./backend-api";
+import { createBibleAsset, getBibles, getBibleAssets, updateBibleAsset } from "./backend-api";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: () => null }));
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
   getBibles: vi.fn(async () => [{ id: "bible" }]),
-  getBibleAssets: async () => [],
+  getBibleAssets: vi.fn(async () => []),
   getBibleAssetVariants: async () => [],
   updateBibleAsset: vi.fn(async (id: string, values: Record<string, unknown>) => ({ ...values, id })),
   createBibleAsset: vi.fn(
@@ -303,4 +303,27 @@ it("shows generation progress on a newly created entry before its first picture 
   } finally { fail?.(new Error("Provider unavailable")); }
   await screen.findByText("Provider unavailable");
   expect(screen.queryByRole("status", { name: "Generating picture for Ada" })).toBeNull();
+});
+
+
+it("recovers an incomplete entry through its library details after a deliberate remount", async () => {
+  const first = render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  await user.type(await screen.findByRole("textbox", { name: "Character name" }), "Ada");
+  await user.type(screen.getByRole("textbox", { name: "Character prompt" }), "A portrait");
+  await user.click(screen.getByRole("button", { name: "Generate character" }));
+  await screen.findByText("Provider unavailable");
+  const created = await vi.mocked(createBibleAsset).mock.results[0].value;
+  first.unmount();
+  vi.mocked(getBibleAssets).mockResolvedValueOnce([created]);
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  expect(await screen.findByRole("textbox", { name: "Character name" })).toHaveProperty("value", "");
+  expect(screen.getByRole("textbox", { name: "Character prompt" })).toHaveProperty("value", "");
+  await user.click(screen.getByRole("button", { name: "Open Ada details" }));
+  await user.click(screen.getByRole("button", { name: "Variation for Ada" }));
+  await user.type(screen.getByRole("textbox", { name: "Variation prompt for Ada" }), "A corrected portrait");
+  await user.click(screen.getByRole("button", { name: "Generate variation" }));
+  await screen.findByText("Provider unavailable");
+  expect(createBibleAsset).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(generateImageAction).mock.calls[1][2]?.subject_id).toBe(created.id);
 });
