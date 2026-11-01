@@ -81,3 +81,38 @@ export function commandChangesData(command: string, result: unknown): boolean {
   }
   return true;
 }
+
+const nonSavingCommands = new Set([
+  "get_project",
+  "get_projects",
+  "get_storyboard",
+  "get_storyboards",
+  "get_storyboards_with_preview",
+  "get_shots",
+  "get_shot_image_base64",
+  "get_shot_end_frame_base64",
+  "get_image_versions",
+  "get_version_count",
+  "get_bible_variant_image_base64",
+  "get_version_image_base64",
+  "get_video_versions",
+  "get_current_video_version",
+  "get_video_version_count",
+  "get_media_path",
+  "get_api_key",
+  "get_api_key_status",
+  "get_bibles",
+  "get_bible_assets",
+  "get_bible_asset_variants",
+  "get_generation_models",
+  "get_generation_usage",
+  "get_generation_cost_summary",
+  "get_generation_price",
+  "get_local_generation_config",
+  "http_request",
+  "export_storyboard_package",
+]);
+
+export function commandIsDocumentScoped(command: string): boolean {
+  return savingMutations.has(command) || nonSavingCommands.has(command);
+}

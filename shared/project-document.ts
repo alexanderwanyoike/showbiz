@@ -3,7 +3,7 @@ export type DocumentResult<T> =
   | { ok: false; error: { code: string; message: string } };
 
 export interface ProjectDocumentInfo {
-  read_only?: boolean;
+  read_only: boolean;
   file_path: string;
   project_id: string;
   name: string;

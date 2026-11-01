@@ -1,4 +1,7 @@
-import { commandWorkKind } from "../shared/command-effects";
+import {
+  commandWorkKind,
+  commandIsDocumentScoped,
+} from "../shared/command-effects";
 import { createProjectCache } from "./project-cache";
 import { recoverInterruptedGenerationUsage } from "./commands/generation-usage";
 import fs from "node:fs";
@@ -368,6 +371,19 @@ export function createProjectDocuments(options: {
             throw cause;
           readOnly = true;
         }
+        if (!readOnly) {
+          try {
+            release = lockProjectDocument(file);
+          } catch (cause) {
+            if (
+              !(cause instanceof Error) ||
+              !("code" in cause) ||
+              !["EACCES", "EROFS", "EPERM"].includes(String(cause.code))
+            )
+              throw cause;
+            readOnly = true;
+          }
+        }
         if (readOnly) {
           db = new DatabaseSync(file, { readOnly: true });
           db.exec("PRAGMA foreign_keys=ON");
@@ -380,9 +396,9 @@ export function createProjectDocuments(options: {
             );
           release = () => {};
         } else {
-          release = lockProjectDocument(file);
           db = openDatabase(file, options.migrations);
         }
+        if (!release) throw new Error("Project lock was not initialized.");
         media = workspace();
         const document = prepare(file, db, media, release, readOnly);
         document.archive.restore();
@@ -458,6 +474,8 @@ export function createProjectDocuments(options: {
         );
       const handler = active.commands[command];
       if (!handler) throw new Error(`Unknown project command: ${command}`);
+      if (!commandIsDocumentScoped(command))
+        throw new Error(`Unclassified project command: ${command}`);
       if (commandWorkKind(command) !== "saving") return handler(args);
       if (active.readOnly)
         throw new Error(
