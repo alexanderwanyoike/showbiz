@@ -47,3 +47,9 @@ Receipt or outcome storage errors do not turn successful media delivery into a f
 Provider reconciliation runs after media is delivered. Usage & billing displays recorded project rows and totals before provider lookups finish, keeps the ledger visible during refresh, and updates receipts when the background check completes. Automatic checks of an unconfirmed request back off for one minute on this device; changing its billing credential or choosing Refresh charges retries immediately. Identical in-flight selections share one check. Reported counts include only newly written charges, so concurrent receipts cannot inflate them.
 
 Custom rates override only matching generation settings. Other resolutions or audio settings use their own provider price basis, retaining provider source labels rather than inheriting custom-rate provenance. Removing a custom rate removes only its exact settings signature. If a saved rate applies across resolutions or audio settings, Model pricing labels it as a shared custom rate before removal; other custom rates remain saved.
+Billing cooldowns retain credential fingerprints rather than API keys. The keys
+exist only in the active reconciliation call. Pending provider receipts remain
+unconfirmed in request details; ordinary provider lag is not promoted to an
+accounting-failure warning. Failed lookups and receipt-storage failures remain
+visible.
+Accounting warnings remain available for the current app session when a cost panel is unmounted, scoped to the project, subject and generation family. Returning to the subject restores its latest warning. A history-read failure remains visible alongside a storage warning. These bounded session notices do not claim that a failed database write was saved durably.
