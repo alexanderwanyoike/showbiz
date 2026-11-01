@@ -52,3 +52,14 @@ Custom rates override only matching generation settings. Other resolutions or au
 FAL cache entries are separated by generation endpoint, including first/last-frame video endpoints. A failed refresh can retain only a matching historical estimate from the same device credential, with its original retrieval date and an explicit refresh-unavailable label. Account-specific cache writes check the initiating key again at the synchronous device-storage boundary; key material is not stored in the price basis or project history.
 
 A zero returned by FAL's historical estimate API is retained as an unconfirmed provider estimate, with a warning that it does not establish a free future request. The API documentation does not define zero as proof of missing account history. Historical per-call amounts remain separate from live unit prices: converting units into a settings-specific quote requires a documented billable quantity, rather than assuming tokens or model-specific units are video seconds.
+
+Recorded quote provenance is derived from the frozen price basis. Explicit source
+or checked-date fields must be valid and match that snapshot; conflicting input
+is rejected before a usage row is created. Older callers without a full price
+basis can still provide a validated HTTP(S) source and ISO checked date.
+
+The unconfirmed estimate total includes requests without monetary receipts across
+all outcomes, including failed, cancelled and interrupted requests. A failed
+request can still incur a provider charge; the total remains an estimate until a
+receipt is available. The usage help explains this scope rather than counting
+unsuccessful requests as free.

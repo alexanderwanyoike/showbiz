@@ -1,12 +1,11 @@
+import { openRouterUsageSchema } from "../../shared/openrouter-usage";
 import { z } from "zod";
 import type { Result } from "../../shared/result";
 
 const jobSchema = z.object({
   id: z.string(),
   generation_id: z.string().optional(),
-  usage: z
-    .object({ cost: z.number().finite().nonnegative().nullable().optional() })
-    .optional(),
+  usage: openRouterUsageSchema.optional(),
 });
 const generationSchema = z.object({
   data: z.object({

@@ -192,3 +192,23 @@ it("shows a recoverable ledger error without invented totals, then reloads on re
   expect(screen.getByText("0 requests")).toBeTruthy();
   expect(screen.queryByRole("alert")).toBeNull();
 });
+it("explains that unconfirmed estimates include unsuccessful requests without claiming a bill", async () => {
+  const value = page([
+    { ...request, status: "failed", reported_microusd: null },
+  ]);
+  value.summary.estimated_min_microusd = 25000;
+  value.summary.estimated_max_microusd = 25000;
+  billing.loadUsageWithBilling.mockResolvedValue({ ok: true, value });
+  renderUsage();
+  await screen.findByRole("cell", { name: "Failed" });
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "How costs are recorded" }));
+  const help = screen.getByRole("dialog", { name: "How costs are recorded" });
+  expect(
+    within(help).getByText(/failed, cancelled or interrupted requests/i),
+  ).toBeTruthy();
+  expect(
+    within(help).getByText(/a failed request may still incur a charge/i),
+  ).toBeTruthy();
+});

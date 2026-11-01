@@ -1,4 +1,4 @@
-import { kieResponseSchema } from "../kie-response";
+import { readKieResponse } from "../kie-response";
 import { fetch } from "../http";
 import { createKieTask, pollKieTask } from "../kie-shared";
 import type { ImageTransport } from "./types";
@@ -20,7 +20,7 @@ async function callFluxKontext(
   prompt: string,
   imageBase64: string | undefined,
   apiKey: string,
-  endpoint: string
+  endpoint: string,
 ): Promise<string> {
   const body: Record<string, unknown> = { prompt };
   if (imageBase64) {
@@ -38,23 +38,17 @@ async function callFluxKontext(
     body: JSON.stringify(body),
   });
 
-  const json = kieResponseSchema.parse(await res.json());
-
-  if (!res.ok || (json.code !== undefined && json.code !== 200)) {
-    const msg: string = json.msg ?? json.message ?? "";
-    if (res.status === 402 || json.code === 402) {
-      throw new Error("Insufficient kie.ai credits. Please top up your account.");
-    }
-    if (res.status === 401 || json.code === 401) {
-      throw new Error("Invalid kie.ai API key.");
-    }
-    throw new Error(`Flux Kontext error (${res.status}): ${msg}`);
-  }
+  const parsed = await readKieResponse(res);
+  if (!parsed.ok) throw new Error(parsed.error.message);
+  const json = parsed.value;
 
   // Direct image URL in response
   if (json?.data?.imageUrl) {
     const imgRes = await fetch(json.data.imageUrl);
-    if (!imgRes.ok) throw new Error(`Failed to download Flux Kontext image: ${imgRes.status}`);
+    if (!imgRes.ok)
+      throw new Error(
+        `Failed to download Flux Kontext image: ${imgRes.status}`,
+      );
     return blobToDataUrl(await imgRes.blob());
   }
 
@@ -63,7 +57,10 @@ async function callFluxKontext(
   if (taskId) {
     const imageUrl = await pollKieTask(taskId, apiKey);
     const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) throw new Error(`Failed to download Flux Kontext image: ${imgRes.status}`);
+    if (!imgRes.ok)
+      throw new Error(
+        `Failed to download Flux Kontext image: ${imgRes.status}`,
+      );
     return blobToDataUrl(await imgRes.blob());
   }
 
@@ -73,15 +70,20 @@ async function callFluxKontext(
 async function callStandardKie(
   config: ImageModelConfig,
   prompt: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<string> {
   const modelId = config.models.generate;
-  const input: Record<string, unknown> = { prompt, ...(config.fixedParams ?? {}) };
+  const input: Record<string, unknown> = {
+    prompt,
+    ...(config.fixedParams ?? {}),
+  };
   const taskId = await createKieTask(modelId, input, apiKey);
   const imageUrl = await pollKieTask(taskId, apiKey);
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) {
-    throw new Error(`Failed to download ${config.name} image: ${imgRes.status}`);
+    throw new Error(
+      `Failed to download ${config.name} image: ${imgRes.status}`,
+    );
   }
   const blob = await imgRes.blob();
   return blobToDataUrl(blob);
@@ -91,7 +93,7 @@ export const kieImageTransport: ImageTransport = {
   async generateImage(
     config: ImageModelConfig,
     prompt: string,
-    apiKey: string
+    apiKey: string,
   ): Promise<string> {
     const endpoint = config.transportOptions?.endpoint as string | undefined;
     if (endpoint) {
@@ -106,7 +108,7 @@ export const kieImageTransport: ImageTransport = {
     config: ImageModelConfig,
     editPrompt: string,
     sourceImageBase64: string,
-    apiKey: string
+    apiKey: string,
   ): Promise<string> {
     const endpoint = config.transportOptions?.endpoint as string | undefined;
     if (endpoint) {

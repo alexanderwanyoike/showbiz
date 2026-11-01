@@ -41,13 +41,13 @@ describe("parseFalError", () => {
 
   it("maps 402 to insufficient credits", () => {
     expect(parseFalError(402, "")).toBe(
-      "Insufficient fal.ai credits. Please top up your account."
+      "Insufficient fal.ai credits. Please top up your account.",
     );
   });
 
   it("maps 429 to rate limit", () => {
     expect(parseFalError(429, "")).toBe(
-      "fal.ai rate limit exceeded. Please try again later."
+      "fal.ai rate limit exceeded. Please try again later.",
     );
   });
 
@@ -67,13 +67,15 @@ describe("submitFalQueue", () => {
 
   it("sends correct URL, headers, and body", async () => {
     mockFetch.mockResolvedValue(
-      jsonResponse({ request_id: "req-123" }) as Awaited<ReturnType<typeof fetch>>
+      jsonResponse({ request_id: "req-123" }) as Awaited<
+        ReturnType<typeof fetch>
+      >,
     );
 
     const result = await submitFalQueue(
       "fal-ai/flux/schnell",
       { prompt: "a cat" },
-      "my-api-key"
+      "my-api-key",
     );
 
     expect(result).toBe("req-123");
@@ -86,29 +88,31 @@ describe("submitFalQueue", () => {
           Authorization: "Key my-api-key",
         },
         body: JSON.stringify({ prompt: "a cat" }),
-      }
+      },
     );
   });
 
   it("throws on non-ok response with parsed error", async () => {
     mockFetch.mockResolvedValue(
-      textResponse("Unauthorized", 401) as unknown as Awaited<ReturnType<typeof fetch>>
+      textResponse("Unauthorized", 401) as unknown as Awaited<
+        ReturnType<typeof fetch>
+      >,
     );
 
     await expect(
-      submitFalQueue("fal-ai/flux/schnell", { prompt: "test" }, "bad-key")
+      submitFalQueue("fal-ai/flux/schnell", { prompt: "test" }, "bad-key"),
     ).rejects.toThrow(
-      "fal.ai queue submit failed for fal-ai/flux/schnell: Invalid fal.ai API key."
+      "fal.ai queue submit failed for fal-ai/flux/schnell: Invalid fal.ai API key.",
     );
   });
 
   it("throws when response has no request_id", async () => {
     mockFetch.mockResolvedValue(
-      jsonResponse({}) as Awaited<ReturnType<typeof fetch>>
+      jsonResponse({}) as Awaited<ReturnType<typeof fetch>>,
     );
 
     await expect(
-      submitFalQueue("fal-ai/flux/schnell", { prompt: "test" }, "key")
+      submitFalQueue("fal-ai/flux/schnell", { prompt: "test" }, "key"),
     ).rejects.toThrow("fal.ai queue submit returned no request_id");
   });
 });
@@ -124,13 +128,13 @@ describe("submitFalQueueRequest", () => {
         request_id: "req-123",
         status_url: "https://queue.fal.run/status-url",
         response_url: "https://queue.fal.run/response-url",
-      }) as Awaited<ReturnType<typeof fetch>>
+      }) as Awaited<ReturnType<typeof fetch>>,
     );
 
     const result = await submitFalQueueRequest(
       "bytedance/seedance-2.0/reference-to-video",
       { prompt: "test" },
-      "key"
+      "key",
     );
 
     expect(result).toEqual({
@@ -155,21 +159,25 @@ describe("pollFalResult", () => {
       if (urlStr.includes("/status")) {
         callCount++;
         if (callCount === 1) {
-          return jsonResponse({ status: "IN_QUEUE" }) as Awaited<ReturnType<typeof fetch>>;
+          return jsonResponse({ status: "IN_QUEUE" }) as Awaited<
+            ReturnType<typeof fetch>
+          >;
         }
-        return jsonResponse({ status: "COMPLETED" }) as Awaited<ReturnType<typeof fetch>>;
+        return jsonResponse({ status: "COMPLETED" }) as Awaited<
+          ReturnType<typeof fetch>
+        >;
       }
 
       // Result fetch
-      return jsonResponse({ images: [{ url: "https://cdn.fal.ai/img.png" }] }) as Awaited<
-        ReturnType<typeof fetch>
-      >;
+      return jsonResponse({
+        images: [{ url: "https://cdn.fal.ai/img.png" }],
+      }) as Awaited<ReturnType<typeof fetch>>;
     });
 
     const promise = pollFalResult<{ images: Array<{ url: string }> }>(
       "fal-ai/flux/schnell",
       "req-123",
-      "key"
+      "key",
     );
 
     // First check: IN_QUEUE
@@ -183,11 +191,11 @@ describe("pollFalResult", () => {
     expect(result.images[0].url).toBe("https://cdn.fal.ai/img.png");
     expect(mockFetch).toHaveBeenLastCalledWith(
       "https://queue.fal.run/fal-ai/flux/schnell/requests/req-123",
-      { headers: { Authorization: "Key key" } }
+      { headers: { Authorization: "Key key" } },
     );
     expect(mockFetch).toHaveBeenCalledWith(
       "https://queue.fal.run/fal-ai/flux/schnell/requests/req-123/status",
-      { headers: { Authorization: "Key key" } }
+      { headers: { Authorization: "Key key" } },
     );
   });
 
@@ -195,12 +203,18 @@ describe("pollFalResult", () => {
     mockFetch.mockImplementation(async (url) => {
       const urlStr = typeof url === "string" ? url : url.toString();
       if (urlStr === "https://queue.fal.run/custom-status") {
-        return jsonResponse({ status: "COMPLETED" }) as Awaited<ReturnType<typeof fetch>>;
+        return jsonResponse({ status: "COMPLETED" }) as Awaited<
+          ReturnType<typeof fetch>
+        >;
       }
       if (urlStr === "https://queue.fal.run/custom-response") {
-        return jsonResponse({ images: [{ url: "https://cdn.fal.ai/img.png" }] }) as Awaited<ReturnType<typeof fetch>>;
+        return jsonResponse({
+          images: [{ url: "https://cdn.fal.ai/img.png" }],
+        }) as Awaited<ReturnType<typeof fetch>>;
       }
-      return textResponse("", 404) as unknown as Awaited<ReturnType<typeof fetch>>;
+      return textResponse("", 404) as unknown as Awaited<
+        ReturnType<typeof fetch>
+      >;
     });
 
     const result = await pollFalResult<{ images: Array<{ url: string }> }>(
@@ -210,7 +224,7 @@ describe("pollFalResult", () => {
       {
         statusUrl: "https://queue.fal.run/custom-status",
         responseUrl: "https://queue.fal.run/custom-response",
-      }
+      },
     );
 
     expect(result.images[0].url).toBe("https://cdn.fal.ai/img.png");
@@ -218,47 +232,64 @@ describe("pollFalResult", () => {
 
   it("retries status with POST when the live queue endpoint rejects documented GET with 405", async () => {
     mockFetch
-      .mockResolvedValueOnce(textResponse("", 405) as unknown as Awaited<ReturnType<typeof fetch>>)
-      .mockResolvedValueOnce(jsonResponse({ status: "COMPLETED" }) as Awaited<ReturnType<typeof fetch>>)
-      .mockResolvedValueOnce(jsonResponse({ images: [{ url: "https://cdn.fal.ai/img.png" }] }) as Awaited<ReturnType<typeof fetch>>);
+      .mockResolvedValueOnce(
+        textResponse("", 405) as unknown as Awaited<ReturnType<typeof fetch>>,
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ status: "COMPLETED" }) as Awaited<
+          ReturnType<typeof fetch>
+        >,
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          images: [{ url: "https://cdn.fal.ai/img.png" }],
+        }) as Awaited<ReturnType<typeof fetch>>,
+      );
 
-    await pollFalResult("bytedance/seedance-2.0/reference-to-video", "req-123", "key");
+    await pollFalResult(
+      "bytedance/seedance-2.0/reference-to-video",
+      "req-123",
+      "key",
+    );
 
     expect(mockFetch).toHaveBeenNthCalledWith(
       1,
       "https://queue.fal.run/bytedance/seedance-2.0/reference-to-video/requests/req-123/status",
-      { headers: { Authorization: "Key key" } }
+      { headers: { Authorization: "Key key" } },
     );
     expect(mockFetch).toHaveBeenNthCalledWith(
       2,
       "https://queue.fal.run/bytedance/seedance-2.0/reference-to-video/requests/req-123/status",
-      { method: "POST", headers: { Authorization: "Key key" } }
+      { method: "POST", headers: { Authorization: "Key key" } },
     );
   });
 
   it("throws on FAILED status", async () => {
     mockFetch.mockResolvedValue(
-      jsonResponse({ status: "FAILED" }) as Awaited<ReturnType<typeof fetch>>
+      jsonResponse({ status: "FAILED" }) as Awaited<ReturnType<typeof fetch>>,
     );
 
     const promise = pollFalResult("fal-ai/flux/schnell", "req-123", "key");
     const error = await promise.catch((e: Error) => e);
 
     expect(error).toBeInstanceOf(Error);
-    expect((error instanceof Error ? error.message : String(error))).toBe("fal.ai generation failed");
+    expect(error).toHaveProperty("message", "fal.ai generation failed");
   });
 
   it("throws immediately on a definitive 4xx status check error", async () => {
     mockFetch.mockResolvedValue(
-      textResponse("Not found", 404) as unknown as Awaited<ReturnType<typeof fetch>>
+      textResponse("Not found", 404) as unknown as Awaited<
+        ReturnType<typeof fetch>
+      >,
     );
 
     const promise = pollFalResult("fal-ai/flux/schnell", "req-123", "key");
     const error = await promise.catch((e: Error) => e);
 
     expect(error).toBeInstanceOf(Error);
-    expect((error instanceof Error ? error.message : String(error))).toBe(
-      "fal.ai queue status failed for fal-ai/flux/schnell request req-123: Not found"
+    expect(error).toHaveProperty(
+      "message",
+      "fal.ai queue status failed for fal-ai/flux/schnell request req-123: Not found",
     );
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
@@ -270,17 +301,19 @@ describe("pollFalResult", () => {
       if (urlStr.includes("/status")) {
         statusCalls++;
         if (statusCalls === 1) throw new Error("Network error: socket hang up");
-        return jsonResponse({ status: "COMPLETED" }) as Awaited<ReturnType<typeof fetch>>;
+        return jsonResponse({ status: "COMPLETED" }) as Awaited<
+          ReturnType<typeof fetch>
+        >;
       }
-      return jsonResponse({ video: { url: "https://cdn.fal.ai/out.mp4" } }) as Awaited<
-        ReturnType<typeof fetch>
-      >;
+      return jsonResponse({
+        video: { url: "https://cdn.fal.ai/out.mp4" },
+      }) as Awaited<ReturnType<typeof fetch>>;
     });
 
     const promise = pollFalResult<{ video: { url: string } }>(
       "fal-ai/veo3.1/first-last-frame-to-video",
       "req-9",
-      "key"
+      "key",
     );
     await vi.advanceTimersByTimeAsync(0); // first check: network error, retried
     await vi.advanceTimersByTimeAsync(2000); // second check: COMPLETED + result
@@ -296,20 +329,26 @@ describe("pollFalResult", () => {
       if (urlStr.includes("/status")) {
         statusCalls++;
         if (statusCalls === 1)
-          return textResponse("Bad gateway", 502) as unknown as Awaited<ReturnType<typeof fetch>>;
+          return textResponse("Bad gateway", 502) as unknown as Awaited<
+            ReturnType<typeof fetch>
+          >;
         if (statusCalls === 2)
-          return textResponse("Rate limited", 429) as unknown as Awaited<ReturnType<typeof fetch>>;
-        return jsonResponse({ status: "COMPLETED" }) as Awaited<ReturnType<typeof fetch>>;
+          return textResponse("Rate limited", 429) as unknown as Awaited<
+            ReturnType<typeof fetch>
+          >;
+        return jsonResponse({ status: "COMPLETED" }) as Awaited<
+          ReturnType<typeof fetch>
+        >;
       }
-      return jsonResponse({ images: [{ url: "https://cdn.fal.ai/img.png" }] }) as Awaited<
-        ReturnType<typeof fetch>
-      >;
+      return jsonResponse({
+        images: [{ url: "https://cdn.fal.ai/img.png" }],
+      }) as Awaited<ReturnType<typeof fetch>>;
     });
 
     const promise = pollFalResult<{ images: Array<{ url: string }> }>(
       "fal-ai/flux/schnell",
       "req-123",
-      "key"
+      "key",
     );
     await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(2000);
@@ -322,7 +361,11 @@ describe("pollFalResult", () => {
   it("gives up after persistent consecutive network failures, naming the request id", async () => {
     mockFetch.mockRejectedValue(new Error("Network error: request timed out"));
 
-    const promise = pollFalResult("fal-ai/veo3.1/first-last-frame-to-video", "req-9", "key");
+    const promise = pollFalResult(
+      "fal-ai/veo3.1/first-last-frame-to-video",
+      "req-9",
+      "key",
+    );
     const captured = promise.catch((e: Error) => e);
     await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(2000);
@@ -341,17 +384,22 @@ describe("pollFalResult", () => {
     mockFetch.mockImplementation(async (url) => {
       const urlStr = typeof url === "string" ? url : url.toString();
       if (urlStr.includes("/status")) {
-        return jsonResponse({ status: "COMPLETED" }) as Awaited<ReturnType<typeof fetch>>;
+        return jsonResponse({ status: "COMPLETED" }) as Awaited<
+          ReturnType<typeof fetch>
+        >;
       }
-      return textResponse("", 405) as unknown as Awaited<ReturnType<typeof fetch>>;
+      return textResponse("", 405) as unknown as Awaited<
+        ReturnType<typeof fetch>
+      >;
     });
 
     const promise = pollFalResult("fal-ai/flux/schnell", "req-123", "key");
     const error = await promise.catch((e: Error) => e);
 
     expect(error).toBeInstanceOf(Error);
-    expect((error instanceof Error ? error.message : String(error))).toBe(
-      "fal.ai queue result failed for fal-ai/flux/schnell request req-123: fal.ai error (405)"
+    expect(error).toHaveProperty(
+      "message",
+      "fal.ai queue result failed for fal-ai/flux/schnell request req-123: fal.ai error (405)",
     );
   });
 
@@ -367,13 +415,15 @@ describe("runFalInference", () => {
 
   it("posts directly to fal.run and returns the JSON response", async () => {
     mockFetch.mockResolvedValue(
-      jsonResponse({ images: [{ url: "https://fal.media/out.jpg" }] }) as Awaited<ReturnType<typeof fetch>>
+      jsonResponse({
+        images: [{ url: "https://fal.media/out.jpg" }],
+      }) as Awaited<ReturnType<typeof fetch>>,
     );
 
     const result = await runFalInference(
       "fal-ai/flux-pro/kontext",
       { prompt: "edit", image_url: "data:image/png;base64,abc" },
-      "key"
+      "key",
     );
 
     expect(result).toEqual({ images: [{ url: "https://fal.media/out.jpg" }] });
@@ -385,19 +435,24 @@ describe("runFalInference", () => {
           "Content-Type": "application/json",
           Authorization: "Key key",
         },
-        body: JSON.stringify({ prompt: "edit", image_url: "data:image/png;base64,abc" }),
-      }
+        body: JSON.stringify({
+          prompt: "edit",
+          image_url: "data:image/png;base64,abc",
+        }),
+      },
     );
   });
 
   it("reports direct inference errors with endpoint context", async () => {
     mockFetch.mockResolvedValue(
-      textResponse("", 405) as unknown as Awaited<ReturnType<typeof fetch>>
+      textResponse("", 405) as unknown as Awaited<ReturnType<typeof fetch>>,
     );
 
     await expect(
-      runFalInference("fal-ai/flux-pro/kontext", { prompt: "edit" }, "key")
-    ).rejects.toThrow("fal.ai inference failed for fal-ai/flux-pro/kontext: fal.ai error (405)");
+      runFalInference("fal-ai/flux-pro/kontext", { prompt: "edit" }, "key"),
+    ).rejects.toThrow(
+      "fal.ai inference failed for fal-ai/flux-pro/kontext: fal.ai error (405)",
+    );
   });
 });
 
@@ -412,8 +467,20 @@ describe("uploadImageToFal", () => {
   });
 });
 it("retains a direct inference request ID even when the provider's response fails", async () => {
-  mockFetch.mockResolvedValue(new Response("failed", { status: 500, headers: { "x-fal-request-id": "direct-id" } }) as unknown as Awaited<ReturnType<typeof fetch>>);
+  mockFetch.mockResolvedValue(
+    new Response("failed", {
+      status: 500,
+      headers: { "x-fal-request-id": "direct-id" },
+    }) as unknown as Awaited<ReturnType<typeof fetch>>,
+  );
   const receipt = vi.fn();
-  await expect(runFalInference("fal-ai/flux-pro/kontext", { prompt: "edit" }, "key", { receipt })).rejects.toThrow("fal.ai inference failed");
-  expect(receipt).toHaveBeenCalledWith({ provider_request_id: "direct-id", reported_microusd: null });
+  await expect(
+    runFalInference("fal-ai/flux-pro/kontext", { prompt: "edit" }, "key", {
+      receipt,
+    }),
+  ).rejects.toThrow("fal.ai inference failed");
+  expect(receipt).toHaveBeenCalledWith({
+    provider_request_id: "direct-id",
+    reported_microusd: null,
+  });
 });
