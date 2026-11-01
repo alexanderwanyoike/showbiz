@@ -4,7 +4,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ProjectBibleView from "../components/ProjectBibleView";
-import { composeFrameAction } from "../actions/generation-actions";
+import { composeFrameAction, editImageAction } from "../actions/generation-actions";
 import {
   deleteBibleAssetVariant,
   updateBibleAssetVariantStatus,
@@ -308,4 +308,28 @@ it("returns to the picture command when a take preview closes without changing i
       .getByRole("button", { name: "Use take 1 for Ada" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
+});
+
+
+it("allows a take preview while a new picture is generating without allowing take changes", async () => {
+  let fail: ((error: Error) => void) | undefined;
+  vi.mocked(editImageAction).mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Open Ada details" }));
+  await user.click(screen.getByRole("button", { name: "Edit…" }));
+  await user.type(screen.getByRole("textbox", { name: "Edit instruction for Ada" }), "Warmer light");
+  await user.click(screen.getByRole("button", { name: "Generate edit" }));
+  try {
+    expect(screen.getByRole("button", { name: "Use take 2 for Ada" }).hasAttribute("disabled")).toBe(true);
+    const preview = screen.getByRole("button", { name: "View take 2 for Ada" });
+    expect(preview.hasAttribute("disabled")).toBe(false);
+    await user.click(preview);
+    expect(await screen.findByRole("dialog", { name: "Picture preview" })).toBeTruthy();
+    await user.keyboard("{Escape}");
+    expect(document.activeElement).toBe(preview);
+  } finally {
+    fail?.(new Error("Provider unavailable"));
+  }
+  await screen.findByText("Provider unavailable");
 });
