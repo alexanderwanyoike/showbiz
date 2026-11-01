@@ -1,3 +1,4 @@
+import { commandWorkKind } from "../shared/command-effects";
 import { createProjectCache } from "./project-cache";
 import { recoverInterruptedGenerationUsage } from "./commands/generation-usage";
 import fs from "node:fs";
@@ -29,6 +30,7 @@ const fail = (cause: unknown): DocumentResult<never> => ({
 });
 type ActiveDocument = {
   file: string;
+  readOnly: boolean;
   db: DatabaseSync;
   media: string;
   archive: ReturnType<typeof createDocumentMedia>;
@@ -76,6 +78,7 @@ export function createProjectDocuments(options: {
     ).get_projects()[0];
     return {
       file_path: document.file,
+      read_only: document.readOnly,
       project_id: project.id,
       name: project.name,
     };
@@ -120,10 +123,12 @@ export function createProjectDocuments(options: {
     db: DatabaseSync,
     media: string,
     release: () => void,
+    readOnly = false,
   ) {
     const archive = createDocumentMedia(db, media);
     return {
       file,
+      readOnly,
       db,
       media,
       release,
@@ -331,10 +336,36 @@ export function createProjectDocuments(options: {
           );
         db.close();
         db = null;
-        release = lockProjectDocument(file);
-        db = openDatabase(file, options.migrations);
+        let readOnly = false;
+        try {
+          fs.accessSync(file, fs.constants.W_OK);
+          fs.accessSync(path.dirname(file), fs.constants.W_OK);
+        } catch (cause) {
+          if (
+            !(cause instanceof Error) ||
+            !("code" in cause) ||
+            !["EACCES", "EROFS"].includes(String(cause.code))
+          )
+            throw cause;
+          readOnly = true;
+        }
+        if (readOnly) {
+          db = new DatabaseSync(file, { readOnly: true });
+          db.exec("PRAGMA foreign_keys=ON");
+          if (
+            db.prepare("PRAGMA user_version").get()?.user_version !==
+            options.migrations.length
+          )
+            throw new Error(
+              "This read-only project needs a schema update. Copy it to a writable folder, then open the copy.",
+            );
+          release = () => {};
+        } else {
+          release = lockProjectDocument(file);
+          db = openDatabase(file, options.migrations);
+        }
         media = workspace();
-        const document = prepare(file, db, media, release);
+        const document = prepare(file, db, media, release, readOnly);
         document.archive.restore();
         const embedded = new Set(
           db
@@ -347,7 +378,7 @@ export function createProjectDocuments(options: {
         db.exec("SAVEPOINT document_open");
         let value: ProjectDocumentInfo;
         try {
-          recoverInterruptedGenerationUsage(db);
+          if (!readOnly) recoverInterruptedGenerationUsage(db);
           value = activate(document);
           db.exec("RELEASE document_open");
         } catch (cause) {
@@ -369,6 +400,12 @@ export function createProjectDocuments(options: {
           new Error("Open a project and finish active file operations first."),
         );
       try {
+        if (active.readOnly)
+          return fail(
+            new Error(
+              "This project is read-only. Use Save As to create an editable copy.",
+            ),
+          );
         persist(active, () => {});
         return { ok: true, value: current()! };
       } catch (cause) {
@@ -380,7 +417,7 @@ export function createProjectDocuments(options: {
         return fail(new Error("A project file operation is in progress."));
       try {
         if (active) {
-          persist(active, () => {});
+          if (!active.readOnly) persist(active, () => {});
           dispose(active);
           active = null;
         }
@@ -401,12 +438,11 @@ export function createProjectDocuments(options: {
         );
       const handler = active.commands[command];
       if (!handler) throw new Error(`Unknown project command: ${command}`);
-      if (
-        command.startsWith("get_") ||
-        command.startsWith("export_") ||
-        command.startsWith("show_")
-      )
-        return handler(args);
+      if (commandWorkKind(command) !== "saving") return handler(args);
+      if (active.readOnly)
+        throw new Error(
+          "This project is read-only. Use Save As to create an editable copy.",
+        );
       return persist(active, () => handler(args));
     },
     async saveAs(
@@ -422,7 +458,7 @@ export function createProjectDocuments(options: {
       if (file === active.file) return documents.save();
       const source = active;
       try {
-        persist(source, () => {});
+        if (!source.readOnly) persist(source, () => {});
       } catch (cause) {
         return fail(cause);
       }
