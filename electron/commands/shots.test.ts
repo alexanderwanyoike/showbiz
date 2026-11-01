@@ -5,7 +5,8 @@ import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openTestDb } from "../db.test";
 import { initMediaDirs } from "../media-files";
-import { createShotCommands, type ShotWithUrls } from "./shots";
+import type { ShotWithUrls } from "./shots";
+import { createTestShotCommands as createShotCommands } from "../test-support/data-commands";
 
 /** Seed a project + storyboard so shots satisfy their FK. */
 function seed(db: DatabaseSync, storyboardId = "sb1"): void {
@@ -76,6 +77,8 @@ describe("shot commands", () => {
           "end_frame_path",
           "end_frame_url",
           "id",
+          "image_model",
+          "video_model",
           "image_path",
           "image_prompt",
           "image_url",
@@ -85,6 +88,7 @@ describe("shot commands", () => {
           "updated_at",
           "video_path",
           "video_prompt",
+          "video_settings_json",
           "video_url",
         ].sort()
       );

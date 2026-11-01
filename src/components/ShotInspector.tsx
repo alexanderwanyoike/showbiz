@@ -1,5 +1,19 @@
-import { useState } from "react";
-import { ChevronDown, Loader2, Sparkles, Upload, Video, ImageIcon, AlertCircle, X, Search } from "lucide-react";
+import { WorkspaceCommand } from "./WorkspaceCommand";
+import { InspectorHelp } from "./InspectorHelp";
+import { ShotVideoSettings } from "./ShotVideoSettings";
+import { Link } from "react-router";
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  ChevronDown,
+  Loader2,
+  Sparkles,
+  Upload,
+  Video,
+  ImageIcon,
+  AlertCircle,
+  X,
+  Search,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -7,24 +21,24 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import ImageVersionTimeline from "./ImageVersionTimeline";
 import VideoVersionTimeline from "./VideoVersionTimeline";
-import type { ImageVersionNode, ImageVersionWithUrl, VideoVersionNode, VideoVersionWithUrl } from "../lib/backend-api";
-import { hasUsableShotVideoSource } from "../lib/bible-assets";
+import type {
+  ImageVersionNode,
+  ImageVersionWithUrl,
+  VideoVersionNode,
+  VideoVersionWithUrl,
+} from "../lib/backend-api";
+import { shotGenerationReadiness } from "../lib/shot-generation-readiness";
 import { filterFrameOptions } from "../lib/bible-compose";
-import { formatDurationLabel } from "../lib/video-preview";
-import type { VideoGenerationSettings, VideoModelInfo } from "../lib/models/types";
+import type {
+  ImageModelInfo,
+  VideoGenerationSettings,
+  VideoModelInfo,
+} from "../lib/models/types";
 
 export type ShotFrameRole = "start" | "end";
 
@@ -38,6 +52,20 @@ export interface FrameOption {
 }
 
 export interface ShotInspectorProps {
+  modelControls?: ReactNode;
+  frameLibraryHref?: string;
+  frameError?: { role: ShotFrameRole; message: string } | null;
+  frameSaving?: boolean;
+  modelSaving?: boolean;
+  onDismissFrameError?: () => void;
+  generationCost?: ReactNode;
+  generationDisabled?: boolean;
+  generationPending?: boolean;
+  videoSettingsSaving?: boolean;
+  videoSettingsError?: string | null;
+  videoSettingsNotice?: string;
+  onRetryVideoSettingsSave?: () => void;
+  onDiscardVideoSettings?: () => void;
   shot: {
     id: string;
     order: number;
@@ -53,10 +81,12 @@ export interface ShotInspectorProps {
   onPickFrame: (shotId: string, role: ShotFrameRole, variantId: string) => void;
   onUploadFrame: (shotId: string, role: ShotFrameRole, file: File) => void;
   onClearEndFrame: (shotId: string) => void;
+  onClearStartFrame?: (shotId: string) => void;
   // Video actions
   onGenerateVideo: (shotId: string) => void;
   onCancelVideoGeneration: (shotId: string) => void;
   onUpdateShot: (shotId: string, updates: { video_prompt?: string }) => void;
+  imageModel?: ImageModelInfo | null;
   videoModel: VideoModelInfo | null;
   videoSettings: VideoGenerationSettings;
   onVideoSettingsChange: (settings: VideoGenerationSettings) => void;
@@ -82,39 +112,68 @@ export interface ShotInspectorProps {
 function InspectorSection({
   title,
   defaultOpen = true,
+  open: controlledOpen,
+  onOpenChange,
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [localOpen, setLocalOpen] = useState(defaultOpen);
+  const open = controlledOpen ?? localOpen;
+  const sectionId = useId();
   return (
     <div className="border-b border-border/50 last:border-b-0">
       <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between py-2 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground"
+        aria-expanded={open}
+        aria-controls={sectionId}
+        onClick={() => { if (onOpenChange) onOpenChange(!open); else setLocalOpen(!open); }}
+        className="inspector-section-heading"
       >
         {title}
-        <ChevronDown className={`h-3 w-3 transition-transform ${open ? "" : "-rotate-90"}`} />
+        <ChevronDown
+          className={`h-3 w-3 transition-transform ${open ? "" : "-rotate-90"}`}
+        />
       </button>
-      {open && <div className="px-3 pb-3">{children}</div>}
+      <div id={sectionId} hidden={!open} className="px-3 pb-3">
+        {open ? children : null}
+      </div>
     </div>
   );
 }
 
 function FramePreview({ url, label }: { url: string | null; label: string }) {
+  if (!url)
+    return (
+      <span className="shot-frame-thumbnail shot-frame-empty">
+        <ImageIcon size={18} />
+        <span>No frame</span>
+      </span>
+    );
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded border border-border/60 bg-muted">
-      {url ? (
-        <img src={url} alt={label} className="h-full w-full object-cover" />
-      ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground/50">
-          <ImageIcon className="h-5 w-5" />
-          <span className="text-[10px]">No {label.toLowerCase()}</span>
-        </div>
-      )}
-    </div>
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className="shot-frame-thumbnail"
+          aria-label={`Preview ${label.toLowerCase()}`}
+        >
+          <img src={url} alt="" />
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        className="shot-frame-preview-dialog"
+        aria-describedby={undefined}
+      >
+        <DialogHeader>
+          <DialogTitle>{label} preview</DialogTitle>
+        </DialogHeader>
+        <img className="shot-frame-full-image" src={url} alt={label} />
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -137,12 +196,14 @@ function FramePickerDialog({
   open,
   onOpenChange,
   onPick,
+  openerRef,
 }: {
   label: string;
   frameOptions: FrameOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPick: (variantId: string) => void;
+  openerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const [query, setQuery] = useState("");
   const filtered = filterFrameOptions(frameOptions, query);
@@ -154,7 +215,15 @@ function FramePickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent
+        className="max-w-3xl"
+        onCloseAutoFocus={(event) => {
+          if (openerRef.current?.isConnected) {
+            event.preventDefault();
+            openerRef.current.focus();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Choose {label.toLowerCase()}</DialogTitle>
         </DialogHeader>
@@ -162,6 +231,7 @@ function FramePickerDialog({
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             autoFocus
+            aria-label="Search frames"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name or prompt..."
@@ -174,6 +244,7 @@ function FramePickerDialog({
               <button
                 key={f.variantId}
                 type="button"
+                aria-label={`Choose frame ${f.label}`}
                 onClick={() => {
                   onPick(f.variantId);
                   close(false);
@@ -183,7 +254,11 @@ function FramePickerDialog({
               >
                 <div className="aspect-video w-full overflow-hidden rounded bg-muted">
                   {f.url ? (
-                    <img src={f.url} alt={f.label} className="h-full w-full object-cover" />
+                    <img
+                      src={f.url}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <span className="flex h-full w-full items-center justify-center text-muted-foreground/50">
                       <ImageIcon className="h-5 w-5" />
@@ -192,7 +267,7 @@ function FramePickerDialog({
                 </div>
                 <p className="mt-1 truncate text-xs font-medium">{f.label}</p>
                 {f.prompt && (
-                  <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+                  <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground">
                     {f.prompt}
                   </p>
                 )}
@@ -220,6 +295,9 @@ function FramePicker({
   onPick,
   onUpload,
   onClear,
+  libraryHref,
+  disabled = false,
+  extraActions,
 }: {
   label: string;
   previewUrl: string | null;
@@ -227,37 +305,69 @@ function FramePicker({
   onPick: (variantId: string) => void;
   onUpload: (file: File) => void;
   onClear?: () => void;
+  libraryHref?: string;
+  disabled?: boolean;
+  extraActions?: ReactNode;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerOpener = useRef<HTMLButtonElement | null>(null);
   return (
     <>
-      <FramePreview url={previewUrl} label={label} />
-      <div className="mt-2 flex gap-2">
-        <Button
-          size="sm"
-          className="flex-1 text-xs"
-          onClick={() => setPickerOpen(true)}
-          disabled={frameOptions.length === 0}
-          title={frameOptions.length === 0 ? "Compose frames in the Bible first" : undefined}
-        >
-          <ImageIcon className="h-3 w-3 mr-1" />
-          Choose Frame
-        </Button>
-        <Button size="sm" variant="outline" className="text-xs" onClick={() => uploadFramePicker(onUpload)}>
-          <Upload className="h-3 w-3 mr-1" />
-          Upload
-        </Button>
-        {onClear && previewUrl && (
-          <Button size="sm" variant="outline" className="text-xs" onClick={onClear}>
-            <X className="h-3 w-3 mr-1" />
-            Clear
-          </Button>
-        )}
+      <div className="shot-frame-source">
+        <FramePreview url={previewUrl} label={label} />
+        <div className="shot-frame-controls">
+          <div className="frame-actions flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="min-w-0 flex-1 basis-32 text-xs"
+              aria-label={`Choose ${label.toLowerCase()}`}
+              onClick={(event) => {
+                pickerOpener.current = event.currentTarget;
+                setPickerOpen(true);
+              }}
+              disabled={disabled || frameOptions.length === 0}
+              title={
+                frameOptions.length === 0
+                  ? "Compose frames in the Bible first"
+                  : undefined
+              }
+            >
+              <ImageIcon className="h-3 w-3 mr-1" />
+              Choose
+            </Button>
+            <WorkspaceCommand
+              label={`Upload ${label.toLowerCase()}`}
+              disabled={disabled}
+              onClick={() => uploadFramePicker(onUpload)}
+            >
+              <Upload size={15} />
+            </WorkspaceCommand>
+            {onClear && previewUrl && (
+              <WorkspaceCommand
+                label={`Remove ${label.toLowerCase()}`}
+                disabled={disabled}
+                onClick={onClear}
+              >
+                <X size={15} />
+              </WorkspaceCommand>
+            )}
+            {extraActions}
+          </div>
+          {frameOptions.length === 0 && libraryHref && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              <Link
+                to={libraryHref}
+                className="text-primary underline underline-offset-2"
+              >
+                Create a frame in the Bible
+              </Link>
+            </p>
+          )}
+        </div>
       </div>
-      {frameOptions.length === 0 && (
-        <p className="mt-2 text-[11px] text-muted-foreground">Make frames in the Bible, then pick them here.</p>
-      )}
       <FramePickerDialog
+        openerRef={pickerOpener}
         label={label}
         frameOptions={frameOptions}
         open={pickerOpen}
@@ -269,14 +379,30 @@ function FramePicker({
 }
 
 export default function ShotInspector({
+  modelControls,
+  frameLibraryHref,
+  frameError,
+  frameSaving = false,
+  modelSaving = false,
+  onDismissFrameError,
+  generationCost,
+  generationDisabled = false,
+  generationPending = false,
+  videoSettingsSaving = false,
+  videoSettingsError,
+  videoSettingsNotice,
+  onRetryVideoSettingsSave,
+  onDiscardVideoSettings,
   shot,
   frameOptions,
   onPickFrame,
   onUploadFrame,
   onClearEndFrame,
+  onClearStartFrame,
   onGenerateVideo,
   onCancelVideoGeneration,
   onUpdateShot,
+  imageModel,
   videoModel,
   videoSettings,
   onVideoSettingsChange,
@@ -295,214 +421,304 @@ export default function ShotInspector({
   isGeneratingPrompt,
   isEnhancingPrompt,
 }: ShotInspectorProps) {
+  const [takeHistoryOpen, setTakeHistoryOpen] = useState<Record<string, { image: boolean; video: boolean }>>({});
+  const seenTakeCounts = useRef(new Map<string, { image: number; video: number }>());
+  const activeShotId = shot?.id;
+  useEffect(() => {
+    if (!activeShotId) return;
+    const previous = seenTakeCounts.current.get(activeShotId);
+    seenTakeCounts.current.set(activeShotId, { image: versionCount, video: videoVersionCount });
+    if (previous && (versionCount > previous.image || videoVersionCount > previous.video)) {
+      setTakeHistoryOpen((current) => ({ ...current, [activeShotId]: { image: !!current[activeShotId]?.image || versionCount > previous.image, video: !!current[activeShotId]?.video || videoVersionCount > previous.video } }));
+    }
+  }, [activeShotId, versionCount, videoVersionCount]);
+  function changeTakeHistory(kind: "image" | "video", open: boolean) {
+    if (!activeShotId) return;
+    setTakeHistoryOpen((previous) => ({ ...previous, [activeShotId]: { image: previous[activeShotId]?.image ?? false, video: previous[activeShotId]?.video ?? false, [kind]: open } }));
+  }
   if (!shot) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
-        <p className="text-sm">Select a shot to inspect</p>
+        <div className="w-full self-start">
+          {modelControls}
+          <p className="p-3 text-sm">Select a shot to inspect</p>
+        </div>
       </div>
     );
   }
 
-  const canGenerateVideo = hasUsableShotVideoSource({
-    imageUrl: shot.image_url,
-    prompt: shot.video_prompt,
-  });
+  const readiness = shotGenerationReadiness(shot, videoModel);
 
-  const supportsEndFrame = videoModel?.modeCapabilities.imageToVideo?.supportsEndImage === true;
-
-  const hasVideoSettings =
-    !!videoModel &&
-    (videoModel.capabilities.durations.length > 1 ||
-      (videoModel.capabilities.resolutions?.length ?? 0) > 1 ||
-      (videoModel.capabilities.aspectRatios?.length ?? 0) > 1 ||
-      videoModel.capabilities.hasAudio === true);
+  const supportsEndFrame =
+    videoModel?.modeCapabilities.imageToVideo?.supportsEndImage === true;
 
   return (
-    <div className="h-full overflow-y-auto">
-      {/* Shot header */}
-      <div className="px-3 py-2 border-b border-border/50 flex items-center justify-between">
-        <span className="text-sm font-medium">Shot {shot.order}</span>
-        <Badge variant="secondary" className="text-xs">
-          {shot.status}
-        </Badge>
-      </div>
+    <div className="shot-inspector h-full min-h-0 flex flex-col overflow-hidden">
+      <div className="shot-inspector-content min-h-0 flex-1 overflow-y-auto">
+        {modelControls}
 
-      {/* Start Frame Section */}
-      <InspectorSection title="Start Frame">
-        <FramePicker
-          label="Start frame"
-          previewUrl={shot.image_url}
-          frameOptions={frameOptions}
-          onPick={(variantId) => onPickFrame(shot.id, "start", variantId)}
-          onUpload={(file) => onUploadFrame(shot.id, "start", file)}
-        />
-      </InspectorSection>
-
-      {/* Image Versions Section */}
-      {versionCount > 0 && (
-        <InspectorSection title="Image Versions">
-          <ImageVersionTimeline
-            versions={versions}
-            currentVersionId={currentVersion?.id || null}
-            onVersionSelect={(versionId) => onVersionSelect(shot.id, versionId)}
-            onBranchFrom={(versionId) => onBranchFrom(shot.id, versionId)}
-            onEditFrom={(versionId) => onEditImage(shot.id, versionId)}
-            compact
-          />
-        </InspectorSection>
-      )}
-
-      {/* End Frame Section */}
-      <InspectorSection title="End Frame" defaultOpen={!!shot.end_frame_url}>
-        {!supportsEndFrame ? (
-          <p className="text-[11px] text-muted-foreground">
-            {videoModel?.name ?? "This model"} doesn't support an end frame. The start frame and prompt drive the shot.
-          </p>
+        {/* Start Frame Section */}
+        {videoModel?.modeCapabilities.imageToVideo ? (
+          <InspectorSection title="Start frame">
+            <FramePicker
+              label="Start frame"
+              libraryHref={frameLibraryHref}
+              disabled={frameSaving}
+              onClear={
+                onClearStartFrame ? () => onClearStartFrame(shot.id) : undefined
+              }
+              previewUrl={shot.image_url}
+              frameOptions={frameOptions}
+              onPick={(variantId) => onPickFrame(shot.id, "start", variantId)}
+              onUpload={(file) => onUploadFrame(shot.id, "start", file)}
+              extraActions={
+                shot.image_url ? (
+                  <>
+                    <WorkspaceCommand
+                      label={`Edit frame for shot ${shot.order}`}
+                      title={modelSaving ? "Wait for the model change to finish." : frameSaving ? "Wait for frame selection to finish saving." : !imageModel?.supportsImageEditing ? "Choose an image model that supports frame editing." : !currentVersion ? "Choose a saved frame take before editing this frame." : undefined}
+                      disabled={
+                        frameSaving ||
+                        modelSaving ||
+                        !currentVersion ||
+                        !imageModel?.supportsImageEditing
+                      }
+                      onClick={() => {
+                        if (currentVersion)
+                          onEditImage(shot.id, currentVersion.id);
+                      }}
+                    >
+                      <Sparkles size={15} />
+                    </WorkspaceCommand>
+                    {(!currentVersion || !imageModel?.supportsImageEditing) && (
+                      <InspectorHelp label="About frame editing">
+                        {!currentVersion
+                          ? "Choose or upload a frame to create an editable take."
+                          : `${imageModel?.name ?? "The image model"} does not support editing. Choose an editing model in Models for this shot.`}
+                      </InspectorHelp>
+                    )}
+                  </>
+                ) : null
+              }
+            />
+          </InspectorSection>
         ) : (
-          <FramePicker
-            label="End frame"
-            previewUrl={shot.end_frame_url}
-            frameOptions={frameOptions}
-            onPick={(variantId) => onPickFrame(shot.id, "end", variantId)}
-            onUpload={(file) => onUploadFrame(shot.id, "end", file)}
-            onClear={() => onClearEndFrame(shot.id)}
-          />
+          <p className="border-b border-border/50 px-3 py-3 text-xs text-muted-foreground">
+            {videoModel?.name ?? "This model"} uses the video prompt; frames are
+            not sent.
+          </p>
         )}
-      </InspectorSection>
 
-      {/* Prompt Section */}
-      <InspectorSection title="Prompt">
-        <Textarea
-          className="min-h-[88px] text-sm resize-y"
-          placeholder="Describe the motion between the frames..."
-          value={shot.video_prompt ?? ""}
-          onChange={(e) => onUpdateShot(shot.id, { video_prompt: e.target.value })}
-        />
-        <div className="flex gap-2 mt-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 text-xs"
-            onClick={() => onGenerateVideoPrompt(shot.id)}
-            disabled={isGeneratingPrompt || !shot.image_url}
+        {/* End Frame Section */}
+        {(supportsEndFrame || shot.end_frame_url) && (
+          <InspectorSection
+            key={`end:${shot.id}:${videoModel?.id}`}
+            title={
+              !supportsEndFrame
+                ? "Saved end frame"
+                : videoModel?.modeCapabilities.imageToVideo?.requiresEndImage
+                  ? "End frame (required)"
+                  : "End frame (optional)"
+            }
+            defaultOpen={
+              !!shot.end_frame_url ||
+              videoModel?.modeCapabilities.imageToVideo?.requiresEndImage
+            }
           >
-            {isGeneratingPrompt ? (
-              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-            ) : (
-              <ImageIcon className="h-3 w-3 mr-1" />
-            )}
-            From Image
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1 text-xs"
-            onClick={() => onEnhanceVideoPrompt(shot.id)}
-            disabled={isEnhancingPrompt || !shot.video_prompt}
-          >
-            {isEnhancingPrompt ? (
-              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-            ) : (
-              <Sparkles className="h-3 w-3 mr-1" />
-            )}
-            Enhance
-          </Button>
-        </div>
-      </InspectorSection>
-
-      {/* Generate Video Section */}
-      <InspectorSection title="Generate Video">
-        {videoModel && (
-          <div className="mb-3 rounded border border-border/60 p-2">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="truncate text-xs font-medium">{videoModel.name}</p>
-              {hasVideoSettings && <span className="text-[10px] text-muted-foreground">Settings</span>}
-            </div>
-            {hasVideoSettings ? (
-              <div className="grid grid-cols-2 gap-2">
-                {videoModel.capabilities.durations.length > 1 && (
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-muted-foreground">Duration</label>
-                    <Select
-                      value={videoSettings.duration}
-                      onValueChange={(duration) => onVideoSettingsChange({ ...videoSettings, duration })}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {videoModel.capabilities.durations.map((duration) => (
-                          <SelectItem key={duration} value={duration}>
-                            {formatDurationLabel(duration)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {(videoModel.capabilities.resolutions?.length ?? 0) > 1 && (
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-muted-foreground">Resolution</label>
-                    <Select
-                      value={videoSettings.resolution ?? ""}
-                      onValueChange={(resolution) => onVideoSettingsChange({ ...videoSettings, resolution })}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {videoModel.capabilities.resolutions!.map((resolution) => (
-                          <SelectItem key={resolution} value={resolution}>
-                            {resolution}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {(videoModel.capabilities.aspectRatios?.length ?? 0) > 1 && (
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-medium text-muted-foreground">Aspect Ratio</label>
-                    <Select
-                      value={videoSettings.aspectRatio ?? ""}
-                      onValueChange={(aspectRatio) => onVideoSettingsChange({ ...videoSettings, aspectRatio })}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {videoModel.capabilities.aspectRatios!.map((aspectRatio) => (
-                          <SelectItem key={aspectRatio} value={aspectRatio}>
-                            {aspectRatio === "auto" ? "Auto" : aspectRatio}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {videoModel.capabilities.hasAudio && (
-                  <div className="flex items-center justify-between gap-2 self-end rounded border border-border/50 px-2 py-1.5">
-                    <label className="text-[11px] font-medium text-muted-foreground">Audio</label>
-                    <Switch
-                      checked={videoSettings.audio ?? false}
-                      onCheckedChange={(audio) => onVideoSettingsChange({ ...videoSettings, audio })}
-                    />
-                  </div>
-                )}
+            {!supportsEndFrame ? (
+              <div className="space-y-2">
+                <FramePreview
+                  url={shot.end_frame_url}
+                  label="Saved end frame"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {videoModel?.name ?? "This model"} does not use this saved end
+                  frame.
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={frameSaving}
+                  onClick={() => onClearEndFrame(shot.id)}
+                >
+                  Remove saved end frame
+                </Button>
               </div>
             ) : (
-              <p className="text-[11px] text-muted-foreground">No configurable video settings for this model.</p>
+              <>
+                {!shot.image_url && (
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    An end frame is used only with a start frame.
+                  </p>
+                )}
+                <FramePicker
+                  label="End frame"
+                  disabled={frameSaving}
+                  previewUrl={shot.end_frame_url}
+                  frameOptions={frameOptions}
+                  onPick={(variantId) => onPickFrame(shot.id, "end", variantId)}
+                  onUpload={(file) => onUploadFrame(shot.id, "end", file)}
+                  onClear={() => onClearEndFrame(shot.id)}
+                />
+              </>
             )}
+          </InspectorSection>
+        )}
+
+        {/* Prompt Section */}
+        <InspectorSection title="Video prompt">
+          <Textarea
+            aria-label="Video prompt"
+            className="shot-video-prompt text-sm resize-y"
+            placeholder="Describe the motion between the frames..."
+            value={shot.video_prompt ?? ""}
+            onChange={(e) =>
+              onUpdateShot(shot.id, { video_prompt: e.target.value })
+            }
+          />
+          <div className="inspector-assistance">
+            <span>Google AI prompt tools</span>
+            <InspectorHelp label="About prompt assistance">
+              Prompt assistance uses Google AI (Gemini). Add its key in
+              Settings. Any charges are outside the video estimate.
+            </InspectorHelp>
           </div>
+          <div className="flex gap-2 mt-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="flex-1 text-xs"
+              onClick={() => onGenerateVideoPrompt(shot.id)}
+              disabled={isGeneratingPrompt || !shot.image_url}
+            >
+              {isGeneratingPrompt ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <ImageIcon className="h-3 w-3 mr-1" />
+              )}
+              Describe frame
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="flex-1 text-xs"
+              onClick={() => onEnhanceVideoPrompt(shot.id)}
+              disabled={isEnhancingPrompt || !shot.video_prompt}
+            >
+              {isEnhancingPrompt ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3 mr-1" />
+              )}
+              Improve prompt
+            </Button>
+          </div>
+        </InspectorSection>
+
+        {/* Generate Video Section */}
+        <InspectorSection title="Video settings">
+          {videoSettingsNotice && (
+            <p role="status" className="mb-2 text-xs text-muted-foreground">
+              {videoSettingsNotice}
+            </p>
+          )}
+          <ShotVideoSettings
+            videoModel={videoModel}
+            videoSettings={videoSettings}
+            onVideoSettingsChange={onVideoSettingsChange}
+            videoSettingsSaving={videoSettingsSaving}
+          />
+        </InspectorSection>
+
+        {/* Image Versions Section */}
+        {versionCount > 0 && (
+          <InspectorSection title="Image takes" open={takeHistoryOpen[shot.id]?.image ?? false} onOpenChange={(open) => changeTakeHistory("image", open)}>
+            <ImageVersionTimeline
+              versions={versions}
+              currentVersionId={currentVersion?.id || null}
+              onVersionSelect={(versionId) =>
+                onVersionSelect(shot.id, versionId)
+              }
+              onBranchFrom={(versionId) => onBranchFrom(shot.id, versionId)}
+              onEditFrom={(versionId) => onEditImage(shot.id, versionId)}
+              compact
+            />
+          </InspectorSection>
+        )}
+
+        {/* Video Versions Section */}
+        {videoVersionCount > 0 && (
+          <InspectorSection title="Video takes" open={takeHistoryOpen[shot.id]?.video ?? false} onOpenChange={(open) => changeTakeHistory("video", open)}>
+            <VideoVersionTimeline
+              versions={videoVersions}
+              currentVersionId={currentVideoVersion?.id || null}
+              onVersionSelect={(versionId) =>
+                onVideoVersionSelect(shot.id, versionId)
+              }
+              compact
+            />
+          </InspectorSection>
+        )}
+      </div>
+      <footer
+        aria-label="Shot generation"
+        className="shot-generation-footer shrink-0 border-t border-border bg-background px-3 py-2"
+      >
+        {frameSaving && (
+          <p role="status" className="mb-2 text-xs text-muted-foreground">
+            Saving frame selection…
+          </p>
+        )}
+        {frameError && (
+          <div className="mb-2 space-y-2">
+            <p role="alert" className="text-xs text-destructive">
+              {frameError.role === "start" ? "Start frame" : "End frame"}:{" "}
+              {frameError.message}
+            </p>
+            <Button size="sm" variant="ghost" onClick={onDismissFrameError}>
+              Keep current frames
+            </Button>
+          </div>
+        )}
+        {videoSettingsError && (
+          <div className="mb-2 space-y-2">
+            <p role="alert" className="text-xs text-destructive">
+              {videoSettingsError}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onRetryVideoSettingsSave}
+                disabled={videoSettingsSaving}
+              >
+                Retry settings save
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onDiscardVideoSettings}
+                disabled={videoSettingsSaving}
+              >
+                Discard changes
+              </Button>
+            </div>
+          </div>
+        )}
+        <div className="max-h-[28vh] overflow-y-auto">{generationCost}</div>
+        {!readiness.ok && (
+          <p role="status" className="mb-2 text-xs text-muted-foreground">
+            {readiness.error.message}
+          </p>
         )}
         <Button
           size="sm"
           className="w-full text-xs"
+          aria-label={`Generate video for shot ${shot.order}`}
           onClick={() => onGenerateVideo(shot.id)}
-          disabled={shot.status === "generating" || !canGenerateVideo}
+          disabled={
+            generationDisabled || shot.status === "generating" || !readiness.ok
+          }
         >
           {shot.status === "generating" ? (
             <>
@@ -516,35 +732,28 @@ export default function ShotInspector({
             </>
           )}
         </Button>
+        {(shot.status === "generating" || generationPending) && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Stops waiting locally. Provider work and charges may continue.
+          </p>
+        )}
         {shot.status === "generating" && (
           <Button
             size="sm"
-            variant="outline"
+            variant="ghost"
             className="mt-2 w-full text-xs"
             onClick={() => onCancelVideoGeneration(shot.id)}
           >
             Stop Waiting
           </Button>
         )}
-        {shot.status === "failed" && shot.error_message && (
+        {shot.error_message && (
           <div className="mt-2 flex items-start gap-1.5 text-xs text-destructive">
             <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
             <span>{shot.error_message}</span>
           </div>
         )}
-      </InspectorSection>
-
-      {/* Video Versions Section */}
-      {videoVersionCount > 0 && (
-        <InspectorSection title="Video Versions">
-          <VideoVersionTimeline
-            versions={videoVersions}
-            currentVersionId={currentVideoVersion?.id || null}
-            onVersionSelect={(versionId) => onVideoVersionSelect(shot.id, versionId)}
-            compact
-          />
-        </InspectorSection>
-      )}
+      </footer>
     </div>
   );
 }

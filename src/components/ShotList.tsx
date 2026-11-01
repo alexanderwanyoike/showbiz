@@ -1,5 +1,20 @@
-import { useEffect, useState } from "react";
-import { Plus, ChevronUp, ChevronDown, Trash2, Loader2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { WorkspaceCommand } from "./WorkspaceCommand";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  Plus,
+  MoreHorizontal,
+  ArrowLeft,
+  ArrowRight,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import { thumbnailGenerator } from "../lib/thumbnail-generator";
 import { resolvePreviewStill } from "../lib/video-preview";
 
@@ -11,6 +26,7 @@ export interface ShotListItem {
   image_url: string | null;
   video_url: string | null;
   status: "pending" | "generating" | "complete" | "failed";
+  generationPending?: boolean;
 }
 
 interface ShotListProps {
@@ -19,28 +35,7 @@ interface ShotListProps {
   onSelectShot: (shotId: string) => void;
   onAddShot: () => void;
   onMoveShot: (index: number, direction: "up" | "down") => void;
-  onDeleteShot: (shotId: string) => void;
-}
-
-function formatTimecode(order: number): string {
-  const totalSeconds = (order - 1) * 8;
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const frames = 0;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}:${String(frames).padStart(2, "0")}`;
-}
-
-function getStatusColor(
-  status: ShotListItem["status"],
-  hasImage: boolean,
-  hasVideo: boolean,
-): string {
-  if (status === "generating") return "bg-orange-400";
-  if (status === "failed") return "bg-red-500";
-  if (hasImage && hasVideo) return "bg-green-500";
-  if (hasImage) return "bg-yellow-400";
-  return "bg-gray-500";
+  onDeleteShot: (shotId: string, restoreFocus?: () => void) => void;
 }
 
 function truncatePrompt(prompt: string | null): string {
@@ -62,17 +57,55 @@ export default function ShotList({
   onDeleteShot,
 }: ShotListProps) {
   const [posters, setPosters] = useState<Record<string, string>>({});
+  const shotButtons = useRef<Record<string, HTMLButtonElement | null>>({});
+  const actionButtons = useRef<Record<string, HTMLButtonElement | null>>({});
+  function navigateShot(
+    event: KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) {
+    let next = index;
+    if (event.key === "ArrowLeft") next = Math.max(0, index - 1);
+    else if (event.key === "ArrowRight")
+      next = Math.min(shots.length - 1, index + 1);
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = shots.length - 1;
+    else return;
+    event.preventDefault();
+    const target = shots[next];
+    if (target && next !== index) {
+      onSelectShot(target.id);
+      shotButtons.current[target.id]?.focus();
+    }
+  }
+  function restoreShotFocus(id: string) {
+    const opener = actionButtons.current[id];
+    if (opener?.isConnected) opener.focus();
+    else
+      Object.values(shotButtons.current)
+        .find((button) => button?.isConnected)
+        ?.focus();
+  }
 
   useEffect(() => {
     let cancelled = false;
     for (const shot of shots) {
-      if (shot.image_url || !shot.video_url || posters[shot.id]) continue;
+      if (
+        shot.image_url ||
+        !shot.video_url ||
+        Object.hasOwn(posters, shot.video_url)
+      )
+        continue;
+      const videoUrl = shot.video_url;
       thumbnailGenerator
-        .extractFrame(shot.video_url, 0)
+        .extractFrame(videoUrl, 0)
         .then((frame) => {
-          if (!cancelled) setPosters((prev) => ({ ...prev, [shot.id]: frame }));
+          if (!cancelled)
+            setPosters((prev) => ({ ...prev, [videoUrl]: frame }));
         })
-        .catch(() => {});
+        .catch((error: unknown) => {
+          console.warn("Could not prepare a shot preview:", error);
+          if (!cancelled) setPosters((prev) => ({ ...prev, [videoUrl]: "" }));
+        });
     }
     return () => {
       cancelled = true;
@@ -80,113 +113,119 @@ export default function ShotList({
   }, [shots, posters]);
 
   return (
-    <div className="h-full flex flex-col overflow-y-auto">
-      <div className="flex-1">
+    <section aria-label="Shots" className="shot-browser">
+      <div className="shot-browser-heading">
+        <span>Shots</span>
+        <span>{shots.length}</span>
+      </div>
+      <ol className="shot-browser-list">
         {shots.map((shot, index) => {
-          const isSelected = shot.id === selectedShotId;
-          const hasImage = !!shot.image_url;
-          const hasVideo = !!shot.video_url;
-          const isGenerating = shot.status === "generating";
-          const previewStill = resolvePreviewStill(shot.image_url, posters[shot.id]);
-          const prompt = shotListPrompt(shot);
-
+          const previewStill = resolvePreviewStill(
+            shot.image_url,
+            posters[shot.video_url ?? ""],
+          );
+          const status =
+            shot.status === "generating"
+              ? "Generating"
+              : shot.status === "failed"
+                ? "Failed"
+                : shot.video_url
+                  ? "Video ready"
+                  : shot.image_url
+                    ? "Frame ready"
+                    : "No media";
           return (
-            <div
+            <li
               key={shot.id}
-              className={`group flex items-center gap-2.5 py-1.5 px-2 cursor-pointer ${
-                isSelected
-                  ? "bg-accent"
-                  : "hover:brightness-110 hover:bg-muted/50"
-              }`}
-              onClick={() => onSelectShot(shot.id)}
+              className={`shot-browser-row group ${selectedShotId === shot.id ? "is-selected" : ""}`}
             >
-              {/* Thumbnail */}
-              <div className="relative w-20 shrink-0 aspect-video bg-muted rounded-sm overflow-hidden">
-                {previewStill ? (
-                  <img
-                    src={previewStill}
-                    alt={`Shot ${shot.order}`}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
-                    Empty
-                  </div>
-                )}
-              </div>
-
-              {/* Info column */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  {/* Status dot */}
-                  <span className="relative flex shrink-0">
-                    <span
-                      className={`w-2 h-2 rounded-full ${getStatusColor(shot.status, hasImage, hasVideo)}`}
-                    />
-                    {isGenerating && (
-                      <Loader2 className="absolute -top-0.5 -left-0.5 w-3 h-3 text-orange-400 animate-spin" />
-                    )}
-                  </span>
-                  <span className="text-xs font-medium text-foreground truncate">
-                    #{shot.order}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">
-                  {truncatePrompt(prompt)}
-                </p>
-                <span className="text-xs font-mono text-muted-foreground/70 tabular-nums">
-                  {formatTimecode(shot.order)}
+              <button
+                className="shot-browser-select"
+                ref={(button) => {
+                  shotButtons.current[shot.id] = button;
+                }}
+                onKeyDown={(event) => navigateShot(event, index)}
+                aria-keyshortcuts="ArrowLeft ArrowRight Home End"
+                aria-label={`Select shot ${shot.order}`}
+                aria-pressed={selectedShotId === shot.id}
+                onClick={() => onSelectShot(shot.id)}
+              >
+                <span className="shot-browser-thumbnail">
+                  {previewStill ? (
+                    <img src={previewStill} alt="" />
+                  ) : (
+                    <span>{String(shot.order).padStart(2, "0")}</span>
+                  )}
                 </span>
+                <span className="shot-browser-copy">
+                  <strong>Shot {String(shot.order).padStart(2, "0")}</strong>
+                  <span>{truncatePrompt(shotListPrompt(shot))}</span>
+                  <small>
+                    {shot.status === "generating" && (
+                      <Loader2 size={10} className="animate-spin" />
+                    )}
+                    {status}
+                  </small>
+                </span>
+              </button>
+              <div className="shot-browser-actions">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <WorkspaceCommand
+                      label={`Shot ${shot.order} actions`}
+                      ref={(button) => {
+                        actionButtons.current[shot.id] = button;
+                      }}
+                    >
+                      <MoreHorizontal size={16} />
+                    </WorkspaceCommand>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    aria-label={`Shot ${shot.order} actions`}
+                  >
+                    <DropdownMenuItem
+                      disabled={index === 0}
+                      onSelect={() => onMoveShot(index, "up")}
+                    >
+                      <ArrowLeft size={14} />
+                      Move earlier
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={index === shots.length - 1}
+                      onSelect={() => onMoveShot(index, "down")}
+                    >
+                      <ArrowRight size={14} />
+                      Move later
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      disabled={
+                        shot.status === "generating" || shot.generationPending
+                      }
+                      aria-description={
+                        (shot.status === "generating" || shot.generationPending)
+                          ? "Wait for this shot's current request to finish."
+                          : undefined
+                      }
+                      onSelect={() =>
+                        onDeleteShot(shot.id, () => restoreShotFocus(shot.id))
+                      }
+                    >
+                      <Trash2 size={14} />
+                      Delete shot
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-
-              {/* Hover actions */}
-              <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMoveShot(index, "up");
-                  }}
-                  disabled={index === 0}
-                  className="p-0.5 rounded text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  title="Move up"
-                >
-                  <ChevronUp className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMoveShot(index, "down");
-                  }}
-                  disabled={index === shots.length - 1}
-                  className="p-0.5 rounded text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  title="Move down"
-                >
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteShot(shot.id);
-                  }}
-                  className="p-0.5 rounded text-muted-foreground hover:text-destructive"
-                  title="Delete shot"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
+            </li>
           );
         })}
-      </div>
-
-      {/* Add Shot button */}
-      <button
-        onClick={onAddShot}
-        className="mx-2 my-2 py-2 border border-dashed border-border rounded-sm flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-      >
-        <Plus className="w-3.5 h-3.5" />
-        Add Shot
+      </ol>
+      <button onClick={onAddShot} className="shot-browser-add">
+        <Plus size={16} />
+        Add shot
       </button>
-    </div>
+    </section>
   );
 }

@@ -1,13 +1,20 @@
+import type { ApplicationMenuAction, DesktopMenuCommand, DesktopShellMetadata, DesktopTitleBarAppearance } from "../../shared/desktop-shell";
+import type { Result } from "../../shared/result";
 import type { ApplicationWorkStatus } from "../../shared/application-work";
 import type { UpdateStatus } from "../../shared/update-status";
 
 // Runtime bridge to the Electron main process, exposed by the preload script
 // as window.showbiz.
 export interface ElectronBridge {
+  desktop?: DesktopShellMetadata;
+  runMenuCommand?(command: DesktopMenuCommand): Promise<Result<null>>;
+  setTitleBarAppearance?(appearance: DesktopTitleBarAppearance): Promise<Result<null>>;
+  onDataChanged?(callback: () => void): () => void;
+  onProjectDocument?(cb: () => void): () => void;
+  onApplicationMenuAction?(cb: (action: ApplicationMenuAction) => void): () => void;
+  onDocumentAction?(cb: (action: "new" | "open" | "save" | "save_as" | "close") => void): () => void;
   invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
   readMediaBytes(relativePath: string): Promise<Uint8Array>;
-  /** Subscribe to native export progress; returns an unsubscribe function. */
-  onExportProgress(cb: (payload: { percent: number }) => void): () => void;
   onApplicationWork(cb: (status: ApplicationWorkStatus) => void): () => void;
   onPrepareShutdown(cb: (request_id: string) => void): () => void;
   onUpdateStatus(cb: (status: UpdateStatus) => void): () => void;

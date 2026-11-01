@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
-import ProjectBibleView from "./ProjectBibleView";
+import ProjectBibleView from "../test/ProjectBibleView";
 import { applicationWork } from "../lib/application-work";
 
 const createAsset = vi.hoisted(() => vi.fn());

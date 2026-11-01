@@ -1,3 +1,4 @@
+import { testCatalog } from "../test-support/data-commands";
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
@@ -21,7 +22,7 @@ describe("get_projects", () => {
     const db = openTestDb();
     db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(
       "proj-1",
-      "My Project"
+      "My Project",
     );
 
     const projects = createProjectCommands(db, tmpMediaDir()).get_projects();
@@ -42,7 +43,7 @@ describe("get_projects", () => {
   it("orders projects by updated_at descending", () => {
     const db = openTestDb();
     const insert = db.prepare(
-      "INSERT INTO projects (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)"
+      "INSERT INTO projects (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)",
     );
     insert.run("proj-old", "Old", "2026-01-01 00:00:00", "2026-01-01 00:00:00");
     insert.run("proj-new", "New", "2026-01-01 00:00:00", "2026-02-01 00:00:00");
@@ -57,7 +58,7 @@ describe("get_project", () => {
     const db = openTestDb();
     db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(
       "proj-1",
-      "My Project"
+      "My Project",
     );
     const project = createProjectCommands(db, tmpMediaDir()).get_project({
       id: "proj-1",
@@ -69,7 +70,7 @@ describe("get_project", () => {
   it("returns null when the project does not exist", () => {
     const db = openTestDb();
     expect(
-      createProjectCommands(db, tmpMediaDir()).get_project({ id: "nope" })
+      createProjectCommands(db, tmpMediaDir()).get_project({ id: "nope" }),
     ).toBeNull();
   });
 });
@@ -115,10 +116,10 @@ describe("delete_project", () => {
 
     db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run("p1", "P");
     db.prepare(
-      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)"
+      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)",
     ).run("sb1", "p1", "SB");
     db.prepare(
-      `INSERT INTO shots (id, storyboard_id, "order", status) VALUES (?, ?, 1, 'pending')`
+      `INSERT INTO shots (id, storyboard_id, "order", status) VALUES (?, ?, 1, 'pending')`,
     ).run("sh1", "sb1");
 
     expect(commands.delete_project({ id: "p1" })).toBe(true);
@@ -136,7 +137,7 @@ describe("delete_project", () => {
   it("returns false when nothing was deleted", () => {
     const db = openTestDb();
     expect(
-      createProjectCommands(db, tmpMediaDir()).delete_project({ id: "nope" })
+      createProjectCommands(db, tmpMediaDir()).delete_project({ id: "nope" }),
     ).toBe(false);
   });
 
@@ -184,15 +185,36 @@ describe("get_storyboards", () => {
     const db = openTestDb();
     db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run("p1", "P");
     const insert = db.prepare(
-      "INSERT INTO storyboards (id, project_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+      "INSERT INTO storyboards (id, project_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
     );
-    insert.run("sb-old", "p1", "Old", "2026-01-01 00:00:00", "2026-01-01 00:00:00");
-    insert.run("sb-new", "p1", "New", "2026-01-01 00:00:00", "2026-02-01 00:00:00");
+    insert.run(
+      "sb-old",
+      "p1",
+      "Old",
+      "2026-01-01 00:00:00",
+      "2026-01-01 00:00:00",
+    );
+    insert.run(
+      "sb-new",
+      "p1",
+      "New",
+      "2026-01-01 00:00:00",
+      "2026-02-01 00:00:00",
+    );
     // Belongs to another project, must be excluded.
     db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run("p2", "P2");
-    insert.run("sb-other", "p2", "Other", "2026-03-01 00:00:00", "2026-03-01 00:00:00");
+    insert.run(
+      "sb-other",
+      "p2",
+      "Other",
+      "2026-03-01 00:00:00",
+      "2026-03-01 00:00:00",
+    );
 
-    const storyboards = createProjectCommands(db, tmpMediaDir()).get_storyboards({
+    const storyboards = createProjectCommands(
+      db,
+      tmpMediaDir(),
+    ).get_storyboards({
       projectId: "p1",
     });
     expect(storyboards.map((s) => s.id)).toEqual(["sb-new", "sb-old"]);
@@ -206,12 +228,12 @@ describe("get_storyboards_with_preview", () => {
     const db = openTestDb();
     db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run("p1", "P");
     db.prepare(
-      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)"
+      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)",
     ).run("sb1", "p1", "SB");
 
     const [storyboard] = createProjectCommands(
       db,
-      tmpMediaDir()
+      tmpMediaDir(),
     ).get_storyboards_with_preview({ projectId: "p1" });
     expect(storyboard.preview_image_path).toBeNull();
   });
@@ -221,22 +243,22 @@ describe("get_storyboards_with_preview", () => {
     const mediaDir = tmpMediaDir();
     db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run("p1", "P");
     db.prepare(
-      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)"
+      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)",
     ).run("sb1", "p1", "SB");
     // Two shots; the lower "order" (and only one with an image) wins.
     db.prepare(
-      `INSERT INTO shots (id, storyboard_id, "order", status) VALUES (?, ?, 1, 'pending')`
+      `INSERT INTO shots (id, storyboard_id, "order", status) VALUES (?, ?, 1, 'pending')`,
     ).run("sh0", "sb1");
     db.prepare(
-      `INSERT INTO shots (id, storyboard_id, "order", status, image_path) VALUES (?, ?, 2, 'pending', ?)`
+      `INSERT INTO shots (id, storyboard_id, "order", status, image_path) VALUES (?, ?, 2, 'pending', ?)`,
     ).run("sh1", "sb1", "images/sh1.png");
 
     const [storyboard] = createProjectCommands(
       db,
-      mediaDir
+      mediaDir,
     ).get_storyboards_with_preview({ projectId: "p1" });
     expect(storyboard.preview_image_path).toBe(
-      path.join(mediaDir, "images/sh1.png")
+      path.join(mediaDir, "images/sh1.png"),
     );
   });
 });
@@ -246,7 +268,7 @@ describe("get_storyboard", () => {
     const db = openTestDb();
     db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run("p1", "P");
     db.prepare(
-      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)"
+      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)",
     ).run("sb1", "p1", "SB");
 
     const storyboard = createProjectCommands(db, tmpMediaDir()).get_storyboard({
@@ -259,7 +281,7 @@ describe("get_storyboard", () => {
   it("returns null when the storyboard does not exist", () => {
     const db = openTestDb();
     expect(
-      createProjectCommands(db, tmpMediaDir()).get_storyboard({ id: "nope" })
+      createProjectCommands(db, tmpMediaDir()).get_storyboard({ id: "nope" }),
     ).toBeNull();
   });
 });
@@ -274,8 +296,8 @@ describe("create_storyboard", () => {
     expect(storyboard.id.startsWith("sb-")).toBe(true);
     expect(storyboard.project_id).toBe(projectId);
     expect(storyboard.name).toBe("SB");
-    expect(storyboard.image_model).toBe("imagen4");
-    expect(storyboard.video_model).toBe("veo3");
+    expect(storyboard.image_model).toBe("nano-banana-2");
+    expect(storyboard.video_model).toBe("seedance-2-fal");
     expect(typeof storyboard.created_at).toBe("string");
   });
 });
@@ -295,17 +317,23 @@ describe("update_storyboard", () => {
 describe("update_storyboard_models", () => {
   it("updates the image and video models", () => {
     const db = openTestDb();
-    const commands = createProjectCommands(db, tmpMediaDir());
+    const commands = createProjectCommands(
+      db,
+      tmpMediaDir(),
+      testCatalog.get_generation_models,
+    );
     const { id: projectId } = commands.create_project({ name: "P" });
     const { id } = commands.create_storyboard({ projectId, name: "SB" });
 
     const updated = commands.update_storyboard_models({
       id,
       imageModel: "nano-banana",
-      videoModel: "seedance",
+      videoModel: "local-video",
     });
-    expect(updated.image_model).toBe("nano-banana");
-    expect(updated.video_model).toBe("seedance");
+    expect(updated).toMatchObject({
+      image_model: "nano-banana",
+      video_model: "local-video",
+    });
   });
 });
 
@@ -315,10 +343,10 @@ describe("delete_storyboard", () => {
     const commands = createProjectCommands(db, tmpMediaDir());
     db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run("p1", "P");
     db.prepare(
-      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)"
+      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)",
     ).run("sb1", "p1", "SB");
     db.prepare(
-      `INSERT INTO shots (id, storyboard_id, "order", status) VALUES (?, ?, 1, 'pending')`
+      `INSERT INTO shots (id, storyboard_id, "order", status) VALUES (?, ?, 1, 'pending')`,
     ).run("sh1", "sb1");
 
     expect(commands.delete_storyboard({ id: "sb1" })).toBe(true);
@@ -331,7 +359,9 @@ describe("delete_storyboard", () => {
   it("returns false when nothing was deleted", () => {
     const db = openTestDb();
     expect(
-      createProjectCommands(db, tmpMediaDir()).delete_storyboard({ id: "nope" })
+      createProjectCommands(db, tmpMediaDir()).delete_storyboard({
+        id: "nope",
+      }),
     ).toBe(false);
   });
 
@@ -341,7 +371,7 @@ describe("delete_storyboard", () => {
     const commands = createProjectCommands(db, mediaDir);
     db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run("p1", "P");
     db.prepare(
-      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)"
+      "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)",
     ).run("sb1", "p1", "SB");
 
     const imageRel = "images/sh1.png";
@@ -376,10 +406,10 @@ function seedShotWithMedia(
   storyboardId: string,
   shotId: string,
   imagePath: string,
-  videoPath: string
+  videoPath: string,
 ): void {
   db.prepare(
     `INSERT INTO shots (id, storyboard_id, "order", status, image_path, video_path)
-     VALUES (?, ?, 1, 'pending', ?, ?)`
+     VALUES (?, ?, 1, 'pending', ?, ?)`,
   ).run(shotId, storyboardId, imagePath, videoPath);
 }

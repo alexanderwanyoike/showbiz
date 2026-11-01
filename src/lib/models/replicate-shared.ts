@@ -1,3 +1,4 @@
+import { createStatusPollRetry } from "./status-poll-retry";
 import { fetch } from "./http";
 import { pollUntilDone } from "./poll";
 
@@ -17,14 +18,17 @@ export interface ReplicatePrediction {
 export function parseReplicateError(status: number, body: string): string {
   if (status === 401) return "Invalid Replicate API token.";
   if (status === 402) return "Billing issue with your Replicate account.";
-  if (status === 429) return "Replicate rate limit exceeded. Please try again later.";
+  if (status === 429)
+    return "Replicate rate limit exceeded. Please try again later.";
   if (status === 422) {
     try {
       const parsed = JSON.parse(body);
       const detail = parsed.detail;
       if (typeof detail === "string") return detail;
       if (Array.isArray(detail)) {
-        return detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join("; ");
+        return detail
+          .map((d: { msg?: string }) => d.msg ?? JSON.stringify(d))
+          .join("; ");
       }
     } catch {
       // not JSON
@@ -38,7 +42,7 @@ export async function createPrediction(
   model: string,
   input: Record<string, unknown>,
   apiKey: string,
-  preferWait?: boolean
+  preferWait?: boolean,
 ): Promise<ReplicatePrediction> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
@@ -65,22 +69,37 @@ export async function createPrediction(
 
 export async function pollPrediction(
   predictionId: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<ReplicatePrediction> {
+  const retries = createStatusPollRetry();
   return pollUntilDone<ReplicatePrediction>({
     check: async () => {
-      const res = await fetch(
-        `${REPLICATE_API_BASE}/predictions/${predictionId}`,
-        {
-          headers: { Authorization: `Bearer ${apiKey}` },
-        }
-      );
+      let res: Awaited<ReturnType<typeof fetch>>;
+      try {
+        res = await fetch(
+          `${REPLICATE_API_BASE}/predictions/${encodeURIComponent(predictionId)}`,
+          {
+            headers: { Authorization: `Bearer ${apiKey}` },
+          },
+        );
+      } catch {
+        if (retries.allowRetry()) return { done: false };
+        throw new Error(
+          `Could not read Replicate prediction ${predictionId} after repeated connection failures. Check this prediction before retrying generation.`,
+        );
+      }
+      if (!res.ok && (res.status === 429 || res.status >= 500)) {
+        if (retries.allowRetry()) return { done: false };
+      }
 
       const text = await res.text();
 
       if (!res.ok) {
-        throw new Error(parseReplicateError(res.status, text));
+        throw new Error(
+          `${parseReplicateError(res.status, text)} Prediction: ${predictionId}.`,
+        );
       }
+      retries.reset();
 
       const prediction = JSON.parse(text) as ReplicatePrediction;
 
@@ -89,7 +108,7 @@ export async function pollPrediction(
       }
       if (prediction.status === "failed" || prediction.status === "canceled") {
         throw new Error(
-          `Replicate prediction ${prediction.status}: ${prediction.error ?? "unknown error"}`
+          `Replicate prediction ${prediction.status}: ${prediction.error ?? "unknown error"}`,
         );
       }
 
@@ -100,7 +119,7 @@ export async function pollPrediction(
     maxInterval: POLL_MAX_MS,
     timeout: POLL_TIMEOUT_MS,
     backoff: { type: "exponential", factor: 2 },
-    label: "replicate",
+    label: `Replicate prediction ${predictionId}`,
   });
 }
 

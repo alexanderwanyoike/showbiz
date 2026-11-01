@@ -133,7 +133,10 @@ describe("pollUntilDone", () => {
 
     const error = await resultPromise;
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toBe("Polling timed out after 3000ms (test-op)");
+    expect(error).toHaveProperty(
+      "message",
+      "Polling timed out after 3000ms (test-op)",
+    );
   });
 
   it("propagates errors from check function", async () => {

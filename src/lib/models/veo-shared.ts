@@ -1,3 +1,4 @@
+import { readVeoOperation } from "./veo-response";
 import { fetch } from "./http";
 import { parseGoogleApiError } from "./types";
 
@@ -12,14 +13,14 @@ export interface VeoConfig {
   maxPollInterval?: number;
 }
 
-export function parseRaiFilterReasons(pollData: Record<string, unknown>): string | null {
+export function parseRaiFilterReasons(
+  pollData: Record<string, unknown>,
+): string | null {
   const response = pollData.response as Record<string, unknown> | undefined;
   const generateVideoResponse = response?.generateVideoResponse as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const reasons = generateVideoResponse?.raiMediaFilteredReasons as
-    | string[]
-    | undefined;
+    string[] | undefined;
 
   if (reasons && reasons.length > 0) {
     return reasons[0];
@@ -35,13 +36,13 @@ export async function generateVeoVideoBlob(
   prompt: string,
   imageBase64: string | null,
   apiKey: string,
-  config: VeoConfig
+  config: VeoConfig,
 ): Promise<Blob> {
   const {
     modelId,
     modelName,
     initialPollInterval = 5000,
-    maxPollInterval = 10000
+    maxPollInterval = 10000,
   } = config;
 
   const url = `${BASE_URL}/models/${modelId}:predictLongRunning?key=${apiKey}`;
@@ -87,10 +88,10 @@ export async function generateVeoVideoBlob(
   if (!response.ok) {
     if (response.status === 404) {
       console.warn(
-        `${modelName} not found (404). Your API key might not have access.`
+        `${modelName} not found (404). Your API key might not have access.`,
       );
       throw new Error(
-        `${modelName} not accessible. Your API key may not have access.`
+        `${modelName} not accessible. Your API key may not have access.`,
       );
     }
     const errorText = await response.text();
@@ -98,7 +99,9 @@ export async function generateVeoVideoBlob(
     throw new Error(userMessage);
   }
 
-  const data = await response.json();
+  const initial = await readVeoOperation(response);
+  if (!initial.ok) throw new Error(initial.error.message);
+  const data = initial.value;
   const operationName = data.name;
 
   if (!operationName) {
@@ -121,26 +124,25 @@ export async function generateVeoVideoBlob(
 
     const pollRes = await fetch(operationUrl);
 
-    if (!pollRes.ok) {
+    if (!pollRes.ok && (pollRes.status === 429 || pollRes.status >= 500)) {
       console.warn(`Poll request failed: ${pollRes.status}`);
       // Increase interval on failure
       pollInterval = Math.min(pollInterval * 1.5, maxPollInterval);
       continue;
     }
 
-    const pollData = await pollRes.json();
+    const parsed = await readVeoOperation(pollRes);
+    if (!parsed.ok)
+      throw new Error(`${parsed.error.message} Operation: ${operationName}.`);
+    const pollData = parsed.value;
     const elapsed = Math.round((Date.now() - startTime) / 1000);
 
     console.log(
       `Polling ${modelName} status (attempt ${attemptCount}, ${elapsed}s elapsed):`,
-      pollData.done ? "Done" : "In Progress"
+      pollData.done ? "Done" : "In Progress",
     );
 
     if (pollData.done) {
-      if (pollData.error) {
-        throw new Error(`Veo Generation Failed: ${pollData.error.message}`);
-      }
-
       const videoUri =
         pollData.response?.generateVideoResponse?.generatedSamples?.[0]?.video
           ?.uri;
@@ -153,9 +155,7 @@ export async function generateVeoVideoBlob(
         });
 
         if (!videoResponse.ok) {
-          throw new Error(
-            `Failed to download video: ${videoResponse.status}`
-          );
+          throw new Error(`Failed to download video: ${videoResponse.status}`);
         }
 
         return await videoResponse.blob();
@@ -169,7 +169,7 @@ export async function generateVeoVideoBlob(
 
       console.log("Full Poll Response:", JSON.stringify(pollData, null, 2));
       throw new Error(
-        "Video generation failed. Please try a different prompt."
+        "Video generation failed. Please try a different prompt.",
       );
     }
 
