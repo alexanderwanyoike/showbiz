@@ -1,3 +1,4 @@
+import { load } from "js-yaml";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
@@ -120,10 +121,12 @@ test("keeps committed icon byte comparison out of cross-platform packaging and t
     path.join(root, ".github/workflows/ci.yml"),
     "utf8",
   );
-  assert.match(
-    workflow,
-    /runs-on: ubuntu-latest[\s\S]*?- run: yarn icons:check/,
+  const jobs = Object.values(load(workflow).jobs);
+  const iconJobs = jobs.filter((job) =>
+    job.steps?.some((step) => step.run === "yarn icons:check"),
   );
+  assert.equal(iconJobs.length, 1);
+  for (const job of iconJobs) assert.equal(job["runs-on"], "ubuntu-latest");
 });
 test("preserves the underlying source error when conversion fails", (t) => {
   const { source, run } = fixture(t);
