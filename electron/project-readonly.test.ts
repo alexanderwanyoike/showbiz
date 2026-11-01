@@ -53,3 +53,21 @@ it("opens a read-only project for inspection and makes an editable Save As copy"
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
+
+it("rejects an unclassified document command before it can mutate the project", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "showbiz-command-classification-"));
+  const documents = createProjectDocuments({
+    migrations: loadMigrations(path.resolve("electron/migrations")),
+    recentPath: path.join(directory, "recent.json"),
+    bind: (db, media) => ({...createProjectCommands(db, media), forgotten_mutation: () => db.prepare("UPDATE projects SET name = 'Changed'").run()}),
+  });
+  try {
+    const created = await documents.create(path.join(directory, "Film.showbiz"));
+    expect(created.ok).toBe(true);
+    await expect(documents.invoke("forgotten_mutation")).rejects.toThrow("Unclassified project command");
+    expect(await documents.invoke("get_projects")).toMatchObject([{name:"Film"}]);
+  } finally {
+    await documents.close();
+    fs.rmSync(directory, {recursive:true,force:true});
+  }
+});
