@@ -123,3 +123,33 @@ it("moves shot selection and focus with sequence navigation keys", async () => {
   ).toBe(document.activeElement);
   expect(select).toHaveBeenLastCalledWith("1");
 });
+it("explains why a saved generating shot cannot be deleted even without a local pending request", async () => {
+  render(
+    createElement(ShotList, {
+      shots: [
+        {
+          id: "saving",
+          order: 1,
+          image_prompt: null,
+          video_prompt: null,
+          image_url: null,
+          video_url: null,
+          status: "generating" as const,
+        },
+      ],
+      selectedShotId: "saving",
+      onSelectShot: vi.fn(),
+      onAddShot: vi.fn(),
+      onDeleteShot: vi.fn(),
+      onMoveShot: vi.fn(),
+    }),
+  );
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Shot 1 actions" }));
+  expect(
+    screen
+      .getByRole("menuitem", { name: "Delete shot" })
+      .getAttribute("aria-description"),
+  ).toBe("Wait for this shot's current request to finish.");
+});

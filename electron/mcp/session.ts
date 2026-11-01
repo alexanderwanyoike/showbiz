@@ -1,3 +1,7 @@
+import {
+  commandChangesData,
+  commandSwitchesDocument,
+} from "../../shared/command-effects";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { mcpTools } from "./tools";
@@ -17,15 +21,6 @@ const failure = (code: string, message: string): McpResult => ({
   ok: false,
   error: { code, message },
 });
-const isMutation = (command: string) =>
-  !command.startsWith("get_") &&
-  ![
-    "http_request",
-    "read_context",
-    "show_export_save_dialog",
-    "export_timeline_video",
-    "export_storyboard_package",
-  ].includes(command);
 function containsVersion(
   nodes: unknown,
   shotId: string,
@@ -56,25 +51,16 @@ export function createMcpSession(
   canEdit: () => boolean = () => true,
 ) {
   let revision = 0;
-  let tail = Promise.resolve();
+  let activeRequest: { id: string; fingerprint: string } | undefined;
   const cache = new Map<string, { fingerprint: string; result: McpResult }>();
+  const recordResult = (command: string, result: unknown) => {
+    if (!commandChangesData(command, result)) return;
+    revision++;
+    if (commandSwitchesDocument(command)) cache.clear();
+  };
   const invoke: Invoke = async (command, args) => {
     const result = await dispatch(command, args);
-    if (isMutation(command)) revision++;
-    if (
-      [
-        "create_project_document",
-        "open_project_document",
-        "close_project_document",
-        "save_project_document_as",
-        "import_legacy_project",
-      ].includes(command) &&
-      typeof result === "object" &&
-      result !== null &&
-      "ok" in result &&
-      result.ok === true
-    )
-      cache.clear();
+    recordResult(command, result);
     return result;
   };
   async function execute(input: unknown): Promise<McpResult> {
@@ -101,6 +87,21 @@ export function createMcpSession(
               "INVALID_INPUT",
               "The request ID was already used with different input",
             );
+      if (activeRequest) {
+        if (activeRequest.id === requestId)
+          return failure(
+            activeRequest.fingerprint === fingerprint
+              ? "PENDING"
+              : "INVALID_INPUT",
+            activeRequest.fingerprint === fingerprint
+              ? "Showbiz is still processing this request. Retry with the same request ID and arguments to check its result."
+              : "The request ID was already used with different input",
+          );
+        return failure(
+          "BUSY",
+          "Showbiz is still processing another edit or export. Read context or wait for that request to finish before changing project data.",
+        );
+      }
       if (!canEdit())
         return failure(
           "BUSY",
@@ -111,6 +112,7 @@ export function createMcpSession(
           "CONFLICT",
           "Showbiz changed. Read context and reconsider the edit.",
         );
+      activeRequest = { id: requestId, fingerprint };
     }
     try {
       let data: unknown;
@@ -193,14 +195,13 @@ export function createMcpSession(
         "OPERATION_FAILED",
         cause instanceof Error ? cause.message : String(cause),
       );
+    } finally {
+      if (activeRequest?.id === requestId) activeRequest = undefined;
     }
   }
   return {
     invoke,
-    call(input: unknown): Promise<McpResult> {
-      const operation = tail.then(() => execute(input));
-      tail = operation.then(() => {});
-      return operation;
-    },
+    recordResult,
+    call: execute,
   };
 }

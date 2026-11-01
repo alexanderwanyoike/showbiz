@@ -1,3 +1,5 @@
+import type { DesktopPlatform } from "../../shared/desktop-shell";
+import { menuShortcutLabel } from "../../shared/menu-shortcuts";
 export interface MenuEditor {
   element: HTMLElement | null;
   start: number | null;
@@ -70,11 +72,14 @@ export function menuShortcut(keys: string, mac = isMacDesktop()) {
     : `Ctrl+${keys}`;
 }
 
+export function desktopPlatform(): DesktopPlatform {
+  return (
+    window.showbiz?.desktop?.platform ?? (isMacDesktop() ? "darwin" : "linux")
+  );
+}
 export function redoShortcut() {
-  return window.showbiz?.desktop?.platform === "win32"
-    ? "Ctrl+Y"
-    : menuShortcut("Shift+Z");
+  return menuShortcutLabel("redo", desktopPlatform());
 }
 export function fullscreenShortcut() {
-  return isMacDesktop() ? "⌃⌘F" : "F11";
+  return menuShortcutLabel("toggle_fullscreen", desktopPlatform());
 }

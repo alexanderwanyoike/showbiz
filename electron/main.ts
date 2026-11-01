@@ -1,7 +1,7 @@
 import { desktopAppIconPath } from "./app-icon";
 import { createMcpSession } from "./mcp/session";
 import { startLocalBridge } from "./mcp/local-bridge";
-import { createDesktopShell, desktopWindowOptions, rendererMenuGesture } from "./desktop-shell";
+import { createDesktopShell, desktopShellMetadata, desktopWindowOptions, rendererMenuGesture } from "./desktop-shell";
 import { pathToFileURL } from "node:url";
 import { app, BrowserWindow, ipcMain, Menu, dialog, nativeTheme } from "electron";
 import path from "node:path";
@@ -71,8 +71,10 @@ async function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work
     () => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send("showbiz:data_changed"); },
     () => { const status = work.work.getStatus(); return status.unsaved.length === 0 && status.active.length === 0 && !status.closing; },
   );
-  ipcMain.handle("showbiz:invoke", (event, cmd: string, args?: Record<string, unknown>) => {
-    return work.invoke(event.sender.id, cmd, args, session.invoke);
+  ipcMain.handle("showbiz:invoke", async (event, cmd: string, args?: Record<string, unknown>) => {
+    const result = await work.invoke(event.sender.id, cmd, args, invokeHandler);
+    session.recordResult(cmd, result);
+    return result;
   });
   try {
     const bridge = await startLocalBridge(session.call);
@@ -122,13 +124,16 @@ function createWindow(work: ReturnType<typeof createWorkRuntime>, shell: ReturnT
 
 app.whenReady().then(async () => {
   if (process.platform === "darwin") app.dock?.setIcon(desktopAppIconPath(app.getAppPath(), app.isPackaged));
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
-    ...(process.platform === "darwin" ? [{ role: "appMenu" as const }] : []),
-    ...projectApplicationMenu((action) => {
+  Menu.setApplicationMenu(Menu.buildFromTemplate(projectApplicationMenu((action) => {
+    const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    window?.webContents.send("showbiz:document_action", action);
+  }, {
+    platform: desktopShellMetadata(process.platform)?.platform ?? "linux",
+    sendApplicationAction: (action) => {
       const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-      window?.webContents.send("showbiz:document_action", action);
-    }),
-  ]));
+      window?.webContents.send("showbiz:application_menu_action", action);
+    },
+  })));
   const work = createWorkRuntime({
     windows: () => BrowserWindow.getAllWindows(),
     confirm: (options) => {

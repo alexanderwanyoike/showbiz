@@ -6,7 +6,7 @@ import { openTestDb } from "./db.test";
 import { createSettingsCommands } from "./commands/settings";
 import { loadMigrations } from "./db";
 import { createProjectCommands } from "./commands/projects";
-import { createShotCommands } from "./commands/shots";
+import { createTestShotCommands as createShotCommands } from "./test-support/data-commands";
 import { createProjectDocuments } from "./project-documents";
 
 const directories: string[] = [];
