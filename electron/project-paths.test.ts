@@ -24,7 +24,7 @@ it("reopens the current project through a symlinked parent without colliding wit
     const created = await documents.create(path.join(alias, "Film.showbiz"));
     expect(created).toMatchObject({
       ok: true,
-      value: { file_path: path.join(real, "Film.showbiz") },
+      value: { file_path: path.join(fs.realpathSync(real), "Film.showbiz") },
     });
     expect(await documents.open(path.join(alias, "Film.showbiz"))).toEqual(
       created,
