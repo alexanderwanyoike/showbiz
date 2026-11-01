@@ -117,6 +117,15 @@
         "from": "dist-electron/mcp-LICENSES.txt",
         "to": "mcp/mcp-LICENSES.txt"
       }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "showbiz",
+        "name": "Showbiz project",
+        "description": "Showbiz project",
+        "mimeType": "application/x-showbiz-project",
+        "role": "Editor"
+      }
     ]
   },
   "dependencies": {

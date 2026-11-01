@@ -1,3 +1,5 @@
+import { createProjectFileOpening, projectFileArguments } from "./project-file-opening";
+import type { DocumentResult } from "../shared/project-document";
 import { desktopAppIconPath } from "./app-icon";
 import { createMcpSession } from "./mcp/session";
 import { startLocalBridge } from "./mcp/local-bridge";
@@ -17,6 +19,10 @@ import { createUpdateRuntime } from "./update-runtime";
 
 const isDev = !app.isPackaged;
 const DEV_SERVER_URL = process.env.SHOWBIZ_DEV_SERVER_URL ?? "http://localhost:1420";
+const projectFiles = createProjectFileOpening((file, message) => dialog.showErrorBox("Could not open project", `${file}\n\n${message}`));
+app.on("open-file", (event, file) => { event.preventDefault(); projectFiles.add(file); });
+for (const file of projectFileArguments(process.argv.slice(isDev ? 2 : 1))) projectFiles.add(file);
+
 
 if (isDev) {
   // First-class verification: agents drive the app over CDP in dev.
@@ -86,6 +92,11 @@ async function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work
   ipcMain.handle("showbiz:read-media-bytes", (_event, relativePath: string) =>
     fs.promises.readFile(resolveMediaPath(projects.mediaDirectory() ?? (() => { throw new Error("Open a project first."); })(), relativePath))
   );
+  return async (file: string): Promise<DocumentResult<unknown>> => {
+    const result = await work.invoke(-1, "open_project_document", { file_path: file }, invokeHandler);
+    session.recordResult("open_project_document", result);
+    return result as DocumentResult<unknown>;
+  };
 }
 
 function createWindow(work: ReturnType<typeof createWorkRuntime>, shell: ReturnType<typeof createDesktopShell>) {
@@ -144,11 +155,12 @@ app.whenReady().then(async () => {
   });
   app.on("before-quit", work.beforeQuit);
   const updates = createUpdateRuntime({}, work.updateChanged, work.install);
-  await registerIpc(updates, work);
+  const openProjectFile = await registerIpc(updates, work);
   const shell = createDesktopShell({platform:process.platform, rendererUrl:isDev ? DEV_SERVER_URL : pathToFileURL(path.join(app.getAppPath(), "dist/index.html")).href, quit:()=>app.quit()});
   ipcMain.handle("showbiz:menu-command", (event, command: unknown) => shell.runMenuCommand(event, command));
   ipcMain.handle("showbiz:titlebar-appearance", (event, appearance: unknown) => shell.setTitleBarAppearance(event, appearance));
   createWindow(work, shell);
+  projectFiles.ready(openProjectFile);
   void updates.start();
 });
 
