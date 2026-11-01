@@ -3,11 +3,20 @@ import path from "node:path";
 import type { DocumentResult } from "../shared/project-document";
 type OpenProject = (file: string) => Promise<DocumentResult<unknown>>;
 export function projectFileArguments(args: readonly string[]): string[] {
-  return args.flatMap(value => {
-    if (value.startsWith("-") || (!value.startsWith("file:") && value.includes("://"))) return [];
+  return args.flatMap((value) => {
+    if (
+      value.startsWith("-") ||
+      (!value.startsWith("file:") && value.includes("://"))
+    )
+      return [];
     let file: string;
-    try { file = value.startsWith("file:") ? fileURLToPath(value) : path.resolve(value); }
-    catch { return []; }
+    try {
+      file = value.startsWith("file:")
+        ? fileURLToPath(value)
+        : path.resolve(value);
+    } catch {
+      return [];
+    }
     return path.extname(file).toLowerCase() === ".showbiz" ? [file] : [];
   });
 }
