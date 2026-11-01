@@ -52,11 +52,18 @@ export async function getGenerationEstimate(
       kind: "unavailable",
       reason: "Choose an available generation model.",
     };
-  const falEndpoint = config.apiKeyProvider === "fal" ? falGenerationEndpoint(config, request) : undefined;
+  const falEndpoint =
+    config.apiKeyProvider === "fal"
+      ? falGenerationEndpoint(config, request)
+      : undefined;
   try {
     const stored = await invoke<Result<GenerationPrice | null>>(
       "get_generation_price",
-      { model_id: modelId, kind: request.kind, ...(falEndpoint ? { endpoint_id: falEndpoint } : {}) },
+      {
+        model_id: modelId,
+        kind: request.kind,
+        ...(falEndpoint ? { endpoint_id: falEndpoint } : {}),
+      },
     );
     if (!stored.ok)
       return { kind: "unavailable", reason: stored.error.message };
@@ -131,10 +138,23 @@ export async function getGenerationEstimate(
           key,
         );
         if (!fresh.ok) {
-          const currentKey = await invoke<string | null>("get_api_key", { provider: "fal" });
-          if (price?.source_kind === "provider" && price.endpoint_id === endpoint && price.estimate_basis === "historical_request" && Number.isFinite(Date.parse(price.checked_at)) && currentKey === key && fresh.error.code !== "INVALID_INPUT") refreshUnconfirmed = true;
+          const currentKey = await invoke<string | null>("get_api_key", {
+            provider: "fal",
+          });
+          if (
+            price?.source_kind === "provider" &&
+            price.endpoint_id === endpoint &&
+            price.estimate_basis === "historical_request" &&
+            Number.isFinite(Date.parse(price.checked_at)) &&
+            currentKey === key &&
+            fresh.error.code !== "INVALID_INPUT"
+          )
+            refreshUnconfirmed = true;
           else return { kind: "unavailable", reason: fresh.error.message };
-        } else { price = fresh.value; priceFreshness = "live"; }
+        } else {
+          price = fresh.value;
+          priceFreshness = "live";
+        }
       }
     }
     const needsRefresh =
@@ -164,8 +184,17 @@ export async function getGenerationEstimate(
         };
     }
     const estimate = estimateGenerationCost(price, quantities);
-    if (estimate.kind !== "estimate" || estimate.price.source_kind === "manual" || estimate.price.source_kind === "published") return estimate;
-    return { ...estimate, stale: estimate.stale || refreshUnconfirmed, price_freshness: refreshUnconfirmed ? "stale" : priceFreshness };
+    if (
+      estimate.kind !== "estimate" ||
+      estimate.price.source_kind === "manual" ||
+      estimate.price.source_kind === "published"
+    )
+      return estimate;
+    return {
+      ...estimate,
+      stale: estimate.stale || refreshUnconfirmed,
+      price_freshness: refreshUnconfirmed ? "stale" : priceFreshness,
+    };
   } catch {
     return {
       kind: "unavailable",

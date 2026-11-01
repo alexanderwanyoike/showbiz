@@ -142,7 +142,10 @@ export function estimateGenerationCost(
     min_microusd: amounts[0],
     max_microusd: amounts[1],
     price,
-    stale: price.source_kind !== "manual" && price.source_kind !== "published" && (!Number.isFinite(checked) || now - checked > 7 * 24 * 60 * 60 * 1000),
+    stale:
+      price.source_kind !== "manual" &&
+      price.source_kind !== "published" &&
+      (!Number.isFinite(checked) || now - checked > 7 * 24 * 60 * 60 * 1000),
     excludes_input_cost: price.excludes_input_cost ?? false,
   };
 }

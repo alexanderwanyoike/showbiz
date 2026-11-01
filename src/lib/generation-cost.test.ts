@@ -90,10 +90,43 @@ it("keeps Auto duration as a range and rejects invalid image dimensions", () => 
   });
 });
 it("includes provider routing price differences in an image estimate range", () => {
-  const price = {provider: "openrouter", model_id: "nano-banana-2-openrouter", currency: "USD" as const, source_url: "https://openrouter.ai", checked_at: "2026-10-31T12:00:00Z", rates: [{unit: "image" as const, microusd: 67200, max_microusd: 73920}], excludes_input_cost: true};
-  expect(estimateGenerationCost(price, {kind: "image"})).toMatchObject({kind: "estimate", min_microusd: 67200, max_microusd: 73920, excludes_input_cost: true});
+  const price = {
+    provider: "openrouter",
+    model_id: "nano-banana-2-openrouter",
+    currency: "USD" as const,
+    source_url: "https://openrouter.ai",
+    checked_at: "2026-10-31T12:00:00Z",
+    rates: [{ unit: "image" as const, microusd: 67200, max_microusd: 73920 }],
+    excludes_input_cost: true,
+  };
+  expect(estimateGenerationCost(price, { kind: "image" })).toMatchObject({
+    kind: "estimate",
+    min_microusd: 67200,
+    max_microusd: 73920,
+    excludes_input_cost: true,
+  });
 });
 
-it.each(["manual", "published"] as const)("keeps dated %s price provenance separate from a failed provider refresh", (source_kind) => {
-  expect(estimateGenerationCost({ provider: "gemini", model_id: "image", currency: "USD", source_kind, source_url: "https://ai.google.dev/gemini-api/docs/pricing", checked_at: "2020-01-01T00:00:00Z", rates: [{ unit: "image", microusd: 39000 }] }, { kind: "image" })).toMatchObject({ kind: "estimate", stale: false, price: { source_kind, checked_at: "2020-01-01T00:00:00Z" } });
-});
+it.each(["manual", "published"] as const)(
+  "keeps dated %s price provenance separate from a failed provider refresh",
+  (source_kind) => {
+    expect(
+      estimateGenerationCost(
+        {
+          provider: "gemini",
+          model_id: "image",
+          currency: "USD",
+          source_kind,
+          source_url: "https://ai.google.dev/gemini-api/docs/pricing",
+          checked_at: "2020-01-01T00:00:00Z",
+          rates: [{ unit: "image", microusd: 39000 }],
+        },
+        { kind: "image" },
+      ),
+    ).toMatchObject({
+      kind: "estimate",
+      stale: false,
+      price: { source_kind, checked_at: "2020-01-01T00:00:00Z" },
+    });
+  },
+);

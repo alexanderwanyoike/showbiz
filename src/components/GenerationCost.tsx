@@ -123,8 +123,12 @@ export function GenerationCost({
                   "Your saved rate"
                 ) : estimate.price.source_kind === "published" ? (
                   <span>Published price snapshot</span>
+                ) : estimate.price_freshness === "live" ? (
+                  "Live provider API pricing"
+                ) : estimate.price_freshness === "stale" ? (
+                  "Cached provider API pricing (refresh unavailable)"
                 ) : (
-                  estimate.price_freshness === "live" ? "Live provider API pricing" : estimate.price_freshness === "stale" ? "Cached provider API pricing (refresh unavailable)" : "Cached provider API pricing"
+                  "Cached provider API pricing"
                 )}{" "}
                 · {estimate.price.provider} · USD
               </p>
@@ -153,7 +157,13 @@ export function GenerationCost({
                   media.
                 </p>
               )}
-              {estimate.price.estimate_basis === "historical_request" && estimate.max_microusd === 0 && <p>The provider returned a zero historical estimate. This does not confirm that a new request is free.</p>}
+              {estimate.price.estimate_basis === "historical_request" &&
+                estimate.max_microusd === 0 && (
+                  <p>
+                    The provider returned a zero historical estimate. This does
+                    not confirm that a new request is free.
+                  </p>
+                )}
               {estimate.price.billing_unit &&
                 estimate.price.billing_unit_microusd !== undefined && (
                   <p>

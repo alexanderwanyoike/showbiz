@@ -53,12 +53,19 @@ export function createGenerationPricingCommands(db: DatabaseSync) {
         )
           return invalid();
         const suffix = `${args.kind}:${args.model_id}`;
-        if (args.endpoint_id !== undefined && !idValid(args.endpoint_id)) return invalid();
+        if (args.endpoint_id !== undefined && !idValid(args.endpoint_id))
+          return invalid();
         const legacyCache = () => {
           const previous = read(`generation_price_cache:${suffix}`);
-          return !args.endpoint_id || previous?.endpoint_id === args.endpoint_id ? previous : null;
+          return !args.endpoint_id || previous?.endpoint_id === args.endpoint_id
+            ? previous
+            : null;
         };
-        const cached = args.endpoint_id ? read(`generation_price_cache:${suffix}:${encodeURIComponent(String(args.endpoint_id))}`) ?? legacyCache() : legacyCache();
+        const cached = args.endpoint_id
+          ? (read(
+              `generation_price_cache:${suffix}:${encodeURIComponent(String(args.endpoint_id))}`,
+            ) ?? legacyCache())
+          : legacyCache();
         return {
           ok: true,
           value:
@@ -78,8 +85,18 @@ export function createGenerationPricingCommands(db: DatabaseSync) {
         const price = parsed.data;
         if (price.source_kind !== "manual" && args.account_key !== undefined) {
           if (typeof args.account_key !== "string") return invalid();
-          const credential = db.prepare("SELECT value FROM settings WHERE key = ?").get(`${price.provider}_api_key`) as { value: string } | undefined;
-          if (credential?.value !== args.account_key) return { ok: false, error: { code: "INVALID_INPUT", message: "The provider account changed while pricing loaded. Check the estimate again." } };
+          const credential = db
+            .prepare("SELECT value FROM settings WHERE key = ?")
+            .get(`${price.provider}_api_key`) as { value: string } | undefined;
+          if (credential?.value !== args.account_key)
+            return {
+              ok: false,
+              error: {
+                code: "INVALID_INPUT",
+                message:
+                  "The provider account changed while pricing loaded. Check the estimate again.",
+              },
+            };
         }
         const prefix =
           price.source_kind === "manual"
