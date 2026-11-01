@@ -76,7 +76,7 @@ it("keeps project naming in project settings and lets Escape keep the saved name
   );
   const input = screen.getByRole("textbox", {
     name: "Project name",
-    
+
   });
   await user.clear(input);
   await user.type(input, "Uncommitted name");
