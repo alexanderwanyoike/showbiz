@@ -126,3 +126,13 @@ it("keeps independent creation and picture-action drafts across detail and libra
     screen.getByRole("textbox", { name: "Variation prompt for Ada" }),
   ).toHaveProperty("value", "Warmer light");
 });
+
+it("returns to the linked tab library when the route changes from frame details", async () => {
+  const view = render(<ProjectBibleView projectId="film" initialTab="frames" />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Open Opening details" }));
+  view.rerender(<ProjectBibleView projectId="film" initialTab="characters" />);
+  expect(await screen.findByRole("button", { name: "Open Ada details" })).toBeTruthy();
+  expect(screen.getByRole("complementary", { name: "New character" })).toBeTruthy();
+  expect(screen.queryByRole("region", { name: "Opening details" })).toBeNull();
+});
