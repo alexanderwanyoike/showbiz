@@ -47,3 +47,7 @@ The document database closes before its ownership lock is released, so another w
 OS launches use Electron's [single-instance routing pattern](https://www.electronjs.org/docs/latest/api/app/#apprequestsingleinstancelockadditionaldata). A second launch in the same Electron profile forwards project arguments to the existing window before another device database or MCP bridge starts. Relative paths are resolved against the launching process's working directory. Project switching still obeys the active-work and unsaved-draft guards.
 
 Independent instances remain available with separate Electron `--user-data-dir` profiles and separate `XDG_DATA_HOME` device-storage directories. Each publishes its own MCP descriptor; agents still explicitly choose an instance. Do not share one device database between independent instances.
+
+## Shutdown diagnostics
+
+If the final project save fails during quit, Showbiz retains the error in `{appDataDir}/logs/project-storage.log` with a timestamp. The log is written synchronously before exit, and device storage still closes. A log-write failure is included in the console diagnostic rather than replacing the original save error.
