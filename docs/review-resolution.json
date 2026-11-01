@@ -173,9 +173,9 @@
       "pr": 100,
       "section": "Design/DRY",
       "finding": "**note** `electron/project-document-copy.ts:59-67`: one dangling legacy take aborts the whole conversion, and the error does not name the file.",
-      "status": "fixed",
+      "status": "qualified",
       "owner": "mcp-ui",
-      "resolution": "Legacy copy now identifies operation and referenced relative file while retaining cause. Raw ENOENT already included an absolute path, so review wording that no file was named was overstated",
+      "resolution": "Missing-file diagnostics now name the referenced media and retain the OS cause. Conversion still rejects a project with dangling media references rather than silently publishing an incomplete document; the legacy library remains untouched.",
       "commits": [
         "475678e"
       ],
@@ -540,7 +540,7 @@
       "finding": "`docs/shot-models.md:13`: the licence sentence is filler.",
       "status": "qualified-not-applicable",
       "owner": "ui",
-      "resolution": "Retained concise pattern/license attribution because AGENTS explicitly requires documenting the established open-source pattern and respecting its license. This is required provenance, not an unused runtime feature.",
+      "resolution": "Retained concise interaction-pattern/license references under the user-supplied workspace instructions. The repository AGENTS.md does not itself contain that attribution requirement.",
       "commits": [
         "3ce9bc1"
       ],
@@ -646,7 +646,7 @@
       "finding": "`electron/migrations/04_generation_usage.sql`: it uses an underscore, but 01 to 03 use `NN-kebab-name.sql`.",
       "status": "qualified-not-applicable",
       "owner": "root",
-      "resolution": "Migration filenames are append-only shipped schema history. Renaming migration04 could change ordering/application; preserve its existing filename rather than rewrite shipped migrations.",
+      "resolution": "The append-only migration rule retains the shipped filename. Migration application uses the ordered user_version index; this is a history policy, not a claim that this rename would change ordering.",
       "commits": [],
       "pull_requests": [
         124
@@ -656,10 +656,10 @@
     {
       "pr": 103,
       "section": "Nits",
-      "finding": "`src/pages/UsagePage.tsx:41`: every refresh, including each agent change, calls `setData(null)`, so the table flashes \"Loading usage…\". `offset` is not reset when the route `:id` changes.",
+      "finding": "`src/pages/UsagePage.tsx:41`: every refresh, including each agent change, calls `setData(null)`, so the table flashes \"Loading usage\u2026\". `offset` is not reset when the route `:id` changes.",
       "status": "fixed",
       "owner": "billing",
-      "resolution": "Refresh126 preserves same-scope ledger, reads before providerlookup, changesproject starts offset0.",
+      "resolution": "The Usage page retains same-scope local data during charge refresh, resets pagination on project changes and ignores outdated responses.",
       "commits": [
         "a6ae2c2"
       ],
@@ -728,11 +728,13 @@
       "finding": "`src/lib/desktop-workspace.test.tsx:79` and `src/lib/project-documents.test.tsx:196`: removing `exact: true` left whitespace-only lines inside the option objects.",
       "status": "fixed",
       "owner": "ui",
-      "resolution": "Removed whitespace-only query-option lines from the two maintained fixtures; git diff --check passes.",
+      "resolution": "Whitespace-only fixture lines are removed in PR142; redundant PR139 is superseded.",
       "commits": [
         "8fb4f20"
       ],
-      "pull_requests": [],
+      "pull_requests": [
+        142
+      ],
       "row_index": 47
     },
     {
@@ -1265,12 +1267,15 @@
       "finding": "`electron/generation-usage.test.ts:224-232`, `electron/commands/generation-usage.ts:190` and parts of `ProjectBibleView.tsx` were missed by the format commit.",
       "status": "fixed",
       "owner": "billing",
-      "resolution": "Root reformatted generation usage under124, UI agent normalized Bible.",
+      "resolution": "Generation usage and the changed Bible JSX were formatted in their owning fixes.",
       "commits": [
         "ae4f389",
         "26e9840"
       ],
-      "pull_requests": [],
+      "pull_requests": [
+        124,
+        143
+      ],
       "row_index": 70
     },
     {
@@ -1564,7 +1569,7 @@
       "finding": "**fix** `src/lib/generation-accounting.ts:81-86`: `runAccountedGeneration` awaits `sync_generation_charges` before `notify` and before returning the result, so every FAL/OpenRouter result is held behind the billing calls. Failure: on a slow FAL billing API, `readFalCharges` can walk 10 pages at 10s each (about 100s), and the finished media stays hidden that whole time. It usually comes back empty anyway, because billing lags completion. Run it fire-and-forget, or leave it to the Usage page.",
       "status": "fixed",
       "owner": "billing",
-      "resolution": "Background reconciliation returns media/local ledger immediately. Unconfirmed reads cool down60s, explicit refresh or credential changes retry, duplicate selections share in-flight work, counts use SQLite changes.",
+      "resolution": "Background charge reconciliation does not block successful generated media; ordinary pending receipts are not failures.",
       "commits": [
         "bddc7be",
         "f188bcf",
@@ -1583,7 +1588,9 @@
         "0529f19",
         "a6ae2c2"
       ],
-      "pull_requests": [],
+      "pull_requests": [
+        126
+      ],
       "row_index": 90
     },
     {
@@ -1624,7 +1631,7 @@
       "finding": "**note** `src/lib/generation-billing.ts:34-48` with `UsagePage`: every Usage load, page change and agent refresh blocks the whole ledger on provider round-trips for up to 50 pending rows. Rows that will never resolve (an OpenRouter 404, a FAL key without billing scope) are re-queried on every visit. Render first and reconcile in the background.",
       "status": "fixed",
       "owner": "billing",
-      "resolution": "Background reconciliation returns media/local ledger immediately. Unconfirmed reads cool down60s, explicit refresh or credential changes retry, duplicate selections share in-flight work, counts use SQLite changes.",
+      "resolution": "The ledger loads from local storage before asynchronous provider reconciliation, with cooldown and credential-change retry behavior.",
       "commits": [
         "bddc7be",
         "f188bcf",
@@ -1643,7 +1650,9 @@
         "0529f19",
         "a6ae2c2"
       ],
-      "pull_requests": [],
+      "pull_requests": [
+        126
+      ],
       "row_index": 92
     },
     {
@@ -1746,7 +1755,7 @@
       "finding": "`electron/commands/generation-billing.ts:85,119`: `result.reported++` runs even when the guarded UPDATE changed 0 rows (two concurrent syncs). Use `.run().changes`.",
       "status": "fixed",
       "owner": "billing",
-      "resolution": "Background reconciliation returns media/local ledger immediately. Unconfirmed reads cool down60s, explicit refresh or credential changes retry, duplicate selections share in-flight work, counts use SQLite changes.",
+      "resolution": "Billing reported counts use actual SQLite changes rather than attempted updates.",
       "commits": [
         "bddc7be",
         "f188bcf",
@@ -1765,7 +1774,9 @@
         "0529f19",
         "a6ae2c2"
       ],
-      "pull_requests": [],
+      "pull_requests": [
+        126
+      ],
       "row_index": 97
     },
     {
@@ -1865,7 +1876,7 @@
     {
       "pr": 112,
       "section": "Bugs",
-      "finding": "**note** `src/components/ProjectBibleView.tsx:986`: `{actionModel?.name} · {modelProviderName(actionModel)}` renders \" · \" for an unknown model. Use the dock's guard from `:442`.",
+      "finding": "**note** `src/components/ProjectBibleView.tsx:986`: `{actionModel?.name} \u00b7 {modelProviderName(actionModel)}` renders \" \u00b7 \" for an unknown model. Use the dock's guard from `:442`.",
       "status": "resolved-earlier",
       "owner": "ui",
       "resolution": "Current metadata falls back to actual model ID or Not recorded.",
@@ -1879,12 +1890,15 @@
       "finding": "**note** `src/test/setup.ts` now stubs ResizeObserver globally, but 12 test files still stub it locally, 4 of them added in this PR (`b9b534a`, `f78a697`). Remove at least the new ones.",
       "status": "fixed",
       "owner": "ui",
-      "resolution": "Removed duplicate observers in owned storyboard/inspector and Bible fixtures; global setup remains. Other agent handles its own fixtures.",
+      "resolution": "Duplicate ResizeObserver fixture stubs were removed from the maintained storyboard and Bible tests.",
       "commits": [
         "40e3648",
         "44d97cb"
       ],
-      "pull_requests": [],
+      "pull_requests": [
+        131,
+        143
+      ],
       "row_index": 104
     },
     {
@@ -1955,11 +1969,13 @@
       "finding": "`docs/ux/native-control-polish.md` hard-codes test counts that will go stale.",
       "status": "fixed",
       "owner": "ui",
-      "resolution": "Living owned UX docs describe behavior, keeping current validation counts in PR evidence. Pattern/license provenance retained because AGENTS requires it.",
+      "resolution": "Living UX guides describe behavior; validation evidence stays with the PR. Concise pattern references follow user-supplied workspace instructions, not an attribution rule in repository AGENTS.md.",
       "commits": [
         "cc01e91"
       ],
-      "pull_requests": [],
+      "pull_requests": [
+        143
+      ],
       "row_index": 109
     },
     {
@@ -2250,7 +2266,7 @@
       "finding": "**note** `docs/ux/bible-asset-details.md`: the Verification half restates test counts and sandbox notes that go stale on the next PR. Keep that in the PR body.",
       "status": "fixed",
       "owner": "ui",
-      "resolution": "Living owned UX docs describe behavior, keeping current validation counts in PR evidence. Pattern/license provenance retained because AGENTS requires it.",
+      "resolution": "The Bible asset guide describes the current workflow and omits obsolete test counts and verification narration.",
       "commits": [
         "cc01e91"
       ],
@@ -2427,7 +2443,7 @@
       "Resolved later": 13,
       "Qualified": 20
     },
-    "latest_validation": "Root reports1421 combined Vitest tests, strict TypeScript, frontend and Electron bundles passed; finalLinux packaging and CI pending at ledger generation.",
+    "latest_validation": "First-pass verification is retained below. Rereview verification and completion metadata are recorded separately; do not infer completion from the earlier totals.",
     "pending_delivery_metadata": []
   },
   "verification": {
