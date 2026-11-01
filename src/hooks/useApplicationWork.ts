@@ -3,14 +3,24 @@ import { applicationWork } from "../lib/application-work";
 import type { UnsavedWork } from "../../shared/application-work";
 
 export function useApplicationWork() {
-  return useSyncExternalStore(applicationWork.subscribe, applicationWork.getStatus);
+  return useSyncExternalStore(
+    applicationWork.subscribe,
+    applicationWork.getStatus,
+  );
 }
 
 export function useLocalDrafts() {
-  return useSyncExternalStore(applicationWork.subscribe, applicationWork.getLocalDrafts);
+  return useSyncExternalStore(
+    applicationWork.subscribe,
+    applicationWork.getLocalDrafts,
+  );
 }
 
-export function useUnsavedWork(kind: UnsavedWork, dirty: boolean, value: unknown = dirty) {
+export function useUnsavedWork(
+  kind: UnsavedWork,
+  dirty: boolean,
+  value: unknown = dirty,
+) {
   const id = useRef(Symbol(kind));
   useLayoutEffect(() => {
     applicationWork.setUnsaved(id.current, dirty ? kind : null);

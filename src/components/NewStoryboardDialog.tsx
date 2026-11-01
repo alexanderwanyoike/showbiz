@@ -55,7 +55,12 @@ export function NewStoryboardDialog({
     return () =>
       window.removeEventListener("showbiz:discard-workspace-drafts", discard);
   }, [onOpenChange]);
-  useEffect(() => () => { attempt.current++; }, []);
+  useEffect(
+    () => () => {
+      attempt.current++;
+    },
+    [],
+  );
   useEffect(() => {
     if (open || !completed.current) return;
     const storyboard = completed.current;

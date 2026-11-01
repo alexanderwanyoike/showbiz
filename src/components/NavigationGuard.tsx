@@ -39,7 +39,8 @@ export function NavigationGuard() {
     <AlertDialog
       open={dirty && blocker.state === "blocked"}
       onOpenChange={(open) => {
-        if (!open && blocker.state === "blocked" && !continuing.current) blocker.reset();
+        if (!open && blocker.state === "blocked" && !continuing.current)
+          blocker.reset();
       }}
     >
       <AlertDialogContent
