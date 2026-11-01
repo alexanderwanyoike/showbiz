@@ -1,3 +1,4 @@
+import { falGenerationEndpoint } from "./fal-generation-endpoint";
 import { refreshFalPrice } from "./fal-price-cache";
 import { getOpenRouterVideoPrice } from "./openrouter-video-pricing";
 import { invoke } from "./bridge";
@@ -51,10 +52,18 @@ export async function getGenerationEstimate(
       kind: "unavailable",
       reason: "Choose an available generation model.",
     };
+  const falEndpoint =
+    config.apiKeyProvider === "fal"
+      ? falGenerationEndpoint(config, request)
+      : undefined;
   try {
     const stored = await invoke<Result<GenerationPrice | null>>(
       "get_generation_price",
-      { model_id: modelId, kind: request.kind },
+      {
+        model_id: modelId,
+        kind: request.kind,
+        ...(falEndpoint ? { endpoint_id: falEndpoint } : {}),
+      },
     );
     if (!stored.ok)
       return { kind: "unavailable", reason: stored.error.message };
@@ -80,6 +89,8 @@ export async function getGenerationEstimate(
           Math.max(...durations),
         ];
     }
+    let refreshUnconfirmed = false;
+    let priceFreshness: "live" | "cached" = "cached";
     let price = stored.value;
     if (price && price.provider !== config.apiKeyProvider) price = null;
     if (
@@ -98,36 +109,7 @@ export async function getGenerationEstimate(
       if (price && price.provider !== config.apiKeyProvider) price = null;
     }
     if (config.apiKeyProvider === "fal" && price?.source_kind !== "manual") {
-      const options = config.transportOptions ?? {};
-      let endpoint: string | undefined;
-      if (request.kind === "video" && "imageToVideo" in config.models) {
-        const video = videoConfigs.find((item) => item.id === modelId);
-        endpoint =
-          request.mode === "text-to-video"
-            ? (video?.generationModes?.textToVideo?.endpoint ??
-              String(
-                options.textToVideoEndpoint ?? config.models.textToVideo ?? "",
-              ))
-            : request.has_end_frame &&
-                video?.generationModes?.imageToVideo?.endFrameEndpoint
-              ? video.generationModes.imageToVideo.endFrameEndpoint.endpoint
-              : (video?.generationModes?.imageToVideo?.endpoint ??
-                String(
-                  options.imageToVideoEndpoint ??
-                    config.models.imageToVideo ??
-                    "",
-                ));
-      } else if ("generate" in config.models) {
-        endpoint =
-          request.kind === "image"
-            ? String(options.endpoint ?? config.models.generate)
-            : String(
-                options.editEndpoint ??
-                  config.models.edit ??
-                  options.endpoint ??
-                  config.models.generate,
-              );
-      }
+      const endpoint = falEndpoint;
       if (!endpoint)
         return {
           kind: "unavailable",
@@ -155,12 +137,26 @@ export async function getGenerationEstimate(
           request.kind,
           key,
         );
-        if (!fresh.ok)
-          return { kind: "unavailable", reason: fresh.error.message };
-        price = fresh.value;
+        if (!fresh.ok) {
+          const currentKey = await invoke<string | null>("get_api_key", {
+            provider: "fal",
+          });
+          if (
+            price?.source_kind === "provider" &&
+            price.endpoint_id === endpoint &&
+            price.estimate_basis === "historical_request" &&
+            Number.isFinite(Date.parse(price.checked_at)) &&
+            currentKey === key &&
+            fresh.error.code !== "INVALID_INPUT"
+          )
+            refreshUnconfirmed = true;
+          else return { kind: "unavailable", reason: fresh.error.message };
+        } else {
+          price = fresh.value;
+          priceFreshness = "live";
+        }
       }
     }
-    let refreshUnconfirmed = false;
     const needsRefresh =
       !price ||
       (price.source_kind !== "manual" &&
@@ -179,6 +175,7 @@ export async function getGenerationEstimate(
       if (!refreshed.ok)
         return { kind: "unavailable", reason: refreshed.error.message };
       refreshUnconfirmed = refreshed.value === null;
+      if (refreshed.value) priceFreshness = "live";
       price = refreshed.value ?? price;
       if (!price)
         return {
@@ -187,9 +184,17 @@ export async function getGenerationEstimate(
         };
     }
     const estimate = estimateGenerationCost(price, quantities);
-    return estimate.kind === "estimate" && refreshUnconfirmed
-      ? { ...estimate, stale: true }
-      : estimate;
+    if (
+      estimate.kind !== "estimate" ||
+      estimate.price.source_kind === "manual" ||
+      estimate.price.source_kind === "published"
+    )
+      return estimate;
+    return {
+      ...estimate,
+      stale: estimate.stale || refreshUnconfirmed,
+      price_freshness: refreshUnconfirmed ? "stale" : priceFreshness,
+    };
   } catch {
     return {
       kind: "unavailable",

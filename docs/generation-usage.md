@@ -11,7 +11,7 @@ Generation controls show an approximate cost before submission. Last request sho
 - **Gemini:** the normal generation API does not return a per-request monetary receipt. Bundled published rates are labeled as published snapshots, with their source and date. They remain estimates, including any stated input-charge exclusions.
 - **Local:** running cost is unknown unless a custom compute estimate is entered. A custom estimate is not a provider-reported charge.
 
-API rate caches refresh after one hour. If an OpenRouter refresh fails, an older cached estimate is marked unconfirmed with its original retrieval date. Published snapshots older than seven days are flagged. Changing a provider key clears its account price cache; manual rates remain. Automatic duration requires a supported range for settings-based estimates. Missing or ambiguous prices stay unavailable.
+API rate caches refresh after one hour. If an OpenRouter refresh fails, an older cached estimate is marked unconfirmed with its original retrieval date. Published snapshots retain their source date; their age is separate from an API refresh failure. Changing a provider key clears its account price cache; manual rates remain. Automatic duration requires a supported range for settings-based estimates. Missing or ambiguous prices stay unavailable.
 
 ## Confirming charges
 
@@ -47,3 +47,8 @@ Receipt or outcome storage errors do not turn successful media delivery into a f
 Provider reconciliation runs after media is delivered. Usage & billing displays recorded project rows and totals before provider lookups finish, keeps the ledger visible during refresh, and updates receipts when the background check completes. Automatic checks of an unconfirmed request back off for one minute on this device; changing its billing credential or choosing Refresh charges retries immediately. Identical in-flight selections share one check. Reported counts include only newly written charges, so concurrent receipts cannot inflate them.
 
 Custom rates override only matching generation settings. Other resolutions or audio settings use their own provider price basis, retaining provider source labels rather than inheriting custom-rate provenance. Removing a custom rate removes only its exact settings signature. If a saved rate applies across resolutions or audio settings, Model pricing labels it as a shared custom rate before removal; other custom rates remain saved.
+
+
+FAL cache entries are separated by generation endpoint, including first/last-frame video endpoints. A failed refresh can retain only a matching historical estimate from the same device credential, with its original retrieval date and an explicit refresh-unavailable label. Account-specific cache writes check the initiating key again at the synchronous device-storage boundary; key material is not stored in the price basis or project history.
+
+A zero returned by FAL's historical estimate API is retained as an unconfirmed provider estimate, with a warning that it does not establish a free future request. The API documentation does not define zero as proof of missing account history. Historical per-call amounts remain separate from live unit prices: converting units into a settings-specific quote requires a documented billable quantity, rather than assuming tokens or model-specific units are video seconds.
