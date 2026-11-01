@@ -11,7 +11,10 @@ const settingsSchema = z.strictObject({
   image_model: z.string().trim().min(1).max(200),
   video_model: z.string().trim().min(1).max(200),
 });
-export function createStoryboardSettingsCommands(db: DatabaseSync, readGenerationModels: ReadGenerationModels) {
+export function createStoryboardSettingsCommands(
+  db: DatabaseSync,
+  readGenerationModels: ReadGenerationModels,
+) {
   return {
     update_storyboard_settings(
       args?: Record<string, unknown>,
@@ -27,7 +30,11 @@ export function createStoryboardSettingsCommands(db: DatabaseSync, readGeneratio
         };
       try {
         const value = parsed.data;
-        const models = validateStoryboardModels(readGenerationModels, value.image_model, value.video_model);
+        const models = validateStoryboardModels(
+          readGenerationModels,
+          value.image_model,
+          value.video_model,
+        );
         if (!models.ok) return models;
         const updated = db
           .prepare(
