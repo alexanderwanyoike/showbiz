@@ -82,3 +82,16 @@ it("names the lock file when a legacy live-PID lock cannot be verified", () => {
   expect(() => lockProjectDocument(file)).toThrow(`${file}.lock`);
   expect(fs.readFileSync(`${file}.lock`, "utf8")).toBe(String(process.pid));
 });
+
+it("preserves native permission errors so callers can open a read-only document", () => {
+  const file = fixture();
+  const denied = Object.assign(new Error("access denied"), { code: "EACCES" });
+  const hook = vi.spyOn(fs, "mkdirSync").mockImplementation(() => {
+    throw denied;
+  });
+  try {
+    expect(() => lockProjectDocument(file)).toThrow(denied);
+  } finally {
+    hook.mockRestore();
+  }
+});

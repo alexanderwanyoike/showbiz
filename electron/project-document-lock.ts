@@ -11,6 +11,12 @@ export function lockProjectDocument(file: string): () => void {
   try {
     fs.mkdirSync(guard, { mode: 0o700 });
   } catch (cause) {
+    if (
+      !(cause instanceof Error) ||
+      !("code" in cause) ||
+      cause.code !== "EEXIST"
+    )
+      throw cause;
     throw new Error(
       `Could not acquire project lock guard at ${guard}. Retry after other Showbiz instances finish opening this project. If a crash left this guard, close all instances before removing it.`,
       { cause },
