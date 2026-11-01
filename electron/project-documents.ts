@@ -47,6 +47,7 @@ export function createProjectDocuments(options: {
   let busy = false;
   let recent: RecentProjectDocument[] = [];
   let warning: string | null = null;
+  let recentWarning: string | null = null;
   if (fs.existsSync(options.recentPath)) {
     try {
       const parsed: unknown = JSON.parse(
@@ -86,18 +87,35 @@ export function createProjectDocuments(options: {
   function current() {
     return active ? info(active) : null;
   }
-  function remember(value: ProjectDocumentInfo) {
+  function remember(value: ProjectDocumentInfo): DocumentResult<null> {
     const next = [
       { file_path: value.file_path, name: value.name },
       ...recent.filter((item) => item.file_path !== value.file_path),
     ].slice(0, 12);
-    fs.mkdirSync(path.dirname(options.recentPath), { recursive: true });
-    fs.writeFileSync(`${options.recentPath}.tmp`, JSON.stringify(next), {
-      mode: 0o600,
-    });
-    fs.renameSync(`${options.recentPath}.tmp`, options.recentPath);
-    recent = next;
-    warning = null;
+    try {
+      fs.mkdirSync(path.dirname(options.recentPath), { recursive: true });
+      fs.writeFileSync(`${options.recentPath}.tmp`, JSON.stringify(next), {
+        mode: 0o600,
+      });
+      fs.renameSync(`${options.recentPath}.tmp`, options.recentPath);
+      recent = next;
+      recentWarning = null;
+      return { ok: true, value: null };
+    } catch (cause) {
+      return fail(cause);
+    }
+  }
+  function rememberSavedProject(document: ActiveDocument) {
+    const value = info(document);
+    const remembered = remember(value);
+    if (!remembered.ok) {
+      recent = recent.map((entry) =>
+        entry.file_path === value.file_path
+          ? { ...entry, name: value.name }
+          : entry,
+      );
+      recentWarning = `The project was saved, but Recent Projects could not be updated. Use File > Save to retry. ${remembered.error.message}`;
+    }
   }
   const cache = createProjectCache(
     path.join(path.dirname(options.recentPath), "project-cache"),
@@ -126,7 +144,9 @@ export function createProjectDocuments(options: {
   }
   function activate(document: ActiveDocument) {
     const value = info(document);
-    remember(value);
+    const remembered = remember(value);
+    if (!remembered.ok) throw new Error(remembered.error.message);
+    warning = null;
     if (active) dispose(active);
     active = document;
     return value;
@@ -285,7 +305,7 @@ export function createProjectDocuments(options: {
   }
   const documents = {
     current,
-    warning: () => warning,
+    warning: () => [warning, recentWarning].filter(Boolean).join("\n") || null,
     recent: () => [...recent],
     legacy: () =>
       options.legacy
@@ -420,6 +440,7 @@ export function createProjectDocuments(options: {
             ),
           );
         persist(active, () => {});
+        if (recentWarning) rememberSavedProject(active);
         return { ok: true, value: current()! };
       } catch (cause) {
         return fail(cause);
@@ -456,7 +477,9 @@ export function createProjectDocuments(options: {
         throw new Error(
           "This project is read-only. Use Save As to create an editable copy.",
         );
-      return persist(active, () => handler(args));
+      const value = persist(active, () => handler(args));
+      if (command === "update_project") rememberSavedProject(active);
+      return value;
     },
     async saveAs(
       filePath: string,

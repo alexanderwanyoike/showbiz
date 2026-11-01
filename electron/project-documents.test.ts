@@ -478,3 +478,65 @@ it("excludes deleted take bytes and unrelated cache files from a saved project c
     await documents.close();
   }
 });
+
+it("refreshes the recent project name when a saved project is renamed", async () => {
+  const { directory, documents } = setup();
+  const file = path.join(directory, "Morning.showbiz");
+  try {
+    const created = await documents.create(file);
+    if (!created.ok) throw new Error(created.error.message);
+    await documents.invoke("update_project", {
+      id: created.value.project_id,
+      name: "After sunrise",
+    });
+    expect(documents.current()).toMatchObject({
+      file_path: file,
+      name: "After sunrise",
+    });
+    expect(documents.recent()).toEqual([
+      { file_path: file, name: "After sunrise" },
+    ]);
+    expect(
+      JSON.parse(fs.readFileSync(path.join(directory, "recent.json"), "utf8")),
+    ).toEqual(documents.recent());
+  } finally {
+    await documents.close();
+  }
+});
+
+it("keeps a committed rename open and retries a failed recent-list write on Save", async () => {
+  const { directory, documents } = setup();
+  const file = path.join(directory, "Morning.showbiz");
+  const recentFile = path.join(directory, "recent.json");
+  try {
+    const created = await documents.create(file);
+    if (!created.ok) throw new Error(created.error.message);
+    fs.unlinkSync(recentFile);
+    fs.mkdirSync(recentFile);
+    await expect(
+      documents.invoke("update_project", {
+        id: created.value.project_id,
+        name: "After sunrise",
+      }),
+    ).resolves.toMatchObject({ name: "After sunrise" });
+    expect(documents.current()).toMatchObject({
+      file_path: file,
+      name: "After sunrise",
+    });
+    expect(documents.recent()).toEqual([
+      { file_path: file, name: "After sunrise" },
+    ]);
+    expect(documents.warning()).toMatch(/saved.*recent.*Save.*retry/i);
+    expect(await documents.invoke("get_projects")).toMatchObject([
+      { name: "After sunrise" },
+    ]);
+    fs.rmdirSync(recentFile);
+    expect((await documents.save()).ok).toBe(true);
+    expect(documents.warning()).toBeNull();
+    expect(JSON.parse(fs.readFileSync(recentFile, "utf8"))).toEqual(
+      documents.recent(),
+    );
+  } finally {
+    await documents.close();
+  }
+});
