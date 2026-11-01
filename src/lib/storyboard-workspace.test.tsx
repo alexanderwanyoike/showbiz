@@ -87,9 +87,32 @@ it("explains unavailable empty-storyboard commands", async () => {
   const api = await import("./backend-api");
   const read = vi.spyOn(api, "getShots").mockResolvedValueOnce([]);
   try {
-    render(createElement(MemoryRouter, { initialEntries: ["/storyboard/sb"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
-    const controls = await screen.findByRole("button", { name: "Shot controls" });
-    expect(controls.getAttribute("aria-description")).toBe("Add or choose a shot first.");
-    expect(screen.getByRole("button", { name: "Export…" }).getAttribute("aria-description")).toBe("Add image or video media to this storyboard before exporting.");
-  } finally { read.mockRestore(); }
+    render(
+      createElement(
+        MemoryRouter,
+        { initialEntries: ["/storyboard/sb"] },
+        createElement(
+          Routes,
+          null,
+          createElement(Route, {
+            path: "/storyboard/:id",
+            element: createElement(StoryboardPage),
+          }),
+        ),
+      ),
+    );
+    const controls = await screen.findByRole("button", {
+      name: "Shot controls",
+    });
+    expect(controls.getAttribute("aria-description")).toBe(
+      "Add or choose a shot first.",
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Export…" })
+        .getAttribute("aria-description"),
+    ).toBe("Add image or video media to this storyboard before exporting.");
+  } finally {
+    read.mockRestore();
+  }
 });
