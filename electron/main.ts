@@ -5,6 +5,7 @@ import {
 } from "./project-file-opening";
 import type { DocumentResult } from "../shared/project-document";
 import { desktopAppIconPath } from "./app-icon";
+import { integrateLinuxDesktop } from "./linux-desktop-integration";
 import { createMcpSession } from "./mcp/session";
 import { startLocalBridge } from "./mcp/local-bridge";
 import {
@@ -237,6 +238,15 @@ function createWindow(
 
 if (primaryInstance)
   app.whenReady().then(async () => {
+    const integration = await integrateLinuxDesktop({
+      platform: process.platform,
+      packaged: app.isPackaged,
+      appImage: process.env.APPIMAGE,
+      dataHome: process.env.XDG_DATA_HOME,
+      home: app.getPath("home"),
+      icon: desktopAppIconPath(app.getAppPath(), app.isPackaged),
+    });
+    if (!integration.ok) console.error(integration.error.message);
     if (process.platform === "darwin")
       app.dock?.setIcon(desktopAppIconPath(app.getAppPath(), app.isPackaged));
     Menu.setApplicationMenu(
