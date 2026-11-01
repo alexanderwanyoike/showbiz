@@ -109,3 +109,23 @@ it.each([
     });
   },
 );
+
+
+it.each(["update_storyboard_models", "update_storyboard_settings"] as const)(
+  "rejects unavailable and wrong-kind storyboard defaults through %s without changing the board",
+  (command) => {
+    const db = openTestDb();
+    try {
+      const commands = createDataCommands(db, "/unused");
+      const project = commands.create_project({ name: "Film" });
+      const board = commands.create_storyboard({ projectId: project.id, name: "Opening" });
+      for (const [imageModel, videoModel] of [["retired-model", "local-video"], ["local-video", "local-video"], ["imagen4", "local-video"], ["local-image", "local-image"]]) {
+        const args = command === "update_storyboard_models"
+          ? {id: board.id, imageModel, videoModel}
+          : {id: board.id, name: "Changed", image_model: imageModel, video_model: videoModel};
+        expect(commands[command](args)).toMatchObject({ok:false,error:{code:"INVALID_INPUT"}});
+        expect(commands.get_storyboard({id:board.id})).toEqual(board);
+      }
+    } finally { db.close(); }
+  },
+);

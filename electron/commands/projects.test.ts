@@ -1,3 +1,4 @@
+import { testCatalog } from "../test-support/data-commands";
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
@@ -295,7 +296,7 @@ describe("update_storyboard", () => {
 describe("update_storyboard_models", () => {
   it("updates the image and video models", () => {
     const db = openTestDb();
-    const commands = createProjectCommands(db, tmpMediaDir());
+    const commands = createProjectCommands(db, tmpMediaDir(), testCatalog.get_generation_models);
     const { id: projectId } = commands.create_project({ name: "P" });
     const { id } = commands.create_storyboard({ projectId, name: "SB" });
 
@@ -304,8 +305,7 @@ describe("update_storyboard_models", () => {
       imageModel: "nano-banana",
       videoModel: "seedance",
     });
-    expect(updated.image_model).toBe("nano-banana");
-    expect(updated.video_model).toBe("seedance");
+    expect(updated).toMatchObject({ image_model: "nano-banana", video_model: "seedance" });
   });
 });
 
