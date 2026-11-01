@@ -55,24 +55,39 @@ it("keeps provider credentials application-wide while commands follow only the o
 });
 
 it("notifies desktop title and represented file listeners after a project rename", async () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "showbiz-title-rename-"));
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "showbiz-title-rename-"),
+  );
   const db = openTestDb();
   const changed = vi.fn();
   const runtime = createProjectRuntime({
-    modelDirectory: path.resolve("src/lib/models/providers"), appDirectory: directory,
-    legacyDb: db, migrations: loadMigrations(path.resolve("electron/migrations")),
-    exports: () => ({}), chooseOpen: async () => null,
+    modelDirectory: path.resolve("src/lib/models/providers"),
+    appDirectory: directory,
+    legacyDb: db,
+    migrations: loadMigrations(path.resolve("electron/migrations")),
+    exports: () => ({}),
+    chooseOpen: async () => null,
     chooseSave: async () => path.join(directory, "Film.showbiz"),
-    canSwitch: () => true, beginSave: () => () => {}, changed,
+    canSwitch: () => true,
+    beginSave: () => () => {},
+    changed,
   });
   try {
     await runtime.invoke("create_project_document");
     const current = runtime.documents.current();
     if (!current) throw new Error("Expected an open project");
     changed.mockClear();
-    await runtime.invoke("update_project", {id: current.project_id, name: "Renamed film"});
-    expect(changed).toHaveBeenCalledExactlyOnceWith({...current, name: "Renamed film"});
+    await runtime.invoke("update_project", {
+      id: current.project_id,
+      name: "Renamed film",
+    });
+    expect(changed).toHaveBeenCalledExactlyOnceWith({
+      ...current,
+      name: "Renamed film",
+    });
   } finally {
-    await runtime.dispose(); db.close(); fs.rmSync(directory, {recursive: true, force: true});
+    await runtime.dispose();
+    db.close();
+    fs.rmSync(directory, { recursive: true, force: true });
   }
 });
