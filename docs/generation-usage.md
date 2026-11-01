@@ -51,3 +51,4 @@ exist only in the active reconciliation call. Pending provider receipts remain
 unconfirmed in request details; ordinary provider lag is not promoted to an
 accounting-failure warning. Failed lookups and receipt-storage failures remain
 visible.
+Accounting warnings remain available for the current app session when a cost panel is unmounted, scoped to the project, subject and generation family. Returning to the subject restores its latest warning. A history-read failure remains visible alongside a storage warning. These bounded session notices do not claim that a failed database write was saved durably.
