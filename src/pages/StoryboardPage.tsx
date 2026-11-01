@@ -281,6 +281,12 @@ export default function StoryboardPage() {
         ? (storyboardData.video_model as VideoModelId)
         : "seedance-2-fal";
       setDefaultVideoModel(loadedVideoModel);
+      setVideoSettingsDrafts((previous) => {
+        const matching = Object.entries(previous).filter(([shotId, draft]) =>
+          mappedShots.some((shot) => shot.id === shotId && (shot.video_model ?? loadedVideoModel) === draft.model_id),
+        );
+        return matching.length === Object.keys(previous).length ? previous : Object.fromEntries(matching);
+      });
 
       await loadBibleData(storyboardData);
 
@@ -704,7 +710,7 @@ export default function StoryboardPage() {
     const targetModelId = resolveShotModels(shot, defaultModels).video_model as VideoModelId;
     const targetModel = videoModels.find(model => model.id === targetModelId);
     if (!targetModel) { setModelError("Choose an available video model for this shot."); return; }
-    if (videoSettingsDrafts[shotId]) return;
+    if (videoSettingsDrafts[shotId]) { setModelError("Save or discard this shot’s video settings before generating."); return; }
     const targetSettings = selectedShotId === shotId ? videoSettings : resolveShotVideoSettings(shot.video_settings_json,targetModel).settings;
     const runId = startGenerationRun(videoGenerationRuns.current, shotId);
 
