@@ -11,21 +11,40 @@ export function WorkspaceCommand({
   title,
   children,
   className = "",
+  disabled,
   ...props
 }: ComponentProps<typeof Button> & { label: string }) {
+  const button = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      {...props}
+      disabled={disabled}
+      className={`workspace-command ${className}`}
+      aria-label={label}
+      aria-hidden={disabled ? true : props["aria-hidden"]}
+    >
+      {children}
+    </Button>
+  );
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          {...props}
-          className={`workspace-command ${className}`}
-          aria-label={label}
-        >
-          {children}
-        </Button>
+        {disabled ? (
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label={label}
+            aria-disabled="true"
+            aria-description={title}
+            aria-expanded={props["aria-expanded"]}
+            aria-controls={props["aria-controls"]}
+            className="workspace-command-unavailable"
+          >
+            {button}
+          </span>
+        ) : button}
       </TooltipTrigger>
       <TooltipContent side="bottom" sideOffset={6}>
         {title ?? label}
