@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, GitBranch, Sparkles, Paintbrush, Check } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  GitBranch,
+  Sparkles,
+  Paintbrush,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,7 +26,10 @@ interface ImageVersionTimelineProps {
   compact?: boolean;
 }
 
-const editTypeConfig: Record<string, { label: string; icon: typeof Sparkles; color: string }> = {
+const editTypeConfig: Record<
+  string,
+  { label: string; icon: typeof Sparkles; color: string }
+> = {
   generation: { label: "Gen", icon: Sparkles, color: "bg-blue-500" },
   regeneration: { label: "Regen", icon: Sparkles, color: "bg-purple-500" },
   remix: { label: "Edit", icon: Paintbrush, color: "bg-green-500" },
@@ -48,7 +58,7 @@ function VersionNode({
   const { version, children } = node;
   const isCurrent = version.id === currentVersionId;
   const hasChildren = children.length > 0;
-  const config = editTypeConfig[version.edit_type];
+  const config = editTypeConfig[version.edit_type] ?? editTypeConfig.generation;
   const Icon = config.icon;
 
   return (
@@ -62,6 +72,8 @@ function VersionNode({
         {/* Expand/collapse button for nodes with children */}
         {hasChildren ? (
           <button
+            aria-label={`Takes based on image take ${version.version_number}`}
+            aria-expanded={isExpanded}
             onClick={onToggleExpand}
             className="w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-foreground"
           >
@@ -80,6 +92,8 @@ function VersionNode({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
+                aria-label={`Use image take ${version.version_number}`}
+                aria-pressed={isCurrent}
                 onClick={() => onVersionSelect(version.id)}
                 className={`relative w-10 h-10 rounded overflow-hidden border-2 transition-all ${
                   isCurrent
@@ -89,7 +103,7 @@ function VersionNode({
               >
                 <img
                   src={version.image_url}
-                  alt={`Version ${version.version_number}`}
+                  alt=""
                   className="w-full h-full object-cover"
                 />
                 {isCurrent && (
@@ -101,7 +115,9 @@ function VersionNode({
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs">
               <div className="space-y-1">
-                <p className="font-medium">Version {version.version_number}</p>
+                <p className="font-medium">
+                  Image take {version.version_number}
+                </p>
                 {version.prompt && (
                   <p className="text-xs text-muted-foreground truncate">
                     {version.prompt}
@@ -120,7 +136,9 @@ function VersionNode({
         {/* Version info */}
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1">
-            <span className="text-xs font-medium">v{version.version_number}</span>
+            <span className="text-xs font-medium">
+              v{version.version_number}
+            </span>
             <Badge
               variant="secondary"
               className={`text-[10px] px-1 py-0 h-4 ${config.color} text-white`}
@@ -132,7 +150,7 @@ function VersionNode({
         </div>
 
         {/* Actions - visible on hover */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity ml-auto">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -140,6 +158,7 @@ function VersionNode({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6"
+                  aria-label={`Edit image take ${version.version_number}`}
                   onClick={() => onEditFrom(version.id)}
                 >
                   <Paintbrush className="h-3 w-3" />
@@ -156,6 +175,7 @@ function VersionNode({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6"
+                  aria-label={`Make a new image take after take ${version.version_number}`}
                   onClick={() => onBranchFrom(version.id)}
                 >
                   <GitBranch className="h-3 w-3" />
@@ -217,7 +237,7 @@ export default function ImageVersionTimeline({
   if (versions.length === 0) {
     return (
       <div className="text-xs text-muted-foreground text-center py-2">
-        No version history
+        No image takes
       </div>
     );
   }
@@ -229,13 +249,16 @@ export default function ImageVersionTimeline({
       <div className="flex gap-1 overflow-x-auto py-1">
         {allVersions.map((version) => {
           const isCurrent = version.id === currentVersionId;
-          const config = editTypeConfig[version.edit_type];
+          const config =
+            editTypeConfig[version.edit_type] ?? editTypeConfig.generation;
 
           return (
             <TooltipProvider key={version.id}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
+                    aria-label={`Use image take ${version.version_number}`}
+                    aria-pressed={isCurrent}
                     onClick={() => onVersionSelect(version.id)}
                     className={`relative w-8 h-8 rounded overflow-hidden border-2 flex-shrink-0 transition-all ${
                       isCurrent
@@ -245,7 +268,7 @@ export default function ImageVersionTimeline({
                   >
                     <img
                       src={version.image_url}
-                      alt={`v${version.version_number}`}
+                      alt=""
                       className="w-full h-full object-cover"
                     />
                     <div
@@ -282,9 +305,7 @@ export default function ImageVersionTimeline({
 }
 
 // Helper to flatten tree for compact view
-function flattenTree(
-  nodes: ImageVersionNode[]
-): ImageVersionNode["version"][] {
+function flattenTree(nodes: ImageVersionNode[]): ImageVersionNode["version"][] {
   const result: ImageVersionNode["version"][] = [];
   for (const node of nodes) {
     result.push(node.version);

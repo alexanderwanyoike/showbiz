@@ -1,3 +1,4 @@
+import type { GenerationObserver } from "../../../shared/generation-output";
 import { fetch } from "./http";
 import { pollUntilDone } from "./poll";
 
@@ -194,7 +195,8 @@ export async function pollFalResult<T>(
 export async function runFalInference<T>(
   endpointId: string,
   input: Record<string, unknown>,
-  apiKey: string
+  apiKey: string,
+  observer?: GenerationObserver
 ): Promise<T> {
   const res = await fetch(`${FAL_RUN_BASE}/${endpointId}`, {
     method: "POST",
@@ -204,6 +206,9 @@ export async function runFalInference<T>(
     },
     body: JSON.stringify(input),
   });
+
+  const requestId = res.headers?.get("x-fal-request-id");
+  if (requestId) await observer?.receipt({ provider_request_id: requestId, reported_microusd: null });
 
   if (!res.ok) {
     const text = await res.text();

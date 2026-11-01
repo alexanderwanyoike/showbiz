@@ -245,7 +245,7 @@ describe("pollFalResult", () => {
     const error = await promise.catch((e: Error) => e);
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toBe("fal.ai generation failed");
+    expect((error instanceof Error ? error.message : String(error))).toBe("fal.ai generation failed");
   });
 
   it("throws immediately on a definitive 4xx status check error", async () => {
@@ -257,7 +257,7 @@ describe("pollFalResult", () => {
     const error = await promise.catch((e: Error) => e);
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toBe(
+    expect((error instanceof Error ? error.message : String(error))).toBe(
       "fal.ai queue status failed for fal-ai/flux/schnell request req-123: Not found"
     );
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -350,7 +350,7 @@ describe("pollFalResult", () => {
     const error = await promise.catch((e: Error) => e);
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toBe(
+    expect((error instanceof Error ? error.message : String(error))).toBe(
       "fal.ai queue result failed for fal-ai/flux/schnell request req-123: fal.ai error (405)"
     );
   });
@@ -410,4 +410,10 @@ describe("uploadImageToFal", () => {
   it("wraps raw base64 in data URI", () => {
     expect(uploadImageToFal("abc123")).toBe("data:image/png;base64,abc123");
   });
+});
+it("retains a direct inference request ID even when the provider's response fails", async () => {
+  mockFetch.mockResolvedValue(new Response("failed", { status: 500, headers: { "x-fal-request-id": "direct-id" } }) as unknown as Awaited<ReturnType<typeof fetch>>);
+  const receipt = vi.fn();
+  await expect(runFalInference("fal-ai/flux-pro/kontext", { prompt: "edit" }, "key", { receipt })).rejects.toThrow("fal.ai inference failed");
+  expect(receipt).toHaveBeenCalledWith({ provider_request_id: "direct-id", reported_microusd: null });
 });
