@@ -65,7 +65,7 @@ it("leaves an existing destination untouched when selected media is missing", as
       INSERT INTO shots (id, storyboard_id, "order", video_path) VALUES ('s', 'sb', 1, 'missing.mp4');`);
     const destination = path.join(root, "Opening.zip");
     writeFileSync(destination, "existing package");
-    expect(await exportStoryboardPackage(db, root, "sb", destination)).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+    expect(await exportStoryboardPackage(db, root, "sb", destination)).toMatchObject({ ok: false, error: { code: "IO_ERROR", message: expect.stringMatching(/shot.*s.*video.*missing\.mp4.*ENOENT/i) } });
     expect(readFileSync(destination, "utf8")).toBe("existing package");
   } finally { db.close(); }
 });
