@@ -193,7 +193,6 @@ it.each(["project", "storyboard"] as const)(
       );
       await screen.findByRole("button", {
         name: "New Storyboard",
-        
       });
       await act(async () => {
         completePrevious(null);
