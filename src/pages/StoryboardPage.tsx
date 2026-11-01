@@ -173,6 +173,9 @@ export default function StoryboardPage() {
   const [imagePrompt, setImagePrompt] = useState("");
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
+  const imagePromptInput = useRef<HTMLTextAreaElement>(null);
+  const editPromptInput = useRef<HTMLTextAreaElement>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Model Selection
   const [defaultImageModel, setDefaultImageModel] = useState<ImageModelId>(DEFAULT_STORYBOARD_MODELS.image_model);
@@ -262,6 +265,7 @@ export default function StoryboardPage() {
     if (!id) return;
     const request = ++loadRequest.current;
     setIsLoading(true);
+    setLoadError(null);
     try {
       const [storyboardData, shotsData] = await Promise.all([
         getStoryboard(id),
@@ -271,7 +275,7 @@ export default function StoryboardPage() {
       if (request !== loadRequest.current) return;
 
       if (!storyboardData) {
-        navigate("/");
+        setLoadError("This storyboard is unavailable. Retry loading or return to the project.");
         return;
       }
 
@@ -301,8 +305,7 @@ export default function StoryboardPage() {
       await loadVersionDataForShots(mappedShots);
     } catch (error) {
       if (request !== loadRequest.current) return;
-      console.error("Failed to load storyboard:", error);
-      navigate("/");
+      setLoadError(error instanceof Error ? error.message : "Could not load the storyboard. Try again.");
     } finally {
       if (request === loadRequest.current) setIsLoading(false);
     }
@@ -515,6 +518,7 @@ export default function StoryboardPage() {
 
   async function handleGenerateImage() {
     if (!id || !activeShotId || !imagePrompt.trim()) return;
+    if (isLoading || loadError) { setImageGenerationError("Reload the storyboard before generating."); return; }
     if (modelSaving) { setImageGenerationError("Wait for the model change to finish."); return; }
     if (!shots.some((shot) => shot.id === activeShotId)) { setImageGenerationError("This shot no longer exists."); return; }
     setImageGenerationError(null);
@@ -689,6 +693,7 @@ export default function StoryboardPage() {
 
   async function handleEditImage() {
     if (!id) return;
+    if (isLoading || loadError) { setImageEditError("Reload the storyboard before generating."); return; }
     if (modelSaving) { setImageEditError("Wait for the model change to finish."); return; }
     if (!shots.some((shot) => shot.id === editModalState.shotId)) { setImageEditError("This shot no longer exists."); return; }
     const { shotId, versionId } = editModalState;
@@ -731,6 +736,7 @@ export default function StoryboardPage() {
   async function handleGenerateVideo(shotId: string) {
     const shot = shots.find((s) => s.id === shotId);
     if (!shot || inFlightVideoShots.current.has(shotId)) return;
+    if (isLoading || loadError || modelSaving) { setModelError("Finish loading and saving model changes before generating."); return; }
     const targetModelId = resolveShotModels(shot, defaultModels).video_model as VideoModelId;
     const targetModel = videoModels.find(model => model.id === targetModelId);
     if (!targetModel) { setModelError("Choose an available video model for this shot."); return; }
@@ -919,7 +925,11 @@ export default function StoryboardPage() {
 
   const hasMedia = shots.some((shot) => shot.image_url || shot.end_frame_url || shot.video_url);
 
-  if (isLoading) {
+  const refreshFeedback = (focusTarget: HTMLElement | null = null) => loadError ? (
+    <div role="alert" className="border-b border-border px-4 py-2 text-xs flex flex-wrap items-center gap-2"><span>{loadError}</span><Button variant="outline" size="sm" onClick={async () => { await loadData(); if (focusTarget?.isConnected) focusTarget.focus(); }}>Retry loading storyboard</Button></div>
+  ) : null;
+
+  if (isLoading && !storyboard) {
     return (
       <div className="desktop-page">
         <Header />
@@ -934,7 +944,7 @@ export default function StoryboardPage() {
   }
 
   if (!storyboard) {
-    return null;
+    return <div className="desktop-page"><Header title="Storyboard" backHref="/" backLabel="project" />{refreshFeedback()}</div>;
   }
 
   return (
@@ -948,6 +958,7 @@ export default function StoryboardPage() {
         {/* Inline controls in header */}
         <div className="storyboard-workspace-actions">
           <span className="workspace-item-count">{shots.length} {shots.length === 1 ? "shot" : "shots"}</span>
+          {isLoading && <span role="status" className="text-xs text-muted-foreground">Refreshing…</span>}
           <div role="group" aria-label="Storyboard view" className="storyboard-command-group">
           <StoryboardSettingsDialog name={storyboard.name} defaults={defaultModels} onSave={handleStoryboardSettingsSave} disabled={Object.keys(videoSettingsDrafts).length > 0} />
           <WorkspaceCommand ref={shotControlsToggle} label="Shot controls" aria-pressed={shotControlsOpen} aria-expanded={shotControlsOpen} aria-controls={shotControlsId} disabled={!selectedShot} onClick={() => setShotControlsOpen(!shotControlsOpen)}><PanelRight size={17} /></WorkspaceCommand>
@@ -964,6 +975,7 @@ export default function StoryboardPage() {
 
 
 
+      {refreshFeedback()}
       <ConfirmDeletion restoreFocus={()=>shotDeletionFocus.current?.()} open={!!shotToDelete} onOpenChange={(open)=>{if(!open)setShotToDelete(null);}} title={`Delete shot ${shotToDelete?.order ?? ""}?`} description="This permanently deletes the shot and its image and video takes from this project. This cannot be undone." actionLabel="Delete shot" onConfirm={()=>shotToDelete ? handleDeleteShot(shotToDelete.id) : Promise.resolve({ok:false,error:{code:"NOT_FOUND",message:"The shot no longer exists."}})} />
       {inactiveVideoDraft && <div role="status" className="border-b border-border px-4 py-2 text-xs">Shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order} has unsaved video settings. <Button variant="link" size="sm" onClick={()=>setSelectedShotId(inactiveVideoDraft)}>Return to shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order}</Button></div>}
       {exportMessage && <p role="status" className="border-b border-border px-4 py-2 text-sm">{exportMessage}</p>}
@@ -1007,7 +1019,7 @@ export default function StoryboardPage() {
               imageModel={imageModels.find(model => model.id === imageModel) ?? null}
               generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={videoCostRequest} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
               frameLibraryHref={`/project/${storyboard.project_id}?view=bible&bibleTab=frames`}
-              generationDisabled={modelSaving || videoSettingsSaving || !!selectedVideoDraft || !!(selectedShotId && (pendingVideoShots.has(selectedShotId) || savingFrameShots.has(selectedShotId) || frameErrors[selectedShotId]))}
+              generationDisabled={isLoading || !!loadError || modelSaving || videoSettingsSaving || !!selectedVideoDraft || !!(selectedShotId && (pendingVideoShots.has(selectedShotId) || savingFrameShots.has(selectedShotId) || frameErrors[selectedShotId]))}
               frameError={selectedShotId ? frameErrors[selectedShotId] : null}
               modelSaving={modelSaving}
               frameSaving={!!(selectedShotId && savingFrameShots.has(selectedShotId))}
@@ -1082,6 +1094,7 @@ export default function StoryboardPage() {
               Image Prompt
             </label>
             <Textarea
+              ref={imagePromptInput}
               className="min-h-[100px]"
               placeholder="Describe the scene (e.g., 'Cyberpunk city street with neon rain')"
               value={imagePrompt}
@@ -1089,6 +1102,7 @@ export default function StoryboardPage() {
               autoFocus
             />
           </div>
+          {refreshFeedback(imagePromptInput.current)}
           {imageGenerationError && <p role="alert" className="text-sm text-destructive">{imageGenerationError}</p>}
           <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model} request={{kind: "image"}} subject={{project_id: storyboard?.project_id, subject_id: activeShotId ?? undefined}} />
           <DialogFooter>
@@ -1097,7 +1111,7 @@ export default function StoryboardPage() {
             </Button>
             <Button
               onClick={handleGenerateImage}
-              disabled={modelSaving || isGeneratingImage || !imagePrompt.trim() || !shots.some((shot) => shot.id === activeShotId)}
+              disabled={isLoading || !!loadError || modelSaving || isGeneratingImage || !imagePrompt.trim() || !shots.some((shot) => shot.id === activeShotId)}
             >
               {isGeneratingImage ? (
                 <>
@@ -1154,6 +1168,7 @@ export default function StoryboardPage() {
                 Edit Prompt
               </label>
               <Textarea
+                ref={editPromptInput}
                 className="min-h-[80px]"
                 aria-label="Frame edit prompt"
                 placeholder="Describe the changes (e.g., 'Make the sky more dramatic' or 'Add fog in the background')"
@@ -1164,6 +1179,7 @@ export default function StoryboardPage() {
               />
             </div>
           </div>
+          {refreshFeedback(editPromptInput.current)}
           {imageEditError && <p role="alert" className="text-sm text-destructive">{imageEditError}</p>}
           <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model} request={{kind: "image_edit"}} subject={{project_id: storyboard?.project_id, subject_id: editModalState.shotId ?? undefined}} />
           <DialogFooter>
@@ -1178,7 +1194,7 @@ export default function StoryboardPage() {
             </Button>
             <Button
               onClick={handleEditImage}
-              disabled={modelSaving || isEditingImage || !editPrompt.trim() || !shots.some((shot) => shot.id === editModalState.shotId)}
+              disabled={isLoading || !!loadError || modelSaving || isEditingImage || !editPrompt.trim() || !shots.some((shot) => shot.id === editModalState.shotId)}
             >
               {isEditingImage ? (
                 <>
