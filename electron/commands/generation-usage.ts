@@ -29,16 +29,13 @@ function familyFilter(family: "image" | "video" | null) {
   return "";
 }
 
+export function recoverInterruptedGenerationUsage(db: DatabaseSync): void {
+  db.prepare(
+    "UPDATE generation_usage SET status = 'interrupted', finished_at = ? WHERE status = 'running'",
+  ).run(new Date().toISOString());
+}
+
 export function createGenerationUsageCommands(db: DatabaseSync) {
-  if (
-    db
-      .prepare("SELECT name FROM sqlite_master WHERE name = 'generation_usage'")
-      .get()
-  ) {
-    db.prepare(
-      "UPDATE generation_usage SET status = 'interrupted', finished_at = ? WHERE status = 'running'",
-    ).run(new Date().toISOString());
-  }
   function execute<T>(action: () => Result<T>): Result<T> {
     try {
       return action();

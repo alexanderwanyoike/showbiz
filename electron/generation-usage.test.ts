@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
 import { openTestDb } from "./db.test";
-import { createGenerationUsageCommands } from "./commands/generation-usage";
+import {
+  createGenerationUsageCommands,
+  recoverInterruptedGenerationUsage,
+} from "./commands/generation-usage";
 it("retains the preflight estimate and reported cost as distinct values across completion", () => {
   const db = openTestDb();
   try {
@@ -91,6 +94,7 @@ it("keeps known charges after failure, treats absent charges as unknown and surv
       }),
     ).toMatchObject({ ok: true });
     expect(begin("abandoned")).toMatchObject({ ok: true });
+    recoverInterruptedGenerationUsage(db);
     const reopened = createGenerationUsageCommands(db);
     expect(reopened.get_generation_usage({ project_id: "film" })).toMatchObject(
       {
@@ -226,19 +230,83 @@ it("records provider job identity while its monetary charge remains unknown", ()
   try {
     db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
     const commands = createGenerationUsageCommands(db);
-    commands.begin_generation_usage({request_id: "pending-receipt", project_id: "film", kind: "image", provider: "fal", model_id: "image"});
-    expect(commands.record_generation_receipt({request_id: "pending-receipt", reported_microusd: null, provider_request_id: "provider-job"})).toMatchObject({ok: true});
-    expect(commands.get_generation_usage({project_id: "film"})).toMatchObject({ok: true, value: {items: [{provider_request_id: "provider-job", reported_microusd: null}]}});
-  } finally { db.close(); }
+    commands.begin_generation_usage({
+      request_id: "pending-receipt",
+      project_id: "film",
+      kind: "image",
+      provider: "fal",
+      model_id: "image",
+    });
+    expect(
+      commands.record_generation_receipt({
+        request_id: "pending-receipt",
+        reported_microusd: null,
+        provider_request_id: "provider-job",
+      }),
+    ).toMatchObject({ ok: true });
+    expect(commands.get_generation_usage({ project_id: "film" })).toMatchObject(
+      {
+        ok: true,
+        value: {
+          items: [
+            { provider_request_id: "provider-job", reported_microusd: null },
+          ],
+        },
+      },
+    );
+  } finally {
+    db.close();
+  }
 });
 it("finds the latest request in a subject's generation family even after many other requests", () => {
   const db = openTestDb();
   try {
     db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
     const commands = createGenerationUsageCommands(db);
-    commands.begin_generation_usage({ request_id: "image", project_id: "film", subject_id: "shot", kind: "image_edit", provider: "fal", model_id: "old-image-model" });
-    for (let index = 0; index < 55; index++) commands.begin_generation_usage({ request_id: `video-${index}`, project_id: "film", subject_id: "shot", kind: "video", provider: "openrouter", model_id: "veo" });
-    expect(commands.get_generation_usage({ project_id: "film", subject_id: "shot", kind_family: "image", limit: 1 })).toMatchObject({ ok: true, value: { total_count: 1, items: [{ request_id: "image", kind: "image_edit", model_id: "old-image-model" }] } });
-    expect(commands.get_generation_usage({ project_id: "film", kind_family: "unknown" })).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
-  } finally { db.close(); }
+    commands.begin_generation_usage({
+      request_id: "image",
+      project_id: "film",
+      subject_id: "shot",
+      kind: "image_edit",
+      provider: "fal",
+      model_id: "old-image-model",
+    });
+    for (let index = 0; index < 55; index++)
+      commands.begin_generation_usage({
+        request_id: `video-${index}`,
+        project_id: "film",
+        subject_id: "shot",
+        kind: "video",
+        provider: "openrouter",
+        model_id: "veo",
+      });
+    expect(
+      commands.get_generation_usage({
+        project_id: "film",
+        subject_id: "shot",
+        kind_family: "image",
+        limit: 1,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        total_count: 1,
+        items: [
+          {
+            request_id: "image",
+            kind: "image_edit",
+            model_id: "old-image-model",
+          },
+        ],
+      },
+    });
+    expect(
+      commands.get_generation_usage({
+        project_id: "film",
+        kind_family: "unknown",
+      }),
+    ).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
+  } finally {
+    db.close();
+  }
 });
