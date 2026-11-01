@@ -1,6 +1,7 @@
 import { invoke } from "./bridge";
 import type { GenerationCostEstimate } from "../../shared/generation-cost";
 import type { GenerationObserver } from "../../shared/generation-output";
+import type { GenerationBillingSync } from "../../shared/generation-billing";
 import type { GenerationUsage } from "../../shared/generation-usage";
 import type { Result } from "../../shared/result";
 
@@ -112,21 +113,15 @@ export async function runAccountedGeneration<T>(
       pendingReceipt &&
       ["fal", "openrouter"].includes(request.provider)
     ) {
-      try {
-        const reconciled = await invoke<Result<unknown>>(
-          "sync_generation_charges",
-          { project_id: request.project_id, request_ids: [request_id] },
-        );
-        if (!reconciled.ok)
-          console.warn(
-            "Provider billing remains unconfirmed:",
-            reconciled.error.message,
-          );
-      } catch {
-        console.warn(
-          "Provider billing could not be checked. The charge remains unconfirmed.",
-        );
-      }
+      void invoke<Result<GenerationBillingSync>>(
+        "sync_generation_charges",
+        { project_id: request.project_id, request_ids: [request_id] },
+      ).then((reconciled) => {
+        const messages = reconciled.ok ? reconciled.value.notes.map((note) => note.message) : [reconciled.error.message];
+        notify(request, [...warnings, ...messages]);
+      }).catch(() => {
+        notify(request, [...warnings, "Provider billing could not be checked. The charge remains unconfirmed."]);
+      });
     }
     notify(request, warnings);
     return warnings.length ? { ...result, warnings } : result;
