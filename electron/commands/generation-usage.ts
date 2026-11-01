@@ -29,16 +29,13 @@ function familyFilter(family: "image" | "video" | null) {
   return "";
 }
 
+export function recoverInterruptedGenerationUsage(db: DatabaseSync): void {
+  db.prepare(
+    "UPDATE generation_usage SET status = 'interrupted', finished_at = ? WHERE status = 'running'",
+  ).run(new Date().toISOString());
+}
+
 export function createGenerationUsageCommands(db: DatabaseSync) {
-  if (
-    db
-      .prepare("SELECT name FROM sqlite_master WHERE name = 'generation_usage'")
-      .get()
-  ) {
-    db.prepare(
-      "UPDATE generation_usage SET status = 'interrupted', finished_at = ? WHERE status = 'running'",
-    ).run(new Date().toISOString());
-  }
   function execute<T>(action: () => Result<T>): Result<T> {
     try {
       return action();
@@ -286,6 +283,9 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
       execute(() => {
         if (!identifier(args.project_id))
           return invalid("Choose a project to view costs.");
+        const subject = args.subject_id ?? null;
+        if (subject !== null && !identifier(subject))
+          return invalid("The generation subject is invalid.");
         const summary = db
           .prepare(
             `SELECT
@@ -294,9 +294,9 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
         COALESCE(SUM(CASE WHEN reported_microusd IS NULL THEN estimated_max_microusd ELSE 0 END), 0) AS estimated_max_microusd,
         COALESCE(SUM(CASE WHEN reported_microusd IS NULL AND estimated_min_microusd IS NULL THEN 1 ELSE 0 END), 0) AS unknown_count,
         COUNT(*) AS total_count
-        FROM generation_usage WHERE project_id = ?`,
+        FROM generation_usage WHERE project_id = ? AND (? IS NULL OR subject_id = ?)`,
           )
-          .get(args.project_id) as unknown as GenerationCostSummary;
+          .get(args.project_id, subject as string | null, subject as string | null) as unknown as GenerationCostSummary;
         return Object.values(summary).every(Number.isSafeInteger)
           ? success(summary)
           : invalid("The usage total exceeds the supported amount.");

@@ -1,3 +1,4 @@
+import { commandWorkKind } from "../shared/command-effects";
 import { randomUUID } from "node:crypto";
 import type { MessageBoxOptions } from "electron";
 import { createApplicationWork } from "./application-work";
@@ -8,53 +9,7 @@ interface WorkWindow {
   webContents: { id: number; isDestroyed(): boolean; send(channel: string, payload: unknown): void };
   on(event: "close", listener: (event: { preventDefault(): void }) => void): unknown;
 }
-const MUTATING_COMMANDS = new Set([
-  "sync_generation_charges",
-  "save_generation_price",
-  "clear_generation_price",
-  "set_local_generation_config",
-  "begin_generation_usage",
-  "record_generation_receipt",
-  "finish_generation_usage",
-  "clear_shot_end_frame",
-  "clear_shot_start_frame",
-  "copy_image_from_shot",
-  "create_bible",
-  "create_bible_asset",
-  "create_bible_asset_variant",
-  "create_generation_version",
-  "create_project",
-  "create_remix_version",
-  "create_shot",
-  "create_storyboard",
-  "create_video_generation_version",
-  "delete_api_key",
-  "delete_bible",
-  "delete_bible_asset",
-  "delete_bible_asset_variant",
-  "delete_project",
-  "delete_shot",
-  "delete_storyboard",
-  "delete_version",
-  "reorder_shots",
-  "set_shot_models",
-  "set_shot_video_settings",
-  "save_and_complete_video",
-  "save_api_key",
-  "save_shot_end_frame",
-  "save_shot_image",
-  "save_shot_video",
-  "switch_to_version",
-  "switch_to_video_version",
-  "update_bible",
-  "update_bible_asset",
-  "update_bible_asset_variant_status",
-  "update_project",
-  "update_shot",
-  "update_storyboard",
-  "update_storyboard_models",
-  "update_storyboard_settings",
-]);
+
 
 type Dispatch = (command: string, args?: Record<string, unknown>) => Promise<unknown>;
 
@@ -176,8 +131,9 @@ export function createWorkRuntime(options: {
         lease.end(); leases.delete(work_id);
         return;
       }
-      if (!MUTATING_COMMANDS.has(command) && command !== "export_storyboard_package") return dispatch(command, args);
-      const end = work.begin(command === "export_storyboard_package" ? "export" : "saving");
+      const kind = commandWorkKind(command);
+      if (!kind) return dispatch(command, args);
+      const end = work.begin(kind);
       try { return await dispatch(command, args); }
       finally { end(); }
     },

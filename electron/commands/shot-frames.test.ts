@@ -5,7 +5,7 @@ import { createProjectDocuments } from "../project-documents";
 import { loadMigrations } from "../db";
 import { expect, it } from "vitest";
 import { openTestDb } from "../db.test";
-import { createDataCommands } from "../command-map";
+import { createTestDataCommands as createDataCommands } from "../test-support/data-commands";
 import { createInvokeHandler } from "../ipc";
 it("removes only the selected start frame while preserving image takes and saved video", async () => {
   const db = openTestDb();

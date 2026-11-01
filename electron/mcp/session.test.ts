@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { openDatabase, loadMigrations } from "../db";
-import { createDataCommands } from "../command-map";
+import { createTestDataCommands as createDataCommands } from "../test-support/data-commands";
 import { createInvokeHandler } from "../ipc";
 import { createMcpSession } from "./session";
 
@@ -18,7 +18,7 @@ it("shares live project operations with the UI and guards remote retries and sta
     const commands = createDataCommands(
       db,
       root,
-      {} as Parameters<typeof createDataCommands>[2],
+      {},
     );
     const changed = vi.fn();
     const session = createMcpSession(createInvokeHandler(commands), changed);
