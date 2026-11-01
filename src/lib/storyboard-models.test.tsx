@@ -678,3 +678,22 @@ it.each(["model changed", "shot deleted"])("reconciles an unsaved video settings
   expect(screen.queryByRole("button", { name: "Return to shot 1" })).toBeNull();
   expect(applicationWork.snapshot().unsaved).not.toContain("draft");
 });
+
+it("waits for image model persistence before editing a frame and then uses the saved model", async () => {
+  vi.mocked(getCurrentImageVersion).mockResolvedValueOnce({ id: "frame-take", shot_id: "shot-1", parent_version_id: null, version_number: 1, edit_type: "generation", image_path: "images/1.png", prompt: null, edit_prompt: null, mask_path: null, is_current: true, created_at: "now", image_url: "frame-1.png", mask_url: null });
+  let finish: ((result: Awaited<ReturnType<typeof setShotModels>>) => void) | undefined;
+  vi.mocked(setShotModels).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  vi.mocked(editImageAction).mockRejectedValueOnce(new Error("Verification only"));
+  render(createElement(MemoryRouter, { initialEntries: ["/storyboard/board"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Shot controls" }));
+  await user.click(screen.getByRole("button", { name: "Image model for shot 1" }));
+  await user.click(screen.getByRole("option", { name: /^Nano Banana\s*Google AI/ }));
+  expect(screen.getByRole("button", { name: "Edit frame for shot 1" })).toHaveProperty("disabled", true);
+  await act(async () => { finish?.({ ok: true, value: { image_model: "nano-banana", video_model: null } }); });
+  await user.click(screen.getByRole("button", { name: "Edit frame for shot 1" }));
+  const dialog = await screen.findByRole("dialog", { name: "Edit frame for shot 1" });
+  await user.type(within(dialog).getByRole("textbox", { name: "Frame edit prompt" }), "Morning mist");
+  await user.click(within(dialog).getByRole("button", { name: "Edit Image" }));
+  await waitFor(() => expect(editImageAction).toHaveBeenCalledWith(expect.any(String), "Morning mist", "nano-banana", expect.objectContaining({ subject_id: "shot-1" })));
+});
