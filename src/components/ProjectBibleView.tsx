@@ -1197,8 +1197,15 @@ function FramesTab({
     ) {
       setLocationId(null);
       setLocationVariantId(null);
+    } else if (
+      locationId &&
+      !(variants[locationId] ?? []).some(
+        (variant) => variant.id === locationVariantId && variant.media_url,
+      )
+    ) {
+      setLocationVariantId(primaryPicture(variants[locationId] ?? [])?.id ?? null);
     }
-  }, [characters, locations, locationId, variants]);
+  }, [characters, locations, locationId, locationVariantId, variants]);
 
   function toggleChar(id: string) {
     setSelectedChars((prev) => {
