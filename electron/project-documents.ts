@@ -158,6 +158,17 @@ export function createProjectDocuments(options: {
       throw cause;
     }
   }
+  function destination(filePath: string): DocumentResult<string> {
+    try {
+      const absolute = path.resolve(filePath);
+      const file = fs.existsSync(absolute)
+        ? fs.realpathSync(absolute)
+        : path.join(fs.realpathSync(path.dirname(absolute)), path.basename(absolute));
+      return { ok: true, value: file };
+    } catch (cause) {
+      return fail(cause);
+    }
+  }
   async function writeDocument(
     file: string,
     populate: (
@@ -264,7 +275,9 @@ export function createProjectDocuments(options: {
     ): Promise<DocumentResult<ProjectDocumentInfo>> {
       if (busy)
         return fail(new Error("A project file operation is in progress."));
-      const file = path.resolve(filePath);
+      const resolved = destination(filePath);
+      if (!resolved.ok) return resolved;
+      const file = resolved.value;
       return writeDocument(file, (temporary, media) => {
         const db = openDatabase(temporary, options.migrations);
         try {
@@ -397,7 +410,9 @@ export function createProjectDocuments(options: {
         return fail(
           new Error("Open a project and finish active file operations first."),
         );
-      const file = path.resolve(filePath);
+      const resolved = destination(filePath);
+      if (!resolved.ok) return resolved;
+      const file = resolved.value;
       if (file === active.file) return documents.save();
       const source = active;
       try {
@@ -429,7 +444,9 @@ export function createProjectDocuments(options: {
         })
       )
         return fail(new Error("The existing project was not found."));
-      const file = path.resolve(filePath);
+      const resolved = destination(filePath);
+      if (!resolved.ok) return resolved;
+      const file = resolved.value;
       return writeDocument(file, (temporary, media) =>
         copyProjectDocument({
           source: source.db,
