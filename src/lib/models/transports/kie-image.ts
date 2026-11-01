@@ -1,4 +1,4 @@
-import { kieResponseSchema } from "../kie-response";
+import { readKieResponse } from "../kie-response";
 import { fetch } from "../http";
 import { createKieTask, pollKieTask } from "../kie-shared";
 import type { ImageTransport } from "./types";
@@ -38,18 +38,9 @@ async function callFluxKontext(
     body: JSON.stringify(body),
   });
 
-  const json = kieResponseSchema.parse(await res.json());
-
-  if (!res.ok || (json.code !== undefined && json.code !== 200)) {
-    const msg: string = json.msg ?? json.message ?? "";
-    if (res.status === 402 || json.code === 402) {
-      throw new Error("Insufficient kie.ai credits. Please top up your account.");
-    }
-    if (res.status === 401 || json.code === 401) {
-      throw new Error("Invalid kie.ai API key.");
-    }
-    throw new Error(`Flux Kontext error (${res.status}): ${msg}`);
-  }
+  const parsed = await readKieResponse(res);
+  if (!parsed.ok) throw new Error(parsed.error.message);
+  const json = parsed.value;
 
   // Direct image URL in response
   if (json?.data?.imageUrl) {
