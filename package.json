@@ -13,11 +13,11 @@
     "dev:frontend": "vite dev",
     "dev:electron": "node scripts/dev-electron.mjs",
     "build:frontend": "vite build",
-    "build:electron": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=dist-electron --out-extension:.js=.cjs && yarn build:mcp",
+    "build:electron": "node scripts/build-electron.mjs && yarn build:mcp",
     "package:electron": "yarn icons:check && yarn build:frontend && yarn build:electron && electron-builder",
     "test": "yarn icons:check && yarn test:icons && vitest run && yarn test:distribution",
     "test:watch": "vitest",
-    "test:distribution": "node --test scripts/prepare-release.test.mjs",
+    "test:distribution": "node --test scripts/prepare-release.test.mjs scripts/bundle-notices.test.mjs",
     "prepare:release": "node scripts/prepare-release.mjs",
     "build:mcp": "node scripts/build-mcp.mjs",
     "mcp": "node dist-electron/showbiz-mcp.cjs",
@@ -116,6 +116,10 @@
       {
         "from": "dist-electron/mcp-LICENSES.txt",
         "to": "mcp/mcp-LICENSES.txt"
+      },
+      {
+        "from": "dist-electron/THIRD_PARTY_NOTICES.txt",
+        "to": "THIRD_PARTY_NOTICES.txt"
       }
     ]
   },
