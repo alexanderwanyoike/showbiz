@@ -333,3 +333,26 @@ it("allows a take preview while a new picture is generating without allowing tak
   }
   await screen.findByText("Provider unavailable");
 });
+
+it("keeps the deletion target stable while its dialog exits", async () => {
+  const style = document.createElement("style");
+  style.textContent = '[role="alertdialog"][data-state="open"] { animation-name: enter; } [role="alertdialog"][data-state="closed"] { animation-name: exit; }';
+  document.head.append(style);
+  try {
+    render(createElement(ProjectBibleView, { projectId: "film" }));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Open Ada details" }));
+    await user.click(screen.getByRole("button", { name: "Delete Ada" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Delete Bible entry" });
+    const started = new Event("animationstart", { bubbles: true });
+    Object.defineProperty(started, "animationName", { value: "enter" });
+    dialog.dispatchEvent(started);
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(dialog.isConnected).toBe(true);
+    expect(dialog.getAttribute("data-state")).toBe("closed");
+    expect(within(dialog).getByText("Delete Bible entry")).toBeTruthy();
+    expect(within(dialog).getByText("Delete “Ada” and all its pictures? This cannot be undone.")).toBeTruthy();
+  } finally {
+    style.remove();
+  }
+});
