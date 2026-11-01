@@ -303,3 +303,16 @@ it("quotes Veo from the live catalog when unrelated video editing models have no
     expect(await getGenerationEstimate("veo-3.1-openrouter", { kind: "video", duration: "8s", resolution: "720p", audio: true })).toMatchObject({ kind: "estimate", min_microusd: 3200000, max_microusd: 3200000 });
   } finally { db.close(); }
 });
+
+it("falls back to provider pricing for settings without a matching custom rate and preserves its source", async () => {
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createGenerationPricingCommands(db);
+    native.invoke.mockImplementation(async (command, args) => commands[command]?.(args));
+    const base = { provider: "openrouter", model_id: "veo-3.1-openrouter", currency: "USD", checked_at: new Date().toISOString() };
+    commands.save_generation_price({ kind: "video", price: { ...base, source_kind: "provider", source_url: "https://openrouter.ai/api/v1/videos/models", rates: [{ unit: "second", microusd: 400000, resolution: "1080p", audio: true }] } });
+    commands.save_generation_price({ kind: "video", price: { ...base, source_kind: "manual", source_url: "", rates: [{ unit: "second", kind: "video", microusd: 100000, resolution: "720p", audio: false }] } });
+    expect(await getGenerationEstimate("veo-3.1-openrouter", { kind: "video", duration: "8s", resolution: "720p", audio: false })).toMatchObject({ kind: "estimate", min_microusd: 800000, price: { source_kind: "manual" } });
+    expect(await getGenerationEstimate("veo-3.1-openrouter", { kind: "video", duration: "8s", resolution: "1080p", audio: true })).toMatchObject({ kind: "estimate", min_microusd: 3200000, price: { source_kind: "provider" } });
+  } finally { db.close(); }
+});
