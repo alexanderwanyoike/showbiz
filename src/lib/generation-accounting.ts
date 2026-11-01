@@ -78,22 +78,25 @@ export async function runAccountedGeneration<T>(
     } catch (cause) {
       result = failed(cause instanceof Error ? cause.message : String(cause));
     }
-    const finished = await invoke<Result<null>>("finish_generation_usage", {
-      request_id,
-      status: result.ok ? "completed" : "failed",
-    });
-    if (finished.ok && pendingReceipt && ["fal", "openrouter"].includes(request.provider)) {
+    let finishSucceeded = false;
+    try {
+      const finished = await invoke<Result<null>>("finish_generation_usage", {
+        request_id,
+        status: result.ok ? "completed" : "failed",
+      });
+      finishSucceeded = finished.ok;
+      if (!finished.ok) warnings.push(`The usage outcome could not be saved: ${finished.error.message}`);
+    } catch (cause) {
+      warnings.push(`The usage outcome could not be saved: ${cause instanceof Error ? cause.message : String(cause)}`);
+    }
+    if (finishSucceeded && pendingReceipt && ["fal", "openrouter"].includes(request.provider)) {
       try {
         const reconciled = await invoke<Result<unknown>>("sync_generation_charges", { project_id: request.project_id, request_ids: [request_id] });
         if (!reconciled.ok) console.warn("Provider billing remains unconfirmed:", reconciled.error.message);
       } catch { console.warn("Provider billing could not be checked. The charge remains unconfirmed."); }
     }
     notify(request);
-    return finished.ok
-      ? warnings.length ? { ...result, warnings } : result
-      : failed(
-          `The generation ended, but its usage outcome could not be saved: ${finished.error.message}`,
-        );
+    return warnings.length ? { ...result, warnings } : result;
   } catch (cause) {
     return failed(
       cause instanceof Error
