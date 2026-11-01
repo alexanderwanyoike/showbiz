@@ -122,7 +122,9 @@ test("keeps committed icon byte comparison out of cross-platform packaging and t
     "utf8",
   );
   const jobs = Object.values(load(workflow).jobs);
-  const iconJobs = jobs.filter(job => job.steps?.some(step => step.run === "yarn icons:check"));
+  const iconJobs = jobs.filter((job) =>
+    job.steps?.some((step) => step.run === "yarn icons:check"),
+  );
   assert.equal(iconJobs.length, 1);
   for (const job of iconJobs) assert.equal(job["runs-on"], "ubuntu-latest");
 });
