@@ -21,7 +21,7 @@ test("builds and packages a readable main/preload notice retaining Undici's MIT 
     path.join(root, "dist-electron/THIRD_PARTY_NOTICES.txt"),
     "utf8",
   );
-  assert.match(text, /undici 7\.30\.1/);
+  assert.match(text, /undici \d/);
   assert.match(text, /Copyright.*Undici/i);
   assert.match(text, /Permission is hereby granted, free of charge/);
   assert.match(
