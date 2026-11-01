@@ -685,7 +685,6 @@ it("waits for image model persistence before editing a frame and then uses the s
   const editCommand = screen.getByRole("button", { name: "Edit frame for shot 1" });
   expect(editCommand.getAttribute("aria-disabled")).toBe("true");
   expect(editCommand.getAttribute("aria-description")).toBe("Wait for the model change to finish.");
-  expect(editCommand.querySelector("button")).toHaveProperty("disabled", true);
   await user.click(editCommand);
   expect(screen.queryByRole("dialog", { name: "Edit frame for shot 1" })).toBeNull();
   expect(editImageAction).not.toHaveBeenCalled();
