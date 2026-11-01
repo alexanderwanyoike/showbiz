@@ -188,7 +188,9 @@ export default function StoryboardPage() {
   const videoModel = selectedModels.video_model as VideoModelId;
 
   const [videoSettingsDrafts, setVideoSettingsDrafts] = useState<Record<string, {model_id:string;settings:VideoGenerationSettings;error:string|null}>>({});
-  const [videoSettingsSaving, setVideoSettingsSaving] = useState(false);
+  const [savingVideoSettingsShots, setSavingVideoSettingsShots] = useState<Set<string>>(new Set());
+  const videoSettingsRequests = useRef(new Map<string, { token: symbol; modelId: string }>());
+  const videoSettingsSaving = !!selectedShotId && savingVideoSettingsShots.has(selectedShotId);
   const currentVideoModel = useMemo(() => videoModels.find((model) => model.id === videoModel), [videoModel, videoModels]);
   const storedVideoSettings = currentVideoModel ? resolveShotVideoSettings(selectedShot?.video_settings_json, currentVideoModel) : {settings:{duration:"auto"},notice:"Choose a video model."};
   const selectedVideoDraft = selectedShot && videoSettingsDrafts[selectedShot.id]?.model_id === videoModel ? videoSettingsDrafts[selectedShot.id] : null;
@@ -282,6 +284,10 @@ export default function StoryboardPage() {
         ? (storyboardData.video_model as VideoModelId)
         : "seedance-2-fal";
       setDefaultVideoModel(loadedVideoModel);
+      for (const [shotId, pending] of videoSettingsRequests.current) {
+        if (!mappedShots.some((shot) => shot.id === shotId && (shot.video_model ?? loadedVideoModel) === pending.modelId)) videoSettingsRequests.current.delete(shotId);
+      }
+      setSavingVideoSettingsShots((previous) => new Set([...previous].filter((shotId) => videoSettingsRequests.current.has(shotId))));
       setVideoSettingsDrafts((previous) => {
         const matching = Object.entries(previous).filter(([shotId, draft]) =>
           mappedShots.some((shot) => shot.id === shotId && (shot.video_model ?? loadedVideoModel) === draft.model_id),
@@ -389,20 +395,31 @@ export default function StoryboardPage() {
   }
 
   async function handleVideoSettingsChange(settings: VideoGenerationSettings) {
-    if (!selectedShot || !currentVideoModel || videoSettingsSaving) return;
-    const shotId=selectedShot.id;
-    const modelId=currentVideoModel.id;
-    setVideoSettingsDrafts((previous)=>({...previous,[shotId]:{model_id:modelId,settings,error:null}}));
-    setVideoSettingsSaving(true);
+    if (!selectedShot || !currentVideoModel) return;
+    const shotId = selectedShot.id;
+    if (videoSettingsRequests.current.has(shotId)) return;
+    const modelId = currentVideoModel.id;
+    const token = Symbol(shotId);
+    videoSettingsRequests.current.set(shotId, { token, modelId });
+    setVideoSettingsDrafts((previous) => ({ ...previous, [shotId]: { model_id: modelId, settings, error: null } }));
+    setSavingVideoSettingsShots((previous) => new Set(previous).add(shotId));
     try {
-      const result=await setShotVideoSettings(shotId,storeShotVideoSettings(modelId,settings));
+      const result = await setShotVideoSettings(shotId, storeShotVideoSettings(modelId, settings));
+      if (videoSettingsRequests.current.get(shotId)?.token !== token) return;
       if (!result.ok) {
-        setVideoSettingsDrafts((previous)=>({...previous,[shotId]:{model_id:modelId,settings,error:result.error.message}}));
+        setVideoSettingsDrafts((previous) => ({ ...previous, [shotId]: { model_id: modelId, settings, error: result.error.message } }));
         return;
       }
-      setShots((previous)=>previous.map((shot)=>shot.id===shotId?{...shot,video_settings_json:JSON.stringify(result.value)}:shot));
-      setVideoSettingsDrafts((previous)=>{const next={...previous};delete next[shotId];return next;});
-    } finally {setVideoSettingsSaving(false);}
+      setShots((previous) => previous.map((shot) => shot.id === shotId ? { ...shot, video_settings_json: JSON.stringify(result.value) } : shot));
+      setVideoSettingsDrafts((previous) => { const next = { ...previous }; delete next[shotId]; return next; });
+    } catch (cause) {
+      if (videoSettingsRequests.current.get(shotId)?.token === token) setVideoSettingsDrafts((previous) => ({ ...previous, [shotId]: { model_id: modelId, settings, error: cause instanceof Error ? cause.message : "Could not save video settings. Try again." } }));
+    } finally {
+      if (videoSettingsRequests.current.get(shotId)?.token === token) {
+        videoSettingsRequests.current.delete(shotId);
+        setSavingVideoSettingsShots((previous) => { const next = new Set(previous); next.delete(shotId); return next; });
+      }
+    }
   }
   function discardVideoSettings() {
     if(!selectedShot || videoSettingsSaving) return;
