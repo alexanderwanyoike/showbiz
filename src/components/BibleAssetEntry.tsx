@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
-  Ellipsis,
   ImageIcon,
   Loader2,
   Maximize2,
@@ -129,7 +128,7 @@ export function BibleAssetEntry({
           ref={opener}
           type="button"
           className="bible-asset-open"
-          aria-label={`Open ${asset.name} details`}
+          aria-label={`Open ${asset.name} details${variationEdited || editInstruction ? ", unsaved draft" : ""}`}
           onClick={onOpen}
         >
           {primary?.media_url ? (
@@ -145,18 +144,9 @@ export function BibleAssetEntry({
               {takes.length} {takes.length === 1 ? "take" : "takes"}
             </span>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="bible-more-action"
-            aria-label={`Picture actions for ${asset.name}`}
-            onClick={onOpen}
-          >
-            <Ellipsis size={16} />
-            {(variationEdited || editInstruction) && (
-              <span className="bible-draft-dot" aria-label="Unsaved draft" />
-            )}
-          </Button>
+          {(variationEdited || editInstruction) && (
+            <span className="bible-draft-dot" aria-hidden="true" />
+          )}
         </div>
       </article>
     );

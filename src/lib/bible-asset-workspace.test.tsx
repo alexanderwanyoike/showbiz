@@ -119,9 +119,9 @@ it("keeps independent creation and picture-action drafts across detail and libra
     screen.getByRole("textbox", { name: "Character prompt" }),
   ).toHaveProperty("value", "A quiet portrait");
   expect(document.activeElement).toBe(
-    screen.getByRole("button", { name: "Open Ada details" }),
+    screen.getByRole("button", { name: "Open Ada details, unsaved draft" }),
   );
-  await user.click(screen.getByRole("button", { name: "Open Ada details" }));
+  await user.click(screen.getByRole("button", { name: "Open Ada details, unsaved draft" }));
   expect(
     screen.getByRole("textbox", { name: "Variation prompt for Ada" }),
   ).toHaveProperty("value", "Warmer light");
