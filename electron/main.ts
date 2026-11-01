@@ -113,7 +113,11 @@ async function registerIpc(
       ? updateHandler(command, args)
       : projects.invoke(command, args);
   app.on("will-quit", () => {
-    const result = closeProjectStorage(projects.dispose, () => db.close(), path.join(appDataDir(), "logs", "project-storage.log"));
+    const result = closeProjectStorage(
+      projects.dispose,
+      () => db.close(),
+      path.join(appDataDir(), "logs", "project-storage.log"),
+    );
     if (!result.ok)
       console.error("Could not close project storage:", result.error.message);
     const warning = projects.documents.warning();
