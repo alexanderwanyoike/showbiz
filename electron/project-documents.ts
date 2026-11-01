@@ -157,8 +157,8 @@ export function createProjectDocuments(options: {
     media: string,
     release: () => void,
     readOnly = false,
+    archive = createDocumentMedia(db, media),
   ) {
-    const archive = createDocumentMedia(db, media);
     return {
       file,
       readOnly,
@@ -249,7 +249,7 @@ export function createProjectDocuments(options: {
       fs.renameSync(temporary, file);
       published = true;
       db = openDatabase(file, options.migrations);
-      const document = prepare(file, db, media, release);
+      const document = prepare(file, db, media, release, false, archive.rebind(db));
       const value = activate(document);
       db = null;
       if (hasBackup) {
