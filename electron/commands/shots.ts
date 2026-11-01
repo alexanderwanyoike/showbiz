@@ -1,3 +1,4 @@
+import type { ReadGenerationModels } from "./generation-models";
 import { createShotFrameCommands } from "./shot-frames";
 import { createShotVideoSettingsCommands } from "./shot-video-settings";
 import { createShotModelCommands } from "./shot-models";
@@ -61,7 +62,7 @@ const SHOT_COLUMNS = `id, storyboard_id, "order", duration, image_prompt, image_
                       end_frame_path, video_prompt, video_path, status, created_at, updated_at`;
 
 /** Ported shot commands; names and JSON shapes match the retired Rust backend's commands/shots.rs. */
-export function createShotCommands(db: DatabaseSync, mediaDir: string) {
+export function createShotCommands(db: DatabaseSync, mediaDir: string, readGenerationModels: ReadGenerationModels) {
   /**
    * Build an absolute file path for a media file, mirroring Rust make_media_url
    * (media base dir joined onto the relative DB path). Cache-busting timestamps
@@ -360,7 +361,7 @@ export function createShotCommands(db: DatabaseSync, mediaDir: string) {
   }
 
   return {
-    ...createShotModelCommands(db),
+    ...createShotModelCommands(db, readGenerationModels),
     ...createShotVideoSettingsCommands(db),
     ...createShotFrameCommands(db),
     get_shots(args?: Record<string, unknown>): ShotWithUrls[] {

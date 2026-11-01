@@ -6,5 +6,5 @@ export type ShotModelsResult =
   | { ok: true; value: ShotModelOverrides }
   | {
       ok: false;
-      error: { code: "INVALID_INPUT" | "NOT_FOUND"; message: string };
+      error: { code: "INVALID_INPUT" | "NOT_FOUND" | "IO_ERROR"; message: string };
     };

@@ -49,7 +49,7 @@ export function desktopWindowOptions(
   dark: boolean,
 ): Pick<
   BrowserWindowConstructorOptions,
-  "titleBarStyle" | "titleBarOverlay" | "autoHideMenuBar" | "backgroundColor"
+  "titleBarStyle" | "titleBarOverlay" | "autoHideMenuBar" | "backgroundColor" | "trafficLightPosition"
 > {
   if (!desktopShellMetadata(platform)) return {};
   const color = dark ? "#151515" : "#f5f5f5";
@@ -59,6 +59,7 @@ export function desktopWindowOptions(
       platform === "darwin"
         ? true
         : { color, symbolColor: dark ? "#ffffff" : "#151515", height: 48 },
+    ...(platform === "darwin" ? { trafficLightPosition: { x: 16, y: 16 } } : {}),
     autoHideMenuBar: false,
     backgroundColor: color,
   };

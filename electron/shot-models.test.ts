@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { openTestDb } from "./db.test";
 import { createProjectCommands } from "./commands/projects";
-import { createShotCommands } from "./commands/shots";
+import { createTestShotCommands as createShotCommands } from "./test-support/data-commands";
 
 it("persists independent shot model overrides and restores inheritance without changing the board defaults", () => {
   const db = openTestDb();

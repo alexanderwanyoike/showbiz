@@ -1,3 +1,7 @@
+import {
+  menuShortcutLabel,
+  type MenuShortcut,
+} from "../../shared/menu-shortcuts";
 import { useRef } from "react";
 import {
   Dialog,
@@ -6,12 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  isMacDesktop,
-  menuShortcut,
-  redoShortcut,
-  fullscreenShortcut,
-} from "../lib/menu-editor";
+import { isMacDesktop, desktopPlatform } from "../lib/menu-editor";
 export function KeyboardShortcutsDialog({
   open,
   onOpenChange,
@@ -21,36 +20,37 @@ export function KeyboardShortcutsDialog({
 }) {
   const origin = useRef<HTMLElement | null>(null);
   const mac = isMacDesktop();
-  const shortcut = (keys: string) => menuShortcut(keys, mac);
+  const shortcut = (command: MenuShortcut) =>
+    menuShortcutLabel(command, desktopPlatform());
   const groups: { label: string; commands: [string, string][] }[] = [
     {
       label: "File",
       commands: [
-        ["New project", shortcut("N")],
-        ["Open project", shortcut("O")],
-        ["Save", shortcut("S")],
-        ["Save as", shortcut("Shift+S")],
-        ["Close project", shortcut("Shift+W")],
+        ["New project", shortcut("new")],
+        ["Open project", shortcut("open")],
+        ["Save", shortcut("save")],
+        ["Save as", shortcut("save_as")],
+        ["Close project", shortcut("close")],
       ],
     },
     {
       label: "Edit",
       commands: [
-        ["Undo", shortcut("Z")],
-        ["Redo", redoShortcut()],
-        ["Cut", shortcut("X")],
-        ["Copy", shortcut("C")],
-        ["Paste", shortcut("V")],
-        ["Select all", shortcut("A")],
+        ["Undo", shortcut("undo")],
+        ["Redo", shortcut("redo")],
+        ["Cut", shortcut("cut")],
+        ["Copy", shortcut("copy")],
+        ["Paste", shortcut("paste")],
+        ["Select all", shortcut("select_all")],
       ],
     },
     {
       label: "View",
       commands: [
-        ["Zoom in", shortcut("+")],
-        ["Zoom out", shortcut("-")],
-        ["Actual size", shortcut("0")],
-        ["Toggle full screen", fullscreenShortcut()],
+        ["Zoom in", shortcut("zoom_in")],
+        ["Zoom out", shortcut("zoom_out")],
+        ["Actual size", shortcut("zoom_reset")],
+        ["Toggle full screen", shortcut("toggle_fullscreen")],
       ],
     },
     {
@@ -64,6 +64,7 @@ export function KeyboardShortcutsDialog({
       ],
     },
   ];
+  if (window.showbiz?.desktop?.platform === "darwin") groups.pop();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent

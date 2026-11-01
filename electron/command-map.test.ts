@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { expect, it, vi } from "vitest";
-import { createDataCommands } from "./command-map";
+import { createTestDataCommands as createDataCommands } from "./test-support/data-commands";
 import { createStoryboardPackageCommands } from "./commands/storyboard-package";
 import { createWorkRuntime } from "./work-runtime";
 
