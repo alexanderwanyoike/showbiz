@@ -1,8 +1,7 @@
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
-// This release and upstream omit a standalone licence text:
-// https://github.com/develar/lazy-val/tree/b69ad4119f1b19bdab13c61ee2fcc88d46b89071
+// Pinned upstream texts cover licence files omitted from these npm distributions.
 const upstreamLicensePackages = new Set([
   "@radix-ui/react-use-size@1.1.1",
   "@radix-ui/react-context@1.1.2",
@@ -18,7 +17,10 @@ const upstreamLicensePackages = new Set([
   "@radix-ui/react-use-escape-keydown@1.1.1",
 ]);
 
+// Version-specific metadata entries avoid inventing missing copyright text.
 const declaredLicenseOnly = new Map([
+  // lazy-val also omits a licence in its verified upstream tree:
+  // https://github.com/develar/lazy-val/tree/b69ad4119f1b19bdab13c61ee2fcc88d46b89071
   ["lazy-val@1.0.5", { license: "MIT", repository: "develar/lazy-val" }],
   [
     "react-remove-scroll-bar@2.3.8",
