@@ -5,7 +5,7 @@ import type { Result } from "../../shared/result";
 import { StoryboardSettingsDialog } from "../components/StoryboardSettingsDialog";
 import { GenerationCost } from "../components/GenerationCost";
 import { ShotModelControls } from "../components/ShotModelControls";
-import { resolveShotModels } from "../lib/shot-models";
+import { resolveShotModels, resolveStoryboardModels } from "../lib/shot-models";
 import { DEFAULT_STORYBOARD_MODELS } from "../../shared/model-defaults";
 import type { ShotModelOverrides } from "../../shared/shot-models";
 import { useAgentChanges } from "../hooks/useAgentChanges";
@@ -284,10 +284,9 @@ export default function StoryboardPage() {
       const mappedShots = shotsData.map(shotFromShotWithUrls);
       setShots(mappedShots);
       setSelectedShotId((current) => mappedShots.some((shot) => shot.id === current) ? current : mappedShots[0]?.id ?? null);
-      setDefaultImageModel((storyboardData.image_model as ImageModelId) || DEFAULT_STORYBOARD_MODELS.image_model);
-      const loadedVideoModel: VideoModelId = videoModels.some((m) => m.id === storyboardData.video_model)
-        ? (storyboardData.video_model as VideoModelId)
-        : "seedance-2-fal";
+      const loadedDefaults = resolveStoryboardModels(storyboardData, videoModels);
+      setDefaultImageModel(loadedDefaults.image_model);
+      const loadedVideoModel = loadedDefaults.video_model;
       setDefaultVideoModel(loadedVideoModel);
       for (const [shotId, pending] of videoSettingsRequests.current) {
         if (!mappedShots.some((shot) => shot.id === shotId && (shot.video_model ?? loadedVideoModel) === pending.modelId)) videoSettingsRequests.current.delete(shotId);
@@ -381,8 +380,9 @@ export default function StoryboardPage() {
       const result = await updateStoryboardSettings(id, values.name, values.image_model, values.video_model);
       if (!result.ok) return result;
       setStoryboard(result.value);
-      setDefaultImageModel(result.value.image_model);
-      setDefaultVideoModel(result.value.video_model);
+      const savedDefaults = resolveStoryboardModels(result.value, videoModels);
+      setDefaultImageModel(savedDefaults.image_model);
+      setDefaultVideoModel(savedDefaults.video_model);
       window.dispatchEvent(new Event("showbiz:project-changed"));
       return {ok:true,value:null};
     } finally {setModelSaving(false);}
