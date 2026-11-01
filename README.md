@@ -131,6 +131,8 @@ yarn test:watch       # Run tests in watch mode
 
 ## Platform Notes
 
+- **Linux AppImage**: launching it registers a user-menu shortcut with a persistent icon. Keep the AppImage in a stable location; launching it again after moving it refreshes its managed shortcut. Existing custom launchers are preserved.
+
 - **Data directory**: device settings, legacy-library data and disposable media caches use the app data directory (`~/.local/share/com.showbiz.app/` on Linux). Current projects live in the `.showbiz` files you choose.
 - **macOS**: unsigned builds need `xattr -cr /Applications/Showbiz.app` after install to clear Gatekeeper's "damaged" error.
 

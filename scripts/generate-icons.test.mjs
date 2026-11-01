@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -67,6 +68,19 @@ test("generates a 1024px runtime PNG and native multi-size ICO/ICNS containers",
   assert.equal(icns.readUInt32BE(4), icns.length);
   const result = run("--check");
   assert.equal(result.status, 0, result.stderr);
+});
+test("packages Linux icons at sizes recognized by the hicolor desktop theme", (t) => {
+  const { file, generate } = fixture(t);
+  generate();
+  const root = fileURLToPath(new URL("../", import.meta.url));
+  const manifest = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
+  const directory = file(manifest.build.linux.icon);
+  assert.ok(statSync(directory).isDirectory(), "Linux packaging needs the generated icon size set, not a single 1024px PNG");
+  for (const size of [16, 24, 32, 48, 64, 128, 256, 512]) {
+    const image = readFileSync(path.join(directory, `${size}x${size}.png`));
+    assert.equal(image.readUInt32BE(16), size);
+    assert.equal(image.readUInt32BE(20), size);
+  }
 });
 test("detects a modified native artifact without rewriting it", (t) => {
   const { file, generate, run } = fixture(t);
