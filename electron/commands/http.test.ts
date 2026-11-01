@@ -162,3 +162,19 @@ it("preserves the socket cause of a native fetch failure", async () => {
   const commands = createHttpCommands(async () => { throw new Error("fetch failed", { cause: new Error("connect ECONNREFUSED 127.0.0.1:8080") }); });
   await expect(commands.http_request({ url: "http://127.0.0.1:8080/video", method: "POST", headers: [], body: "{}", timeout_ms: 3600000 })).rejects.toThrow("ECONNREFUSED");
 });
+
+it("enforces the scoped deadline against a real delayed local HTTP response", async () => {
+  const { createServer } = await import("node:http");
+  const server = createServer((_request, response) => { setTimeout(() => { response.writeHead(200, { "Content-Type": "video/mp4" }); response.end("fixture-video"); }, 30); });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Local test server address unavailable.");
+    const commands = createHttpCommands();
+    const request = { url: `http://127.0.0.1:${address.port}/video`, method: "POST", headers: [], body: "{}" };
+    await expect(commands.http_request({ ...request, timeout_ms: 1 })).rejects.toThrow(/timeout|abort/i);
+    const response = await commands.http_request({ ...request, timeout_ms: 1000 });
+    expect(response.status).toBe(200);
+    expect(Buffer.from(response.body_b64, "base64").toString()).toBe("fixture-video");
+  } finally { server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); }
+});
