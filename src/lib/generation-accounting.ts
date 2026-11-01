@@ -23,8 +23,19 @@ export interface GenerationUsageChangedDetail {
   started: boolean;
   kind_family?: "image" | "video";
 }
-function notify(request: GenerationAccountingRequest, requestId: string, warnings: string[] = [], started = false) {
-  retainAccountingNotice({ ...request, request_id: requestId, warnings, started, kind_family: request.kind === "video" ? "video" : "image" });
+function notify(
+  request: GenerationAccountingRequest,
+  requestId: string,
+  warnings: string[] = [],
+  started = false,
+) {
+  retainAccountingNotice({
+    ...request,
+    request_id: requestId,
+    warnings,
+    started,
+    kind_family: request.kind === "video" ? "video" : "image",
+  });
   if (typeof window !== "undefined")
     window.dispatchEvent(
       new CustomEvent<GenerationUsageChangedDetail>("showbiz:usage-changed", {
