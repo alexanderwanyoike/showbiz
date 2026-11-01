@@ -277,3 +277,21 @@ it("does not fetch charges for a different project's request", async () => {
     db.close();
   }
 });
+
+it("counts only charges actually written when another receipt arrives during lookup", async () => {
+  const db = openTestDb();
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const usage = createGenerationUsageCommands(db);
+    usage.begin_generation_usage({ request_id: "ours", project_id: "film", provider: "fal", model_id: "flux-dev-fal", kind: "image" });
+    usage.record_generation_receipt({ request_id: "ours", provider_request_id: "fixture-job", reported_microusd: null });
+    usage.finish_generation_usage({ request_id: "ours", status: "completed" });
+    const http = vi.fn<typeof fetch>().mockImplementation(async () => {
+      usage.record_generation_receipt({ request_id: "ours", provider_request_id: "fixture-job", reported_microusd: 17000 });
+      return new Response(JSON.stringify({ billing_events: [{ request_id: "fixture-job", cost_total: 0.02 }], has_more: false, next_cursor: null }));
+    });
+    const commands = createGenerationBillingCommands(db, () => "fixture-key", http);
+    expect(await commands.sync_generation_charges({ project_id: "film" })).toMatchObject({ ok: true, value: { checked: 1, reported: 0 } });
+    expect(usage.get_generation_usage({ project_id: "film" })).toMatchObject({ ok: true, value: { items: [{ reported_microusd: 17000 }] } });
+  } finally { db.close(); }
+});
