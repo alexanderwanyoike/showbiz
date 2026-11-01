@@ -102,8 +102,19 @@ export function createMcpSession(
               "The request ID was already used with different input",
             );
       if (activeRequest) {
-        if (activeRequest.id === requestId) return failure(activeRequest.fingerprint === fingerprint ? "PENDING" : "INVALID_INPUT", activeRequest.fingerprint === fingerprint ? "Showbiz is still processing this request. Retry with the same request ID and arguments to check its result." : "The request ID was already used with different input");
-        return failure("BUSY", "Showbiz is still processing another edit or export. Read context or wait for that request to finish before changing project data.");
+        if (activeRequest.id === requestId)
+          return failure(
+            activeRequest.fingerprint === fingerprint
+              ? "PENDING"
+              : "INVALID_INPUT",
+            activeRequest.fingerprint === fingerprint
+              ? "Showbiz is still processing this request. Retry with the same request ID and arguments to check its result."
+              : "The request ID was already used with different input",
+          );
+        return failure(
+          "BUSY",
+          "Showbiz is still processing another edit or export. Read context or wait for that request to finish before changing project data.",
+        );
       }
       if (!canEdit())
         return failure(
@@ -115,7 +126,7 @@ export function createMcpSession(
           "CONFLICT",
           "Showbiz changed. Read context and reconsider the edit.",
         );
-      activeRequest = {id: requestId, fingerprint};
+      activeRequest = { id: requestId, fingerprint };
     }
     try {
       let data: unknown;

@@ -268,6 +268,9 @@ export const mcpTools: ToolDefinition[] = [
       true,
     ),
     requestTimeoutMs: 300000,
-    args: (input) => ({storyboard_id: input.storyboard_id, format: input.format}),
+    args: (input) => ({
+      storyboard_id: input.storyboard_id,
+      format: input.format,
+    }),
   },
 ];

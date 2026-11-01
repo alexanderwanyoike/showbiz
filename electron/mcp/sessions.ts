@@ -54,13 +54,20 @@ export async function listSessions(
 export function callBridge(
   session: LocalSession,
   input: unknown,
-  options: {timeoutMs?: number; signal?: AbortSignal} = {},
+  options: { timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<BridgeResult> {
   return new Promise((resolve) => {
     let pending: ClientRequest | undefined;
     let settled = false;
     const abort = () => {
-      finish({ok:false,error:{code:"CANCELLED",message:"Stopped waiting for Showbiz. The operation may still finish. Retry with the same request ID and arguments to check the result."}});
+      finish({
+        ok: false,
+        error: {
+          code: "CANCELLED",
+          message:
+            "Stopped waiting for Showbiz. The operation may still finish. Retry with the same request ID and arguments to check the result.",
+        },
+      });
       pending?.destroy();
     };
     const finish = (result: BridgeResult) => {
@@ -69,39 +76,83 @@ export function callBridge(
       options.signal?.removeEventListener("abort", abort);
       resolve(result);
     };
-    if (options.signal?.aborted) {abort();return;}
+    if (options.signal?.aborted) {
+      abort();
+      return;
+    }
     let payload: string;
     try {
       const encoded = JSON.stringify(input);
       if (encoded === undefined) throw new Error("Missing request");
       payload = encoded;
-    } catch {finish({ok:false,error:{code:"INVALID_INPUT",message:"The local request must be JSON."}});return;}
-    if (Buffer.byteLength(payload) > MAX_MESSAGE_BYTES) {
-      finish({ok:false,error:{code:"INVALID_INPUT",message:"Request exceeds the 1 MiB limit."}});
+    } catch {
+      finish({
+        ok: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "The local request must be JSON.",
+        },
+      });
       return;
     }
-    pending = request({socketPath:session.socket,method:"POST",path:"/tools",headers:{authorization:`Bearer ${session.secret}`,"content-type":"application/json"}}, (res) => {
-      const chunks: Buffer[] = [];
-      let bytes = 0;
-      res.on("data", (chunk: Buffer) => {
-        bytes += chunk.length;
-        if (bytes > MAX_MESSAGE_BYTES) {finish(unavailable());pending?.destroy();return;}
-        chunks.push(chunk);
+    if (Buffer.byteLength(payload) > MAX_MESSAGE_BYTES) {
+      finish({
+        ok: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "Request exceeds the 1 MiB limit.",
+        },
       });
-      res.on("error", () => finish(unavailable()));
-      res.on("end", () => {
-        try {
-          const parsed = resultSchema.safeParse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-          finish(parsed.success ? parsed.data : unavailable());
-        } catch {finish(unavailable());}
-      });
-    });
+      return;
+    }
+    pending = request(
+      {
+        socketPath: session.socket,
+        method: "POST",
+        path: "/tools",
+        headers: {
+          authorization: `Bearer ${session.secret}`,
+          "content-type": "application/json",
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        let bytes = 0;
+        res.on("data", (chunk: Buffer) => {
+          bytes += chunk.length;
+          if (bytes > MAX_MESSAGE_BYTES) {
+            finish(unavailable());
+            pending?.destroy();
+            return;
+          }
+          chunks.push(chunk);
+        });
+        res.on("error", () => finish(unavailable()));
+        res.on("end", () => {
+          try {
+            const parsed = resultSchema.safeParse(
+              JSON.parse(Buffer.concat(chunks).toString("utf8")),
+            );
+            finish(parsed.success ? parsed.data : unavailable());
+          } catch {
+            finish(unavailable());
+          }
+        });
+      },
+    );
     pending.setTimeout(options.timeoutMs ?? 5000, () => {
-      finish({ok:false,error:{code:"TIMEOUT",message:"Showbiz has not finished this request. The operation may still complete. Retry with the same request ID and arguments before starting it again."}});
+      finish({
+        ok: false,
+        error: {
+          code: "TIMEOUT",
+          message:
+            "Showbiz has not finished this request. The operation may still complete. Retry with the same request ID and arguments before starting it again.",
+        },
+      });
       pending?.destroy();
     });
     pending.on("error", () => finish(unavailable()));
-    options.signal?.addEventListener("abort",abort,{once:true});
+    options.signal?.addEventListener("abort", abort, { once: true });
     pending.end(payload);
   });
 }

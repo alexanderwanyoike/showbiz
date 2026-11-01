@@ -77,7 +77,14 @@ export function createMcpServer(directory = sessionDirectory()) {
       async (args, context) =>
         toolResult(
           selected
-            ? await callBridge(selected, { tool: definition.name, args }, {timeoutMs: definition.requestTimeoutMs, signal: context.mcpReq.signal})
+            ? await callBridge(
+                selected,
+                { tool: definition.name, args },
+                {
+                  timeoutMs: definition.requestTimeoutMs,
+                  signal: context.mcpReq.signal,
+                },
+              )
             : {
                 ok: false,
                 error: {
