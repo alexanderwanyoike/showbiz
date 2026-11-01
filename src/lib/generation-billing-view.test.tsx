@@ -150,3 +150,22 @@ it("renders recorded estimates while provider reconciliation is pending, then up
   await act(async () => { reported = true; finish?.({ ok: true, value: { checked: 1, reported: 1, notes: [] } }); });
   expect(await screen.findByText("$0.023 reported")).toBeTruthy();
 });
+
+it("keeps existing rows visible and prevents another refresh while rereading the local ledger", async () => {
+  let reads = 0;
+  let finish: ((value: unknown) => void) | undefined;
+  const page = { ok: true, value: { total_count: 1, items: [{ request_id: "fixture-reported", project_id: "film", provider: "fal", model_id: "flux-dev-fal", kind: "image", status: "completed", started_at: "2026-10-31T10:00:00Z", provider_request_id: "fixture-job", reported_microusd: 0, estimated_min_microusd: null, estimated_max_microusd: null }] } };
+  native.invoke.mockImplementation(async (command: string) => {
+    if (command === "get_generation_usage") return ++reads === 1 ? page : new Promise((resolve) => { finish = resolve; });
+    if (command === "get_generation_cost_summary") return { ok: true, value: { reported_microusd: 0, estimated_min_microusd: 0, estimated_max_microusd: 0, unknown_count: 0, total_count: 1 } };
+    throw new Error("Unexpected command");
+  });
+  render(createElement(MemoryRouter, { initialEntries: ["/usage/film"] }, createElement(Routes, null, createElement(Route, { path: "/usage/:id", element: createElement(UsagePage) }))));
+  await screen.findByText("$0.00 reported");
+  fireEvent.click(screen.getByRole("button", { name: "Refresh charges" }));
+  expect(screen.getByText("$0.00 reported")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Checking charges…" }).hasAttribute("disabled")).toBe(true);
+  const { act } = await import("@testing-library/react");
+  await act(async () => { finish?.(page); });
+  expect(await screen.findByRole("button", { name: "Refresh charges" })).toBeTruthy();
+});
