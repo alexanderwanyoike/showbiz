@@ -11,4 +11,7 @@ const result = await build({
   metafile: true,
   legalComments: "eof",
 });
-await writeFile("dist-electron/mcp-LICENSES.txt", await collectBundleNotices(result.metafile));
+await writeFile(
+  "dist-electron/mcp-LICENSES.txt",
+  await collectBundleNotices(result.metafile),
+);
