@@ -82,7 +82,8 @@ export function LocalGenerationSettings() {
     >
       <p className="text-xs text-muted-foreground">
         Run your models in LocalAI, then enter the server address and installed
-        model names. Use the server root URL without /v1. These settings stay on this device.
+        model names. Use the server root URL without /v1. These settings stay on
+        this device.
       </p>
       {error && (
         <p role="alert" className="text-xs text-destructive">

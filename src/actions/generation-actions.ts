@@ -49,15 +49,15 @@ export async function generateAndSaveVideoRequestAction(
 ): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
   const model = getVideoModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
-  if (!credential.ok) return { success: false, videoUrl: null, error: credential.error.message };
+  if (!credential.ok)
+    return { success: false, videoUrl: null, error: credential.error.message };
   const apiKey = credential.value;
   try {
     let effectiveRequest = request;
     if (request.mode === "image-to-video") {
       effectiveRequest = {
         ...request,
-        startImage:
-          request.startImage ?? (await getShotImageBase64(shotId)),
+        startImage: request.startImage ?? (await getShotImageBase64(shotId)),
         endImage: request.endImage ?? (await getShotEndFrameBase64(shotId)),
       };
     }
