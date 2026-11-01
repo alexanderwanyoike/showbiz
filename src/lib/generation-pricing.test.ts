@@ -727,3 +727,17 @@ it("shares concurrent FAL endpoints independently and reuses each endpoint's own
     db.close();
   }
 });
+it("keeps the matching endpoint cache through a FAL outage when another facet has a custom rate", async () => {
+  const { createSettingsCommands } = await import("../../electron/commands/settings");
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createSettingsCommands(db);
+    commands.save_api_key({ provider: "fal", apiKey: "fixture-key" });
+    const common = { provider: "fal", model_id: "veo-3.1-fal", currency: "USD", checked_at: new Date(Date.now() - 7200000).toISOString() };
+    commands.save_generation_price({ kind: "video", price: { ...common, source_kind: "provider", source_url: "https://api.fal.ai/v1/models/pricing/estimate", endpoint_id: "fal-ai/veo3.1/image-to-video", estimate_basis: "historical_request", rates: [{ unit: "request", microusd: 1000000 }] } });
+    commands.save_generation_price({ kind: "video", price: { ...common, source_kind: "manual", source_url: "", rates: [{ unit: "second", microusd: 10000, resolution: "720p", audio: true }] } });
+    native.invoke.mockImplementation(async (command, args) => commands[command]?.(args));
+    native.fetch.mockImplementation(async () => new Response("outage", { status: 503 }));
+    expect(await getGenerationEstimate("veo-3.1-fal", { kind: "video", duration: "8s", mode: "image-to-video", resolution: "1080p", audio: true })).toMatchObject({ kind: "estimate", min_microusd: 1000000, stale: true, price: { endpoint_id: "fal-ai/veo3.1/image-to-video", source_kind: "provider" } });
+  } finally { db.close(); }
+});
