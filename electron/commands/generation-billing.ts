@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readOpenRouterCharge } from "../provider-billing/openrouter";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
@@ -24,7 +25,7 @@ export function createGenerationBillingCommands(
 ) {
   const retryAfter = new Map<
     string,
-    { key: string | null; until: number; message: string }
+    { credential_id: string | null; until: number; message: string }
   >();
   const inFlight = new Map<string, Promise<Result<GenerationBillingSync>>>();
   async function reconcile(
@@ -45,6 +46,7 @@ export function createGenerationBillingCommands(
         credentials.set("fal", readKey("fal-billing") ?? readKey("fal"));
       if (candidates.some((row) => row.provider === "openrouter"))
         credentials.set("openrouter", readKey("openrouter"));
+      const credentialIds = new Map([...credentials].map(([provider, key]) => [provider, key ? createHash("sha256").update(key).digest("hex") : null]));
       const notes: GenerationBillingSync["notes"] = [];
       const identity = (row: PendingCharge) =>
         JSON.stringify([project_id, row.request_id]);
@@ -53,7 +55,7 @@ export function createGenerationBillingCommands(
         if (
           !parsed.force &&
           cached &&
-          cached.key === credentials.get(row.provider) &&
+          cached.credential_id === credentialIds.get(row.provider) &&
           cached.until > Date.now()
         ) {
           notes.push({ request_id: row.request_id, message: cached.message });
@@ -154,7 +156,7 @@ export function createGenerationBillingCommands(
           continue;
         }
         retryAfter.set(identity(row), {
-          key: credentials.get(row.provider) ?? null,
+          credential_id: credentialIds.get(row.provider) ?? null,
           until: Date.now() + 60000,
           message: note.message,
         });
