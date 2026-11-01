@@ -72,19 +72,52 @@ it("preserves an HTTP-success provider error even when no API code is supplied",
 });
 it("recovers transient KIE polling errors without submitting another task", async () => {
   vi.useFakeTimers();
-  http.fetch.mockReset().mockResolvedValueOnce(new Response("busy", { status: 502 }))
-    .mockResolvedValueOnce(new Response(JSON.stringify({ code: "429", data: null })))
-    .mockResolvedValueOnce(new Response(JSON.stringify({ code: 200, data: { state: "success", resultJson: JSON.stringify({ resultUrls: ["https://media.example/result.mp4"] }) } })));
-  const pending = pollKieTask("existing-kie-task", "key").then(value => ({ value }), (error: unknown) => ({ error }));
+  http.fetch
+    .mockReset()
+    .mockResolvedValueOnce(new Response("busy", { status: 502 }))
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ code: "429", data: null })),
+    )
+    .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          code: 200,
+          data: {
+            state: "success",
+            resultJson: JSON.stringify({
+              resultUrls: ["https://media.example/result.mp4"],
+            }),
+          },
+        }),
+      ),
+    );
+  const pending = pollKieTask("existing-kie-task", "key").then(
+    (value) => ({ value }),
+    (error: unknown) => ({ error }),
+  );
   await vi.runAllTimersAsync();
   expect(await pending).toEqual({ value: "https://media.example/result.mp4" });
-  expect(http.fetch.mock.calls.every(([url, init]) => String(url).includes("taskId=existing-kie-task") && !init.method)).toBe(true);
+  expect(
+    http.fetch.mock.calls.every(
+      ([url, init]) =>
+        String(url).includes("taskId=existing-kie-task") && !init.method,
+    ),
+  ).toBe(true);
 });
 it("keeps the KIE task identity on permanent or exhausted status failures", async () => {
   vi.useFakeTimers();
-  http.fetch.mockReset().mockResolvedValue(new Response("denied", { status: 401 }));
-  const pending = pollKieTask("denied-task", "key").then(() => null, (error: unknown) => error);
+  http.fetch
+    .mockReset()
+    .mockResolvedValue(new Response("denied", { status: 401 }));
+  const pending = pollKieTask("denied-task", "key").then(
+    () => null,
+    (error: unknown) => error,
+  );
   await vi.runAllTimersAsync();
-  expect(await pending).toEqual(expect.objectContaining({ message: expect.stringContaining("denied-task") }));
+  expect(await pending).toEqual(
+    expect.objectContaining({
+      message: expect.stringContaining("denied-task"),
+    }),
+  );
   expect(http.fetch).toHaveBeenCalledTimes(1);
 });

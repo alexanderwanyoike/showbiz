@@ -84,11 +84,16 @@ export async function pollKieTask(
 
     let parsedResponse: Awaited<ReturnType<typeof readKieResponse>>;
     try {
-      const res = await fetch(`${KIE_API_BASE}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, { headers: { Authorization: `Bearer ${apiKey}` } });
+      const res = await fetch(
+        `${KIE_API_BASE}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
+        { headers: { Authorization: `Bearer ${apiKey}` } },
+      );
       parsedResponse = await readKieResponse(res);
     } catch {
       if (retries.allowRetry()) continue;
-      throw new Error(`${lastFailure ?? "Repeated connection failures."} Task: ${taskId}.`);
+      throw new Error(
+        `${lastFailure ?? "Repeated connection failures."} Task: ${taskId}.`,
+      );
     }
 
     if (!parsedResponse.ok) {

@@ -30,7 +30,9 @@ export function parseKieError(code: number, msg: string): string {
 
 export async function readKieResponse(
   response: Pick<Response, "ok" | "status" | "json">,
-): Promise<Result<z.infer<typeof kieResponseSchema>> & { retryable?: boolean }> {
+): Promise<
+  Result<z.infer<typeof kieResponseSchema>> & { retryable?: boolean }
+> {
   let body: unknown;
   try {
     body = await response.json();
