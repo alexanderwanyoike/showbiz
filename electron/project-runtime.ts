@@ -1,3 +1,4 @@
+import { commandChangesData } from "../shared/command-effects";
 import { createGenerationModelCommands } from "./commands/generation-models";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
@@ -52,7 +53,10 @@ export function createProjectRuntime(options: {
     ): Promise<unknown> {
       if (globals[command]) return globals[command](args);
       if (command === "get_projects" && !documents.current()) return [];
-      return documents.invoke(command, args);
+      const result = await documents.invoke(command, args);
+      if (command === "update_project" && commandChangesData(command, result))
+        options.changed(documents.current());
+      return result;
     },
   };
 }
