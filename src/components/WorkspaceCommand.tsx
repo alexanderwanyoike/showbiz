@@ -44,7 +44,9 @@ export function WorkspaceCommand({
           >
             {button}
           </span>
-        ) : button}
+        ) : (
+          button
+        )}
       </TooltipTrigger>
       <TooltipContent side="bottom" sideOffset={6}>
         {title ?? label}
