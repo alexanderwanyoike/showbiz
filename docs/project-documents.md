@@ -35,3 +35,9 @@ This layout is informed by [Storyboarder's canvas and board strip](https://wonde
 Saving queries record-referenced media paths, checks file stamps and synchronously embeds changed chunks on the main thread. It no longer recursively scans unrelated cache files, but a large project or changed video can still delay the UI. Chunking bounds each allocation; it does not make the whole save asynchronous. Rollback can also re-extract saved media. Profile this before moving SQLite/media work to a worker rather than assuming small-fixture timings describe large projects.
 
 Cache cleanup is conservative. Legacy workspaces without ownership metadata cannot be proven abandoned automatically. A failed OS ownership probe retains a lock/cache rather than risking active work. A cache is never required to back up or share a valid self-contained project.
+
+## OS project opening
+
+OS launches use Electron's [single-instance routing pattern](https://www.electronjs.org/docs/latest/api/app/#apprequestsingleinstancelockadditionaldata). A second launch in the same Electron profile forwards project arguments to the existing window before another device database or MCP bridge starts. Relative paths are resolved against the launching process's working directory. Project switching still obeys the active-work and unsaved-draft guards.
+
+On Linux, isolated verification instances use separate Electron `--user-data-dir` profiles and separate `XDG_DATA_HOME` device-storage directories. Each publishes its own MCP descriptor; agents explicitly choose an instance. A different Electron profile alone does not isolate application storage. Independent instances must not share a device database; Windows and macOS isolation was not manually verified.
