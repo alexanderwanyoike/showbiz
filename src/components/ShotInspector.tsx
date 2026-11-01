@@ -476,14 +476,13 @@ export default function ShotInspector({
                   <>
                     <WorkspaceCommand
                       label={`Edit frame for shot ${shot.order}`}
-                      title={frameSaving ? "Wait for frame selection to finish saving." : !imageModel?.supportsImageEditing ? "Choose an image model that supports frame editing." : !currentVersion ? "Choose a saved frame take before editing this frame." : undefined}
+                      title={modelSaving ? "Wait for the model change to finish." : frameSaving ? "Wait for frame selection to finish saving." : !imageModel?.supportsImageEditing ? "Choose an image model that supports frame editing." : !currentVersion ? "Choose a saved frame take before editing this frame." : undefined}
                       disabled={
                         frameSaving ||
                         modelSaving ||
                         !currentVersion ||
                         !imageModel?.supportsImageEditing
                       }
-                      title={modelSaving ? "Wait for the model change to finish." : frameSaving ? "Wait for the frame to finish saving." : undefined}
                       onClick={() => {
                         if (currentVersion)
                           onEditImage(shot.id, currentVersion.id);
