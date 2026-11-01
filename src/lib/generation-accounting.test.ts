@@ -249,14 +249,46 @@ it("returns completed media while a provider billing lookup is still pending", a
   let finishBilling: (() => void) | undefined;
   try {
     db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
-    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createGenerationUsageCommands(db);
-    const billing = new Promise((resolve) => { finishBilling = () => resolve({ ok: true, value: { checked: 1, reported: 0, notes: [] } }); });
-    native.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => command === "sync_generation_charges" ? billing : commands[command](args));
-    const result = runAccountedGeneration({ project_id: "film", provider: "fal", model_id: "flux-dev-fal", kind: "image", settings: {} }, { kind: "unavailable", reason: "No quote" }, async (observer) => {
-      await observer.receipt({ provider_request_id: "fixture-job", reported_microusd: null });
-      return "completed-picture";
+    const commands: Record<
+      string,
+      (args?: Record<string, unknown>) => unknown
+    > = createGenerationUsageCommands(db);
+    const billing = new Promise((resolve) => {
+      finishBilling = () =>
+        resolve({ ok: true, value: { checked: 1, reported: 0, notes: [] } });
     });
-    const first = await Promise.race([result, new Promise((resolve) => setTimeout(() => resolve("blocked-on-billing"), 50))]);
+    native.invoke.mockImplementation(
+      async (command: string, args?: Record<string, unknown>) =>
+        command === "sync_generation_charges"
+          ? billing
+          : commands[command](args),
+    );
+    const result = runAccountedGeneration(
+      {
+        project_id: "film",
+        provider: "fal",
+        model_id: "flux-dev-fal",
+        kind: "image",
+        settings: {},
+      },
+      { kind: "unavailable", reason: "No quote" },
+      async (observer) => {
+        await observer.receipt({
+          provider_request_id: "fixture-job",
+          reported_microusd: null,
+        });
+        return "completed-picture";
+      },
+    );
+    const first = await Promise.race([
+      result,
+      new Promise((resolve) =>
+        setTimeout(() => resolve("blocked-on-billing"), 50),
+      ),
+    ]);
     expect(first).toMatchObject({ ok: true, value: "completed-picture" });
-  } finally { finishBilling?.(); db.close(); }
+  } finally {
+    finishBilling?.();
+    db.close();
+  }
 });

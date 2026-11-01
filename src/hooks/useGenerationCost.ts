@@ -36,8 +36,13 @@ export function useGenerationCost(
         (!subject?.subject_id || detail?.subject_id === subject.subject_id)
       ) {
         if (detail.started) activeAccountingRequest.current = detail.request_id;
-        if (!activeAccountingRequest.current || activeAccountingRequest.current === detail.request_id) {
-          setAccountingWarning(detail.warnings?.length ? detail.warnings.join(" ") : null);
+        if (
+          !activeAccountingRequest.current ||
+          activeAccountingRequest.current === detail.request_id
+        ) {
+          setAccountingWarning(
+            detail.warnings?.length ? detail.warnings.join(" ") : null,
+          );
         }
       }
       setHistoryRefresh((value) => value + 1);

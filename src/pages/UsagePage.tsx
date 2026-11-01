@@ -51,19 +51,34 @@ export default function UsagePage() {
       loadUsageWithBilling(id, offset)
         .then(async (result) => {
           if (stopped) return;
-          if (!result.ok) { setChecking(false); setError(result.error.message); return; }
+          if (!result.ok) {
+            setChecking(false);
+            setError(result.error.message);
+            return;
+          }
           setData(result.value);
           setChecking(true);
-          const reconciled = await refreshUsageCharges(id, offset, result.value, force);
+          const reconciled = await refreshUsageCharges(
+            id,
+            offset,
+            result.value,
+            force,
+          );
           if (stopped) return;
           setChecking(false);
           if (reconciled?.ok) setData(reconciled.value);
           else if (reconciled) setError(reconciled.error.message);
         })
         .catch((cause: unknown) => {
-          if (!stopped) { setChecking(false); setError(String(cause)); }
+          if (!stopped) {
+            setChecking(false);
+            setError(String(cause));
+          }
         });
-    else { setChecking(false); setError("Open a project to view its usage."); }
+    else {
+      setChecking(false);
+      setError("Open a project to view its usage.");
+    }
     return () => {
       stopped = true;
     };
@@ -118,7 +133,11 @@ export default function UsagePage() {
               </div>
             </dl>
           )}
-          {error && data && <p role="alert" className="usage-refresh-error">{error}</p>}
+          {error && data && (
+            <p role="alert" className="usage-refresh-error">
+              {error}
+            </p>
+          )}
           <div
             className="usage-table-scroll"
             aria-label="Generation request ledger"
@@ -127,11 +146,7 @@ export default function UsagePage() {
             {error && !data && (
               <div className="usage-state">
                 <p role="alert">{error}</p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={refreshCharges}
-                >
+                <Button variant="secondary" size="sm" onClick={refreshCharges}>
                   Retry usage
                 </Button>
               </div>
