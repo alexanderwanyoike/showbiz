@@ -216,17 +216,3 @@
   min-height: 26px;
   padding: 5px;
 }
-.workspace-command-unavailable {
-  display: inline-flex;
-  flex-shrink: 0;
-  border-radius: 8px;
-  cursor: default;
-  -webkit-app-region: no-drag;
-}
-.workspace-command-unavailable:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-.workspace-command-unavailable > button {
-  pointer-events: none;
-}
