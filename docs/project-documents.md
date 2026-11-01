@@ -27,3 +27,10 @@ This uses [SQLite's documented application-file pattern](https://www.sqlite.org/
 Shot review uses a full-width preview with a horizontal shot strip below. The project navigator is omitted in this workspace; compact Storyboards and Bible links retain project navigation. Shot controls open on demand. They sit beside the canvas in a wide window and overlay it in a narrow window. Export has one entry point with ZIP and Forgecut SBZ choices.
 
 This layout is informed by [Storyboarder's canvas and board strip](https://wonderunit.com/storyboarder/), [Krita's storyboard docker](https://docs.krita.org/en/reference_manual/dockers/storyboard_docker.html), and [GNOME's utility-pane guidance](https://developer.gnome.org/hig/patterns/containers/utility-panes.html). These are interaction references; no reference application code or artwork was copied. Muzo and Auto Digger inform the restrained materials, compact controls and appearance preferences rather than the pane arrangement.
+
+
+## Lock reclamation
+
+Abandoned-lock replacement is serialized with an adjacent `.showbiz.lock.guard` directory, using atomic `mkdir` acquisition as in [proper-lockfile](https://github.com/moxystudio/node-proper-lockfile) (MIT; design reference only, no copied source). Competing opens fail with the guard path instead of deleting another process's fresh lock. The guard normally exists only during acquisition. If the process crashes during that short operation, close every Showbiz instance before manually removing the named guard. Unverifiable ownership is never reclaimed automatically.
+
+The document database closes before its ownership lock is released, so another writer cannot enter while the previous connection is still open. Ownership tokens are checked on release. This process's platform start identity is read once and reused; other processes are still verified independently. A malformed cache owner marker is reported with its path while cleanup continues for other caches.

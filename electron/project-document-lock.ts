@@ -7,33 +7,52 @@ import {
 
 export function lockProjectDocument(file: string): () => void {
   const lock = `${file}.lock`;
-  if (fs.existsSync(lock)) {
-    const raw = fs.readFileSync(lock, "utf8");
-    let value: unknown;
-    try {
-      value = JSON.parse(raw);
-    } catch {
-      value = null;
-    }
-    const owner = parseProcessOwner(value);
-    const legacy = Number(raw);
-    const status = owner
-      ? processOwnerStatus(owner)
-      : Number.isSafeInteger(legacy) && legacy > 0
-        ? processOwnerStatus({ pid: legacy, identity: null })
-        : "unknown";
-    if (status !== "dead")
-      throw new Error(
-        `This project is already open or its lock cannot be verified at ${lock}. Close other Showbiz instances before removing that lock file.`,
-      );
-    fs.unlinkSync(lock);
+  const guard = `${lock}.guard`;
+  try {
+    fs.mkdirSync(guard, { mode: 0o700 });
+  } catch (cause) {
+    if (
+      !(cause instanceof Error) ||
+      !("code" in cause) ||
+      cause.code !== "EEXIST"
+    )
+      throw cause;
+    throw new Error(
+      `Could not acquire project lock guard at ${guard}. Retry after other Showbiz instances finish opening this project. If a crash left this guard, close all instances before removing it.`,
+      { cause },
+    );
   }
-  const owner = createProcessOwner();
-  fs.writeFileSync(lock, JSON.stringify(owner), { flag: "wx", mode: 0o600 });
-  return () => {
-    const current: unknown = JSON.parse(fs.readFileSync(lock, "utf8"));
-    if (parseProcessOwner(current)?.token !== owner.token)
-      throw new Error(`Project lock ownership changed at ${lock}.`);
-    fs.unlinkSync(lock);
-  };
+  try {
+    if (fs.existsSync(lock)) {
+      const raw = fs.readFileSync(lock, "utf8");
+      let value: unknown;
+      try {
+        value = JSON.parse(raw);
+      } catch {
+        value = null;
+      }
+      const owner = parseProcessOwner(value);
+      const legacy = Number(raw);
+      const status = owner
+        ? processOwnerStatus(owner)
+        : Number.isSafeInteger(legacy) && legacy > 0
+          ? processOwnerStatus({ pid: legacy, identity: null })
+          : "unknown";
+      if (status !== "dead")
+        throw new Error(
+          `This project is already open or its lock cannot be verified at ${lock}. Close other Showbiz instances before removing that lock file.`,
+        );
+      fs.unlinkSync(lock);
+    }
+    const owner = createProcessOwner();
+    fs.writeFileSync(lock, JSON.stringify(owner), { flag: "wx", mode: 0o600 });
+    return () => {
+      const current: unknown = JSON.parse(fs.readFileSync(lock, "utf8"));
+      if (parseProcessOwner(current)?.token !== owner.token)
+        throw new Error(`Project lock ownership changed at ${lock}.`);
+      fs.unlinkSync(lock);
+    };
+  } finally {
+    fs.rmdirSync(guard);
+  }
 }

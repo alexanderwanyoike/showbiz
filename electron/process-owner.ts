@@ -50,8 +50,13 @@ function processIdentity(pid: number): Result<string> {
     };
   }
 }
+let ownIdentity: Result<string> | undefined;
+function currentProcessIdentity(): Result<string> {
+  ownIdentity ??= processIdentity(process.pid);
+  return ownIdentity;
+}
 export function createProcessOwner(): ProcessOwner {
-  const identity = processIdentity(process.pid);
+  const identity = currentProcessIdentity();
   return {
     pid: process.pid,
     identity: identity.ok ? identity.value : null,
@@ -86,7 +91,10 @@ export function processOwnerStatus(
       : "unknown";
   }
   if (owner.identity === null) return "unknown";
-  const current = processIdentity(owner.pid);
+  const current =
+    owner.pid === process.pid
+      ? currentProcessIdentity()
+      : processIdentity(owner.pid);
   return current.ok
     ? current.value === owner.identity
       ? "live"

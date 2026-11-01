@@ -10,6 +10,7 @@ import {
 export function createProjectCache(directory: string) {
   return {
     sweep(): Result<null> {
+      const failures: string[] = [];
       try {
         if (!fs.existsSync(directory)) return { ok: true, value: null };
         for (const entry of fs.readdirSync(directory, {
@@ -17,19 +18,33 @@ export function createProjectCache(directory: string) {
         })) {
           if (!entry.isDirectory() || !entry.name.startsWith("open-")) continue;
           const folder = path.join(directory, entry.name);
-          const marker = path.join(folder, ".owner.json");
-          if (!fs.existsSync(marker)) continue;
-          if (
-            !fs.lstatSync(marker).isFile() ||
-            fs.lstatSync(marker).isSymbolicLink()
-          )
-            continue;
-          const value: unknown = JSON.parse(fs.readFileSync(marker, "utf8"));
-          const owner = parseProcessOwner(value);
-          if (owner && processOwnerStatus(owner) === "dead")
-            fs.rmSync(folder, { recursive: true, force: true });
+          try {
+            const marker = path.join(folder, ".owner.json");
+            if (!fs.existsSync(marker)) continue;
+            if (
+              !fs.lstatSync(marker).isFile() ||
+              fs.lstatSync(marker).isSymbolicLink()
+            )
+              continue;
+            const value: unknown = JSON.parse(fs.readFileSync(marker, "utf8"));
+            const owner = parseProcessOwner(value);
+            if (owner && processOwnerStatus(owner) === "dead")
+              fs.rmSync(folder, { recursive: true, force: true });
+          } catch (cause) {
+            failures.push(
+              `${folder}: ${cause instanceof Error ? cause.message : String(cause)}`,
+            );
+          }
         }
-        return { ok: true, value: null };
+        return failures.length
+          ? {
+              ok: false,
+              error: {
+                code: "IO_ERROR",
+                message: `Could not recover project caches: ${failures.join("\n")}`,
+              },
+            }
+          : { ok: true, value: null };
       } catch (cause) {
         return {
           ok: false,
