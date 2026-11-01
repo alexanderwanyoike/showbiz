@@ -103,9 +103,9 @@ Final verification on Linux: all 1,473 combined Vitest tests, seven icon tests, 
 | --- | --- | --- | --- |
 | 49 / #105 | Transient polling loses paid job | **Fixed:** Bounded polling retries and job identity in failures; no duplicate generation POST. | [#148](https://github.com/alexanderwanyoike/showbiz/pull/148) `50f2da2` |
 | 50 / #105 | Submission receipt not retained | **Fixed:** Initial submission receipt preserves known charges, including0, through missing later usage. | [#148](https://github.com/alexanderwanyoike/showbiz/pull/148) `50f2da2` |
-| 51 / #105 | Observer initially test-only | **Resolved later:** Production runAccountedGeneration supplies observer from integrated107/111. | No new code required |
+| 51 / #105 | Observer initially test-only | **Resolved later:** Production generation actions pass an accounting observer to provider transports through `runAccountedGeneration`. | No new code required |
 | 52 / #105 | Duplicate OpenRouter usage schema | **Fixed:** Shared usage contract across OpenRouter images/video/receipts/native billing. | [#148](https://github.com/alexanderwanyoike/showbiz/pull/148) `50f2da2` |
-| 53 / #105 | Model-controls formatting | **Resolved later:** Later native UI polish normalized ShotModelControls formatting, root verifies integratedsource. | No new code required |
+| 53 / #105 | Model-controls formatting | **Resolved later:** Current `ShotModelControls` uses consistently formatted multiline props and model-selection callbacks. | No new code required |
 | 54 / #105 | Direct Gemini provider label | **Resolved later:** modelProviderName falls back from apiKeyProvider to the catalog name in all current model pickers. Gemini therefore has its proper provider label without redundant config data. | [#110](https://github.com/alexanderwanyoike/showbiz/pull/110) `4d26ecc` |
 | 55 / #105 | OpenRouter 4K spelling | **Qualified:** The unauthenticated OpenRouter catalog returned HTTP 200 and advertised Veo 3.1 resolutions 720p, 1080p and 4K. Its uppercase spelling is correct. | No new code required |
 
