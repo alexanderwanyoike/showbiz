@@ -109,10 +109,13 @@ it("rejects an image-to-video request without its required starting frame before
   expect(http.fetch.mock.calls.length).toBe(calls);
 });
 it("records the submitted OpenRouter job before its first status request fails", async () => {
+  vi.useFakeTimers();
   const receipt = vi.fn();
   http.fetch.mockReset();
-  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: "job-first-poll", status: "pending" })) ).mockRejectedValueOnce(new Error("Network unavailable"));
-  const result = await generateOpenRouterVideo("google/veo-3.1", { mode: "text-to-video", prompt: "morning", settings: { duration: "8s" } }, "key", { receipt });
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: "job-first-poll", status: "pending" })) ).mockRejectedValue(new Error("Network unavailable"));
+  const pending = generateOpenRouterVideo("google/veo-3.1", { mode: "text-to-video", prompt: "morning", settings: { duration: "8s" } }, "key", { receipt });
+  await vi.runAllTimersAsync();
+  const result = await pending;
   expect(receipt).toHaveBeenCalledWith({ provider_request_id: "job-first-poll", reported_microusd: null });
   expect(result).toMatchObject({ ok: false, receipt: { provider_request_id: "job-first-poll", reported_microusd: null } });
 });
@@ -125,4 +128,18 @@ it("keeps the submit charge if the first status request is denied", async () => 
   const result = await generateOpenRouterVideo("google/veo-3.1", { mode: "text-to-video", prompt: "morning", settings: { duration: "8s" } }, "key", { receipt });
   expect(receipt).toHaveBeenCalledWith({ provider_request_id: "charged-on-submit", reported_microusd: 250000 });
   expect(result).toMatchObject({ ok: false, receipt: { reported_microusd: 250000 } });
+});
+
+it("recovers transient status failures without submitting another paid job", async () => {
+  vi.useFakeTimers();
+  http.fetch.mockReset();
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: "retry-job", status: "pending", usage: { cost: 0.3 } })))
+    .mockResolvedValueOnce(new Response("busy", { status: 429 }))
+    .mockRejectedValueOnce(new Error("connection reset"))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ id: "retry-job", status: "completed", usage: { cost: 0.4 } })))
+    .mockResolvedValueOnce(new Response("video", { headers: { "content-type": "video/mp4" } }));
+  const pending = generateOpenRouterVideo("google/veo-3.1", { mode: "text-to-video", prompt: "morning", settings: { duration: "8s" } }, "key");
+  await vi.runAllTimersAsync();
+  expect(await pending).toMatchObject({ ok: true, value: { receipt: { provider_request_id: "retry-job", reported_microusd: 400000 } } });
+  expect(http.fetch.mock.calls.filter(([, options]) => options.method === "POST")).toHaveLength(1);
 });
