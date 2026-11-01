@@ -95,33 +95,56 @@ it("keeps the previous target bytes and current project if activation cannot sav
   ]);
 });
 
-
 it("does not rewrite unchanged embedded media on the first edit after conversion or Save As", async () => {
   const source = await fixture();
-  const board = createProjectCommands(source.legacyDb, source.media).create_storyboard({
+  const board = createProjectCommands(
+    source.legacyDb,
+    source.media,
+  ).create_storyboard({
     projectId: source.project.id,
     name: "Opening",
   });
-  source.legacyDb.prepare('INSERT INTO shots(id,storyboard_id,"order",image_path) VALUES (?,?,1,?)')
+  source.legacyDb
+    .prepare(
+      'INSERT INTO shots(id,storyboard_id,"order",image_path) VALUES (?,?,1,?)',
+    )
     .run("shot", board.id, "images/frame.png");
   fs.writeFileSync(path.join(source.media, "images/frame.png"), "frame");
   source.legacyDb.exec(`CREATE TABLE media_writes (count INTEGER NOT NULL);
     INSERT INTO media_writes VALUES (0);`);
   const converted = path.join(source.directory, "Converted.showbiz");
-  expect(await source.documents.importLegacy(source.project.id, converted)).toMatchObject({ok: true});
+  expect(
+    await source.documents.importLegacy(source.project.id, converted),
+  ).toMatchObject({ ok: true });
   const convertedDb = new DatabaseSync(converted);
   convertedDb.exec(`CREATE TRIGGER audit_media_writes AFTER INSERT ON document_file_chunks
     BEGIN UPDATE media_writes SET count = count + 1; END;`);
   try {
-    await source.documents.invoke("update_project", {id: source.project.id, name: "Converted edit"});
-    expect(convertedDb.prepare("SELECT count FROM media_writes").get()?.count).toBe(0);
-  } finally { convertedDb.close(); }
+    await source.documents.invoke("update_project", {
+      id: source.project.id,
+      name: "Converted edit",
+    });
+    expect(
+      convertedDb.prepare("SELECT count FROM media_writes").get()?.count,
+    ).toBe(0);
+  } finally {
+    convertedDb.close();
+  }
   const copy = path.join(source.directory, "Copy.showbiz");
-  expect(await source.documents.saveAs(copy)).toMatchObject({ok: true});
+  expect(await source.documents.saveAs(copy)).toMatchObject({ ok: true });
   const copyDb = new DatabaseSync(copy);
   try {
-    const before = copyDb.prepare("SELECT count FROM media_writes").get()?.count;
-    await source.documents.invoke("update_project", {id: source.project.id, name: "Copy edit"});
-    expect(copyDb.prepare("SELECT count FROM media_writes").get()?.count).toBe(before);
-  } finally { copyDb.close(); }
+    const before = copyDb
+      .prepare("SELECT count FROM media_writes")
+      .get()?.count;
+    await source.documents.invoke("update_project", {
+      id: source.project.id,
+      name: "Copy edit",
+    });
+    expect(copyDb.prepare("SELECT count FROM media_writes").get()?.count).toBe(
+      before,
+    );
+  } finally {
+    copyDb.close();
+  }
 });
