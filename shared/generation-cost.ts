@@ -48,6 +48,9 @@ const unavailable = (reason: string): GenerationCostEstimate => ({
   kind: "unavailable",
   reason,
 });
+export function generationRateSignature(rate: Pick<GenerationPriceRate, "unit" | "kind" | "resolution" | "audio">): string {
+  return JSON.stringify([rate.unit, rate.kind ?? null, rate.resolution ?? null, rate.audio ?? null]);
+}
 export function generationRateMatchesRequest(rate: GenerationPriceRate, request: GenerationCostRequest): boolean {
   return (rate.resolution === undefined || rate.resolution === request.resolution) &&
     (rate.audio === undefined || rate.audio === request.audio) &&

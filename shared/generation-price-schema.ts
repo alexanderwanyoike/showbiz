@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+export const generationRateScopeSchema = z.strictObject({
+  unit: z.enum(["image", "second", "megapixel", "request"]),
+  resolution: z.string().max(128).optional(),
+  audio: z.boolean().optional(),
+  kind: z.enum(["image", "image_edit", "image_compose", "video"]).optional(),
+});
+
 export const generationPriceSchema = z
   .strictObject({
     provider: z.string().min(1).max(256),
@@ -28,20 +35,9 @@ export const generationPriceSchema = z
     excludes_input_cost: z.boolean().optional(),
     rates: z
       .array(
-        z.strictObject({
-          unit: z.enum(["image", "second", "megapixel", "request"]),
+        generationRateScopeSchema.extend({
           microusd: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-          max_microusd: z
-            .number()
-            .int()
-            .nonnegative()
-            .max(Number.MAX_SAFE_INTEGER)
-            .optional(),
-          resolution: z.string().max(128).optional(),
-          audio: z.boolean().optional(),
-          kind: z
-            .enum(["image", "image_edit", "image_compose", "video"])
-            .optional(),
+          max_microusd: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
         }),
       )
       .min(1)
