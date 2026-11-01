@@ -76,6 +76,11 @@ export function createGenerationPricingCommands(db: DatabaseSync) {
         const parsed = generationPriceSchema.safeParse(args.price);
         if (!kindValid(args.kind) || !parsed.success) return invalid();
         const price = parsed.data;
+        if (price.source_kind !== "manual" && args.account_key !== undefined) {
+          if (typeof args.account_key !== "string") return invalid();
+          const credential = db.prepare("SELECT value FROM settings WHERE key = ?").get(`${price.provider}_api_key`) as { value: string } | undefined;
+          if (credential?.value !== args.account_key) return { ok: false, error: { code: "INVALID_INPUT", message: "The provider account changed while pricing loaded. Check the estimate again." } };
+        }
         const prefix =
           price.source_kind === "manual"
             ? "generation_price"

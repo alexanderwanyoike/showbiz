@@ -240,6 +240,7 @@ it("gets account-specific FAL pricing and a historical estimate for the actual e
       string,
       (args?: Record<string, unknown>) => unknown
     > = createGenerationPricingCommands(db);
+    db.prepare("INSERT INTO settings(key,value) VALUES ('fal_api_key','test-fal-key')").run();
     native.invoke.mockImplementation(async (command, args) =>
       command === "get_api_key" ? "test-fal-key" : commands[command]?.(args),
     );
@@ -305,6 +306,7 @@ it("fetches the separate FAL first-last-frame endpoint for a video with an end f
       string,
       (args?: Record<string, unknown>) => unknown
     > = createGenerationPricingCommands(db);
+    db.prepare("INSERT INTO settings(key,value) VALUES ('fal_api_key','test-fal-key')").run();
     native.invoke.mockImplementation(async (command, args) =>
       command === "get_api_key" ? "test-fal-key" : commands[command]?.(args),
     );
@@ -359,6 +361,7 @@ it("shares an authenticated FAL price lookup across simultaneous controls", asyn
       string,
       (args?: Record<string, unknown>) => unknown
     > = createGenerationPricingCommands(db);
+    db.prepare("INSERT INTO settings(key,value) VALUES ('fal_api_key','test-fal-key')").run();
     native.invoke.mockImplementation(async (command, args) =>
       command === "get_api_key" ? "test-fal-key" : commands[command]?.(args),
     );

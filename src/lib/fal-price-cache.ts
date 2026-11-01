@@ -33,6 +33,7 @@ export async function refreshFalPrice(
       };
     return invoke<Result<GenerationPrice>>("save_generation_price", {
       kind,
+      account_key: key,
       price: fresh.value,
     });
   })();
