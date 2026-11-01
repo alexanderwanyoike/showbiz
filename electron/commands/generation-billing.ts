@@ -22,6 +22,7 @@ export function createGenerationBillingCommands(
   readKey: (provider: string) => string | null,
   http: typeof fetch = fetch,
 ) {
+  const retryAfter = new Map<string, { key: string | null; until: number; message: string }>();
   return {
     async sync_generation_charges(
       args?: Record<string, unknown>,
@@ -41,7 +42,7 @@ export function createGenerationBillingCommands(
         const selected = request_ids
           ? ` AND request_id IN (${request_ids.map(() => "?").join(",")})`
           : "";
-        const rows = db
+        const candidates = db
           .prepare(
             `SELECT request_id,provider_request_id,provider,kind,started_at FROM generation_usage WHERE project_id = ? AND reported_microusd IS NULL AND provider_request_id IS NOT NULL AND status != 'running' AND provider IN ('fal','openrouter')${selected} ORDER BY started_at DESC LIMIT 50`,
           )
@@ -49,14 +50,27 @@ export function createGenerationBillingCommands(
             project_id,
             ...(request_ids ?? []),
           ) as unknown as PendingCharge[];
+        const credentials = new Map<string, string | null>();
+        if (candidates.some((row) => row.provider === "fal")) credentials.set("fal", readKey("fal-billing") ?? readKey("fal"));
+        if (candidates.some((row) => row.provider === "openrouter")) credentials.set("openrouter", readKey("openrouter"));
+        const notes: GenerationBillingSync["notes"] = [];
+        const identity = (row: PendingCharge) => JSON.stringify([project_id, row.request_id]);
+        const rows = candidates.filter((row) => {
+          const cached = retryAfter.get(identity(row));
+          if (!parsed.data.force && cached && cached.key === credentials.get(row.provider) && cached.until > Date.now()) {
+            notes.push({ request_id: row.request_id, message: cached.message });
+            return false;
+          }
+          return true;
+        });
         const result: GenerationBillingSync = {
           checked: rows.length,
           reported: 0,
-          notes: [],
+          notes,
         };
         const fal = rows.filter((row) => row.provider === "fal");
         if (fal.length) {
-          const key = readKey("fal-billing") ?? readKey("fal");
+          const key = credentials.get("fal") ?? null;
           if (!key)
             result.notes.push(
               ...fal.map((row) => ({
@@ -96,7 +110,7 @@ export function createGenerationBillingCommands(
           }
         }
         const openrouter = rows.filter((row) => row.provider === "openrouter");
-        const key = openrouter.length ? readKey("openrouter") : null;
+        const key = credentials.get("openrouter") ?? null;
         for (let index = 0; index < openrouter.length; index += 4) {
           await Promise.all(
             openrouter.slice(index, index + 4).map(async (row) => {
@@ -128,6 +142,15 @@ export function createGenerationBillingCommands(
                 });
             }),
           );
+        }
+        for (const row of rows) {
+          const note = result.notes.find((entry) => entry.request_id === row.request_id);
+          if (!note) { retryAfter.delete(identity(row)); continue; }
+          retryAfter.set(identity(row), { key: credentials.get(row.provider) ?? null, until: Date.now() + 60000, message: note.message });
+        }
+        while (retryAfter.size > 500) {
+          const oldest = retryAfter.keys().next().value;
+          if (oldest !== undefined) retryAfter.delete(oldest);
         }
         return { ok: true, value: result };
       } catch {
