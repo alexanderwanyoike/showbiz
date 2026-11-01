@@ -198,8 +198,10 @@ it("edits the selected image take and explains unavailable editing", async () =>
     ),
   );
   expect(
-    screen.getByRole("button", { name: "Edit frame for shot 1" }),
-  ).toHaveProperty("disabled", true);
+    screen
+      .getByRole("button", { name: "Edit frame for shot 1" })
+      .getAttribute("aria-disabled"),
+  ).toBe("true");
   await userEvent
     .setup()
     .click(screen.getByRole("button", { name: "About frame editing" }));
@@ -217,8 +219,10 @@ it("edits the selected image take and explains unavailable editing", async () =>
     ),
   );
   expect(
-    screen.getByRole("button", { name: "Edit frame for shot 1" }),
-  ).toHaveProperty("disabled", true);
+    screen
+      .getByRole("button", { name: "Edit frame for shot 1" })
+      .getAttribute("aria-disabled"),
+  ).toBe("true");
   await userEvent
     .setup()
     .click(screen.getByRole("button", { name: "About frame editing" }));
@@ -377,3 +381,25 @@ it("remembers take disclosures per shot and reveals newly added takes", async ()
   await waitFor(() => expect(screen.getByRole("button", { name: "Image takes" }).getAttribute("aria-expanded")).toBe("true"));
   expect(screen.getByRole("button", { name: "Video takes" }).getAttribute("aria-expanded")).toBe("true");
 });
+it.each([
+  [true, "Wait for frame selection to finish saving."],
+  [false, "Choose a saved frame take before editing this frame."],
+] as const)(
+  "explains frame editing prerequisites when frame saving is %s",
+  async (frameSaving, reason) => {
+    const props = {
+      ...inspectorProps("seedance-2-fal"),
+      frameSaving,
+      imageModel: getAvailableImageModels().find(
+        (model) => model.supportsImageEditing,
+      ),
+    };
+    render(
+      createElement(MemoryRouter, null, createElement(ShotInspector, props)),
+    );
+    const command = screen.getByRole("button", {
+      name: "Edit frame for shot 1",
+    });
+    expect(command.getAttribute("aria-description")).toBe(reason);
+  },
+);

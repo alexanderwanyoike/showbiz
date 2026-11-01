@@ -952,10 +952,10 @@ export default function StoryboardPage() {
           {isLoading && <span role="status" className="text-xs text-muted-foreground">Refreshing…</span>}
           <div role="group" aria-label="Storyboard view" className="storyboard-command-group">
           <StoryboardSettingsDialog name={storyboard.name} defaults={defaultModels} onSave={handleStoryboardSettingsSave} disabled={Object.keys(videoSettingsDrafts).length > 0} />
-          <WorkspaceCommand ref={shotControlsToggle} label="Shot controls" aria-expanded={shotControlsOpen} aria-controls={shotControlsId} disabled={!selectedShot} onClick={() => setShotControlsOpen(!shotControlsOpen)}><PanelRight size={17} /></WorkspaceCommand>
+          <WorkspaceCommand ref={shotControlsToggle} label="Shot controls" title={!selectedShot ? "Add or choose a shot first." : undefined} aria-expanded={shotControlsOpen} aria-controls={shotControlsId} disabled={!selectedShot} onClick={() => setShotControlsOpen(!shotControlsOpen)}><PanelRight size={17} /></WorkspaceCommand>
           </div>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><WorkspaceCommand label="Export…" disabled={isExporting || !hasMedia}>{isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share size={17} />}</WorkspaceCommand></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><WorkspaceCommand label="Export…" title={isExporting ? "Wait for the current export to finish." : !hasMedia ? "Add image or video media to this storyboard before exporting." : undefined} disabled={isExporting || !hasMedia}>{isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share size={17} />}</WorkspaceCommand></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => void handleExport("zip")}>Media ZIP (.zip)</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => void handleExport("sbz")}>Forgecut media (.sbz)</DropdownMenuItem>
