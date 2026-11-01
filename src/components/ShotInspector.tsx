@@ -456,6 +456,7 @@ export default function ShotInspector({
                   <>
                     <WorkspaceCommand
                       label={`Edit frame for shot ${shot.order}`}
+                      title={frameSaving ? "Wait for frame selection to finish saving." : !imageModel?.supportsImageEditing ? "Choose an image model that supports frame editing." : !currentVersion ? "Choose a saved frame take before editing this frame." : undefined}
                       disabled={
                         frameSaving ||
                         !currentVersion ||

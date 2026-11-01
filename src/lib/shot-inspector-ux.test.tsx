@@ -206,8 +206,8 @@ it("edits the selected image take and explains unavailable editing", async () =>
     ),
   );
   expect(
-    screen.getByRole("button", { name: "Edit frame for shot 1" }),
-  ).toHaveProperty("disabled", true);
+    screen.getByRole("button", { name: "Edit frame for shot 1" }).getAttribute("aria-disabled"),
+  ).toBe("true");
   await userEvent
     .setup()
     .click(screen.getByRole("button", { name: "About frame editing" }));
@@ -225,8 +225,8 @@ it("edits the selected image take and explains unavailable editing", async () =>
     ),
   );
   expect(
-    screen.getByRole("button", { name: "Edit frame for shot 1" }),
-  ).toHaveProperty("disabled", true);
+    screen.getByRole("button", { name: "Edit frame for shot 1" }).getAttribute("aria-disabled"),
+  ).toBe("true");
   await userEvent
     .setup()
     .click(screen.getByRole("button", { name: "About frame editing" }));
@@ -373,7 +373,7 @@ it("keeps take history available without displacing generation inputs", async ()
 it.each([
   [true, "Wait for frame selection to finish saving."],
   [false, "Choose a saved frame take before editing this frame."],
-])("explains frame editing prerequisites when frame saving is %s", async (frameSaving, reason) => {
+] as const)("explains frame editing prerequisites when frame saving is %s", async (frameSaving, reason) => {
   const props = { ...inspectorProps("seedance-2-fal"), frameSaving, imageModel: getAvailableImageModels().find((model) => model.supportsImageEditing) };
   render(createElement(MemoryRouter, null, createElement(ShotInspector, props)));
   const command = screen.getByRole("button", { name: "Edit frame for shot 1" });
