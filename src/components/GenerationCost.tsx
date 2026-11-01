@@ -153,6 +153,7 @@ export function GenerationCost({
                   media.
                 </p>
               )}
+              {estimate.price.estimate_basis === "historical_request" && estimate.max_microusd === 0 && <p>The provider returned a zero historical estimate. This does not confirm that a new request is free.</p>}
               {estimate.price.billing_unit &&
                 estimate.price.billing_unit_microusd !== undefined && (
                   <p>
