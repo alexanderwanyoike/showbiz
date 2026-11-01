@@ -28,15 +28,36 @@ export const veoOperationSchema = z
   })
   .passthrough();
 
-export async function readVeoOperation(response: Pick<Response, "ok" | "status" | "json">): Promise<Result<z.infer<typeof veoOperationSchema>>> {
+export async function readVeoOperation(
+  response: Pick<Response, "ok" | "status" | "json">,
+): Promise<Result<z.infer<typeof veoOperationSchema>>> {
   let body: unknown;
-  try { body = await response.json(); } catch {
-    return { ok: false, error: { code: "IO_ERROR", message: `Veo returned an unreadable response (${response.status}).` } };
+  try {
+    body = await response.json();
+  } catch {
+    return {
+      ok: false,
+      error: {
+        code: "IO_ERROR",
+        message: `Veo returned an unreadable response (${response.status}).`,
+      },
+    };
   }
   const parsed = veoOperationSchema.safeParse(body);
   if (!response.ok || !parsed.success || parsed.data.error) {
     const message = providerErrorMessage(body);
-    return { ok: false, error: { code: "IO_ERROR", message: message ? parseGoogleApiError(JSON.stringify({ error: { message } }), response.status) : `Veo returned an unsupported response (${response.status}).` } };
+    return {
+      ok: false,
+      error: {
+        code: "IO_ERROR",
+        message: message
+          ? parseGoogleApiError(
+              JSON.stringify({ error: { message } }),
+              response.status,
+            )
+          : `Veo returned an unsupported response (${response.status}).`,
+      },
+    };
   }
   return { ok: true, value: parsed.data };
 }

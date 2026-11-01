@@ -44,7 +44,11 @@ export async function getOpenRouterImagePrice(
   // have different token counts: https://ai.google.dev/gemini-api/docs/pricing
   const defaultImageOutputTokens = 1120;
   const amounts = outputs.map((price) =>
-    Math.round(price.cost_usd * (price.unit === "token" ? defaultImageOutputTokens : 1) * 1000000),
+    Math.round(
+      price.cost_usd *
+        (price.unit === "token" ? defaultImageOutputTokens : 1) *
+        1000000,
+    ),
   );
   if (amounts.some((value) => !Number.isSafeInteger(value))) return null;
   return {

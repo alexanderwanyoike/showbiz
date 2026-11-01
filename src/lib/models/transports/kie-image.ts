@@ -20,7 +20,7 @@ async function callFluxKontext(
   prompt: string,
   imageBase64: string | undefined,
   apiKey: string,
-  endpoint: string
+  endpoint: string,
 ): Promise<string> {
   const body: Record<string, unknown> = { prompt };
   if (imageBase64) {
@@ -45,7 +45,10 @@ async function callFluxKontext(
   // Direct image URL in response
   if (json?.data?.imageUrl) {
     const imgRes = await fetch(json.data.imageUrl);
-    if (!imgRes.ok) throw new Error(`Failed to download Flux Kontext image: ${imgRes.status}`);
+    if (!imgRes.ok)
+      throw new Error(
+        `Failed to download Flux Kontext image: ${imgRes.status}`,
+      );
     return blobToDataUrl(await imgRes.blob());
   }
 
@@ -54,7 +57,10 @@ async function callFluxKontext(
   if (taskId) {
     const imageUrl = await pollKieTask(taskId, apiKey);
     const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) throw new Error(`Failed to download Flux Kontext image: ${imgRes.status}`);
+    if (!imgRes.ok)
+      throw new Error(
+        `Failed to download Flux Kontext image: ${imgRes.status}`,
+      );
     return blobToDataUrl(await imgRes.blob());
   }
 
@@ -64,15 +70,20 @@ async function callFluxKontext(
 async function callStandardKie(
   config: ImageModelConfig,
   prompt: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<string> {
   const modelId = config.models.generate;
-  const input: Record<string, unknown> = { prompt, ...(config.fixedParams ?? {}) };
+  const input: Record<string, unknown> = {
+    prompt,
+    ...(config.fixedParams ?? {}),
+  };
   const taskId = await createKieTask(modelId, input, apiKey);
   const imageUrl = await pollKieTask(taskId, apiKey);
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) {
-    throw new Error(`Failed to download ${config.name} image: ${imgRes.status}`);
+    throw new Error(
+      `Failed to download ${config.name} image: ${imgRes.status}`,
+    );
   }
   const blob = await imgRes.blob();
   return blobToDataUrl(blob);
@@ -82,7 +93,7 @@ export const kieImageTransport: ImageTransport = {
   async generateImage(
     config: ImageModelConfig,
     prompt: string,
-    apiKey: string
+    apiKey: string,
   ): Promise<string> {
     const endpoint = config.transportOptions?.endpoint as string | undefined;
     if (endpoint) {
@@ -97,7 +108,7 @@ export const kieImageTransport: ImageTransport = {
     config: ImageModelConfig,
     editPrompt: string,
     sourceImageBase64: string,
-    apiKey: string
+    apiKey: string,
   ): Promise<string> {
     const endpoint = config.transportOptions?.endpoint as string | undefined;
     if (endpoint) {

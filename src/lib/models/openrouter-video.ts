@@ -115,10 +115,16 @@ export async function generateOpenRouterVideo(
           if (consecutiveFailures < 3) return { done: false };
           return {
             done: true,
-            value: failure(`Could not read OpenRouter job ${job} after repeated connection failures. Check this job before retrying generation.`, receipt),
+            value: failure(
+              `Could not read OpenRouter job ${job} after repeated connection failures. Check this job before retrying generation.`,
+              receipt,
+            ),
           };
         }
-        if (!response.ok && (response.status === 429 || response.status >= 500)) {
+        if (
+          !response.ok &&
+          (response.status === 429 || response.status >= 500)
+        ) {
           consecutiveFailures += 1;
           if (consecutiveFailures < 3) return { done: false };
         }
@@ -141,7 +147,11 @@ export async function generateOpenRouterVideo(
             ),
           };
         const updated = openRouterReceipt(parsed.data);
-        const currentReceipt = { ...updated, reported_microusd: updated.reported_microusd ?? receipt?.reported_microusd ?? null };
+        const currentReceipt = {
+          ...updated,
+          reported_microusd:
+            updated.reported_microusd ?? receipt?.reported_microusd ?? null,
+        };
         receipt = currentReceipt;
         if (parsed.data.status === "failed")
           return {
@@ -163,7 +173,10 @@ export async function generateOpenRouterVideo(
           };
         return {
           done: true,
-          value: { ok: true, value: { media: await content.blob(), receipt: currentReceipt } },
+          value: {
+            ok: true,
+            value: { media: await content.blob(), receipt: currentReceipt },
+          },
         };
       },
     });

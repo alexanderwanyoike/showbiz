@@ -15,17 +15,15 @@ import { fetch } from "./http";
 
 const mockedFetch = vi.mocked(fetch);
 
-function mockResponse(
-  status: number,
-  body: unknown,
-  ok?: boolean
-) {
+function mockResponse(status: number, body: unknown, ok?: boolean) {
   return {
     ok: ok ?? (status >= 200 && status < 300),
     status,
-    text: vi.fn().mockResolvedValue(
-      typeof body === "string" ? body : JSON.stringify(body)
-    ),
+    text: vi
+      .fn()
+      .mockResolvedValue(
+        typeof body === "string" ? body : JSON.stringify(body),
+      ),
     json: vi.fn().mockResolvedValue(body),
     blob: vi.fn().mockResolvedValue(body),
   };
@@ -38,13 +36,13 @@ describe("parseReplicateError", () => {
 
   it("maps 402 to billing issue", () => {
     expect(parseReplicateError(402, "")).toBe(
-      "Billing issue with your Replicate account."
+      "Billing issue with your Replicate account.",
     );
   });
 
   it("maps 429 to rate limit", () => {
     expect(parseReplicateError(429, "")).toBe(
-      "Replicate rate limit exceeded. Please try again later."
+      "Replicate rate limit exceeded. Please try again later.",
     );
   });
 
@@ -57,14 +55,12 @@ describe("parseReplicateError", () => {
     const body = JSON.stringify({
       detail: [{ msg: "field required" }, { msg: "invalid type" }],
     });
-    expect(parseReplicateError(422, body)).toBe(
-      "field required; invalid type"
-    );
+    expect(parseReplicateError(422, body)).toBe("field required; invalid type");
   });
 
   it("falls back to body text for unknown status", () => {
     expect(parseReplicateError(500, "Internal Server Error")).toBe(
-      "Internal Server Error"
+      "Internal Server Error",
     );
   });
 
@@ -89,7 +85,7 @@ describe("createPrediction", () => {
     const result = await createPrediction(
       "owner/model",
       { prompt: "a cat" },
-      "test-key"
+      "test-key",
     );
 
     expect(mockedFetch).toHaveBeenCalledWith(
@@ -104,7 +100,7 @@ describe("createPrediction", () => {
           model: "owner/model",
           input: { prompt: "a cat" },
         }),
-      }
+      },
     );
     expect(result).toEqual(prediction);
   });
@@ -117,12 +113,7 @@ describe("createPrediction", () => {
     };
     mockedFetch.mockResolvedValue(mockResponse(200, prediction) as never);
 
-    await createPrediction(
-      "owner/model",
-      { prompt: "fast" },
-      "test-key",
-      true
-    );
+    await createPrediction("owner/model", { prompt: "fast" }, "test-key", true);
 
     expect(mockedFetch).toHaveBeenCalledWith(
       "https://api.replicate.com/v1/predictions",
@@ -130,17 +121,17 @@ describe("createPrediction", () => {
         headers: expect.objectContaining({
           Prefer: "wait",
         }),
-      })
+      }),
     );
   });
 
   it("throws on error response", async () => {
     mockedFetch.mockResolvedValue(
-      mockResponse(401, "Unauthorized", false) as never
+      mockResponse(401, "Unauthorized", false) as never,
     );
 
     await expect(
-      createPrediction("owner/model", {}, "bad-key")
+      createPrediction("owner/model", {}, "bad-key"),
     ).rejects.toThrow("Invalid Replicate API token.");
   });
 });
@@ -190,7 +181,7 @@ describe("pollPrediction", () => {
         status: "failed",
         output: null,
         error: "Model crashed",
-      }) as never
+      }) as never,
     );
 
     const promise = pollPrediction("pred-2", "test-key");
@@ -216,26 +207,24 @@ describe("downloadReplicateOutput", () => {
 
   it("fetches URL and returns blob", async () => {
     const fakeBlob = new Blob(["video-data"], { type: "video/mp4" });
-    mockedFetch.mockResolvedValue(
-      mockResponse(200, fakeBlob, true) as never
-    );
+    mockedFetch.mockResolvedValue(mockResponse(200, fakeBlob, true) as never);
 
     const result = await downloadReplicateOutput(
-      "https://replicate.delivery/output.mp4"
+      "https://replicate.delivery/output.mp4",
     );
     expect(result).toBe(fakeBlob);
     expect(mockedFetch).toHaveBeenCalledWith(
-      "https://replicate.delivery/output.mp4"
+      "https://replicate.delivery/output.mp4",
     );
   });
 
   it("throws on download failure", async () => {
     mockedFetch.mockResolvedValue(
-      mockResponse(404, "Not Found", false) as never
+      mockResponse(404, "Not Found", false) as never,
     );
 
     await expect(
-      downloadReplicateOutput("https://replicate.delivery/expired.mp4")
+      downloadReplicateOutput("https://replicate.delivery/expired.mp4"),
     ).rejects.toThrow("Failed to download Replicate output: 404");
   });
 });
@@ -243,19 +232,45 @@ describe("downloadReplicateOutput", () => {
 it("recovers transient Replicate status failures without resubmitting a prediction", async () => {
   vi.useFakeTimers();
   mockedFetch.mockReset();
-  mockedFetch.mockResolvedValueOnce(mockResponse(503, "busy") as never)
+  mockedFetch
+    .mockResolvedValueOnce(mockResponse(503, "busy") as never)
     .mockRejectedValueOnce(new Error("connection reset"))
-    .mockResolvedValueOnce(mockResponse(200, { id: "existing-prediction", status: "succeeded", output: "media" }) as never);
-  const pending = pollPrediction("existing-prediction", "key").then(value => ({ value }), (error: unknown) => ({ error }));
+    .mockResolvedValueOnce(
+      mockResponse(200, {
+        id: "existing-prediction",
+        status: "succeeded",
+        output: "media",
+      }) as never,
+    );
+  const pending = pollPrediction("existing-prediction", "key").then(
+    (value) => ({ value }),
+    (error: unknown) => ({ error }),
+  );
   await vi.runAllTimersAsync();
-  expect(await pending).toMatchObject({ value: { id: "existing-prediction", status: "succeeded" } });
-  expect(mockedFetch.mock.calls.every(([url, options]) => String(url).endsWith("/existing-prediction") && !options?.method)).toBe(true);
+  expect(await pending).toMatchObject({
+    value: { id: "existing-prediction", status: "succeeded" },
+  });
+  expect(
+    mockedFetch.mock.calls.every(
+      ([url, options]) =>
+        String(url).endsWith("/existing-prediction") && !options?.method,
+    ),
+  ).toBe(true);
 });
 it("includes the prediction identity when repeated polling fails", async () => {
   vi.useFakeTimers();
-  mockedFetch.mockReset().mockResolvedValue(mockResponse(401, "denied") as never);
-  const pending = pollPrediction("denied-prediction", "key").then(() => null, (error: unknown) => error);
+  mockedFetch
+    .mockReset()
+    .mockResolvedValue(mockResponse(401, "denied") as never);
+  const pending = pollPrediction("denied-prediction", "key").then(
+    () => null,
+    (error: unknown) => error,
+  );
   await vi.runAllTimersAsync();
-  expect(await pending).toEqual(expect.objectContaining({ message: expect.stringContaining("denied-prediction") }));
+  expect(await pending).toEqual(
+    expect.objectContaining({
+      message: expect.stringContaining("denied-prediction"),
+    }),
+  );
   expect(mockedFetch).toHaveBeenCalledTimes(1);
 });
