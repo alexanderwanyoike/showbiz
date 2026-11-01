@@ -111,11 +111,19 @@ test("rejects invalid artwork while leaving previous native artifacts intact", (
 });
 test("keeps committed icon byte comparison out of cross-platform packaging and the portable test command", () => {
   const root = fileURLToPath(new URL("../", import.meta.url));
-  const manifest = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
+  const manifest = JSON.parse(
+    readFileSync(path.join(root, "package.json"), "utf8"),
+  );
   assert.doesNotMatch(manifest.scripts["package:electron"], /icons:check/);
   assert.doesNotMatch(manifest.scripts.test, /icons:check/);
-  const workflow = readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
-  assert.match(workflow, /runs-on: ubuntu-latest[\s\S]*?- run: yarn icons:check/);
+  const workflow = readFileSync(
+    path.join(root, ".github/workflows/ci.yml"),
+    "utf8",
+  );
+  assert.match(
+    workflow,
+    /runs-on: ubuntu-latest[\s\S]*?- run: yarn icons:check/,
+  );
 });
 test("preserves the underlying source error when conversion fails", (t) => {
   const { source, run } = fixture(t);

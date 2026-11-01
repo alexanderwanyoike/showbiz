@@ -63,8 +63,7 @@ async function generateIcons(root, checking) {
       ok: false,
       error: {
         code: "IO_ERROR",
-        message:
-          `App icons could not be generated or checked: ${cause instanceof Error ? cause.message : String(cause)}. Run yarn icons:generate from the repository root.`,
+        message: `App icons could not be generated or checked: ${cause instanceof Error ? cause.message : String(cause)}. Run yarn icons:generate from the repository root.`,
       },
     };
   }
