@@ -1,14 +1,26 @@
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
 export async function collectBundleNotices(metafile, root = process.cwd()) {
-const packages = new Set(
-  Object.keys(metafile.inputs).flatMap((input) => {
-    const resolved = path.resolve(root, input).split(path.sep).join("/");
-    const match = resolved.match(/^(.*\/node_modules\/)(@[^/]+\/[^/]+|[^/]+)/);
-    return match ? [path.resolve(`${match[1]}${match[2]}`)] : [];
-  }),
-);
+const project = await realpath(root);
+const packages = new Set();
+for (const input of Object.keys(metafile.inputs)) {
+  let directory = path.dirname(await realpath(path.resolve(root, input)));
+  while (directory !== project) {
+    try {
+      const metadata = JSON.parse(await readFile(path.join(directory, "package.json"), "utf8"));
+      if (typeof metadata.name === "string" && typeof metadata.version === "string") {
+        packages.add(directory);
+        break;
+      }
+    } catch (cause) {
+      if (cause.code !== "ENOENT") throw cause;
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+}
 const notices = [];
 for (const directory of [...packages].sort()) {
   const metadata = JSON.parse(
