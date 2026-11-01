@@ -102,3 +102,10 @@ it("keeps the local request identity if its generated media cannot be downloaded
     .mockResolvedValueOnce(new Response(JSON.stringify({ error: "Generated media expired." }), { status: 404 }));
   expect(await generateLocalVideo(config, { mode: "text-to-video", prompt: "Morning", settings: { duration: "8s" } }, "")).toMatchObject({ ok: false, error: { message: expect.stringContaining("Generated media expired.") }, receipt: { provider_request_id: "fixture-job" } });
 });
+
+it("does not forward an end frame that the local model profile does not advertise", async () => {
+  http.fetch.mockClear();
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ data: [{ b64_json: "dmlkZW8=" }] })));
+  await generateLocalVideo(config, { mode: "image-to-video", prompt: "Morning", startImage: "start", endImage: "stale-end-frame", settings: { duration: "8s" } }, "");
+  expect(JSON.parse(http.fetch.mock.calls[0][1].body)).not.toHaveProperty("end_image");
+});
