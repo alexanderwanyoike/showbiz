@@ -13,7 +13,7 @@ interface Documents {
   legacy(): { id: string; name: string }[];
   create(path: string): DocumentOperation;
   open(path: string): DocumentOperation;
-  close(): Promise<DocumentResult<null>>;
+  close(): DocumentResult<null> | Promise<DocumentResult<null>>;
   saveAs(path: string): DocumentOperation;
   importLegacy(id: string, path: string): DocumentOperation;
 }
@@ -51,7 +51,9 @@ export function createProjectDocumentCommands(options: {
       pending = false;
     }
   }
-  async function change(operation: () => DocumentOperation): DocumentOperation {
+  async function change(
+    operation: () => DocumentOperation | DocumentResult<null>,
+  ): DocumentOperation {
     if (!options.canSwitch()) return busy;
     const end = options.beginSave();
     try {
