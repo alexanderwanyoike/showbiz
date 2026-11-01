@@ -153,18 +153,36 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
           )
         )
           return invalid("Generation settings contain unsupported values.");
-        const explicitSource = args.price_source === undefined
-          ? null
-          : generationPriceSchema.shape.source_url.safeParse(args.price_source);
-        const explicitChecked = args.price_checked_at === undefined
-          ? null
-          : generationPriceSchema.shape.checked_at.safeParse(args.price_checked_at);
-        if (explicitSource && (!explicitSource.success || (price && explicitSource.data !== price.source_url)))
+        const explicitSource =
+          args.price_source === undefined
+            ? null
+            : generationPriceSchema.shape.source_url.safeParse(
+                args.price_source,
+              );
+        const explicitChecked =
+          args.price_checked_at === undefined
+            ? null
+            : generationPriceSchema.shape.checked_at.safeParse(
+                args.price_checked_at,
+              );
+        if (
+          explicitSource &&
+          (!explicitSource.success ||
+            (price && explicitSource.data !== price.source_url))
+        )
           return invalid("The price source must match the quoted price basis.");
-        if (explicitChecked && (!explicitChecked.success || (price && explicitChecked.data !== price.checked_at)))
+        if (
+          explicitChecked &&
+          (!explicitChecked.success ||
+            (price && explicitChecked.data !== price.checked_at))
+        )
           return invalid("The price date must match the quoted price basis.");
-        const source = price?.source_url ?? (explicitSource?.success ? explicitSource.data : null);
-        const checked = price?.checked_at ?? (explicitChecked?.success ? explicitChecked.data : null);
+        const source =
+          price?.source_url ??
+          (explicitSource?.success ? explicitSource.data : null);
+        const checked =
+          price?.checked_at ??
+          (explicitChecked?.success ? explicitChecked.data : null);
         db.prepare(
           `INSERT INTO generation_usage(request_id,project_id,subject_id,price_basis_json,kind,provider,model_id,settings_json,estimated_min_microusd,estimated_max_microusd,price_source,price_checked_at,started_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         ).run(
@@ -296,7 +314,11 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
         COUNT(*) AS total_count
         FROM generation_usage WHERE project_id = ? AND (? IS NULL OR subject_id = ?)`,
           )
-          .get(args.project_id, subject as string | null, subject as string | null) as unknown as GenerationCostSummary;
+          .get(
+            args.project_id,
+            subject as string | null,
+            subject as string | null,
+          ) as unknown as GenerationCostSummary;
         return Object.values(summary).every(Number.isSafeInteger)
           ? success(summary)
           : invalid("The usage total exceeds the supported amount.");
