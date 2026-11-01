@@ -1,4 +1,4 @@
-import { request } from "node:http";
+import { request, type ClientRequest } from "node:http";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { readdir, readFile, lstat } from "node:fs/promises";
@@ -54,11 +54,49 @@ export async function listSessions(
 export function callBridge(
   session: LocalSession,
   input: unknown,
+  options: { timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<BridgeResult> {
   return new Promise((resolve) => {
-    const payload = JSON.stringify(input);
+    let pending: ClientRequest | undefined;
+    let settled = false;
+    const abort = () => {
+      finish({
+        ok: false,
+        error: {
+          code: "CANCELLED",
+          message:
+            "Stopped waiting for Showbiz. The operation may still finish. Retry with the same request ID and arguments to check the result.",
+        },
+      });
+      pending?.destroy();
+    };
+    const finish = (result: BridgeResult) => {
+      if (settled) return;
+      settled = true;
+      options.signal?.removeEventListener("abort", abort);
+      resolve(result);
+    };
+    if (options.signal?.aborted) {
+      abort();
+      return;
+    }
+    let payload: string;
+    try {
+      const encoded = JSON.stringify(input);
+      if (encoded === undefined) throw new Error("Missing request");
+      payload = encoded;
+    } catch {
+      finish({
+        ok: false,
+        error: {
+          code: "INVALID_INPUT",
+          message: "The local request must be JSON.",
+        },
+      });
+      return;
+    }
     if (Buffer.byteLength(payload) > MAX_MESSAGE_BYTES) {
-      resolve({
+      finish({
         ok: false,
         error: {
           code: "INVALID_INPUT",
@@ -67,7 +105,7 @@ export function callBridge(
       });
       return;
     }
-    const req = request(
+    pending = request(
       {
         socketPath: session.socket,
         method: "POST",
@@ -83,30 +121,38 @@ export function callBridge(
         res.on("data", (chunk: Buffer) => {
           bytes += chunk.length;
           if (bytes > MAX_MESSAGE_BYTES) {
-            req.destroy();
-            resolve(unavailable());
+            finish(unavailable());
+            pending?.destroy();
             return;
           }
           chunks.push(chunk);
         });
-        res.on("error", () => resolve(unavailable()));
+        res.on("error", () => finish(unavailable()));
         res.on("end", () => {
           try {
             const parsed = resultSchema.safeParse(
               JSON.parse(Buffer.concat(chunks).toString("utf8")),
             );
-            resolve(parsed.success ? parsed.data : unavailable());
+            finish(parsed.success ? parsed.data : unavailable());
           } catch {
-            resolve(unavailable());
+            finish(unavailable());
           }
         });
       },
     );
-    req.setTimeout(5000, () => {
-      req.destroy();
-      resolve(unavailable());
+    pending.setTimeout(options.timeoutMs ?? 5000, () => {
+      finish({
+        ok: false,
+        error: {
+          code: "TIMEOUT",
+          message:
+            "Showbiz has not finished this request. The operation may still complete. Retry with the same request ID and arguments before starting it again.",
+        },
+      });
+      pending?.destroy();
     });
-    req.on("error", () => resolve(unavailable()));
-    req.end(payload);
+    pending.on("error", () => finish(unavailable()));
+    options.signal?.addEventListener("abort", abort, { once: true });
+    pending.end(payload);
   });
 }

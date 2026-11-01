@@ -71,8 +71,10 @@ async function registerIpc(updates: ReturnType<typeof createUpdateRuntime>, work
     () => { for (const window of BrowserWindow.getAllWindows()) window.webContents.send("showbiz:data_changed"); },
     () => { const status = work.work.getStatus(); return status.unsaved.length === 0 && status.active.length === 0 && !status.closing; },
   );
-  ipcMain.handle("showbiz:invoke", (event, cmd: string, args?: Record<string, unknown>) => {
-    return work.invoke(event.sender.id, cmd, args, session.invoke);
+  ipcMain.handle("showbiz:invoke", async (event, cmd: string, args?: Record<string, unknown>) => {
+    const result = await work.invoke(event.sender.id, cmd, args, invokeHandler);
+    session.recordResult(cmd, result);
+    return result;
   });
   try {
     const bridge = await startLocalBridge(session.call);
