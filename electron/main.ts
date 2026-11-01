@@ -44,12 +44,14 @@ app.on("open-file", (event, file) => {
 });
 const primaryInstance = app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
-else app.on("second-instance", (_event, argv, workingDirectory) => {
-  for (const file of projectFileArguments(argv, workingDirectory)) projectFiles.add(file);
-  const window = BrowserWindow.getAllWindows()[0];
-  if (window?.isMinimized()) window.restore();
-  window?.focus();
-});
+else
+  app.on("second-instance", (_event, argv, workingDirectory) => {
+    for (const file of projectFileArguments(argv, workingDirectory))
+      projectFiles.add(file);
+    const window = BrowserWindow.getAllWindows()[0];
+    if (window?.isMinimized()) window.restore();
+    window?.focus();
+  });
 for (const file of projectFileArguments(process.argv.slice(isDev ? 2 : 1)))
   projectFiles.add(file);
 
@@ -225,60 +227,67 @@ function createWindow(
   }
 }
 
-if (primaryInstance) app.whenReady().then(async () => {
-  if (process.platform === "darwin")
-    app.dock?.setIcon(desktopAppIconPath(app.getAppPath(), app.isPackaged));
-  Menu.setApplicationMenu(
-    Menu.buildFromTemplate(
-      projectApplicationMenu(
-        (action) => {
-          const window =
-            BrowserWindow.getFocusedWindow() ??
-            BrowserWindow.getAllWindows()[0];
-          window?.webContents.send("showbiz:document_action", action);
-        },
-        {
-          platform: desktopShellMetadata(process.platform)?.platform ?? "linux",
-          sendApplicationAction: (action) => {
+if (primaryInstance)
+  app.whenReady().then(async () => {
+    if (process.platform === "darwin")
+      app.dock?.setIcon(desktopAppIconPath(app.getAppPath(), app.isPackaged));
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        projectApplicationMenu(
+          (action) => {
             const window =
               BrowserWindow.getFocusedWindow() ??
               BrowserWindow.getAllWindows()[0];
-            window?.webContents.send("showbiz:application_menu_action", action);
+            window?.webContents.send("showbiz:document_action", action);
           },
-        },
+          {
+            platform:
+              desktopShellMetadata(process.platform)?.platform ?? "linux",
+            sendApplicationAction: (action) => {
+              const window =
+                BrowserWindow.getFocusedWindow() ??
+                BrowserWindow.getAllWindows()[0];
+              window?.webContents.send(
+                "showbiz:application_menu_action",
+                action,
+              );
+            },
+          },
+        ),
       ),
-    ),
-  );
-  const work = createWorkRuntime({
-    windows: () => BrowserWindow.getAllWindows(),
-    confirm: (options) => {
-      const window =
-        BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-      return window
-        ? dialog.showMessageBox(window, options)
-        : dialog.showMessageBox(options);
-    },
-    quit: () => app.quit(),
+    );
+    const work = createWorkRuntime({
+      windows: () => BrowserWindow.getAllWindows(),
+      confirm: (options) => {
+        const window =
+          BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+        return window
+          ? dialog.showMessageBox(window, options)
+          : dialog.showMessageBox(options);
+      },
+      quit: () => app.quit(),
+    });
+    app.on("before-quit", work.beforeQuit);
+    const updates = createUpdateRuntime({}, work.updateChanged, work.install);
+    const openProjectFile = await registerIpc(updates, work);
+    const shell = createDesktopShell({
+      platform: process.platform,
+      rendererUrl: isDev
+        ? DEV_SERVER_URL
+        : pathToFileURL(path.join(app.getAppPath(), "dist/index.html")).href,
+      quit: () => app.quit(),
+    });
+    ipcMain.handle("showbiz:menu-command", (event, command: unknown) =>
+      shell.runMenuCommand(event, command),
+    );
+    ipcMain.handle(
+      "showbiz:titlebar-appearance",
+      (event, appearance: unknown) =>
+        shell.setTitleBarAppearance(event, appearance),
+    );
+    createWindow(work, shell);
+    projectFiles.ready(openProjectFile);
+    void updates.start();
   });
-  app.on("before-quit", work.beforeQuit);
-  const updates = createUpdateRuntime({}, work.updateChanged, work.install);
-  const openProjectFile = await registerIpc(updates, work);
-  const shell = createDesktopShell({
-    platform: process.platform,
-    rendererUrl: isDev
-      ? DEV_SERVER_URL
-      : pathToFileURL(path.join(app.getAppPath(), "dist/index.html")).href,
-    quit: () => app.quit(),
-  });
-  ipcMain.handle("showbiz:menu-command", (event, command: unknown) =>
-    shell.runMenuCommand(event, command),
-  );
-  ipcMain.handle("showbiz:titlebar-appearance", (event, appearance: unknown) =>
-    shell.setTitleBarAppearance(event, appearance),
-  );
-  createWindow(work, shell);
-  projectFiles.ready(openProjectFile);
-  void updates.start();
-});
 
 app.on("window-all-closed", () => app.quit());

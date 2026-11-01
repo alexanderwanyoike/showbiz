@@ -2,7 +2,10 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import type { DocumentResult } from "../shared/project-document";
 type OpenProject = (file: string) => Promise<DocumentResult<unknown>>;
-export function projectFileArguments(args: readonly string[], workingDirectory = process.cwd()): string[] {
+export function projectFileArguments(
+  args: readonly string[],
+  workingDirectory = process.cwd(),
+): string[] {
   return args.flatMap((value) => {
     if (
       value.startsWith("-") ||
