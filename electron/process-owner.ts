@@ -50,10 +50,12 @@ function processIdentity(pid: number): Result<string> {
     };
   }
 }
-let ownIdentity: Result<string> | undefined;
+let ownIdentity: string | undefined;
 function currentProcessIdentity(): Result<string> {
-  ownIdentity ??= processIdentity(process.pid);
-  return ownIdentity;
+  if (ownIdentity !== undefined) return { ok: true, value: ownIdentity };
+  const identity = processIdentity(process.pid);
+  if (identity.ok) ownIdentity = identity.value;
+  return identity;
 }
 export function createProcessOwner(): ProcessOwner {
   const identity = currentProcessIdentity();
