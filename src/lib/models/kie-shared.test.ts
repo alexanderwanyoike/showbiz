@@ -22,3 +22,9 @@ it("preserves nested provider errors while polling", async () => {
   await vi.runAllTimersAsync();
   await pending;
 });
+it("explains a malformed Flux Kontext error through the image transport", async () => {
+  const { kieImageTransport } = await import("./transports/kie-image");
+  const config = (await import("./providers/image/flux-kontext.json")).default;
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ code: "402", data: [] }), { status: 402 }));
+  await expect(kieImageTransport.generateImage(config, "morning", "key")).rejects.toThrow("Insufficient kie.ai credits");
+});
