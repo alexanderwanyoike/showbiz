@@ -1,0 +1,475 @@
+{
+  "updated_at": "2026-11-01T09:42:50.591631+00:00",
+  "scope": "Claude rereview comments for PR119 through151 posted2026-11-01T02:22-02:23Z; no new formal code review",
+  "findings": [
+    {
+      "pr": 151,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/151#issuecomment-6552295046",
+      "finding": "**fix** `src/lib/generation-pricing.ts:104` The custom-rate fallback from #150 calls `get_generation_price` with `include_manual: false` but no `endpoint_id`. Now that FAL caches are keyed by endpoint, this call can only hit the old unsuffixed row. To reproduce: on `veo-3.1-fal` with a custom 720p rate, choose 1080p. Every estimate refetches live FAL pricing, and during a FAL outage it shows \"Estimate unavailable\", which is the #111 outage case coming back through the custom-rate path. Pass `endpoint_id` here as well, and add a test that combines a custom rate with a FAL outage.",
+      "status": "fixed",
+      "id": "151-1",
+      "resolution": "Custom-rate provider fallback forwards endpoint_id; new real native SQLite settings + renderer estimate regression combines another manual facet, matching expired cache and FAL503.",
+      "delivery_head": "3b7af54cf1360ec2c139ff1aafe1943eda17b7a5"
+    },
+    {
+      "pr": 151,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/151#issuecomment-6552295046",
+      "finding": "**note** `src/components/GenerationCost.tsx:84-86` `stale` can never be true for published or manual prices any more, so the \"may be out of date\" branches are dead code.",
+      "status": "fixed",
+      "id": "151-2",
+      "resolution": "Removed unreachable published/manual staleness and unreachable zero-quote notice branches after domain normalization.",
+      "delivery_head": "3b7af54cf1360ec2c139ff1aafe1943eda17b7a5"
+    },
+    {
+      "pr": 148,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/148#issuecomment-6552294595",
+      "finding": "**fix** `src/lib/models/veo-shared.ts:146` `if (pollData.error) throw \"Veo Generation Failed: ...\"` can no longer run, because `readVeoOperation` already returns `!ok` whenever `error` is set (`veo-response.ts:47`). A finished operation with an error now surfaces as \"<message> Operation: X.\" from line 136. Delete the branch, or have `readVeoOperation` let `error` through when `done` is true if you want to keep the generation-failure wording.",
+      "status": "fixed",
+      "id": "148-1",
+      "resolution": "Removed unreachable Veo done/error branch; readVeoOperation owns error handling. Existing operation/error tests pass.",
+      "delivery_head": "88932458e45289f4fe4f6563d029b238ffdd6a73"
+    },
+    {
+      "pr": 148,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/148#issuecomment-6552294595",
+      "finding": "**note** `src/lib/models/kie-shared.ts:89` KIE `recordInfo` polling still throws on the first transient 502/429, and the message has no taskId. That is the same paid-job loss this PR fixes for OpenRouter and Replicate. #105 didn't cover KIE, but the PR title promises recovery for existing provider jobs.",
+      "status": "fixed",
+      "id": "148-2",
+      "resolution": "KIE retries network/HTTP429/5xx and transient API codes without resubmitting POST; terminal errors retain task identity and last useful provider diagnostic.",
+      "delivery_head": "88932458e45289f4fe4f6563d029b238ffdd6a73"
+    },
+    {
+      "pr": 148,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/148#issuecomment-6552294595",
+      "finding": "**note** The OpenRouter and Replicate pollers each have their own copy of the `consecutiveFailures < 3` logic. A small shared helper would keep them from drifting apart.",
+      "status": "fixed",
+      "id": "148-3",
+      "resolution": "OpenRouter, Replicate and KIE now share one consecutive-failure budget; all public transport recovery tests pass.",
+      "delivery_head": "88932458e45289f4fe4f6563d029b238ffdd6a73"
+    },
+    {
+      "pr": 147,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/147#issuecomment-6552294429",
+      "finding": "**note** `electron/commands/http.ts:78` The dispatcher with no inactivity timeout is chosen because the caller passes `timeout_ms`, not because of which host is called. Any future caller that passes `timeout_ms` to a cloud URL would get a socket that can sit silent for up to an hour. A line in the `HttpRequestArgs` doc would prevent that.",
+      "status": "fixed",
+      "id": "147-1",
+      "resolution": "HttpRequestArgs documents any-host opt-in semantics, one-hour total cap and why ordinary cloud calls must leave timeout_ms unset.",
+      "delivery_head": "e2abd3b27e1afa2e85df78a02dbbadd4c8e1f653"
+    },
+    {
+      "pr": 147,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/147#issuecomment-6552294429",
+      "finding": "**note** The loopback test only exercises the `AbortSignal` deadline. Nothing asserts the Agent's zero `headersTimeout`/`bodyTimeout`, which is the actual fix, so dropping those options would bring back the 5-minute failure with every test still passing.",
+      "status": "fixed",
+      "id": "147-2",
+      "resolution": "Added direct Undici constructor-policy coverage asserting both zero inactivity timeouts and selected dispatcher/overall signal; existing real loopback test covers the actual deadline. This is characterization coverage of already-correct behavior.",
+      "delivery_head": "e2abd3b27e1afa2e85df78a02dbbadd4c8e1f653"
+    },
+    {
+      "pr": 146,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/146#issuecomment-6552294288",
+      "finding": "**note** The explicit `price_source`/`price_checked_at` arguments are kept \"for older callers\", but none exist. The only caller sends copies of `estimate.price` along with `price_basis`. Dropping both arguments would delete the whole validation branch, along with its strict string comparison of timestamps (`...00Z` vs `...00.000Z`).",
+      "status": "fixed",
+      "id": "146-1",
+      "resolution": "Removed duplicate outgoing fields and native comparison branch. Only price_basis supplies provenance; redundant top-level inputs return INVALID_INPUT. Tests tighten the contract rather than silently ignoring metadata.",
+      "delivery_head": "f9ed7bbe7bff32300cd3f83e4ed31773f9fc8a75"
+    },
+    {
+      "pr": 145,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/145#issuecomment-6552294131",
+      "finding": "**note** `electron/main.ts:117-120` The failure only reaches `console.error`, and packaged builds have no visible console or log file. That meets the original \"at least log it\", but a log file under app data would make it something a user could act on.",
+      "status": "fixed",
+      "id": "145-1",
+      "resolution": "Final project-save errors synchronously append to private appDataDir/logs/project-storage.log, with timestamp. Logging failure preserves original error. Actual filesystem regression checks content and mode.",
+      "delivery_head": "0b2a1a5cca7c886dafa4f203e9e3e972b8adfca9"
+    },
+    {
+      "pr": 145,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/145#issuecomment-6552294131",
+      "finding": "**note** `electron/project-document-commands.ts:16,54` The `close(): ... | Promise<...>` union is no longer needed, since the only implementation is synchronous.",
+      "status": "fixed",
+      "id": "145-2",
+      "resolution": "Close interface now synchronous. The change helper still accepts async operations for other commands, which actually require it.",
+      "delivery_head": "0b2a1a5cca7c886dafa4f203e9e3e972b8adfca9"
+    },
+    {
+      "pr": 144,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/144#issuecomment-6552293961",
+      "finding": "**note** `scripts/bundle-notices.test.mjs:24` pins `undici 7\\.30\\.1`, so any Undici bump breaks `yarn test:distribution` even though the notice would still be correct. Match `undici \\d` instead.",
+      "status": "fixed",
+      "id": "144-1",
+      "resolution": "Notice test accepts an installed Undici version rather than pinning one patch.",
+      "delivery_head": "6c67d970750b27c23dddb967303a461ac778a10a"
+    },
+    {
+      "pr": 144,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/144#issuecomment-6552293961",
+      "finding": "**note** `scripts/bundle-notices.mjs:49-58` hard-codes a lazy-val@1.0.5 exception inside the generic collector. A small allowlist map would keep the next exception out of the control flow.",
+      "status": "fixed",
+      "id": "144-2",
+      "resolution": "Declared-only licence exceptions moved to a version-specific allowlist.",
+      "delivery_head": "6c67d970750b27c23dddb967303a461ac778a10a"
+    },
+    {
+      "pr": 144,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/144#issuecomment-6552293961",
+      "finding": "**note** This covers main, preload and MCP, but the Vite renderer bundle (React, Radix, react-router) still has no notice file. Worth a follow-up if the goal is complete coverage.",
+      "status": "fixed",
+      "id": "144-3",
+      "resolution": "Vite module-derived notices now include React/Radix and ship inside dist/THIRD_PARTY_NOTICES.txt. Four real-build licence tests pass. Exact Radix upstream source URLs retained. Metadata-only cases are explicit, not fabricated licence text.",
+      "delivery_head": "6c67d970750b27c23dddb967303a461ac778a10a"
+    },
+    {
+      "pr": 143,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/143#issuecomment-6552293806",
+      "finding": "**fix** `src/components/ProjectBibleView.tsx:287-315,516-544` The creation draft key is only cleared on success or Clear, so recovering the entry another way doesn't release it. To reproduce: the \"Mara\" generation fails and leaves an empty entry. The user recovers Mara through Variation or Upload in her details. Later they type \"Bob\" in the composer and click Generate, and `updateBibleAsset` renames Mara (picture included) to Bob and adds Bob's picture to her. Frames do the same with `rules_json`. Only reuse the entry while it has no variants, or drop the key once a picture lands. Separately, the rename spreads a cached `asset` instead of the current row.",
+      "status": "fixed",
+      "id": "143-1",
+      "resolution": "Creation retries reuse only a current entry with no takes. Recovering through Variation or Upload releases the draft identity; character/location/frame regressions and a manual recovery/new-entry journey passed.",
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
+    },
+    {
+      "pr": 142,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/142#issuecomment-6552293678",
+      "finding": "**fix** `src/components/WorkspaceCommand.tsx:34-49` `disabled ? <span>{button}</span> : button` changes the element tree, so React unmounts the focused `<Button>` and mounts a new one every time `disabled` flips. Any ref passed in (the `DropdownMenuTrigger` one, `shotControlsToggle`) then points at a disabled node. To reproduce: a keyboard user picks Export > Media ZIP, `isExporting` disables the trigger, Radix can't return focus on close, and focus drops to `<body>`. Render the span every time, or keep a single `<Button>` with `aria-disabled` and a guarded `onClick`.",
+      "status": "fixed",
+      "id": "142-1",
+      "resolution": "One native aria-disabled trigger remains mounted across state changes, guards activation and preserves focus. Keyboard Export return focus was exercised manually.",
+      "delivery_head": "46aa68dc56391aefee8b67f97f30ab1024cfa363"
+    },
+    {
+      "pr": 141,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/141#issuecomment-6552293493",
+      "finding": "**fix** `src/components/NewStoryboardDialog.tsx:46-53` Discard closes the dialog but leaves `creating.current`/`isCreating` true until the abandoned save resolves. The dialog stays mounted at `ProjectPage` level, so it survives the view switch. To reproduce: Discard and go to the Bible, come back, and click New Storyboard while the save is still running (the PR's own QA held it for 15s). The dialog reopens with the input, Cancel and close all disabled, and Escape blocked, and it stays stuck for good if the native call hangs. Reset `creating.current = false` and `setIsCreating(false)` in the discard handler: the attempt counter already ignores the stale result.",
+      "status": "fixed",
+      "id": "141-1",
+      "resolution": "Discard resets creation state immediately. Attempt tokens prevent a stale completion clearing or navigating a newer creation. The pending-save/reopen/Escape flow was exercised manually.",
+      "delivery_head": "1a32063e85008b91d8ce5db6943cfbb7db048730"
+    },
+    {
+      "pr": 140,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/140#issuecomment-6552293306",
+      "finding": "**fix** `src/lib/menu-editor.ts:69,80,83` Nothing in production uses `menuShortcut`, `redoShortcut` or `fullscreenShortcut` any more, and only `integrated-menubar.test.tsx:188` still calls `menuShortcut`. That is the old second source of shortcut definitions, and the next person who edits a label may update the wrong one. Delete all three and that test.",
+      "status": "fixed",
+      "id": "140-1",
+      "resolution": "Removed unused shortcut helpers and their obsolete test; shared Settings accelerator and a macOS caption floor remain, with shadowed CSS removed.",
+      "delivery_head": "723f5d8f9a7ef3971cc30246c1a530f6f039bd72"
+    },
+    {
+      "pr": 140,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/140#issuecomment-6552293306",
+      "finding": "**note** `src/hooks/useTitlebarArea.ts:15` The inline style now always overrides the `env()`-based reservations in `src/application-menu.css:36-45`, so caption geometry is defined in two places, and darwin loses the old `max(88px, ...)` floor. On macOS, if the overlay rect doesn't account for the custom `trafficLightPosition` (untested there), the wordmark sits under the traffic lights. Keep a darwin floor in the hook and delete the CSS rules it shadows.",
+      "status": "fixed",
+      "id": "140-2",
+      "resolution": "Removed unused shortcut helpers and their obsolete test; shared Settings accelerator and a macOS caption floor remain, with shadowed CSS removed.",
+      "delivery_head": "723f5d8f9a7ef3971cc30246c1a530f6f039bd72"
+    },
+    {
+      "pr": 139,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/139#issuecomment-6552293140",
+      "finding": "**note** The own change is two whitespace-only lines in `src/lib/desktop-workspace.test.tsx:79` and `src/lib/project-documents.test.tsx:196`, but it leaves an empty line inside each object literal. Deleting the line (so the options read `{ name: \"...\" }`) would be the cleaner fix.",
+      "status": "fixed",
+      "id": "139-1",
+      "resolution": "The fixture cleanup is included in PR142; redundant PR139 is closed rather than merging its integration history.",
+      "delivery_head": "3c5fc0ffc2d5812b21844e3a7475af787f100a46"
+    },
+    {
+      "pr": 138,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/138#issuecomment-6552293012",
+      "finding": "**note** `electron/main.ts:100-107` `changed()` only fires on document switches, so after a rename the window title and represented filename keep the old name until reopen. Call `changed(current())` after a successful `update_project`.",
+      "status": "fixed",
+      "id": "138-1",
+      "resolution": "Committed renames notify the desktop metadata callback. A manual renderer rename and packaged native MCP rename passed.",
+      "delivery_head": "2fbdbcfc3030de7fba6248995d0b85381f79f4dd"
+    },
+    {
+      "pr": 137,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/137#issuecomment-6552292878",
+      "finding": "**note** `src/lib/frontend-font-assets.test.ts` runs a full production Vite build inside the normal Vitest suite and asserts exactly 6 woff2 URLs. A Fontsource update that changes the subset count would fail it even though fonts still bundle. Asserting \"at least one, and every referenced URL is emitted\" keeps the guarantee, and the test fits better with the distribution tests.",
+      "status": "fixed",
+      "id": "137-1",
+      "resolution": "The font check runs in distribution tests, requires at least one referenced font and verifies every referenced asset is emitted.",
+      "delivery_head": "ea2ff7a7e740ccee60a7a11fd3970cbffad9b9d9"
+    },
+    {
+      "pr": 136,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/136#issuecomment-6552292709",
+      "finding": "**fix** `electron/main.ts` There is no `app.requestSingleInstanceLock()` or `second-instance` handler (still missing with every fix PR combined). On Windows and Linux, double-clicking a `.showbiz` file or a recent item while Showbiz is running starts a second process. That process opens the legacy `showbiz.db` concurrently and starts a second MCP bridge, and if the file is already open it shows \"already open or its lock cannot be verified\". Take the single-instance lock, quit if it isn't acquired, and feed `projectFileArguments(argv)` from `second-instance` into `projectFiles.add`.",
+      "status": "fixed",
+      "id": "136-1",
+      "resolution": "Official Electron requestSingleInstanceLock/second-instance pattern routes subsequent arguments to current window before duplicate runtime startup. Relative paths use launcher cwd; restore/focus covered. Independent instances remain possible with separate profiles/device-storage directories.",
+      "delivery_head": "39a745ce04e2e2b39aa1006d1bbf4f37f3b72941"
+    },
+    {
+      "pr": 135,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/135#issuecomment-6552292530",
+      "finding": "**fix** `docs/architecture.md:172` still says the database lives at `{appDataDir}/data/showbiz.db`, with media under `{appDataDir}/media/`, in \"Eleven tables\". It doesn't mention `.showbiz` documents, `document_files`/`document_file_chunks` or `generation_usage`. Line 89 (\"stream source media directly from disk\") also describes the old model, and the transports table leaves out `openrouter` and `local`. README sends readers to this file for the schema, so it contradicts docs/project-documents.md and CLAUDE.md.",
+      "status": "fixed",
+      "id": "135-1",
+      "resolution": "Architecture now describes self-contained documents, embedded media, disposable caches, usage, OpenRouter/local transports and MCP. Removed the duplicate blank line and corrected ledger dispositions/references.",
+      "delivery_head": "0c07179764836445d93245fc38d0ed9735c2cbd3"
+    },
+    {
+      "pr": 135,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/135#issuecomment-6552292530",
+      "finding": "**note** `docs/project-documents.md:32` has a double blank line.",
+      "status": "fixed",
+      "id": "135-2",
+      "resolution": "Architecture now describes self-contained documents, embedded media, disposable caches, usage, OpenRouter/local transports and MCP. Removed the duplicate blank line and corrected ledger dispositions/references.",
+      "delivery_head": "0c07179764836445d93245fc38d0ed9735c2cbd3"
+    },
+    {
+      "pr": 132,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/132#issuecomment-6552292056",
+      "finding": "**fix** `electron/project-documents.ts:441` Classification used to deny by default (anything without a read prefix went through `persist`). It now allows by default: a command missing from `savingMutations` skips `persist`, so it skips `archive.sync()`, savepoint rollback and the read-only guard. Every current handler is listed, but nothing enforces it, so a new media-writing command that someone forgets to list won't be embedded or rolled back. Add a test that every key of `createDataCommands(...)` is either a read or in `savingMutations`.",
+      "status": "fixed",
+      "id": "132-1",
+      "resolution": "Unknown document handlers rejected before execution; shared explicit classification and every real createDataCommands key covered.",
+      "delivery_head": "8ab6735e08556099ff7fbc9d36eb34bcde714682"
+    },
+    {
+      "pr": 132,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/132#issuecomment-6552292056",
+      "finding": "**note** `electron/project-documents.ts:340` On Windows, `accessSync(W_OK)` only checks the read-only attribute, not ACLs, so a package in a protected folder is treated as writable and the open still fails on the lock.",
+      "status": "fixed",
+      "id": "132-2",
+      "resolution": "EACCES/EROFS/EPERM creating an adjacent lock falls back to readonly opening. Regression uses actual protected filesystem and stubs successful access probes to reproduce missed ACL checks. Native Windows ACLs not manually exercised.",
+      "delivery_head": "8ab6735e08556099ff7fbc9d36eb34bcde714682"
+    },
+    {
+      "pr": 132,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/132#issuecomment-6552292056",
+      "finding": "**note** `shared/project-document.ts:6` `read_only` is always set, so make it required rather than optional.",
+      "status": "fixed",
+      "id": "132-3",
+      "resolution": "read_only now required; one native command-test fixture updated. Strict type checks and readonly integration pass.",
+      "delivery_head": "8ab6735e08556099ff7fbc9d36eb34bcde714682"
+    },
+    {
+      "pr": 131,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/131#issuecomment-6552291898",
+      "finding": "**fix** `src/pages/StoryboardPage.tsx:923` `if (isLoading && !storyboard)` doesn't account for switching between storyboards. The route doesn't remount, so `storyboard` still holds the previous board: click storyboard B and board A stays on screen and editable under B's URL until B loads, or indefinitely if B fails. Clear `storyboard` when `id` changes, or check `storyboard?.id !== id`.",
+      "status": "fixed",
+      "id": "131-1",
+      "resolution": "Route identity gates the canvas and controls during loading and failed navigation. Delayed and failed storyboard switching was exercised manually.",
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
+    },
+    {
+      "pr": 130,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/130#issuecomment-6552291749",
+      "finding": "**fix** `docs/ux/app-icon.md:14` still says \"The check runs in tests and packaging\", which this PR makes untrue. It should say the check runs in Linux CI only, and that icons must be generated on Linux.",
+      "status": "fixed",
+      "id": "130-1",
+      "resolution": "Guide states Linux generation and Linux CI-only byte checks.",
+      "delivery_head": "448d4cadf39efa7e28527924a2932f44e4cd6283"
+    },
+    {
+      "pr": 130,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/130#issuecomment-6552291749",
+      "finding": "**note** The regex `runs-on: ubuntu-latest[\\s\\S]*?- run: yarn icons:check` in `scripts/generate-icons.test.mjs:125` would still match if the step moved into a later non-Linux job, so it doesn't really pin the check to Linux.",
+      "status": "fixed",
+      "id": "130-2",
+      "resolution": "YAML parsing inspects the actual jobs containing the icon check and requires ubuntu-latest; a later matrix/non-Linux job cannot satisfy it.",
+      "delivery_head": "448d4cadf39efa7e28527924a2932f44e4cd6283"
+    },
+    {
+      "pr": 129,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/129#issuecomment-6552291638",
+      "finding": "**fix** `electron/project-cache.ts:27` `JSON.parse` of a marker can throw inside the loop, and the catch wraps the whole sweep. A crash between `mkdtemp` and the marker write leaves an empty `.owner.json`. After that, every startup shows a warning, never deletes that folder, and stops before reaching any later `open-*` folder, so abandoned caches pile up again. Handle errors per entry and keep going.",
+      "status": "fixed",
+      "id": "129-1",
+      "resolution": "Cache sweep isolates and reports errors per entry. This process identity is cached; other owners remain independently verified. An atomic mkdir guard serializes abandoned-lock reclamation, with native permission codes preserved.",
+      "delivery_head": "d63586fc9953bfaa06dcbbdead01d602226efca1"
+    },
+    {
+      "pr": 129,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/129#issuecomment-6552291638",
+      "finding": "**fix** `electron/process-owner.ts:53-60` `createProcessOwner()` re-checks this process's own identity on every lock and every workspace. On Windows and macOS that runs `powershell.exe`/`ps` synchronously on the main process, with 3s/2s timeouts, so every New, Open or Save As on Windows freezes the UI for two PowerShell startups. Our own identity never changes: compute it once.",
+      "status": "fixed",
+      "id": "129-2",
+      "resolution": "Cache sweep isolates and reports errors per entry. This process identity is cached; other owners remain independently verified. An atomic mkdir guard serializes abandoned-lock reclamation, with native permission codes preserved.",
+      "delivery_head": "d63586fc9953bfaa06dcbbdead01d602226efca1"
+    },
+    {
+      "pr": 129,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/129#issuecomment-6552291638",
+      "finding": "**note** `electron/project-document-lock.ts:25-32` If two instances both see the same dead lock, both delete it: the second deletes the first one's fresh lock and writes its own. The loser's release then throws after `dispose` has already closed the DB. Rare, but the reclaim should be atomic (write a temp lock and rename it into place), and the lock should be released before the DB closes.",
+      "status": "qualified",
+      "id": "129-3",
+      "resolution": "The competing-reclaimer race is fixed with an atomic mkdir guard. The database intentionally closes before releasing ownership so another writer cannot enter while the old connection remains open. A temp-file rename alone would not provide compare-and-swap protection.",
+      "delivery_head": "d63586fc9953bfaa06dcbbdead01d602226efca1"
+    },
+    {
+      "pr": 128,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/128#issuecomment-6552291489",
+      "finding": "**fix** `electron/mcp/contract.ts:5` (`socket: z.string()`) with `sessions.ts:71-77` `list_sessions` now connects to every descriptor's `socket` path automatically and sends the bearer secret. Before this PR, that only happened on an explicit attach. On Windows the owner/mode check (`sessions.ts:40`) doesn't apply. Anything that can write into `SHOWBIZ_MCP_DIR` can plant a descriptor pointing at a UNC pipe (`\\\\host\\pipe\\x`), and every listing would then connect out over SMB and could leak NTLM credentials. Validate the path when parsing: `\\\\.\\pipe\\showbiz-${id}` on win32, and the `tmpdir()/showbiz-mcp-XXXXXX/app.sock` shape that `removeStaleSocket` already expects on POSIX.",
+      "status": "fixed",
+      "id": "128-1",
+      "resolution": "Descriptor schema validates exact local Windows pipe ID or private Showbiz POSIX temporary socket namespace before discovery probing.",
+      "delivery_head": "7804712cfcd0c323a564c4d58dc2504a0bf8a7a6"
+    },
+    {
+      "pr": 128,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/128#issuecomment-6552291489",
+      "finding": "**note** `sessions.ts:96-108` Echoing id/pid defeats PID reuse, but it doesn't prove who the server is, since both values come from the descriptor. That protection still comes from the 0700 socket directory. The \"authenticated instance-health\" wording could say so.",
+      "status": "fixed",
+      "id": "128-2",
+      "resolution": "MCP guide separates ID/PID freshness from private-socket directory and bearer-secret access protection.",
+      "delivery_head": "7804712cfcd0c323a564c4d58dc2504a0bf8a7a6"
+    },
+    {
+      "pr": 128,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/128#issuecomment-6552291489",
+      "finding": "**note** `sessions.ts:130-155` `removeStaleSocket` has no test, because the liveness test socket sits outside `tmpdir()`. If the adapter runs with a different `TMPDIR` from the app, cleanup is skipped silently.",
+      "status": "fixed",
+      "id": "128-3",
+      "resolution": "Stale liveness test uses an actual private tmpdir/showbiz-mcp-XXXXXX/app.sock path and asserts folder removal; guide explicitly requires shared TMPDIR and rejects foreign namespaces.",
+      "delivery_head": "7804712cfcd0c323a564c4d58dc2504a0bf8a7a6"
+    },
+    {
+      "pr": 126,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/126#issuecomment-6552291158",
+      "finding": "**fix** `electron/commands/generation-billing.ts:25-28,157` The `retryAfter` cooldown map stores the raw FAL/OpenRouter API key (`key: credentials.get(row.provider)`) for up to 500 entries, for as long as the main process runs. That breaks the \"keys fetched per call and discarded\" rule (CLAUDE.md, docs/architecture.md), and the keys would show up in any heap snapshot, crash dump or future debug log of the map. Store a hash of the key (e.g. SHA-256) and compare that instead.",
+      "status": "fixed",
+      "id": "126-1",
+      "resolution": "Cooldown entries retain SHA-256 credential fingerprints. API keys remain local to the active reconciliation call. Security regression inspects retained entry allocations; existing key-change/cooldown behavior remains tested.",
+      "delivery_head": "61bf140a806db54058811555d62453879350b452"
+    },
+    {
+      "pr": 126,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/126#issuecomment-6552291158",
+      "finding": "**note** `src/lib/generation-accounting.ts:125-139` Background sync notes now appear as accounting warnings in the cost panel (they used to go to `console.warn`). FAL billing lags behind completion, so nearly every FAL generation will show \"did not return a billing event...\" and real storage warnings get lost in the noise. Show only failures, not \"not reported yet\".",
+      "status": "fixed",
+      "id": "126-2",
+      "resolution": "Native notes classify ordinary pending receipts separately from failures; pending notes remain in ledger details but are not promoted to accounting warnings.",
+      "delivery_head": "61bf140a806db54058811555d62453879350b452"
+    },
+    {
+      "pr": 126,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/126#issuecomment-6552291158",
+      "finding": "**note** `src/pages/UsagePage.tsx:137` `usage-refresh-error` has no CSS rule, so the inline refresh error renders unstyled.",
+      "status": "fixed",
+      "id": "126-3",
+      "resolution": "Scoped native ledger error styling added and manually exercised with preserved request rows.",
+      "delivery_head": "61bf140a806db54058811555d62453879350b452"
+    },
+    {
+      "pr": 125,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/125#issuecomment-6552291011",
+      "finding": "**fix** `electron/commands/projects.ts:219` (`update_storyboard_models`, also exposed to MCP at `electron/mcp/tools.ts:96`) and `electron/commands/storyboard-settings.ts:6` (`update_storyboard_settings`) still only check the shape of the model IDs. An agent can set a storyboard default to `retired-model`, or put a video ID in the image slot. It gets saved, then fails late at the provider for every shot that has no override, which is the #102 bug again at the storyboard level. It also makes the new CLAUDE.md line in #135 (\"native mutations validate availability and image/video kind\") untrue. Pass `readGenerationModels` into these two commands and add a test. This is still unfixed when every fix PR is combined.",
+      "status": "fixed",
+      "id": "125-1",
+      "resolution": "Both native storyboard default setters share installed/enabled/kind catalog validation; unchanged-board integration regressions.",
+      "delivery_head": "57bc2897cd79af52d883a71ea208527684abce0b"
+    },
+    {
+      "pr": 123,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/123#issuecomment-6552290685",
+      "finding": "**note** `src/lib/generation-accounting.ts:132` Nothing reads the returned `warnings`. `accountModelGeneration` returns a plain `Result<T>` (`src/lib/model-generation-accounting.ts:23`), so the warning reaches the UI only through the `showbiz:usage-changed` event. If the user leaves the shot's cost panel mid-generation, that event fires with no listener and the warning is lost. Either pass `warnings` through or drop the field.",
+      "status": "fixed",
+      "id": "123-1",
+      "resolution": "Bounded project/subject/family notices survive panel unmount in the current app session, warnings type is preserved, history errors remain visible, and the thrown receipt-write path is covered.",
+      "delivery_head": "a504f307e483e42e239f306ae1445d75b10650c6"
+    },
+    {
+      "pr": 123,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/123#issuecomment-6552290685",
+      "finding": "**note** `src/hooks/useGenerationCost.ts:93` `accountingWarning ?? error` hides a failed usage-history load while a warning is showing.",
+      "status": "fixed",
+      "id": "123-2",
+      "resolution": "Bounded project/subject/family notices survive panel unmount in the current app session, warnings type is preserved, history errors remain visible, and the thrown receipt-write path is covered.",
+      "delivery_head": "a504f307e483e42e239f306ae1445d75b10650c6"
+    },
+    {
+      "pr": 123,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/123#issuecomment-6552290685",
+      "finding": "**note** Only the `!ok` receipt-write path is tested. A receipt write that throws (`:82`) has no test.",
+      "status": "fixed",
+      "id": "123-3",
+      "resolution": "Bounded project/subject/family notices survive panel unmount in the current app session, warnings type is preserved, history errors remain visible, and the thrown receipt-write path is covered.",
+      "delivery_head": "a504f307e483e42e239f306ae1445d75b10650c6"
+    },
+    {
+      "pr": 122,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/122#issuecomment-6552290548",
+      "finding": "**fix** `electron/project-documents.ts:182-184,209-210` The media archive that gets restored and synced is a throwaway one built for the temp DB. The active document gets a fresh `createDocumentMedia` from `prepare()`, and its `stamps` map starts empty (`project-document-media.ts:17`). Before this PR, Save As and conversion used the document's own archive. Result: the first edit after New Project, Save As or library conversion deletes and rewrites every embedded media blob on the main thread, which means a long freeze and a full file rewrite on a multi-GB project. Pass the populated archive (or its stamps) into `prepare`.",
+      "status": "fixed",
+      "id": "122-1",
+      "resolution": "The populated archive is rebound to the reopened database with its fingerprints. Tests and a separate runtime API demo prove first edits after conversion/Save As do not rewrite unchanged media.",
+      "delivery_head": "254466c439b8083381b27ca9c4c076a97dad3f82"
+    },
+    {
+      "pr": 120,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/120#issuecomment-6552290199",
+      "finding": "**note** `electron/mcp/session.ts:174-184,207-210` Only successful results are cached for replay. If an export fails after the agent's wait already hit `TIMEOUT`, the agent retries with the same request ID as `docs/mcp.md` tells it to, a second save dialog opens, and the first error is never seen. Either cache terminal failures for the active ID or soften the docs.",
+      "status": "fixed",
+      "id": "120-1",
+      "resolution": "Terminal Result and thrown export failures cached under request ID; regression confirms one dispatch through PENDING and replay.",
+      "delivery_head": "97b009715524ee56d59171a072d86d1468d0a40c"
+    },
+    {
+      "pr": 120,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/120#issuecomment-6552290199",
+      "finding": "**note** `electron/mcp/sessions.ts:147` The `TIMEOUT` message tells reads to \"retry with the same request ID\", but reads don't have one.",
+      "status": "fixed",
+      "id": "120-2",
+      "resolution": "Timeout/cancel guidance branches on request_id presence; actual Unix bridge read timeout test rejects request-ID guidance.",
+      "delivery_head": "97b009715524ee56d59171a072d86d1468d0a40c"
+    },
+    {
+      "pr": 119,
+      "comment_url": "https://github.com/alexanderwanyoike/showbiz/pull/119#issuecomment-6552290060",
+      "finding": "**note** `electron/project-documents.ts:140-147` The \"referenced media could not be included\" check after sync can no longer trigger, because `sync()` either embeds every referenced file or throws ENOENT first. It is dead code that runs seven extra path queries on every mutation. Delete it.",
+      "status": "fixed",
+      "id": "119-1",
+      "resolution": "Removed unreachable post-sync validation. Archive sync owns reference validation and existing missing-file/rollback tests remain.",
+      "delivery_head": "21105f32751f3f7d40f0d48277ac8d7775840017"
+    }
+  ],
+  "prior_ledger_corrections": [
+    35,
+    85,
+    93,
+    11,
+    36,
+    42,
+    43,
+    47,
+    70,
+    90,
+    92,
+    97,
+    104,
+    109,
+    128
+  ],
+  "qualifications": [
+    "Published commit histories are retained; no amend, rebase or force push. Historical phase/grouping criticism cannot be repaired retroactively.",
+    "PR139 is superseded by142 and closed. Dependencies remain explicit; no PR was merged into dev.",
+    "Legacy conversion still rejects missing referenced media instead of silently dropping takes. The original library remains untouched.",
+    "FAL historical per-request averages are not settings-specific unit calculations. Billable quantities are not inferred from ambiguous unit labels.",
+    "A crash during short-lived lock reclamation can leave a guard. Close all instances before removing the named guard.",
+    "MCP discovery requires the same temporary namespace; native Windows ACL and macOS window behavior were not manually verified.",
+    "Metadata-only licence exceptions are explicit; complete legal text is not invented for packages that do not publish it."
+  ],
+  "verification": {
+    "vitest": 1473,
+    "icon": 7,
+    "distribution": 45,
+    "strict_types": "passed",
+    "frontend_build": "passed",
+    "electron_build": "passed",
+    "linux_appimage_deb": "passed",
+    "packaged_first_and_second_project_uri": "passed",
+    "duplicate_process_exit": 0,
+    "native_mcp_sessions": 1,
+    "native_rename_revision": 3,
+    "electron_will_quit_private_log": "passed mode0600; device DB closed",
+    "installed_notices": "React/Radix renderer and full Undici native",
+    "production_qa_controls": "absent",
+    "user_preview_ledger_rows": 0,
+    "paid_generation": "not exercised",
+    "real_local_inference_hardware": "not exercised",
+    "native_windows_macos": "not exercised"
+  }
+}

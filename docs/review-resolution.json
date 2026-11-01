@@ -14,7 +14,8 @@
       "pull_requests": [
         135
       ],
-      "row_index": 0
+      "row_index": 0,
+      "delivery_head": "0c07179764836445d93245fc38d0ed9735c2cbd3"
     },
     {
       "pr": 99,
@@ -29,7 +30,8 @@
       "pull_requests": [
         134
       ],
-      "row_index": 1
+      "row_index": 1,
+      "delivery_head": "475678edec0e775e9108b3a75a0ecc5404064e3e"
     },
     {
       "pr": 99,
@@ -44,7 +46,8 @@
       "pull_requests": [
         134
       ],
-      "row_index": 2
+      "row_index": 2,
+      "delivery_head": "475678edec0e775e9108b3a75a0ecc5404064e3e"
     },
     {
       "pr": 100,
@@ -59,7 +62,8 @@
       "pull_requests": [
         119
       ],
-      "row_index": 3
+      "row_index": 3,
+      "delivery_head": "21105f32751f3f7d40f0d48277ac8d7775840017"
     },
     {
       "pr": 100,
@@ -74,7 +78,8 @@
       "pull_requests": [
         122
       ],
-      "row_index": 4
+      "row_index": 4,
+      "delivery_head": "254466c439b8083381b27ca9c4c076a97dad3f82"
     },
     {
       "pr": 100,
@@ -89,7 +94,8 @@
       "pull_requests": [
         129
       ],
-      "row_index": 5
+      "row_index": 5,
+      "delivery_head": "d63586fc9953bfaa06dcbbdead01d602226efca1"
     },
     {
       "pr": 100,
@@ -106,7 +112,8 @@
         129,
         132
       ],
-      "row_index": 6
+      "row_index": 6,
+      "delivery_head": "d63586fc9953bfaa06dcbbdead01d602226efca1"
     },
     {
       "pr": 100,
@@ -121,7 +128,8 @@
       "pull_requests": [
         127
       ],
-      "row_index": 7
+      "row_index": 7,
+      "delivery_head": "324cc7aee73227cc9ecdd3adfcca5994666235bb"
     },
     {
       "pr": 100,
@@ -136,7 +144,8 @@
       "pull_requests": [
         145
       ],
-      "row_index": 8
+      "row_index": 8,
+      "delivery_head": "0b2a1a5cca7c886dafa4f203e9e3e972b8adfca9"
     },
     {
       "pr": 100,
@@ -151,7 +160,8 @@
       "pull_requests": [
         135
       ],
-      "row_index": 9
+      "row_index": 9,
+      "delivery_head": "0c07179764836445d93245fc38d0ed9735c2cbd3"
     },
     {
       "pr": 100,
@@ -167,7 +177,8 @@
         132,
         121
       ],
-      "row_index": 10
+      "row_index": 10,
+      "delivery_head": "8ab6735e08556099ff7fbc9d36eb34bcde714682"
     },
     {
       "pr": 100,
@@ -197,7 +208,8 @@
       "pull_requests": [
         136
       ],
-      "row_index": 12
+      "row_index": 12,
+      "delivery_head": "39a745ce04e2e2b39aa1006d1bbf4f37f3b72941"
     },
     {
       "pr": 100,
@@ -213,7 +225,8 @@
         114,
         118
       ],
-      "row_index": 13
+      "row_index": 13,
+      "delivery_head": "bb0bc869ebada9efd4ee99fcc079457584c90904"
     },
     {
       "pr": 100,
@@ -228,7 +241,8 @@
       "pull_requests": [
         135
       ],
-      "row_index": 14
+      "row_index": 14,
+      "delivery_head": "0c07179764836445d93245fc38d0ed9735c2cbd3"
     },
     {
       "pr": 100,
@@ -247,7 +261,8 @@
       "pull_requests": [
         138
       ],
-      "row_index": 15
+      "row_index": 15,
+      "delivery_head": "2fbdbcfc3030de7fba6248995d0b85381f79f4dd"
     },
     {
       "pr": 100,
@@ -273,7 +288,8 @@
       "pull_requests": [
         120
       ],
-      "row_index": 17
+      "row_index": 17,
+      "delivery_head": "97b009715524ee56d59171a072d86d1468d0a40c"
     },
     {
       "pr": 101,
@@ -288,7 +304,8 @@
       "pull_requests": [
         120
       ],
-      "row_index": 18
+      "row_index": 18,
+      "delivery_head": "97b009715524ee56d59171a072d86d1468d0a40c"
     },
     {
       "pr": 101,
@@ -304,7 +321,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 19
+      "row_index": 19,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 101,
@@ -319,7 +337,8 @@
       "pull_requests": [
         121
       ],
-      "row_index": 20
+      "row_index": 20,
+      "delivery_head": "06d62a365d9aee86734eac5d622ad93ed215323e"
     },
     {
       "pr": 101,
@@ -334,7 +353,8 @@
       "pull_requests": [
         121
       ],
-      "row_index": 21
+      "row_index": 21,
+      "delivery_head": "06d62a365d9aee86734eac5d622ad93ed215323e"
     },
     {
       "pr": 101,
@@ -349,7 +369,8 @@
       "pull_requests": [
         121
       ],
-      "row_index": 22
+      "row_index": 22,
+      "delivery_head": "06d62a365d9aee86734eac5d622ad93ed215323e"
     },
     {
       "pr": 101,
@@ -364,7 +385,8 @@
       "pull_requests": [
         121
       ],
-      "row_index": 23
+      "row_index": 23,
+      "delivery_head": "06d62a365d9aee86734eac5d622ad93ed215323e"
     },
     {
       "pr": 101,
@@ -379,7 +401,8 @@
       "pull_requests": [
         128
       ],
-      "row_index": 24
+      "row_index": 24,
+      "delivery_head": "7804712cfcd0c323a564c4d58dc2504a0bf8a7a6"
     },
     {
       "pr": 101,
@@ -394,7 +417,8 @@
       "pull_requests": [
         128
       ],
-      "row_index": 25
+      "row_index": 25,
+      "delivery_head": "7804712cfcd0c323a564c4d58dc2504a0bf8a7a6"
     },
     {
       "pr": 101,
@@ -409,7 +433,8 @@
       "pull_requests": [
         120
       ],
-      "row_index": 26
+      "row_index": 26,
+      "delivery_head": "97b009715524ee56d59171a072d86d1468d0a40c"
     },
     {
       "pr": 101,
@@ -435,7 +460,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 28
+      "row_index": 28,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 102,
@@ -451,7 +477,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 29
+      "row_index": 29,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 102,
@@ -467,7 +494,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 30
+      "row_index": 30,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 102,
@@ -482,7 +510,8 @@
       "pull_requests": [
         125
       ],
-      "row_index": 31
+      "row_index": 31,
+      "delivery_head": "57bc2897cd79af52d883a71ea208527684abce0b"
     },
     {
       "pr": 102,
@@ -508,7 +537,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 33
+      "row_index": 33,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 102,
@@ -525,14 +555,15 @@
       "pr": 102,
       "section": "Nits",
       "finding": "`src/pages/StoryboardPage.tsx:944-946`: these lines are misindented. `image_model`/`video_model` are passed into `ShotInspector`'s `shot`, but the inspector never declares or reads them, so they are dead.",
-      "status": "resolved-earlier",
+      "status": "fixed",
       "owner": "ui",
-      "resolution": "Current StoryboardPage no longer passes unused image_model/video_model fields in the inspector shot object.",
+      "resolution": "Removed unused image_model/video_model fields from the inspector shot object and retained target-shot model resolution.",
       "commits": [],
       "pull_requests": [
         131
       ],
-      "row_index": 35
+      "row_index": 35,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 102,
@@ -562,7 +593,8 @@
       "pull_requests": [
         124
       ],
-      "row_index": 37
+      "row_index": 37,
+      "delivery_head": "ae4f38984868aec86a99d2b0990d1032e727e4e9"
     },
     {
       "pr": 103,
@@ -585,7 +617,8 @@
         "depends": "#146",
         "scope": "Unconfirmed outcome explanation",
         "pr": 149
-      }
+      },
+      "delivery_head": "cc2baacd4ca268334fb0d3ead1ba98ed5857efe5"
     },
     {
       "pr": 103,
@@ -608,7 +641,8 @@
         "pr": 146,
         "depends": "#133 and f",
         "scope": "Immutable quote provenance"
-      }
+      },
+      "delivery_head": "f9ed7bbe7bff32300cd3f83e4ed31773f9fc8a75"
     },
     {
       "pr": 103,
@@ -623,7 +657,8 @@
       "pull_requests": [
         133
       ],
-      "row_index": 40
+      "row_index": 40,
+      "delivery_head": "13c370d526717c90b9e07786e2295fb2ea481267"
     },
     {
       "pr": 103,
@@ -638,7 +673,8 @@
       "pull_requests": [
         124
       ],
-      "row_index": 41
+      "row_index": 41,
+      "delivery_head": "ae4f38984868aec86a99d2b0990d1032e727e4e9"
     },
     {
       "pr": 103,
@@ -666,7 +702,8 @@
       "pull_requests": [
         126
       ],
-      "row_index": 43
+      "row_index": 43,
+      "delivery_head": "61bf140a806db54058811555d62453879350b452"
     },
     {
       "pr": 104,
@@ -692,7 +729,8 @@
         "depends": "e; #144 notice integration at publication",
         "scope": "Provider errors, polling and receipts",
         "pr": 148
-      }
+      },
+      "delivery_head": "88932458e45289f4fe4f6563d029b238ffdd6a73"
     },
     {
       "pr": 104,
@@ -709,7 +747,8 @@
         135,
         125
       ],
-      "row_index": 45
+      "row_index": 45,
+      "delivery_head": "0c07179764836445d93245fc38d0ed9735c2cbd3"
     },
     {
       "pr": 104,
@@ -735,7 +774,8 @@
       "pull_requests": [
         142
       ],
-      "row_index": 47
+      "row_index": 47,
+      "delivery_head": "46aa68dc56391aefee8b67f97f30ab1024cfa363"
     },
     {
       "pr": 104,
@@ -759,7 +799,8 @@
         "depends": "e; #144 notice integration at publication",
         "scope": "Provider errors, polling and receipts",
         "pr": 148
-      }
+      },
+      "delivery_head": "88932458e45289f4fe4f6563d029b238ffdd6a73"
     },
     {
       "pr": 105,
@@ -782,7 +823,8 @@
         "depends": "e; #144 notice integration at publication",
         "scope": "Provider errors, polling and receipts",
         "pr": 148
-      }
+      },
+      "delivery_head": "88932458e45289f4fe4f6563d029b238ffdd6a73"
     },
     {
       "pr": 105,
@@ -805,7 +847,8 @@
         "depends": "e; #144 notice integration at publication",
         "scope": "Provider errors, polling and receipts",
         "pr": 148
-      }
+      },
+      "delivery_head": "88932458e45289f4fe4f6563d029b238ffdd6a73"
     },
     {
       "pr": 105,
@@ -838,7 +881,8 @@
         "depends": "e; #144 notice integration at publication",
         "scope": "Provider errors, polling and receipts",
         "pr": 148
-      }
+      },
+      "delivery_head": "88932458e45289f4fe4f6563d029b238ffdd6a73"
     },
     {
       "pr": 105,
@@ -862,7 +906,8 @@
       "pull_requests": [
         110
       ],
-      "row_index": 54
+      "row_index": 54,
+      "delivery_head": "4d26ecc6ab9af34087dcf01d998ce1ef071d5aff"
     },
     {
       "pr": 105,
@@ -907,7 +952,8 @@
         "depends": "d",
         "scope": "Local inference transport",
         "pr": 147
-      }
+      },
+      "delivery_head": "e2abd3b27e1afa2e85df78a02dbbadd4c8e1f653"
     },
     {
       "pr": 106,
@@ -923,7 +969,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 57
+      "row_index": 57,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 106,
@@ -957,7 +1004,8 @@
         "depends": "d",
         "scope": "Local inference transport",
         "pr": 147
-      }
+      },
+      "delivery_head": "e2abd3b27e1afa2e85df78a02dbbadd4c8e1f653"
     },
     {
       "pr": 106,
@@ -991,7 +1039,8 @@
         "depends": "d",
         "scope": "Local inference transport",
         "pr": 147
-      }
+      },
+      "delivery_head": "e2abd3b27e1afa2e85df78a02dbbadd4c8e1f653"
     },
     {
       "pr": 106,
@@ -1025,7 +1074,8 @@
         "depends": "d",
         "scope": "Local inference transport",
         "pr": 147
-      }
+      },
+      "delivery_head": "e2abd3b27e1afa2e85df78a02dbbadd4c8e1f653"
     },
     {
       "pr": 106,
@@ -1059,7 +1109,8 @@
         "depends": "d",
         "scope": "Local inference transport",
         "pr": 147
-      }
+      },
+      "delivery_head": "e2abd3b27e1afa2e85df78a02dbbadd4c8e1f653"
     },
     {
       "pr": 106,
@@ -1093,7 +1144,8 @@
         "depends": "d",
         "scope": "Local inference transport",
         "pr": 147
-      }
+      },
+      "delivery_head": "e2abd3b27e1afa2e85df78a02dbbadd4c8e1f653"
     },
     {
       "pr": 106,
@@ -1106,7 +1158,8 @@
       "pull_requests": [
         111
       ],
-      "row_index": 63
+      "row_index": 63,
+      "delivery_head": "352d221781a59f2811d1457351818c57014bea41"
     },
     {
       "pr": 107,
@@ -1137,7 +1190,8 @@
         "depends": "#126",
         "scope": "Setting-specific manual rates",
         "pr": 150
-      }
+      },
+      "delivery_head": "02f287eab68910c92f612c687fa9158f7ffa8995"
     },
     {
       "pr": 107,
@@ -1168,7 +1222,8 @@
         "depends": "#126",
         "scope": "Setting-specific manual rates",
         "pr": 150
-      }
+      },
+      "delivery_head": "02f287eab68910c92f612c687fa9158f7ffa8995"
     },
     {
       "pr": 107,
@@ -1191,7 +1246,8 @@
       "pull_requests": [
         123
       ],
-      "row_index": 66
+      "row_index": 66,
+      "delivery_head": "a504f307e483e42e239f306ae1445d75b10650c6"
     },
     {
       "pr": 107,
@@ -1215,7 +1271,8 @@
         "depends": "#150",
         "scope": "Provider price cache/provenance",
         "pr": 151
-      }
+      },
+      "delivery_head": "3b7af54cf1360ec2c139ff1aafe1943eda17b7a5"
     },
     {
       "pr": 107,
@@ -1237,7 +1294,8 @@
         "depends": "e; #144 notice integration at publication",
         "scope": "Provider errors, polling and receipts",
         "pr": 148
-      }
+      },
+      "delivery_head": "88932458e45289f4fe4f6563d029b238ffdd6a73"
     },
     {
       "pr": 107,
@@ -1259,7 +1317,8 @@
         "depends": "e; #144 notice integration at publication",
         "scope": "Provider errors, polling and receipts",
         "pr": 148
-      }
+      },
+      "delivery_head": "88932458e45289f4fe4f6563d029b238ffdd6a73"
     },
     {
       "pr": 107,
@@ -1276,7 +1335,8 @@
         124,
         143
       ],
-      "row_index": 70
+      "row_index": 70,
+      "delivery_head": "ae4f38984868aec86a99d2b0990d1032e727e4e9"
     },
     {
       "pr": 107,
@@ -1292,7 +1352,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 71
+      "row_index": 71,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 108,
@@ -1307,7 +1368,8 @@
       "pull_requests": [
         125
       ],
-      "row_index": 72
+      "row_index": 72,
+      "delivery_head": "57bc2897cd79af52d883a71ea208527684abce0b"
     },
     {
       "pr": 108,
@@ -1322,7 +1384,8 @@
       "pull_requests": [
         125
       ],
-      "row_index": 73
+      "row_index": 73,
+      "delivery_head": "57bc2897cd79af52d883a71ea208527684abce0b"
     },
     {
       "pr": 108,
@@ -1337,7 +1400,8 @@
       "pull_requests": [
         125
       ],
-      "row_index": 74
+      "row_index": 74,
+      "delivery_head": "57bc2897cd79af52d883a71ea208527684abce0b"
     },
     {
       "pr": 109,
@@ -1353,7 +1417,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 75
+      "row_index": 75,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 109,
@@ -1369,7 +1434,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 76
+      "row_index": 76,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 109,
@@ -1384,7 +1450,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 77
+      "row_index": 77,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 109,
@@ -1397,7 +1464,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 78
+      "row_index": 78,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 109,
@@ -1413,7 +1481,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 79
+      "row_index": 79,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 109,
@@ -1429,7 +1498,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 80
+      "row_index": 80,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 109,
@@ -1455,7 +1525,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 82
+      "row_index": 82,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 110,
@@ -1473,7 +1544,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 83
+      "row_index": 83,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 110,
@@ -1492,7 +1564,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 84
+      "row_index": 84,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 110,
@@ -1500,14 +1573,15 @@
       "finding": "**fix** `src/pages/ProjectPage.tsx:148`, `src/components/ProjectBibleView.tsx:128-130`: ProjectPage is the only caller and always passes the model, so the optional `generationModel` prop, the `localImageModel` fallback state and the ternary are dead. Make the prop required. That also removes a third hard-coded `\"nano-banana\"` default (others: `src/contexts/ProjectDocumentContext.tsx:30,43`). Hoist it to one constant.",
       "status": "fixed",
       "owner": "ui",
-      "resolution": "Preserved intentional standalone and document-controlled APIs; both use a shared Bible default. Existing model-session/local tests cover these production modes.",
+      "resolution": "Bible generationModel is required and controlled by its production owner. Removed the local fallback and reused DEFAULT_BIBLE_IMAGE_MODEL in generation actions and the document context.",
       "commits": [
         "44d97cb"
       ],
       "pull_requests": [
         143
       ],
-      "row_index": 85
+      "row_index": 85,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 110,
@@ -1534,7 +1608,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 87
+      "row_index": 87,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 110,
@@ -1550,7 +1625,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 88
+      "row_index": 88,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 110,
@@ -1591,7 +1667,8 @@
       "pull_requests": [
         126
       ],
-      "row_index": 90
+      "row_index": 90,
+      "delivery_head": "61bf140a806db54058811555d62453879350b452"
     },
     {
       "pr": 111,
@@ -1623,7 +1700,8 @@
         "depends": "#150",
         "scope": "Provider price cache/provenance",
         "pr": 151
-      }
+      },
+      "delivery_head": "3b7af54cf1360ec2c139ff1aafe1943eda17b7a5"
     },
     {
       "pr": 111,
@@ -1653,15 +1731,16 @@
       "pull_requests": [
         126
       ],
-      "row_index": 92
+      "row_index": 92,
+      "delivery_head": "61bf140a806db54058811555d62453879350b452"
     },
     {
       "pr": 111,
       "section": "Bugs",
       "finding": "**note** `src/lib/fal-pricing.ts:66-86`: a `historical_api_price` with `total_cost: 0` passes `nonnegative()` and becomes a ~$0.00 estimate. An endpoint the account has never used would show as free, against \"never treat unknown as free\".",
-      "status": "qualified",
+      "status": "fixed",
       "owner": "billing",
-      "resolution": "Official FAL docs do not define zero as no-history. Retain the provider zero as an estimate and explicitly warn it does not establish free future requests.",
+      "resolution": "FAL historical zero is an unavailable next-request quote, omitted from new unconfirmed estimates. Explicit manual zero rates and actual zero monetary receipts remain valid.",
       "commits": [
         "c2ee985",
         "618de73",
@@ -1677,7 +1756,8 @@
         "depends": "#150",
         "scope": "Provider price cache/provenance",
         "pr": 151
-      }
+      },
+      "delivery_head": "3b7af54cf1360ec2c139ff1aafe1943eda17b7a5"
     },
     {
       "pr": 111,
@@ -1731,7 +1811,8 @@
         "depends": "#150",
         "scope": "Provider price cache/provenance",
         "pr": 151
-      }
+      },
+      "delivery_head": "3b7af54cf1360ec2c139ff1aafe1943eda17b7a5"
     },
     {
       "pr": 111,
@@ -1747,7 +1828,8 @@
       "pull_requests": [
         125
       ],
-      "row_index": 96
+      "row_index": 96,
+      "delivery_head": "57bc2897cd79af52d883a71ea208527684abce0b"
     },
     {
       "pr": 111,
@@ -1777,7 +1859,8 @@
       "pull_requests": [
         126
       ],
-      "row_index": 97
+      "row_index": 97,
+      "delivery_head": "61bf140a806db54058811555d62453879350b452"
     },
     {
       "pr": 111,
@@ -1809,7 +1892,8 @@
         "depends": "#150",
         "scope": "Provider price cache/provenance",
         "pr": 151
-      }
+      },
+      "delivery_head": "3b7af54cf1360ec2c139ff1aafe1943eda17b7a5"
     },
     {
       "pr": 111,
@@ -1840,7 +1924,8 @@
         "pr": 142,
         "head": "e136a72",
         "verification": "43 impacted tests and strict types pass after131 merge; root combined1421 tests pass"
-      }
+      },
+      "delivery_head": "46aa68dc56391aefee8b67f97f30ab1024cfa363"
     },
     {
       "pr": 112,
@@ -1853,7 +1938,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 101
+      "row_index": 101,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 112,
@@ -1871,7 +1957,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 102
+      "row_index": 102,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 112,
@@ -1899,7 +1986,8 @@
         131,
         143
       ],
-      "row_index": 104
+      "row_index": 104,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 112,
@@ -1930,7 +2018,8 @@
         "pr": 142,
         "head": "e136a72",
         "verification": "43 impacted tests and strict types pass after131 merge; root combined1421 tests pass"
-      }
+      },
+      "delivery_head": "46aa68dc56391aefee8b67f97f30ab1024cfa363"
     },
     {
       "pr": 112,
@@ -1946,7 +2035,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 107
+      "row_index": 107,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 112,
@@ -1961,7 +2051,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 108
+      "row_index": 108,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 112,
@@ -1976,7 +2067,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 109
+      "row_index": 109,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 113,
@@ -1991,7 +2083,8 @@
       "pull_requests": [
         141
       ],
-      "row_index": 110
+      "row_index": 110,
+      "delivery_head": "1a32063e85008b91d8ce5db6943cfbb7db048730"
     },
     {
       "pr": 113,
@@ -2011,7 +2104,8 @@
         "pr": 142,
         "head": "e136a72",
         "verification": "43 impacted tests and strict types pass after131 merge; root combined1421 tests pass"
-      }
+      },
+      "delivery_head": "46aa68dc56391aefee8b67f97f30ab1024cfa363"
     },
     {
       "pr": 113,
@@ -2026,7 +2120,8 @@
       "pull_requests": [
         141
       ],
-      "row_index": 112
+      "row_index": 112,
+      "delivery_head": "1a32063e85008b91d8ce5db6943cfbb7db048730"
     },
     {
       "pr": 113,
@@ -2057,7 +2152,8 @@
       "pull_requests": [
         131
       ],
-      "row_index": 114
+      "row_index": 114,
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 113,
@@ -2079,7 +2175,8 @@
         "pr": 142,
         "head": "e136a72",
         "verification": "43 impacted tests and strict types pass after131 merge; root combined1421 tests pass"
-      }
+      },
+      "delivery_head": "123620eabfbf9602592aecdcdc872b3c4f9fce0b"
     },
     {
       "pr": 114,
@@ -2094,7 +2191,8 @@
       "pull_requests": [
         118
       ],
-      "row_index": 116
+      "row_index": 116,
+      "delivery_head": "785e1b4b0a0e74771599dcb87bf6093587eb58c0"
     },
     {
       "pr": 114,
@@ -2109,7 +2207,8 @@
       "pull_requests": [
         140
       ],
-      "row_index": 117
+      "row_index": 117,
+      "delivery_head": "723f5d8f9a7ef3971cc30246c1a530f6f039bd72"
     },
     {
       "pr": 114,
@@ -2124,7 +2223,8 @@
       "pull_requests": [
         140
       ],
-      "row_index": 118
+      "row_index": 118,
+      "delivery_head": "723f5d8f9a7ef3971cc30246c1a530f6f039bd72"
     },
     {
       "pr": 114,
@@ -2139,7 +2239,8 @@
       "pull_requests": [
         140
       ],
-      "row_index": 119
+      "row_index": 119,
+      "delivery_head": "723f5d8f9a7ef3971cc30246c1a530f6f039bd72"
     },
     {
       "pr": 114,
@@ -2154,7 +2255,8 @@
       "pull_requests": [
         140
       ],
-      "row_index": 120
+      "row_index": 120,
+      "delivery_head": "723f5d8f9a7ef3971cc30246c1a530f6f039bd72"
     },
     {
       "pr": 114,
@@ -2169,7 +2271,8 @@
       "pull_requests": [
         140
       ],
-      "row_index": 121
+      "row_index": 121,
+      "delivery_head": "723f5d8f9a7ef3971cc30246c1a530f6f039bd72"
     },
     {
       "pr": 114,
@@ -2184,7 +2287,8 @@
       "pull_requests": [
         140
       ],
-      "row_index": 122
+      "row_index": 122,
+      "delivery_head": "723f5d8f9a7ef3971cc30246c1a530f6f039bd72"
     },
     {
       "pr": 114,
@@ -2211,7 +2315,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 124
+      "row_index": 124,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 115,
@@ -2227,7 +2332,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 125
+      "row_index": 125,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 115,
@@ -2243,7 +2349,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 126
+      "row_index": 126,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 115,
@@ -2258,7 +2365,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 127
+      "row_index": 127,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 115,
@@ -2273,7 +2381,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 128
+      "row_index": 128,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 115,
@@ -2300,7 +2409,8 @@
       "pull_requests": [
         143
       ],
-      "row_index": 130
+      "row_index": 130,
+      "delivery_head": "a0f3d90a8c6c5fcaadcf224623b0a99f85e94f21"
     },
     {
       "pr": 116,
@@ -2315,7 +2425,8 @@
       "pull_requests": [
         130
       ],
-      "row_index": 131
+      "row_index": 131,
+      "delivery_head": "448d4cadf39efa7e28527924a2932f44e4cd6283"
     },
     {
       "pr": 116,
@@ -2330,7 +2441,8 @@
       "pull_requests": [
         130
       ],
-      "row_index": 132
+      "row_index": 132,
+      "delivery_head": "448d4cadf39efa7e28527924a2932f44e4cd6283"
     },
     {
       "pr": 116,
@@ -2439,17 +2551,17 @@
     "pending_policy": "Pending or partial owner evidence is retained rather than inferred complete.",
     "completed_at_utc": "2026-11-01T01:53:53.928576+00:00",
     "summary": {
-      "Fixed": 103,
-      "Resolved later": 13,
-      "Qualified": 20
+      "Fixed": 104,
+      "Qualified": 20,
+      "Resolved later": 12
     },
-    "latest_validation": "First-pass verification is retained below. Rereview verification and completion metadata are recorded separately; do not infer completion from the earlier totals.",
+    "latest_validation": "Final rereview integration:1473 Vitest,7 icon,45 distribution tests;strict types;frontend/Electron builds;Linux AppImage/deb package. See rereview-resolution.md for native and manual UI evidence and limits.",
     "pending_delivery_metadata": []
   },
   "verification": {
-    "vitest_passed": 1421,
+    "vitest_passed": 1473,
     "icon_tests_passed": 7,
-    "distribution_tests_passed": 42,
+    "distribution_tests_passed": 45,
     "typecheck": "passed",
     "frontend_build": "passed",
     "electron_build": "passed",
@@ -2461,6 +2573,9 @@
     "paid_cloud_or_real_local_inference": "not_exercised",
     "native_windows_macos": "not_exercised",
     "ci_test_jobs": "passed",
-    "merged_prs": false
+    "merged_prs": false,
+    "native_second_instance_project_uri": "passed",
+    "native_shutdown_private_diagnostic": "passed in Electron will-quit harness",
+    "installed_renderer_notices": "verified React/Radix inside app.asar"
   }
 }
