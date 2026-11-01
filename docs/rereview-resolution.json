@@ -135,7 +135,7 @@
       "status": "fixed",
       "id": "142-1",
       "resolution": "One native aria-disabled trigger remains mounted across state changes, guards activation and preserves focus. Keyboard Export return focus was exercised manually.",
-      "delivery_head": "46aa68dc56391aefee8b67f97f30ab1024cfa363"
+      "delivery_head": "daccdf1d276b1a2eab4d96d8fa17e76b020101e5"
     },
     {
       "pr": 141,
@@ -198,7 +198,7 @@
       "status": "fixed",
       "id": "136-1",
       "resolution": "Official Electron requestSingleInstanceLock/second-instance pattern routes subsequent arguments to current window before duplicate runtime startup. Relative paths use launcher cwd; restore/focus covered. Independent instances remain possible with separate profiles/device-storage directories.",
-      "delivery_head": "39a745ce04e2e2b39aa1006d1bbf4f37f3b72941"
+      "delivery_head": "886a5df22efdca2119d4061dac15f3c215b948ae"
     },
     {
       "pr": 135,
@@ -207,7 +207,7 @@
       "status": "fixed",
       "id": "135-1",
       "resolution": "Architecture now describes self-contained documents, embedded media, disposable caches, usage, OpenRouter/local transports and MCP. Removed the duplicate blank line and corrected ledger dispositions/references.",
-      "delivery_head": "0c07179764836445d93245fc38d0ed9735c2cbd3"
+      "delivery_branch": "codex/review-current-architecture"
     },
     {
       "pr": 135,
@@ -216,7 +216,7 @@
       "status": "fixed",
       "id": "135-2",
       "resolution": "Architecture now describes self-contained documents, embedded media, disposable caches, usage, OpenRouter/local transports and MCP. Removed the duplicate blank line and corrected ledger dispositions/references.",
-      "delivery_head": "0c07179764836445d93245fc38d0ed9735c2cbd3"
+      "delivery_branch": "codex/review-current-architecture"
     },
     {
       "pr": 132,
@@ -470,6 +470,7 @@
     "user_preview_ledger_rows": 0,
     "paid_generation": "not exercised",
     "real_local_inference_hardware": "not exercised",
-    "native_windows_macos": "not exercised"
+    "native_windows_macos": "not exercised",
+    "ci_test_jobs": "passed for all updated code heads; latest docs-only CI tracked in PR135"
   }
 }
