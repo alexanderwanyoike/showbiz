@@ -73,7 +73,13 @@ export function menuShortcut(keys: string, mac = isMacDesktop()) {
 }
 
 export function desktopPlatform(): DesktopPlatform {
-  return window.showbiz?.desktop?.platform ?? (isMacDesktop() ? "darwin" : "linux");
+  return (
+    window.showbiz?.desktop?.platform ?? (isMacDesktop() ? "darwin" : "linux")
+  );
 }
-export function redoShortcut() { return menuShortcutLabel("redo", desktopPlatform()); }
-export function fullscreenShortcut() { return menuShortcutLabel("toggle_fullscreen", desktopPlatform()); }
+export function redoShortcut() {
+  return menuShortcutLabel("redo", desktopPlatform());
+}
+export function fullscreenShortcut() {
+  return menuShortcutLabel("toggle_fullscreen", desktopPlatform());
+}

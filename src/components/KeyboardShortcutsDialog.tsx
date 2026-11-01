@@ -1,4 +1,7 @@
-import { menuShortcutLabel, type MenuShortcut } from "../../shared/menu-shortcuts";
+import {
+  menuShortcutLabel,
+  type MenuShortcut,
+} from "../../shared/menu-shortcuts";
 import { useRef } from "react";
 import {
   Dialog,
@@ -7,10 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  isMacDesktop,
-  desktopPlatform,
-} from "../lib/menu-editor";
+import { isMacDesktop, desktopPlatform } from "../lib/menu-editor";
 export function KeyboardShortcutsDialog({
   open,
   onOpenChange,
@@ -20,7 +20,8 @@ export function KeyboardShortcutsDialog({
 }) {
   const origin = useRef<HTMLElement | null>(null);
   const mac = isMacDesktop();
-  const shortcut = (command: MenuShortcut) => menuShortcutLabel(command, desktopPlatform());
+  const shortcut = (command: MenuShortcut) =>
+    menuShortcutLabel(command, desktopPlatform());
   const groups: { label: string; commands: [string, string][] }[] = [
     {
       label: "File",

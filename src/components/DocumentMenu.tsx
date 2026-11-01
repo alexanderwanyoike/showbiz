@@ -22,10 +22,7 @@ export function DocumentMenu({
 }) {
   const document = useProjectDocument();
   const work = useApplicationWork();
-  const disabled =
-    document.busy ||
-    document.loading ||
-    work.closing;
+  const disabled = document.busy || document.loading || work.closing;
   useEffect(() => {
     if (window.showbiz?.onDocumentAction) return;
     const shortcut = (event: KeyboardEvent) => {

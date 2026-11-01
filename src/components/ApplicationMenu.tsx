@@ -34,7 +34,8 @@ export function ApplicationMenu({
   const mac = isMacDesktop();
   const platform = desktopPlatform();
   const nativeMac = window.showbiz?.desktop?.platform === "darwin";
-  const shortcut = (command: DesktopMenuCommand) => menuShortcutLabel(command, platform);
+  const shortcut = (command: DesktopMenuCommand) =>
+    menuShortcutLabel(command, platform);
   const native = !!window.showbiz?.runMenuCommand;
   const capture = useCallback(() => {
     const next = captureMenuEditor();
@@ -89,7 +90,9 @@ export function ApplicationMenu({
       )
         capture();
     };
-    const resetAlt = () => { altOnly = false; };
+    const resetAlt = () => {
+      altOnly = false;
+    };
     window.addEventListener("blur", resetAlt);
     window.addEventListener("pointerdown", resetAlt);
     window.addEventListener("keydown", keyDown);
@@ -103,10 +106,14 @@ export function ApplicationMenu({
       document.removeEventListener("focusin", focusIn);
     };
   }, [mac, nativeMac, capture]);
-  useEffect(() => window.showbiz?.onApplicationMenuAction?.((action) => {
-    if (action === "shortcuts") onShortcuts();
-    else onSettings(action === "settings" ? "providers" : action);
-  }), [onSettings, onShortcuts]);
+  useEffect(
+    () =>
+      window.showbiz?.onApplicationMenuAction?.((action) => {
+        if (action === "shortcuts") onShortcuts();
+        else onSettings(action === "settings" ? "providers" : action);
+      }),
+    [onSettings, onShortcuts],
+  );
   function nativeAction(command: DesktopMenuCommand, restore = false) {
     const target = editorRef.current;
     deferred.current = () => {
@@ -225,13 +232,7 @@ export function ApplicationMenu({
         </Menubar.Trigger>
         {content(
           <>
-            {command(
-              "Undo",
-              "undo",
-              shortcut("undo"),
-              !editor.writable,
-              true,
-            )}
+            {command("Undo", "undo", shortcut("undo"), !editor.writable, true)}
             {command("Redo", "redo", shortcut("redo"), !editor.writable, true)}
             {separator}
             {command(
@@ -241,13 +242,7 @@ export function ApplicationMenu({
               !editor.writable || !editor.selected,
               true,
             )}
-            {command(
-              "Copy",
-              "copy",
-              shortcut("copy"),
-              !editor.selected,
-              true,
-            )}
+            {command("Copy", "copy", shortcut("copy"), !editor.selected, true)}
             {command(
               "Paste",
               "paste",

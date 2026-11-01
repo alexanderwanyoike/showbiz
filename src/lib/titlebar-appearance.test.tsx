@@ -81,14 +81,33 @@ it("shows a native color failure with a working Retry action", async () => {
   expect(apply).toHaveBeenCalledTimes(2);
 });
 it("reserves the actual overlay geometry only while native controls are visible", async () => {
-  const overlay = Object.assign(new EventTarget(), { visible: true, getTitlebarAreaRect: () => ({ x: 0, right: window.innerWidth - 146 }) });
-  Object.defineProperty(navigator, "windowControlsOverlay", { configurable: true, value: overlay });
-  Object.defineProperty(window, "showbiz", { configurable: true, value: { desktop: { platform: "linux", customTitlebar: true, titleBarHeight: 48 } } });
+  const overlay = Object.assign(new EventTarget(), {
+    visible: true,
+    getTitlebarAreaRect: () => ({ x: 0, right: window.innerWidth - 146 }),
+  });
+  Object.defineProperty(navigator, "windowControlsOverlay", {
+    configurable: true,
+    value: overlay,
+  });
+  Object.defineProperty(window, "showbiz", {
+    configurable: true,
+    value: {
+      desktop: { platform: "linux", customTitlebar: true, titleBarHeight: 48 },
+    },
+  });
   try {
     render(createElement(Header));
     const header = screen.getByRole("banner");
     expect(header.style.paddingRight).toBe("154px");
-    act(() => { overlay.visible = false; overlay.dispatchEvent(new Event("geometrychange")); });
+    act(() => {
+      overlay.visible = false;
+      overlay.dispatchEvent(new Event("geometrychange"));
+    });
     expect(header.style.paddingRight).toBe("12px");
-  } finally { Object.defineProperty(navigator, "windowControlsOverlay", { configurable: true, value: undefined }); }
+  } finally {
+    Object.defineProperty(navigator, "windowControlsOverlay", {
+      configurable: true,
+      value: undefined,
+    });
+  }
 });

@@ -226,34 +226,57 @@ it("does not advertise an unregistered Windows Quit accelerator", async () => {
   ).toBe("Quit Showbiz");
 });
 
-it.each(["blur", "pointerdown"])("abandons an interrupted Alt gesture after %s", async (interrupt) => {
+it.each(["blur", "pointerdown"])(
+  "abandons an interrupted Alt gesture after %s",
+  async (interrupt) => {
+    start();
+    const prompt = document.createElement("input");
+    document.body.append(prompt);
+    prompt.focus();
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Alt", altKey: true }),
+    );
+    window.dispatchEvent(new Event(interrupt));
+    window.dispatchEvent(new KeyboardEvent("keyup", { key: "Alt" }));
+    expect(document.activeElement).toBe(prompt);
+    prompt.remove();
+  },
+);
+it("returns to the editor after a View command", async () => {
+  Object.defineProperty(window, "showbiz", {
+    configurable: true,
+    value: {
+      desktop: { platform: "linux", customTitlebar: true, titleBarHeight: 48 },
+      runMenuCommand: nativeCommand,
+    },
+  });
   start();
   const prompt = document.createElement("input");
   document.body.append(prompt);
   prompt.focus();
-  window.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", altKey: true }));
-  window.dispatchEvent(new Event(interrupt));
-  window.dispatchEvent(new KeyboardEvent("keyup", { key: "Alt" }));
-  expect(document.activeElement).toBe(prompt);
-  prompt.remove();
-});
-it("returns to the editor after a View command", async () => {
-  Object.defineProperty(window, "showbiz", { configurable: true, value: { desktop: { platform: "linux", customTitlebar: true, titleBarHeight: 48 }, runMenuCommand: nativeCommand } });
-  start();
-  const prompt = document.createElement("input");
-  document.body.append(prompt); prompt.focus(); prompt.value = "Morning"; prompt.setSelectionRange(1, 4);
+  prompt.value = "Morning";
+  prompt.setSelectionRange(1, 4);
   const user = userEvent.setup();
   await user.click(await screen.findByRole("menuitem", { name: "View" }));
   await user.click(screen.getByRole("menuitem", { name: "Zoom In" }));
   await waitFor(() => expect(nativeCommand).toHaveBeenCalledWith("zoom_in"));
   expect(document.activeElement).toBe(prompt);
-  expect(prompt.selectionStart).toBe(1); expect(prompt.selectionEnd).toBe(4);
+  expect(prompt.selectionStart).toBe(1);
+  expect(prompt.selectionEnd).toBe(4);
   prompt.remove();
 });
 it("uses the macOS global menu without duplicating its row inside the window", async () => {
-  Object.defineProperty(window, "showbiz", { configurable: true, value: { desktop: { platform: "darwin", customTitlebar: true, titleBarHeight: 48 }, runMenuCommand: nativeCommand } });
+  Object.defineProperty(window, "showbiz", {
+    configurable: true,
+    value: {
+      desktop: { platform: "darwin", customTitlebar: true, titleBarHeight: 48 },
+      runMenuCommand: nativeCommand,
+    },
+  });
   start();
-  expect(screen.queryByRole("menubar", { name: "Application menu" })).toBeNull();
+  expect(
+    screen.queryByRole("menubar", { name: "Application menu" }),
+  ).toBeNull();
 });
 it("explains guarded File commands instead of silently disabling both entry points", async () => {
   const { applicationWork } = await import("./application-work");
@@ -265,6 +288,12 @@ it("explains guarded File commands instead of silently disabling both entry poin
     const open = screen.getByRole("menuitem", { name: "Open Project…" });
     expect(open.getAttribute("aria-disabled")).not.toBe("true");
     await user.click(open);
-    expect(await screen.findByText("Finish generation, saving and unsaved edits before changing project files.")).toBeTruthy();
-  } finally { applicationWork.receive({ active: [], unsaved: [], closing: false }); }
+    expect(
+      await screen.findByText(
+        "Finish generation, saving and unsaved edits before changing project files.",
+      ),
+    ).toBeTruthy();
+  } finally {
+    applicationWork.receive({ active: [], unsaved: [], closing: false });
+  }
 });
