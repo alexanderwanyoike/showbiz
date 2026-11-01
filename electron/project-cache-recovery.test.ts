@@ -44,7 +44,7 @@ it("sweeps abandoned media workspaces but retains live and unverified owners", a
     ).toMatchObject({ ok: true });
     const workspace = documents.mediaDirectory()!;
     expect(
-      JSON.parse(fs.readFileSync(path.join(workspace, ".owner.json"), "utf8")),
+      JSON.parse(fs.readFileSync(path.join(path.dirname(workspace), ".owner.json"), "utf8")),
     ).toMatchObject({ pid: process.pid });
     await documents.close();
     expect(fs.existsSync(workspace)).toBe(false);

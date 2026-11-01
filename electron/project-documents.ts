@@ -106,7 +106,7 @@ export function createProjectDocuments(options: {
   function dispose(document: ActiveDocument) {
     document.db.close();
     document.release();
-    fs.rmSync(document.media, { recursive: true, force: true });
+    cache.remove(document.media);
   }
   function activate(document: ActiveDocument) {
     const value = info(document);
@@ -248,7 +248,7 @@ export function createProjectDocuments(options: {
         () => fs.rmSync(temporary, { force: true }),
         () => release?.(),
         () => {
-          if (media) fs.rmSync(media, { recursive: true, force: true });
+          if (media) cache.remove(media);
         },
       ];
       for (const action of cleanup) {
@@ -359,7 +359,7 @@ export function createProjectDocuments(options: {
       } catch (cause) {
         db?.close();
         release?.();
-        if (media) fs.rmSync(media, { recursive: true, force: true });
+        if (media) cache.remove(media);
         return fail(cause);
       }
     },
