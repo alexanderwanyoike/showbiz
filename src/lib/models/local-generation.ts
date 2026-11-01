@@ -24,6 +24,7 @@ async function requestMedia(
   try {
     const response = await fetch(`${config.endpoint}${path}`, {
       method: "POST",
+      timeout_ms: 3600000,
       headers: {
         "Content-Type": "application/json",
         ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
