@@ -574,3 +574,37 @@ it("retains a matching expired FAL cache as an explicitly stale estimate when li
     expect(await getGenerationEstimate("flux-dev-fal", { kind: "image" })).toMatchObject({ kind: "estimate", min_microusd: 23000, stale: true, price: { endpoint_id: "fal-ai/flux/dev" } });
   } finally { db.close(); }
 });
+
+it("does not fall back to a previous account's FAL estimate when the key changes during refresh", async () => {
+  const { createSettingsCommands } = await import("../../electron/commands/settings");
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createSettingsCommands(db);
+    commands.save_api_key({ provider: "fal", apiKey: "fixture-old-key" });
+    commands.save_generation_price({ kind: "image", price: { provider: "fal", model_id: "flux-dev-fal", currency: "USD", source_kind: "provider", source_url: "https://api.fal.ai/v1/models/pricing/estimate", checked_at: new Date(Date.now() - 7200000).toISOString(), endpoint_id: "fal-ai/flux/dev", estimate_basis: "historical_request", rates: [{ unit: "request", microusd: 23000 }] } });
+    native.invoke.mockImplementation(async (command, args) => commands[command]?.(args));
+    native.fetch.mockImplementation(async () => { commands.save_api_key({ provider: "fal", apiKey: "fixture-new-key" }); return new Response("unavailable", { status: 503 }); });
+    expect(await getGenerationEstimate("flux-dev-fal", { kind: "image" })).toMatchObject({ kind: "unavailable" });
+    expect(commands.get_generation_price({ kind: "image", model_id: "flux-dev-fal", endpoint_id: "fal-ai/flux/dev" })).toEqual({ ok: true, value: null });
+  } finally { db.close(); }
+});
+
+it("shares concurrent FAL endpoints independently and reuses each endpoint's own cached rate", async () => {
+  const { createSettingsCommands } = await import("../../electron/commands/settings");
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createSettingsCommands(db);
+    commands.save_api_key({ provider: "fal", apiKey: "fixture-key" });
+    native.invoke.mockImplementation(async (command, args) => commands[command]?.(args));
+    native.fetch.mockClear();
+    native.fetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      const endpoint = init?.method === "POST" ? Object.keys((JSON.parse(String(init.body)) as { endpoints: Record<string, unknown> }).endpoints)[0] : new URL(url).searchParams.get("endpoint_id");
+      return new Response(JSON.stringify(init?.method === "POST" ? { estimate_type: "historical_api_price", total_cost: endpoint?.includes("first-last") ? 2 : 1, currency: "USD" } : { prices: [{ endpoint_id: endpoint, unit_price: 0.4, unit: "seconds", currency: "USD" }] }));
+    });
+    const request = { kind: "video" as const, mode: "image-to-video", duration: "8s", resolution: "1080p", audio: true };
+    const estimates = await Promise.all([getGenerationEstimate("veo-3.1-fal", request), getGenerationEstimate("veo-3.1-fal", { ...request, has_end_frame: true })]);
+    expect(estimates).toMatchObject([{ kind: "estimate", min_microusd: 1000000 }, { kind: "estimate", min_microusd: 2000000 }]);
+    expect(await getGenerationEstimate("veo-3.1-fal", request)).toMatchObject({ kind: "estimate", min_microusd: 1000000 });
+    expect(native.fetch).toHaveBeenCalledTimes(4);
+  } finally { db.close(); }
+});
