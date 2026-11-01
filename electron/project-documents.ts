@@ -1,3 +1,4 @@
+import { recoverInterruptedGenerationUsage } from "./commands/generation-usage";
 import fs from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -324,7 +325,16 @@ export function createProjectDocuments(options: {
         );
         if (documentMediaPaths(db).some((relative) => !embedded.has(relative)))
           throw new Error("The project is missing embedded media.");
-        const value = activate(document);
+        db.exec("SAVEPOINT document_open");
+        let value: ProjectDocumentInfo;
+        try {
+          recoverInterruptedGenerationUsage(db);
+          value = activate(document);
+          db.exec("RELEASE document_open");
+        } catch (cause) {
+          db.exec("ROLLBACK TO document_open; RELEASE document_open");
+          throw cause;
+        }
         db = null;
         return { ok: true, value };
       } catch (cause) {

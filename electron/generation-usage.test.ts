@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { openTestDb } from "./db.test";
-import { createGenerationUsageCommands } from "./commands/generation-usage";
+import { createGenerationUsageCommands, recoverInterruptedGenerationUsage } from "./commands/generation-usage";
 it("retains the preflight estimate and reported cost as distinct values across completion", () => {
   const db = openTestDb();
   try {
@@ -91,6 +91,7 @@ it("keeps known charges after failure, treats absent charges as unknown and surv
       }),
     ).toMatchObject({ ok: true });
     expect(begin("abandoned")).toMatchObject({ ok: true });
+    recoverInterruptedGenerationUsage(db);
     const reopened = createGenerationUsageCommands(db);
     expect(reopened.get_generation_usage({ project_id: "film" })).toMatchObject(
       {

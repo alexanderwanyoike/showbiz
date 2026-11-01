@@ -30,7 +30,8 @@ it("preserves a running request across Save As and accepts its later completion"
   const {directory, documents, projectId} = await fixture();
   expect(await documents.saveAs(path.join(directory, "Copy.showbiz"))).toMatchObject({ok:true});
   expect(await documents.invoke("get_generation_usage", {project_id:projectId})).toMatchObject({ok:true,value:{items:[{status:"running"}]}});
-  expect(await documents.invoke("finish_generation_usage", {request_id:"running",status:"completed"})).toMatchObject({ok:true,value:{status:"completed"}});
+  expect(await documents.invoke("finish_generation_usage", {request_id:"running",status:"completed"})).toMatchObject({ok:true});
+  expect(await documents.invoke("get_generation_usage", {project_id:projectId})).toMatchObject({ok:true,value:{items:[{status:"completed"}]}});
 });
 it("marks abandoned requests interrupted only on a successful genuine open", async () => {
   const {documents, file, projectId} = await fixture();
