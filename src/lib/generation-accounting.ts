@@ -132,7 +132,7 @@ export async function runAccountedGeneration<T>(
       })
         .then((reconciled) => {
           const messages = reconciled.ok
-            ? reconciled.value.notes.map((note) => note.message)
+            ? reconciled.value.notes.filter((note) => note.kind !== "pending").map((note) => note.message)
             : [reconciled.error.message];
           notify(request, request_id, [...warnings, ...messages]);
         })

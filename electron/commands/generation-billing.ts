@@ -25,7 +25,7 @@ export function createGenerationBillingCommands(
 ) {
   const retryAfter = new Map<
     string,
-    { credential_id: string | null; until: number; message: string }
+    { credential_id: string | null; until: number; message: string; kind?: "pending" | "failure" }
   >();
   const inFlight = new Map<string, Promise<Result<GenerationBillingSync>>>();
   async function reconcile(
@@ -58,7 +58,7 @@ export function createGenerationBillingCommands(
           cached.credential_id === credentialIds.get(row.provider) &&
           cached.until > Date.now()
         ) {
-          notes.push({ request_id: row.request_id, message: cached.message });
+          notes.push({ request_id: row.request_id, message: cached.message, kind: cached.kind });
           return false;
         }
         return true;
@@ -103,6 +103,7 @@ export function createGenerationBillingCommands(
               } else
                 result.notes.push({
                   request_id: row.request_id,
+                  kind: charges.ok ? "pending" : "failure",
                   message: charges.ok
                     ? "FAL did not return a billing event for this request. Its charge remains unconfirmed."
                     : charges.error.message,
@@ -140,6 +141,7 @@ export function createGenerationBillingCommands(
             } else
               result.notes.push({
                 request_id: row.request_id,
+                kind: charge.ok ? "pending" : "failure",
                 message: charge.ok
                   ? "OpenRouter did not return a final charge for this request. Its cost remains unconfirmed."
                   : charge.error.message,
@@ -159,6 +161,7 @@ export function createGenerationBillingCommands(
           credential_id: credentialIds.get(row.provider) ?? null,
           until: Date.now() + 60000,
           message: note.message,
+          kind: note.kind,
         });
       }
       while (retryAfter.size > 500) {
