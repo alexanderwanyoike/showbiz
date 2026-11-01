@@ -157,6 +157,7 @@ export default function ProjectBibleView({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<BibleDeletion | null>(null);
+  const [deletionOpen, setDeletionOpen] = useState(false);
   const pendingAssets = useRef(new Map<string, BibleAsset>());
   useAgentChanges(load);
   useEffect(() => {
@@ -365,6 +366,7 @@ export default function ProjectBibleView({
         ? document.activeElement
         : null;
     setDeletion({ kind: "picture", variant });
+    setDeletionOpen(true);
   }
 
   function handleDeleteAsset(asset: BibleAsset) {
@@ -373,6 +375,7 @@ export default function ProjectBibleView({
         ? document.activeElement
         : null;
     setDeletion({ kind: "asset", asset });
+    setDeletionOpen(true);
   }
 
   async function confirmDeletion(): Promise<Result<null>> {
@@ -858,10 +861,8 @@ export default function ProjectBibleView({
                 newAction.current
               )?.focus();
           }}
-          open={!!deletion}
-          onOpenChange={(open) => {
-            if (!open) setDeletion(null);
-          }}
+          open={deletionOpen}
+          onOpenChange={setDeletionOpen}
           title={
             deletion?.kind === "asset" ? "Delete Bible entry" : "Delete picture"
           }
