@@ -1,6 +1,10 @@
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
+// This release and upstream omit a standalone licence text:
+// https://github.com/develar/lazy-val/tree/b69ad4119f1b19bdab13c61ee2fcc88d46b89071
+const declaredLicenseOnly = new Map([["lazy-val@1.0.5", {license:"MIT",repository:"develar/lazy-val"}]]);
+
 export async function collectBundleNotices(metafile, root = process.cwd()) {
   const project = await realpath(root);
   const packages = new Set();
@@ -46,15 +50,9 @@ export async function collectBundleNotices(metafile, root = process.cwd()) {
         if (cause.code !== "ENOENT") throw cause;
       }
     }
-    // This published standalone release and its upstream tree omit a license file:
-    // https://github.com/develar/lazy-val/tree/b69ad4119f1b19bdab13c61ee2fcc88d46b89071
-    if (
-      !license &&
-      metadata.name === "lazy-val" &&
-      metadata.version === "1.0.5" &&
-      metadata.license === "MIT"
-    ) {
-      license = `License declared in published package.json: MIT\nAuthor: ${metadata.author}\nRepository: develar/lazy-val\nNo standalone license text was supplied by this release or its upstream repository. This entry retains the published metadata without inventing a copyright notice.`;
+    const declared = declaredLicenseOnly.get(`${metadata.name}@${metadata.version}`);
+    if (!license && declared?.license === metadata.license) {
+      license = `License declared in published package.json: ${declared.license}\nAuthor: ${metadata.author}\nRepository: ${declared.repository}\nNo standalone license text was supplied by this release or its upstream repository. This entry retains the published metadata without inventing a copyright notice.`;
     }
     if (!license)
       throw new Error(`Missing licence for bundled package ${metadata.name}`);
