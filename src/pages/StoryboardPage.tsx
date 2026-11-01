@@ -920,7 +920,7 @@ export default function StoryboardPage() {
           <span className="workspace-item-count">{shots.length} {shots.length === 1 ? "shot" : "shots"}</span>
           <div role="group" aria-label="Storyboard view" className="storyboard-command-group">
           <StoryboardSettingsDialog name={storyboard.name} defaults={defaultModels} onSave={handleStoryboardSettingsSave} disabled={Object.keys(videoSettingsDrafts).length > 0} />
-          <WorkspaceCommand ref={shotControlsToggle} label="Shot controls" aria-pressed={shotControlsOpen} aria-expanded={shotControlsOpen} aria-controls={shotControlsId} disabled={!selectedShot} onClick={() => setShotControlsOpen(!shotControlsOpen)}><PanelRight size={17} /></WorkspaceCommand>
+          <WorkspaceCommand ref={shotControlsToggle} label="Shot controls" aria-expanded={shotControlsOpen} aria-controls={shotControlsId} disabled={!selectedShot} onClick={() => setShotControlsOpen(!shotControlsOpen)}><PanelRight size={17} /></WorkspaceCommand>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><WorkspaceCommand label="Export…" disabled={isExporting || !hasMedia}>{isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share size={17} />}</WorkspaceCommand></DropdownMenuTrigger>

@@ -204,7 +204,7 @@ export default function ShotList({
                         shot.status === "generating" || shot.generationPending
                       }
                       aria-description={
-                        shot.generationPending
+                        (shot.status === "generating" || shot.generationPending)
                           ? "Wait for this shot's current request to finish."
                           : undefined
                       }
