@@ -443,7 +443,9 @@ export function createProjectDocuments(options: {
         throw new Error(
           "This project is read-only. Use Save As to create an editable copy.",
         );
-      return persist(active, () => handler(args));
+      const value = persist(active, () => handler(args));
+      if (command === "update_project") remember(info(active));
+      return value;
     },
     async saveAs(
       filePath: string,
