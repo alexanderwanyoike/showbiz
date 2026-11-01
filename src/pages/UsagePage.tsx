@@ -45,13 +45,13 @@ export default function UsagePage() {
     loadedScope.current = scope;
     const force = forceRefresh.current;
     forceRefresh.current = false;
-    setChecking(false);
+    setChecking(true);
     setError(null);
     if (id)
       loadUsageWithBilling(id, offset)
         .then(async (result) => {
           if (stopped) return;
-          if (!result.ok) { setError(result.error.message); return; }
+          if (!result.ok) { setChecking(false); setError(result.error.message); return; }
           setData(result.value);
           setChecking(true);
           const reconciled = await refreshUsageCharges(id, offset, result.value, force);
@@ -63,7 +63,7 @@ export default function UsagePage() {
         .catch((cause: unknown) => {
           if (!stopped) { setChecking(false); setError(String(cause)); }
         });
-    else setError("Open a project to view its usage.");
+    else { setChecking(false); setError("Open a project to view its usage."); }
     return () => {
       stopped = true;
     };
