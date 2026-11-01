@@ -324,3 +324,24 @@ it("backs off unconfirmed checks, preserves their reason, and retries on explici
     expect(http).toHaveBeenCalledTimes(4);
   } finally { vi.useRealTimers(); db.close(); }
 });
+
+it("shares an in-flight check for the same project request selection", async () => {
+  const db = openTestDb();
+  const replies: ((value: Response) => void)[] = [];
+  let checks: Promise<unknown>[] = [];
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const usage = createGenerationUsageCommands(db);
+    usage.begin_generation_usage({ request_id: "ours", project_id: "film", provider: "fal", model_id: "flux-dev-fal", kind: "image" });
+    usage.record_generation_receipt({ request_id: "ours", provider_request_id: "fixture-job", reported_microusd: null });
+    usage.finish_generation_usage({ request_id: "ours", status: "completed" });
+    const http = vi.fn<typeof fetch>().mockImplementation(() => new Promise<Response>((resolve) => replies.push(resolve)));
+    const commands = createGenerationBillingCommands(db, () => "fixture-key", http);
+    checks = [commands.sync_generation_charges({ project_id: "film", request_ids: ["ours"] }), commands.sync_generation_charges({ project_id: "film", request_ids: ["ours"], force: true })];
+    expect(http).toHaveBeenCalledTimes(1);
+  } finally {
+    for (const reply of replies) reply(new Response(JSON.stringify({ billing_events: [], has_more: false, next_cursor: null })));
+    await Promise.all(checks);
+    db.close();
+  }
+});
