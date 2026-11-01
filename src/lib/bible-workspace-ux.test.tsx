@@ -5,13 +5,14 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ProjectBibleView from "../components/ProjectBibleView";
 import { generateImageAction } from "../actions/generation-actions";
-import { createBibleAsset, getBibles } from "./backend-api";
+import { createBibleAsset, getBibles, updateBibleAsset } from "./backend-api";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: () => null }));
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
   getBibles: vi.fn(async () => [{ id: "bible" }]),
   getBibleAssets: async () => [],
   getBibleAssetVariants: async () => [],
+  updateBibleAsset: vi.fn(async (id: string, values: Record<string, unknown>) => ({ ...values, id })),
   createBibleAsset: vi.fn(
     async (_id: string, values: Record<string, unknown>) => ({
       ...values,
@@ -245,4 +246,27 @@ it("retries a failed first picture on its existing entry instead of creating dup
 it("names the provider for direct Bible generation models", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
   expect((await screen.findByRole("combobox", { name: "Bible generation model" })).textContent).toContain("Google AI (Gemini)");
+});
+
+
+it("reuses the incomplete creation entry after its name and prompt are corrected", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  const name = await screen.findByRole("textbox", { name: "Character name" });
+  const prompt = screen.getByRole("textbox", { name: "Character prompt" });
+  await user.type(name, "Ada");
+  await user.type(prompt, "A quiet portrait");
+  await user.click(screen.getByRole("button", { name: "Generate character" }));
+  await screen.findByText("Provider unavailable");
+  await user.clear(name);
+  await user.type(name, "Ada Lovelace");
+  await user.type(prompt, " in warm light");
+  await user.click(screen.getByRole("button", { name: "Generate character" }));
+  await screen.findByText("Provider unavailable");
+  expect(createBibleAsset).toHaveBeenCalledTimes(1);
+  const calls = vi.mocked(generateImageAction).mock.calls;
+  expect(calls[1][2]?.subject_id).toBe(calls[0][2]?.subject_id);
+  expect(updateBibleAsset).toHaveBeenCalledWith(calls[0][2]?.subject_id, expect.objectContaining({ name: "Ada Lovelace" }));
+  expect(screen.queryByRole("button", { name: "Open Ada details" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Open Ada Lovelace details" })).toBeTruthy();
 });
