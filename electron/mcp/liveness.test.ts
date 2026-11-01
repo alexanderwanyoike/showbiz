@@ -11,10 +11,21 @@ it("does not trust a reused live PID and removes its stale owned descriptor", as
   const id = randomUUID();
   const file = path.join(directory, `${id}.json`);
   try {
-    await writeFile(file, JSON.stringify({ id, pid: process.pid, secret: "a".repeat(64), socket: path.join(directory, "missing.sock") }), { mode: 0o600 });
+    await writeFile(
+      file,
+      JSON.stringify({
+        id,
+        pid: process.pid,
+        secret: "a".repeat(64),
+        socket: path.join(directory, "missing.sock"),
+      }),
+      { mode: 0o600 },
+    );
     expect(await listSessions(directory)).toEqual([]);
     await expect(access(file)).rejects.toThrow();
-  } finally { await rm(directory, { recursive: true, force: true }); }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 it("authenticates live bridge identity without dispatching application commands or trusting a copied secret", async () => {
@@ -25,9 +36,19 @@ it("authenticates live bridge identity without dispatching application commands 
     expect(await listSessions(directory)).toEqual([bridge.session]);
     expect(dispatch).not.toHaveBeenCalled();
     const file = path.join(directory, `${bridge.session.id}.json`);
-    const descriptor = JSON.parse(await readFile(file, "utf8")) as Record<string, unknown>;
-    await writeFile(file, JSON.stringify({ ...descriptor, secret: "b".repeat(64) }), { mode: 0o600 });
+    const descriptor = JSON.parse(await readFile(file, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    await writeFile(
+      file,
+      JSON.stringify({ ...descriptor, secret: "b".repeat(64) }),
+      { mode: 0o600 },
+    );
     expect(await listSessions(directory)).toEqual([]);
     expect(dispatch).not.toHaveBeenCalled();
-  } finally { await bridge.close(); await rm(directory, { recursive: true, force: true }); }
+  } finally {
+    await bridge.close();
+    await rm(directory, { recursive: true, force: true });
+  }
 });
