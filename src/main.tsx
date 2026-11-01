@@ -2,6 +2,7 @@ import { connectAgentChanges } from "./lib/agent-changes";
 import { createRoot } from "react-dom/client";
 import { createHashRouter, RouterProvider } from "react-router";
 import Application from "./Application";
+import "@fontsource-variable/manrope";
 import "./globals.css";
 import { connectApplicationWork } from "./lib/application-work";
 
