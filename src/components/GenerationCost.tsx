@@ -1,4 +1,7 @@
-import { hasUnknownHistoricalPrice, unknownHistoricalPriceReason } from "../../shared/generation-cost";
+import {
+  hasUnknownHistoricalPrice,
+  unknownHistoricalPriceReason,
+} from "../../shared/generation-cost";
 import { API_KEY_PROVIDERS } from "../../shared/provider-catalog";
 import type { GenerationUsage } from "../../shared/generation-usage";
 import { ModelPricingDialog } from "./ModelPricingDialog";
@@ -38,12 +41,16 @@ export function GenerationCost({
   request,
   subject,
 }: GenerationCostProps) {
-  const { estimate: quotedEstimate, last, error } = useGenerationCost(
-    modelId,
-    request,
-    subject,
-  );
-  const estimate = quotedEstimate?.kind === "estimate" && hasUnknownHistoricalPrice(quotedEstimate.price) ? { kind: "unavailable" as const, reason: unknownHistoricalPriceReason } : quotedEstimate;
+  const {
+    estimate: quotedEstimate,
+    last,
+    error,
+  } = useGenerationCost(modelId, request, subject);
+  const estimate =
+    quotedEstimate?.kind === "estimate" &&
+    hasUnknownHistoricalPrice(quotedEstimate.price)
+      ? { kind: "unavailable" as const, reason: unknownHistoricalPriceReason }
+      : quotedEstimate;
   const models = [...getAvailableImageModels(), ...getAvailableVideoModels()];
   const model = models.find((entry) => entry.id === modelId);
   const lastModel = models.find(

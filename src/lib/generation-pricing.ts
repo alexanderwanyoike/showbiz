@@ -101,7 +101,12 @@ export async function getGenerationEstimate(
     ) {
       const providerPrice = await invoke<Result<GenerationPrice | null>>(
         "get_generation_price",
-        { model_id: modelId, kind: request.kind, include_manual: false, ...(falEndpoint ? { endpoint_id: falEndpoint } : {}) },
+        {
+          model_id: modelId,
+          kind: request.kind,
+          include_manual: false,
+          ...(falEndpoint ? { endpoint_id: falEndpoint } : {}),
+        },
       );
       if (!providerPrice.ok)
         return { kind: "unavailable", reason: providerPrice.error.message };

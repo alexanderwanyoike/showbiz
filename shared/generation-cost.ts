@@ -85,9 +85,17 @@ export function selectGenerationRate(
   return best.length === 1 ? best[0] : null;
 }
 export function hasUnknownHistoricalPrice(price: GenerationPrice): boolean {
-  return price.provider === "fal" && price.source_kind !== "manual" && price.estimate_basis === "historical_request" && price.rates.every(rate => rate.microusd === 0 && (rate.max_microusd ?? 0) === 0);
+  return (
+    price.provider === "fal" &&
+    price.source_kind !== "manual" &&
+    price.estimate_basis === "historical_request" &&
+    price.rates.every(
+      (rate) => rate.microusd === 0 && (rate.max_microusd ?? 0) === 0,
+    )
+  );
 }
-export const unknownHistoricalPriceReason = "The provider returned a zero historical estimate. This does not confirm that a new request is free.";
+export const unknownHistoricalPriceReason =
+  "The provider returned a zero historical estimate. This does not confirm that a new request is free.";
 
 export function estimateGenerationCost(
   price: GenerationPrice | null,
@@ -96,7 +104,8 @@ export function estimateGenerationCost(
 ): GenerationCostEstimate {
   if (!price)
     return unavailable("A provider rate is not available for this model.");
-  if (hasUnknownHistoricalPrice(price)) return unavailable(unknownHistoricalPriceReason);
+  if (hasUnknownHistoricalPrice(price))
+    return unavailable(unknownHistoricalPriceReason);
   const rate = selectGenerationRate(price, request);
   if (!rate)
     return unavailable(
