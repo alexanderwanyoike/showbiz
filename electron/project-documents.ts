@@ -341,14 +341,24 @@ export function createProjectDocuments(options: {
           fs.accessSync(file, fs.constants.W_OK);
           fs.accessSync(path.dirname(file), fs.constants.W_OK);
         } catch (cause) {
-          if (!(cause instanceof Error) || !("code" in cause) || !["EACCES", "EROFS"].includes(String(cause.code))) throw cause;
+          if (
+            !(cause instanceof Error) ||
+            !("code" in cause) ||
+            !["EACCES", "EROFS"].includes(String(cause.code))
+          )
+            throw cause;
           readOnly = true;
         }
         if (readOnly) {
           db = new DatabaseSync(file, { readOnly: true });
           db.exec("PRAGMA foreign_keys=ON");
-          if (db.prepare("PRAGMA user_version").get()?.user_version !== options.migrations.length)
-            throw new Error("This read-only project needs a schema update. Copy it to a writable folder, then open the copy.");
+          if (
+            db.prepare("PRAGMA user_version").get()?.user_version !==
+            options.migrations.length
+          )
+            throw new Error(
+              "This read-only project needs a schema update. Copy it to a writable folder, then open the copy.",
+            );
           release = () => {};
         } else {
           release = lockProjectDocument(file);
@@ -390,7 +400,12 @@ export function createProjectDocuments(options: {
           new Error("Open a project and finish active file operations first."),
         );
       try {
-        if (active.readOnly) return fail(new Error("This project is read-only. Use Save As to create an editable copy."));
+        if (active.readOnly)
+          return fail(
+            new Error(
+              "This project is read-only. Use Save As to create an editable copy.",
+            ),
+          );
         persist(active, () => {});
         return { ok: true, value: current()! };
       } catch (cause) {
@@ -424,7 +439,10 @@ export function createProjectDocuments(options: {
       const handler = active.commands[command];
       if (!handler) throw new Error(`Unknown project command: ${command}`);
       if (commandWorkKind(command) !== "saving") return handler(args);
-      if (active.readOnly) throw new Error("This project is read-only. Use Save As to create an editable copy.");
+      if (active.readOnly)
+        throw new Error(
+          "This project is read-only. Use Save As to create an editable copy.",
+        );
       return persist(active, () => handler(args));
     },
     async saveAs(

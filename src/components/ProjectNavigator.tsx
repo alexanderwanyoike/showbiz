@@ -56,7 +56,11 @@ export function ProjectNavigator() {
         <File size={17} />
         <strong>{name}</strong>
         <small>Project</small>
-        <ProjectSettings projectId={current.project_id} name={name} onRenamed={setName} />
+        <ProjectSettings
+          projectId={current.project_id}
+          name={name}
+          onRenamed={setName}
+        />
       </div>
       <nav aria-label="Project navigator">
         <Link
@@ -118,7 +122,11 @@ export function ProjectNavigator() {
         <span title={current.file_path}>
           {current.file_path.split(/[/\\]/).pop()}
         </span>
-        <small>{current.read_only ? "Read-only · Save As to edit" : "Changes saved automatically"}</small>
+        <small>
+          {current.read_only
+            ? "Read-only · Save As to edit"
+            : "Changes saved automatically"}
+        </small>
       </div>
     </aside>
   );
