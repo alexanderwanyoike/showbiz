@@ -153,8 +153,13 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
           )
         )
           return invalid("Generation settings contain unsupported values.");
-        if (args.price_source !== undefined || args.price_checked_at !== undefined)
-          return invalid("Supply pricing provenance only through the price basis.");
+        if (
+          args.price_source !== undefined ||
+          args.price_checked_at !== undefined
+        )
+          return invalid(
+            "Supply pricing provenance only through the price basis.",
+          );
         const source = price?.source_url ?? null;
         const checked = price?.checked_at ?? null;
         db.prepare(
