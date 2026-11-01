@@ -12,7 +12,7 @@ it("saves generation usage inside the portable project instead of device setting
   );
   const db = openTestDb();
   let file: string | null = null;
-  const runtime = createProjectRuntime({
+  const runtime = createProjectRuntime({ modelDirectory: path.resolve("src/lib/models/providers"),
     appDirectory: directory,
     legacyDb: db,
     migrations: loadMigrations(path.resolve("electron/migrations")),
