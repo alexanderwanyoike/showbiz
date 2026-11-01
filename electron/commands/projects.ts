@@ -1,3 +1,7 @@
+import type { Result } from "../../shared/result";
+import type { ReadGenerationModels } from "./generation-models";
+import { validateStoryboardModels } from "./storyboard-model-validation";
+import { DEFAULT_STORYBOARD_MODELS } from "../../shared/model-defaults";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { generateId } from "../db";
@@ -39,7 +43,11 @@ const STORYBOARD_COLUMNS =
  * needed to delete a project's/storyboard's media files on cascade delete (the
  * Rust commands derive it from the AppHandle).
  */
-export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
+export function createProjectCommands(
+  db: DatabaseSync,
+  mediaDir: string,
+  readGenerationModels?: ReadGenerationModels,
+) {
   function getProject(id: string): Project | null {
     const row = db
       .prepare(`SELECT ${PROJECT_COLUMNS} FROM projects WHERE id = ?`)
@@ -60,8 +68,7 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
       const shot = db
         .prepare("SELECT image_path, video_path FROM shots WHERE id = ?")
         .get(shotId) as
-        | { image_path: string | null; video_path: string | null }
-        | undefined;
+        { image_path: string | null; video_path: string | null } | undefined;
       if (shot?.image_path) {
         deleteMedia(mediaDir, shot.image_path);
       }
@@ -81,7 +88,7 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
     get_projects(): Project[] {
       return db
         .prepare(
-          `SELECT ${PROJECT_COLUMNS} FROM projects ORDER BY updated_at DESC`
+          `SELECT ${PROJECT_COLUMNS} FROM projects ORDER BY updated_at DESC`,
         )
         .all() as unknown as Project[];
     },
@@ -90,7 +97,7 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
       const id = generateId("proj");
       db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(
         id,
-        args!.name as string
+        args!.name as string,
       );
       // Re-select so created_at/updated_at come from SQLite, matching the Rust command.
       return getProject(id)!;
@@ -99,7 +106,7 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
     update_project(args?: Record<string, unknown>): Project {
       const id = args!.id as string;
       db.prepare(
-        "UPDATE projects SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        "UPDATE projects SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
       ).run(args!.name as string, id);
       return getProject(id)!;
     },
@@ -123,9 +130,9 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
       }
 
       const bibleIds = (
-        db
-          .prepare("SELECT id FROM bibles WHERE project_id = ?")
-          .all(id) as { id: string }[]
+        db.prepare("SELECT id FROM bibles WHERE project_id = ?").all(id) as {
+          id: string;
+        }[]
       ).map((row) => row.id);
       for (const bibleId of bibleIds) {
         deleteBibleMedia(mediaDir, bibleId);
@@ -142,13 +149,13 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
       return db
         .prepare(
           `SELECT ${STORYBOARD_COLUMNS} FROM storyboards
-           WHERE project_id = ? ORDER BY updated_at DESC`
+           WHERE project_id = ? ORDER BY updated_at DESC`,
         )
         .all(args!.projectId as string) as unknown as Storyboard[];
     },
 
     get_storyboards_with_preview(
-      args?: Record<string, unknown>
+      args?: Record<string, unknown>,
     ): StoryboardWithPreview[] {
       const rows = db
         .prepare(
@@ -163,7 +170,7 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
              ) as preview_image_path
            FROM storyboards s
            WHERE s.project_id = ?
-           ORDER BY s.updated_at DESC`
+           ORDER BY s.updated_at DESC`,
         )
         .all(args!.projectId as string) as unknown as (Storyboard & {
         preview_image_path: string | null;
@@ -185,16 +192,21 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
     create_storyboard(args?: Record<string, unknown>): Storyboard {
       const id = generateId("sb");
       db.prepare(
-        "INSERT INTO storyboards (id, project_id, name) VALUES (?, ?, ?)"
-      ).run(id, args!.projectId as string, args!.name as string);
-      // Re-select so defaults + timestamps come from SQLite, matching the Rust command.
+        "INSERT INTO storyboards (id, project_id, name, image_model, video_model) VALUES (?, ?, ?, ?, ?)",
+      ).run(
+        id,
+        args!.projectId as string,
+        args!.name as string,
+        DEFAULT_STORYBOARD_MODELS.image_model,
+        DEFAULT_STORYBOARD_MODELS.video_model,
+      );
       return getStoryboard(id)!;
     },
 
     update_storyboard(args?: Record<string, unknown>): Storyboard {
       const id = args!.id as string;
       db.prepare(
-        "UPDATE storyboards SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        "UPDATE storyboards SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
       ).run(args!.name as string, id);
       return getStoryboard(id)!;
     },
@@ -203,9 +215,9 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
       const id = args!.id as string;
 
       const shotIds = (
-        db
-          .prepare("SELECT id FROM shots WHERE storyboard_id = ?")
-          .all(id) as { id: string }[]
+        db.prepare("SELECT id FROM shots WHERE storyboard_id = ?").all(id) as {
+          id: string;
+        }[]
       ).map((row) => row.id);
       deleteShotMedia(shotIds);
 
@@ -216,10 +228,18 @@ export function createProjectCommands(db: DatabaseSync, mediaDir: string) {
       return changes > 0;
     },
 
-    update_storyboard_models(args?: Record<string, unknown>): Storyboard {
+    update_storyboard_models(
+      args?: Record<string, unknown>,
+    ): Storyboard | Result<never> {
+      const models = validateStoryboardModels(
+        readGenerationModels,
+        args?.imageModel,
+        args?.videoModel,
+      );
+      if (!models.ok) return models;
       const id = args!.id as string;
       db.prepare(
-        "UPDATE storyboards SET image_model = ?, video_model = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        "UPDATE storyboards SET image_model = ?, video_model = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
       ).run(args!.imageModel as string, args!.videoModel as string, id);
       return getStoryboard(id)!;
     },

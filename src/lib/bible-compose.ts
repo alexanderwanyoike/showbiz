@@ -37,7 +37,13 @@ export function recipeVariantIds(recipe: FrameRecipe, variants: VariantMap): str
     const pic = primaryPicture(variants[cid] ?? []);
     if (pic) ids.push(pic.id);
   }
-  if (recipe.locationVariantId) ids.push(recipe.locationVariantId);
+  if (recipe.location) {
+    const locationPictures = variants[recipe.location] ?? [];
+    const picture = locationPictures.find(
+      (candidate) => candidate.id === recipe.locationVariantId && candidate.media_url,
+    ) ?? primaryPicture(locationPictures);
+    if (picture) ids.push(picture.id);
+  }
   return ids;
 }
 

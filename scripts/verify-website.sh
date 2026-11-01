@@ -30,6 +30,20 @@ done
 grep -q 'rel="canonical"' "$page" \
   || fail "site/index.html is missing a canonical link"
 
+if grep -qiE 'images/timeline\.png|multi-track|export a (finished|final) movie|trim and arrange' "$page"; then
+  fail "site/index.html still advertises the retired timeline editor"
+fi
+
+for asset in 'Showbiz-__VERSION_NUM__.AppImage' 'showbiz___VERSION_NUM___amd64.deb' 'Showbiz-__VERSION_NUM__-arm64.dmg' 'Showbiz.Setup.__VERSION_NUM__.exe'; do
+  grep -Fq "releases/download/__VERSION__/$asset\"" "$page" \
+    || fail "site/index.html is missing the release download: $asset"
+done
+
+while IFS= read -r anchor; do
+  grep -Fq "id=\"$anchor\"" "$page" \
+    || fail "site/index.html links to missing section: $anchor"
+done < <(grep -oE 'href="#[^"]+"' "$page" | sed 's/href="#//; s/"$//' | sort -u)
+
 # Every local href/src must resolve to a file inside site/. Skips
 # absolute URLs, anchors and data URIs.
 while IFS= read -r ref; do

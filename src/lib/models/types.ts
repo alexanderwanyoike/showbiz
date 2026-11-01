@@ -1,31 +1,12 @@
+import type { GenerationObserver } from "../../../shared/generation-output";
 import type { VideoGenerationRequest } from "../generation/types";
 import type { ApiKeyProvider } from "../../../shared/provider-catalog";
 
-export type ImageModelId =
-  | "imagen4" | "nano-banana" | "nano-banana-2" | "nano-banana-2-lite" | "nano-banana-pro" | "flux-kontext" | "seedream-4.5"
-  | "flux-schnell-fal" | "flux-dev-fal" | "flux-kontext-fal"
-  | "flux-schnell-replicate" | "flux-dev-replicate" | "gpt-image-2";
-export type VideoModelId =
-  | "veo-3.1-fal"
-  | "kling-v3-fal"
-  | "wan-flf2v-fal"
-  | "seedance-2-fal"
-  | "seedance-2-fast-fal"
-  | "ltx-2.3-fal";
+export type ImageModelId = string;
+export type VideoModelId = string;
 
-export interface VideoModelCapabilities {
-  durations: string[];
-  resolutions?: string[];
-  aspectRatios?: string[];
-  hasAudio?: boolean;
-}
-
-export interface VideoGenerationSettings {
-  duration: string;
-  resolution?: string;
-  aspectRatio?: string;
-  audio?: boolean;
-}
+import type { VideoModelCapabilities, VideoGenerationSettings } from "../../../shared/model-config";
+export type { VideoModelCapabilities, VideoGenerationSettings } from "../../../shared/model-config";
 
 export interface VideoModelModeCapabilities {
   textToVideo?: {
@@ -53,30 +34,34 @@ export interface ImageModelModeCapabilities {
 }
 
 export interface ImageModelProvider {
+  modeCapabilities?: ImageModelModeCapabilities;
   id: ImageModelId;
   name: string;
   description: string;
   enabled: boolean;
   apiKeyProvider: ApiKeyProvider;
-  generateImage(prompt: string, apiKey: string): Promise<string>;
+  generateImage(prompt: string, apiKey: string, observer?: GenerationObserver): Promise<string>;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
   editImage?(
     prompt: string,
     sourceImageBase64: string,
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<string>;
   inpaintImage?(
     prompt: string,
     sourceImageBase64: string,
     maskBase64: string,
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<string>;
   supportsComposition?: boolean;
   composeImage?(
     prompt: string,
     referenceImages: string[],
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<string>;
 }
 
@@ -95,17 +80,20 @@ export interface VideoModelProvider {
     prompt: string,
     imageBase64: string | null,
     apiKey: string,
-    settings?: VideoGenerationSettings
+    settings?: VideoGenerationSettings,
+    observer?: GenerationObserver
   ): Promise<string>;
   generateVideoBlob?(
     prompt: string,
     imageBase64: string | null,
     apiKey: string,
-    settings?: VideoGenerationSettings
+    settings?: VideoGenerationSettings,
+    observer?: GenerationObserver
   ): Promise<Blob>;
   generateVideoFromRequest?(
     request: VideoGenerationRequest,
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<Blob>;
 }
 

@@ -1,3 +1,5 @@
+export const DEFAULT_BIBLE_IMAGE_MODEL = "nano-banana";
+
 const GENERATED_VARIANT_NAME_MAX = 50;
 
 export function buildGeneratedVariantName(prompt: string): string {

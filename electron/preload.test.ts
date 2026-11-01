@@ -37,3 +37,15 @@ it.each([
   unsubscribe();
   expect(native.removeListener).toHaveBeenCalledExactlyOnceWith(channel, receive);
 });
+
+it("does not forward private Electron events through the data-change bridge", () => {
+  native.on.mockClear(); native.removeListener.mockClear();
+  const bridge = native.expose.mock.calls[0][1];
+  const callback = vi.fn();
+  const unsubscribe = bridge.onDataChanged(callback);
+  const [channel, receive] = native.on.mock.calls[0];
+  receive({ sender: "private Electron event" });
+  expect(callback).toHaveBeenCalledExactlyOnceWith();
+  unsubscribe();
+  expect(native.removeListener).toHaveBeenCalledExactlyOnceWith(channel, receive);
+});

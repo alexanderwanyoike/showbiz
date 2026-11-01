@@ -1,0 +1,50 @@
+[
+  {
+    "package": "@radix-ui/react-use-size@1.1.1",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  },
+  {
+    "package": "@radix-ui/react-context@1.1.2",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  },
+  {
+    "package": "@radix-ui/number@1.1.1",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  },
+  {
+    "package": "@radix-ui/react-compose-refs@1.1.2",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  },
+  {
+    "package": "@radix-ui/react-direction@1.1.1",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  },
+  {
+    "package": "@radix-ui/react-use-rect@1.1.1",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  },
+  {
+    "package": "@radix-ui/react-use-layout-effect@1.1.1",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  },
+  {
+    "package": "@radix-ui/react-use-previous@1.1.1",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  },
+  {
+    "package": "@radix-ui/rect@1.1.1",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  },
+  {
+    "package": "@radix-ui/react-id@1.1.1",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  },
+  {
+    "package": "@radix-ui/react-use-callback-ref@1.1.1",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  },
+  {
+    "package": "@radix-ui/react-use-escape-keydown@1.1.1",
+    "source": "https://github.com/radix-ui/primitives/blob/fcef0668a5c827e5a4baac405474d75680f9a4eb/LICENSE"
+  }
+]
