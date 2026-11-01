@@ -1,3 +1,4 @@
+import { getAccountingNotice } from "../lib/generation-accounting-notices";
 import { useEffect, useRef, useState } from "react";
 import { getGenerationEstimate } from "../lib/generation-pricing";
 import { invoke } from "../lib/bridge";
@@ -25,15 +26,22 @@ export function useGenerationCost(
   );
   const activeAccountingRequest = useRef<string | null>(null);
   const requestKey = JSON.stringify(request);
+  const family = request.kind === "video" ? "video" : "image";
   useEffect(() => {
-    setAccountingWarning(null);
-    activeAccountingRequest.current = null;
+    const notice = subject?.project_id
+      ? getAccountingNotice(subject.project_id, subject.subject_id, family)
+      : undefined;
+    setAccountingWarning(
+      notice?.warnings.length ? notice.warnings.join(" ") : null,
+    );
+    activeAccountingRequest.current = notice?.request_id ?? null;
     const usageChanged = (event: Event) => {
       const detail = (event as CustomEvent<GenerationUsageChangedDetail>)
         .detail;
       if (
         detail?.project_id === subject?.project_id &&
-        (!subject?.subject_id || detail?.subject_id === subject.subject_id)
+        (!subject?.subject_id || detail?.subject_id === subject.subject_id) &&
+        (!detail.kind_family || detail.kind_family === family)
       ) {
         if (detail.started) activeAccountingRequest.current = detail.request_id;
         if (
@@ -55,7 +63,7 @@ export function useGenerationCost(
       window.removeEventListener("showbiz:usage-changed", usageChanged);
       window.removeEventListener("showbiz:pricing-changed", pricingChanged);
     };
-  }, [subject?.project_id, subject?.subject_id]);
+  }, [subject?.project_id, subject?.subject_id, family]);
   useEffect(() => {
     let stopped = false;
     setEstimate(null);
@@ -66,7 +74,6 @@ export function useGenerationCost(
       stopped = true;
     };
   }, [modelId, requestKey, priceRefresh]);
-  const family = request.kind === "video" ? "video" : "image";
   useEffect(() => {
     let stopped = false;
     setLast(null);
@@ -98,5 +105,9 @@ export function useGenerationCost(
       stopped = true;
     };
   }, [subject?.project_id, subject?.subject_id, family, historyRefresh]);
-  return { estimate, last, error: accountingWarning ?? error };
+  return {
+    estimate,
+    last,
+    error: [accountingWarning, error].filter(Boolean).join(" ") || null,
+  };
 }

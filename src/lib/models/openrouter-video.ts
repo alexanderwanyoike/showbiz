@@ -1,3 +1,4 @@
+import { createStatusPollRetry } from "./status-poll-retry";
 import { openRouterUsageSchema } from "../../../shared/openrouter-usage";
 import { z } from "zod";
 import { fetch } from "./http";
@@ -99,7 +100,7 @@ export async function generateOpenRouterVideo(
     receipt = openRouterReceipt(initial.data);
     await observer?.receipt(receipt);
     const url = `https://openrouter.ai/api/v1/videos/${encodeURIComponent(job)}`;
-    let consecutiveFailures = 0;
+    const retries = createStatusPollRetry();
     return await pollUntilDone<GenerationOutput<Blob>>({
       initialInterval: 2000,
       maxInterval: 10000,
@@ -111,8 +112,7 @@ export async function generateOpenRouterVideo(
         try {
           response = await fetch(url, { headers });
         } catch {
-          consecutiveFailures += 1;
-          if (consecutiveFailures < 3) return { done: false };
+          if (retries.allowRetry()) return { done: false };
           return {
             done: true,
             value: failure(
@@ -125,8 +125,7 @@ export async function generateOpenRouterVideo(
           !response.ok &&
           (response.status === 429 || response.status >= 500)
         ) {
-          consecutiveFailures += 1;
-          if (consecutiveFailures < 3) return { done: false };
+          if (retries.allowRetry()) return { done: false };
         }
         if (!response.ok)
           return {
@@ -136,7 +135,7 @@ export async function generateOpenRouterVideo(
               receipt,
             ),
           };
-        consecutiveFailures = 0;
+        retries.reset();
         const parsed = jobSchema.safeParse(await response.json());
         if (!parsed.success || parsed.data.id !== job)
           return {

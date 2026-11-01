@@ -18,8 +18,6 @@ it("retains the preflight estimate and reported cost as distinct values across c
       estimated_min_microusd: 1200000,
       estimated_max_microusd: 1200000,
       settings: { duration: 8, resolution: "720p" },
-      price_source: "https://openrouter.ai/models/veo",
-      price_checked_at: "2026-10-31T12:00:00Z",
     });
     expect(started).toMatchObject({ ok: true });
     expect(
@@ -324,6 +322,8 @@ it("rejects invalid or conflicting explicit provenance instead of contradicting 
       rates: [{ unit: "image", microusd: 40000 }],
     };
     const invalid = [
+      { price_source: price.source_url },
+      { price_checked_at: price.checked_at },
       { price_source: 42 },
       { price_source: "not-a-url" },
       { price_source: "https://another.example/pricing" },
@@ -355,8 +355,6 @@ it("rejects invalid or conflicting explicit provenance instead of contradicting 
         provider: "fal",
         model_id: "image",
         price_basis: price,
-        price_source: price.source_url,
-        price_checked_at: price.checked_at,
       }),
     ).toMatchObject({
       ok: true,
