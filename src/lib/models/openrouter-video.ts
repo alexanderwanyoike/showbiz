@@ -97,7 +97,7 @@ export async function generateOpenRouterVideo(
     if (!initial.success)
       return failure("OpenRouter returned an unsupported video job.");
     const job = initial.data.id;
-    receipt = { provider_request_id: job, reported_microusd: null };
+    receipt = openRouterReceipt(initial.data);
     await observer?.receipt(receipt);
     const url = `https://openrouter.ai/api/v1/videos/${encodeURIComponent(job)}`;
     return await pollUntilDone<GenerationOutput<Blob>>({
