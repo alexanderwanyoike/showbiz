@@ -1,9 +1,9 @@
+import { resolveGenerationKey } from "../lib/generation-key";
 import {
   accountModelGeneration,
   type GenerationSubject,
 } from "../lib/model-generation-accounting";
 import {
-  getApiKey,
   getShotImageBase64,
   getShotEndFrameBase64,
   createVideoGenerationVersion,
@@ -24,11 +24,9 @@ export async function generateImageAction(
   subject?: GenerationSubject,
 ): Promise<string> {
   const model = getImageModel(modelId);
-  const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
-  if (!apiKey && model.apiKeyProvider !== "local")
-    throw new Error(
-      `${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`,
-    );
+  const credential = await resolveGenerationKey(model.apiKeyProvider);
+  if (!credential.ok) throw new Error(credential.error.message);
+  const apiKey = credential.value;
   try {
     const result = await accountModelGeneration(
       modelId,
@@ -50,14 +48,9 @@ export async function generateAndSaveVideoRequestAction(
   request: VideoGenerationRequest,
 ): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
   const model = getVideoModel(modelId);
-  const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
-  if (!apiKey && model.apiKeyProvider !== "local") {
-    return {
-      success: false,
-      videoUrl: null,
-      error: `${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`,
-    };
-  }
+  const credential = await resolveGenerationKey(model.apiKeyProvider);
+  if (!credential.ok) return { success: false, videoUrl: null, error: credential.error.message };
+  const apiKey = credential.value;
   try {
     let effectiveRequest = request;
     if (request.mode === "image-to-video") {
@@ -134,11 +127,9 @@ export async function editImageAction(
   subject?: GenerationSubject,
 ): Promise<string> {
   const model = getImageModel(modelId);
-  const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
-  if (!apiKey && model.apiKeyProvider !== "local")
-    throw new Error(
-      `${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`,
-    );
+  const credential = await resolveGenerationKey(model.apiKeyProvider);
+  if (!credential.ok) throw new Error(credential.error.message);
+  const apiKey = credential.value;
   if (!model.supportsImageEditing || !model.editImage)
     throw new Error(`${model.name} does not support image editing.`);
   try {
@@ -166,11 +157,9 @@ export async function composeFrameAction(
   subject?: GenerationSubject,
 ): Promise<string> {
   const model = getImageModel(modelId);
-  const apiKey = (await getApiKey(model.apiKeyProvider)) ?? "";
-  if (!apiKey && model.apiKeyProvider !== "local")
-    throw new Error(
-      `${model.apiKeyProvider.toUpperCase()} API key is not configured. Please add it in Settings.`,
-    );
+  const credential = await resolveGenerationKey(model.apiKeyProvider);
+  if (!credential.ok) throw new Error(credential.error.message);
+  const apiKey = credential.value;
   if (!model.composeImage)
     throw new Error(
       `${model.name} does not support multi-reference composition.`,
@@ -196,11 +185,9 @@ export async function composeFrameAction(
 export async function generateVideoPromptFromImage(
   imageBase64: string,
 ): Promise<string> {
-  const apiKey = (await getApiKey("gemini")) ?? "";
-  if (!apiKey)
-    throw new Error(
-      "Gemini API key is not configured. Please add it in Settings.",
-    );
+  const credential = await resolveGenerationKey("gemini");
+  if (!credential.ok) throw new Error(credential.error.message);
+  const apiKey = credential.value;
   const prompt = `You are a video prompt expert. Analyze this image and generate a compelling video prompt that:
 1. Describes the scene in detail
 2. Suggests natural camera movement or motion
@@ -214,11 +201,9 @@ Output ONLY the video prompt, nothing else.`;
 export async function enhanceVideoPrompt(
   existingPrompt: string,
 ): Promise<string> {
-  const apiKey = (await getApiKey("gemini")) ?? "";
-  if (!apiKey)
-    throw new Error(
-      "Gemini API key is not configured. Please add it in Settings.",
-    );
+  const credential = await resolveGenerationKey("gemini");
+  if (!credential.ok) throw new Error(credential.error.message);
+  const apiKey = credential.value;
   const prompt = `You are a video prompt expert. Enhance this video prompt to be more effective for AI video generation:
 
 Original prompt: "${existingPrompt}"
