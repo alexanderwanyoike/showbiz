@@ -72,7 +72,6 @@ export async function generateLocalVideo(config: LocalGenerationConfig, request:
     model: config.video_model, prompt: request.prompt,
     ...(Number.isFinite(seconds) && seconds > 0 ? { seconds: String(seconds) } : {}),
     ...(request.mode === "image-to-video" && request.startImage ? { start_image: request.startImage } : {}),
-    ...(request.mode === "image-to-video" && request.endImage ? { end_image: request.endImage } : {}),
   }, apiKey);
   if (!result.ok) return result;
   try {
