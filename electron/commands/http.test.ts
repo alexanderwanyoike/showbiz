@@ -157,3 +157,8 @@ it("retains the FAL request identity header without forwarding unrelated respons
   const response = await commands.http_request({ url: "https://fal.run/fal-ai/flux-pro/kontext", method: "POST", headers: [], body: "{}" });
   expect(response.headers).toEqual([["content-type", "application/json"], ["x-fal-request-id", "fal-direct-job"]]);
 });
+
+it("preserves the socket cause of a native fetch failure", async () => {
+  const commands = createHttpCommands(async () => { throw new Error("fetch failed", { cause: new Error("connect ECONNREFUSED 127.0.0.1:8080") }); });
+  await expect(commands.http_request({ url: "http://127.0.0.1:8080/video", method: "POST", headers: [], body: "{}", timeout_ms: 3600000 })).rejects.toThrow("ECONNREFUSED");
+});
