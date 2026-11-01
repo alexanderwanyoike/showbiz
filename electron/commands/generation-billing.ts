@@ -23,22 +23,10 @@ export function createGenerationBillingCommands(
   http: typeof fetch = fetch,
 ) {
   const retryAfter = new Map<string, { key: string | null; until: number; message: string }>();
-  return {
-    async sync_generation_charges(
-      args?: Record<string, unknown>,
-    ): Promise<Result<GenerationBillingSync>> {
-      const parsed = argsSchema.safeParse(args);
-      if (!parsed.success)
-        return {
-          ok: false,
-          error: {
-            code: "INVALID_INPUT",
-            message:
-              "Choose a project and up to 50 generation requests to check.",
-          },
-        };
+  const inFlight = new Map<string, Promise<Result<GenerationBillingSync>>>();
+  async function reconcile(parsed: z.infer<typeof argsSchema>): Promise<Result<GenerationBillingSync>> {
       try {
-        const { project_id, request_ids } = parsed.data;
+        const { project_id, request_ids } = parsed;
         const selected = request_ids
           ? ` AND request_id IN (${request_ids.map(() => "?").join(",")})`
           : "";
@@ -57,7 +45,7 @@ export function createGenerationBillingCommands(
         const identity = (row: PendingCharge) => JSON.stringify([project_id, row.request_id]);
         const rows = candidates.filter((row) => {
           const cached = retryAfter.get(identity(row));
-          if (!parsed.data.force && cached && cached.key === credentials.get(row.provider) && cached.until > Date.now()) {
+          if (!parsed.force && cached && cached.key === credentials.get(row.provider) && cached.until > Date.now()) {
             notes.push({ request_id: row.request_id, message: cached.message });
             return false;
           }
@@ -163,6 +151,26 @@ export function createGenerationBillingCommands(
           },
         };
       }
+  }
+  return {
+    async sync_generation_charges(args?: Record<string, unknown>): Promise<Result<GenerationBillingSync>> {
+      const parsed = argsSchema.safeParse(args);
+      if (!parsed.success)
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_INPUT",
+            message:
+              "Choose a project and up to 50 generation requests to check.",
+          },
+        };
+      const identity = JSON.stringify([parsed.data.project_id, parsed.data.request_ids ? [...parsed.data.request_ids].sort() : null]);
+      const existing = inFlight.get(identity);
+      if (existing) return existing;
+      const operation = reconcile(parsed.data);
+      inFlight.set(identity, operation);
+      try { return await operation; }
+      finally { if (inFlight.get(identity) === operation) inFlight.delete(identity); }
     },
   };
 }
