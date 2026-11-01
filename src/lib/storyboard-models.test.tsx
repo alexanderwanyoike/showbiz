@@ -697,3 +697,26 @@ it("waits for image model persistence before editing a frame and then uses the s
   await user.click(within(dialog).getByRole("button", { name: "Edit Image" }));
   await waitFor(() => expect(editImageAction).toHaveBeenCalledWith(expect.any(String), "Morning mist", "nano-banana", expect.objectContaining({ subject_id: "shot-1" })));
 });
+
+it("saves settings for two shots independently and keeps only the pending shot disabled", async () => {
+  const finish: Record<string, () => void> = {};
+  const save: typeof setShotVideoSettings = async (shotId, settings) => new Promise((resolve) => { finish[shotId] = () => resolve({ ok: true, value: settings }); });
+  vi.mocked(setShotVideoSettings).mockImplementationOnce(save).mockImplementationOnce(save);
+  render(createElement(MemoryRouter, { initialEntries: ["/storyboard/board"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Shot controls" }));
+  await user.click(screen.getByRole("combobox", { name: "Video duration" }));
+  await user.click(screen.getByRole("option", { name: "4s" }));
+  await user.click(screen.getByRole("button", { name: "Select shot 2" }));
+  expect(screen.getByRole("combobox", { name: "Video duration" })).toHaveProperty("disabled", false);
+  await user.click(screen.getByRole("combobox", { name: "Video duration" }));
+  await user.click(screen.getByRole("option", { name: "6s" }));
+  expect(setShotVideoSettings).toHaveBeenCalledTimes(2);
+  await act(async () => { finish["shot-1"](); });
+  expect(screen.getByRole("combobox", { name: "Video duration" })).toHaveProperty("disabled", true);
+  await user.click(screen.getByRole("button", { name: "Select shot 1" }));
+  expect(screen.getByRole("combobox", { name: "Video duration" })).toHaveProperty("disabled", false);
+  expect(screen.getByRole("combobox", { name: "Video duration" }).textContent).toBe("4s");
+  await act(async () => { finish["shot-2"](); });
+  expect(applicationWork.snapshot().unsaved).not.toContain("draft");
+});
