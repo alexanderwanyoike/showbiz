@@ -1,3 +1,4 @@
+import { retainAccountingNotice } from "./generation-accounting-notices";
 import { invoke } from "./bridge";
 import type { GenerationCostEstimate } from "../../shared/generation-cost";
 import type { GenerationObserver } from "../../shared/generation-output";
@@ -18,8 +19,12 @@ export interface GenerationUsageChangedDetail {
   project_id: string;
   subject_id?: string;
   warnings: string[];
+  request_id: string;
+  started: boolean;
+  kind_family?: "image" | "video";
 }
-function notify(request: GenerationAccountingRequest, warnings: string[] = []) {
+function notify(request: GenerationAccountingRequest, requestId: string, warnings: string[] = [], started = false) {
+  retainAccountingNotice({ ...request, request_id: requestId, warnings, started, kind_family: request.kind === "video" ? "video" : "image" });
   if (typeof window !== "undefined")
     window.dispatchEvent(
       new CustomEvent<GenerationUsageChangedDetail>("showbiz:usage-changed", {
@@ -27,6 +32,9 @@ function notify(request: GenerationAccountingRequest, warnings: string[] = []) {
           project_id: request.project_id,
           subject_id: request.subject_id,
           warnings: [...warnings],
+          request_id: requestId,
+          started,
+          kind_family: request.kind === "video" ? "video" : "image",
         },
       }),
     );
@@ -55,7 +63,7 @@ export async function runAccountedGeneration<T>(
       },
     );
     if (!begun.ok) return begun;
-    notify(request);
+    notify(request, request_id, [], true);
     const warnings: string[] = [];
     let result: Result<T>;
     let pendingReceipt = false;
@@ -84,7 +92,7 @@ export async function runAccountedGeneration<T>(
               `Could not save the provider receipt: ${cause instanceof Error ? cause.message : String(cause)}`,
             );
           }
-          notify(request, warnings);
+          notify(request, request_id, warnings);
         },
       });
       result = { ok: true, value };
@@ -128,7 +136,7 @@ export async function runAccountedGeneration<T>(
         );
       }
     }
-    notify(request, warnings);
+    notify(request, request_id, warnings);
     return warnings.length ? { ...result, warnings } : result;
   } catch (cause) {
     return failed(

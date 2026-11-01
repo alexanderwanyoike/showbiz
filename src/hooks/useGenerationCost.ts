@@ -1,3 +1,4 @@
+import { getAccountingNotice } from "../lib/generation-accounting-notices";
 import { useEffect, useState } from "react";
 import { getGenerationEstimate } from "../lib/generation-pricing";
 import { invoke } from "../lib/bridge";
@@ -24,14 +25,16 @@ export function useGenerationCost(
     null,
   );
   const requestKey = JSON.stringify(request);
+  const family = request.kind === "video" ? "video" : "image";
   useEffect(() => {
-    setAccountingWarning(null);
+    const notice = subject?.project_id ? getAccountingNotice(subject.project_id, subject.subject_id, family) : undefined;
+    setAccountingWarning(notice?.warnings.length ? notice.warnings.join(" ") : null);
     const usageChanged = (event: Event) => {
       const detail = (event as CustomEvent<GenerationUsageChangedDetail>)
         .detail;
       if (
         detail?.project_id === subject?.project_id &&
-        (!subject?.subject_id || detail?.subject_id === subject.subject_id)
+        (!subject?.subject_id || detail?.subject_id === subject.subject_id) && (!detail.kind_family || detail.kind_family === family)
       ) {
         setAccountingWarning(
           detail.warnings?.length ? detail.warnings.join(" ") : null,
@@ -47,7 +50,7 @@ export function useGenerationCost(
       window.removeEventListener("showbiz:usage-changed", usageChanged);
       window.removeEventListener("showbiz:pricing-changed", pricingChanged);
     };
-  }, [subject?.project_id, subject?.subject_id]);
+  }, [subject?.project_id, subject?.subject_id, family]);
   useEffect(() => {
     let stopped = false;
     setEstimate(null);
@@ -58,7 +61,6 @@ export function useGenerationCost(
       stopped = true;
     };
   }, [modelId, requestKey, priceRefresh]);
-  const family = request.kind === "video" ? "video" : "image";
   useEffect(() => {
     let stopped = false;
     setLast(null);
