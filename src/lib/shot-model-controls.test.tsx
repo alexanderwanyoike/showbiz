@@ -4,14 +4,6 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { ShotModelControls } from "../components/ShotModelControls";
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
 Element.prototype.scrollIntoView = vi.fn();
 afterEach(cleanup);
 it("offers a shot override and a way back to the storyboard default", async () => {

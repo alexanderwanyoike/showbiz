@@ -11,14 +11,6 @@ vi.mock("../hooks/useUpdates", () => ({
   useUpdates: () => ({ status: null }),
 }));
 vi.mock("../components/SettingsDialog", () => ({ SettingsDialog: () => null }));
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
 afterEach(cleanup);
 
 it("identifies compact storyboard commands with a real focus tooltip and preserves dialog activation", async () => {

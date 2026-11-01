@@ -21,7 +21,6 @@ vi.mock("./backend-api", async (original) => ({
   getVersionCount: async () => 0,
   getVideoVersionCount: async () => 0,
 }));
-vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 
 afterEach(cleanup);
 it("offers storyboard packages without an editor or movie assembly workspace", async () => {
