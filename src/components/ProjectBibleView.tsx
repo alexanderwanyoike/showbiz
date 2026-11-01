@@ -32,6 +32,7 @@ import {
   getBibleAssets,
   getBibleVariantImageBase64,
   getBibles,
+  updateBibleAsset,
   updateBibleAssetVariantStatus,
   type BibleAsset,
   type BibleAssetVariant,
@@ -272,7 +273,7 @@ export default function ProjectBibleView({
       await withApplicationWork(
         !file && prompt.trim() ? "generation" : "saving",
         async () => {
-          const draftKey = `${type}:${name.trim()}`;
+          const draftKey = `${type}:creation`;
           let asset = pendingAssets.current.get(draftKey);
           if (!asset || !assets.some((entry) => entry.id === asset?.id)) {
             asset = await createBibleAsset(bibleId, {
@@ -288,6 +289,14 @@ export default function ProjectBibleView({
             setAssets((prev) => [created, ...prev]);
             setVariants((prev) => ({ ...prev, [created.id]: [] }));
             pendingAssets.current.set(draftKey, asset);
+          } else if (asset.name !== name.trim()) {
+            asset = await updateBibleAsset(asset.id, {
+              ...asset,
+              name: name.trim(),
+            });
+            pendingAssets.current.set(draftKey, asset);
+            const updated = asset;
+            setAssets((previous) => previous.map((entry) => entry.id === updated.id ? updated : entry));
           }
           if (file) {
             await addVariant(asset.id, await fileToDataUrl(file), {
