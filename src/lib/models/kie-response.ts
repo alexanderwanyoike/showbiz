@@ -49,13 +49,14 @@ export async function readKieResponse(
     .object({
       code: z.union([z.number().int(), z.string().regex(/^\d+$/)]).optional(),
       msg: z.string().nullish(),
+      error: z.unknown().optional(),
     })
     .safeParse(body);
   const code =
     envelope.success && envelope.data.code !== undefined
       ? Number(envelope.data.code)
       : undefined;
-  if (!response.ok || (code !== undefined && code !== 200)) {
+  if (!response.ok || (code !== undefined && code !== 200) || (envelope.success && envelope.data.error != null)) {
     const status = !response.ok ? response.status : (code ?? response.status);
     const message =
       providerErrorMessage(body) ??
