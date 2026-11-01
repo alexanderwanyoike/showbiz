@@ -62,3 +62,10 @@ it("generates local video with JSON conditioning and base64 media output", async
   });
   if (result.ok) expect(await result.value.media.text()).toBe("video");
 });
+
+it("preserves the local server's error message and connection failure cause", async () => {
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "Model my-wan is not installed." } }), { status: 404 }));
+  expect(await generateLocalVideo(config, { mode: "text-to-video", prompt: "Morning", settings: { duration: "8s" } }, "")).toMatchObject({ ok: false, error: { message: expect.stringContaining("Model my-wan is not installed.") } });
+  http.fetch.mockRejectedValueOnce(new Error("ECONNREFUSED 127.0.0.1:8080"));
+  expect(await generateLocalImage(config, "Morning", "")).toMatchObject({ ok: false, error: { message: expect.stringContaining("ECONNREFUSED") } });
+});
