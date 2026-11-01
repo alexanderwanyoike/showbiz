@@ -558,3 +558,16 @@ it("falls back to provider pricing for settings without a matching custom rate a
     db.close();
   }
 });
+
+it("retains a matching expired FAL cache as an explicitly stale estimate when live pricing fails", async () => {
+  const { createSettingsCommands } = await import("../../electron/commands/settings");
+  const db = openTestDb();
+  try {
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createSettingsCommands(db);
+    commands.save_api_key({ provider: "fal", apiKey: "fixture-key" });
+    native.invoke.mockImplementation(async (command, args) => commands[command]?.(args));
+    commands.save_generation_price({ kind: "image", price: { provider: "fal", model_id: "flux-dev-fal", currency: "USD", source_kind: "provider", source_url: "https://api.fal.ai/v1/models/pricing/estimate", checked_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), endpoint_id: "fal-ai/flux/dev", estimate_basis: "historical_request", rates: [{ unit: "request", microusd: 23000 }] } });
+    native.fetch.mockImplementation(async () => new Response("Provider unavailable", { status: 503 }));
+    expect(await getGenerationEstimate("flux-dev-fal", { kind: "image" })).toMatchObject({ kind: "estimate", min_microusd: 23000, stale: true, price: { endpoint_id: "fal-ai/flux/dev" } });
+  } finally { db.close(); }
+});
