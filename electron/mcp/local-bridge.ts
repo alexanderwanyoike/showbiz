@@ -67,6 +67,10 @@ export async function startLocalBridge(
       });
       return;
     }
+    if (req.method === "GET" && req.url === "/health") {
+      send(res, { ok: true, value: { id: session.id, pid: session.pid } });
+      return;
+    }
     if (req.method !== "POST" || req.url !== "/tools") {
       res.statusCode = 404;
       send(res, {

@@ -1,7 +1,7 @@
 import { request, type ClientRequest } from "node:http";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { readdir, readFile, lstat } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
+import { join, dirname, basename, resolve } from "node:path";
+import { readdir, readFile, lstat, unlink, rmdir } from "node:fs/promises";
 import {
   sessionSchema,
   resultSchema,
@@ -25,30 +25,70 @@ export async function listSessions(
   } catch {
     return [];
   }
-  const sessions: LocalSession[] = [];
-  for (const name of names.sort().slice(0, 100)) {
-    if (!/^[a-f\d-]{36}\.json$/i.test(name)) continue;
+  const sessions = await Promise.all(names.sort().slice(0, 100).map(async (name): Promise<LocalSession | null> => {
+    if (!/^[a-f\d-]{36}\.json$/i.test(name)) return null;
     try {
       const path = join(directory, name);
       const info = await lstat(path);
-      if (
-        !info.isFile() ||
-        info.size > 4096 ||
-        (process.getuid &&
-          (info.uid !== process.getuid() || info.mode % 0o100 !== 0))
-      )
-        continue;
-      const parsed = sessionSchema.safeParse(
-        JSON.parse(await readFile(path, "utf8")),
-      );
-      if (!parsed.success || `${parsed.data.id}.json` !== name) continue;
-      process.kill(parsed.data.pid, 0);
-      sessions.push(parsed.data);
+      if (!info.isFile() || info.size > 4096 || (process.getuid && (info.uid !== process.getuid() || info.mode % 0o100 !== 0))) return null;
+      const contents = await readFile(path, "utf8");
+      const parsed = sessionSchema.safeParse(JSON.parse(contents));
+      if (!parsed.success || `${parsed.data.id}.json` !== name) return null;
+      const health = await probeSession(parsed.data);
+      if (health === "alive") return parsed.data;
+      if (health === "stale" && await readFile(path, "utf8") === contents) {
+        await unlink(path);
+        await removeStaleSocket(parsed.data.socket);
+      }
     } catch {
-      /* Stale descriptors cannot become selectable sessions. */
+      // Unreadable or untrusted descriptors cannot become selectable sessions.
     }
+    return null;
+  }));
+  return sessions.filter((session): session is LocalSession => session !== null);
+}
+
+function probeSession(session: LocalSession): Promise<"alive" | "stale" | "uncertain"> {
+  return new Promise((resolveHealth) => {
+    const pending = request({ socketPath: session.socket, path: "/health", method: "GET", headers: { authorization: `Bearer ${session.secret}` } }, (response) => {
+      const chunks: Buffer[] = [];
+      let bytes = 0;
+      response.on("data", (chunk: Buffer) => {
+        bytes += chunk.length;
+        if (bytes > 4096) { resolveHealth("uncertain"); pending.destroy(); return; }
+        chunks.push(chunk);
+      });
+      response.on("error", () => resolveHealth("uncertain"));
+      response.on("end", () => {
+        try {
+          const parsed = resultSchema.safeParse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+          const value = parsed.success && parsed.data.ok ? parsed.data.value : null;
+          resolveHealth(response.statusCode === 200 && typeof value === "object" && value !== null && "id" in value && value.id === session.id && "pid" in value && value.pid === session.pid ? "alive" : "uncertain");
+        } catch { resolveHealth("uncertain"); }
+      });
+    });
+    pending.setTimeout(500, () => { resolveHealth("uncertain"); pending.destroy(); });
+    pending.on("error", (error: NodeJS.ErrnoException) => resolveHealth(error.code === "ENOENT" || error.code === "ECONNREFUSED" ? "stale" : "uncertain"));
+    pending.end();
+  });
+}
+
+async function removeStaleSocket(socket: string): Promise<void> {
+  if (process.platform === "win32") return;
+  const directory = dirname(socket);
+  if (basename(socket) !== "app.sock" || dirname(directory) !== resolve(tmpdir()) || !/^showbiz-mcp-[a-zA-Z\d]{6}$/.test(basename(directory))) return;
+  try {
+    const folder = await lstat(directory);
+    if (!folder.isDirectory() || (process.getuid && (folder.uid !== process.getuid() || folder.mode % 0o100 !== 0))) return;
+    try {
+      const info = await lstat(socket);
+      if (!info.isSocket() || (process.getuid && info.uid !== process.getuid())) return;
+      await unlink(socket);
+    } catch (error) { if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) return; }
+    await rmdir(directory);
+  } catch {
+    // Another process may already have removed or reclaimed the stale path.
   }
-  return sessions;
 }
 
 export function callBridge(
