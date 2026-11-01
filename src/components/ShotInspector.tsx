@@ -2,7 +2,7 @@ import { WorkspaceCommand } from "./WorkspaceCommand";
 import { InspectorHelp } from "./InspectorHelp";
 import { ShotVideoSettings } from "./ShotVideoSettings";
 import { Link } from "react-router";
-import { useId, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   ChevronDown,
   Loader2,
@@ -112,20 +112,25 @@ export interface ShotInspectorProps {
 function InspectorSection({
   title,
   defaultOpen = true,
+  open: controlledOpen,
+  onOpenChange,
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [localOpen, setLocalOpen] = useState(defaultOpen);
+  const open = controlledOpen ?? localOpen;
   const sectionId = useId();
   return (
     <div className="border-b border-border/50 last:border-b-0">
       <button
         aria-expanded={open}
         aria-controls={sectionId}
-        onClick={() => setOpen(!open)}
+        onClick={() => { if (onOpenChange) onOpenChange(!open); else setLocalOpen(!open); }}
         className="inspector-section-heading"
       >
         {title}
@@ -133,11 +138,9 @@ function InspectorSection({
           className={`h-3 w-3 transition-transform ${open ? "" : "-rotate-90"}`}
         />
       </button>
-      {open && (
-        <div id={sectionId} className="px-3 pb-3">
-          {children}
-        </div>
-      )}
+      <div id={sectionId} hidden={!open} className="px-3 pb-3">
+        {open ? children : null}
+      </div>
     </div>
   );
 }
@@ -418,6 +421,21 @@ export default function ShotInspector({
   isGeneratingPrompt,
   isEnhancingPrompt,
 }: ShotInspectorProps) {
+  const [takeHistoryOpen, setTakeHistoryOpen] = useState<Record<string, { image: boolean; video: boolean }>>({});
+  const seenTakeCounts = useRef(new Map<string, { image: number; video: number }>());
+  const activeShotId = shot?.id;
+  useEffect(() => {
+    if (!activeShotId) return;
+    const previous = seenTakeCounts.current.get(activeShotId);
+    seenTakeCounts.current.set(activeShotId, { image: versionCount, video: videoVersionCount });
+    if (previous && (versionCount > previous.image || videoVersionCount > previous.video)) {
+      setTakeHistoryOpen((current) => ({ ...current, [activeShotId]: { image: !!current[activeShotId]?.image || versionCount > previous.image, video: !!current[activeShotId]?.video || videoVersionCount > previous.video } }));
+    }
+  }, [activeShotId, versionCount, videoVersionCount]);
+  function changeTakeHistory(kind: "image" | "video", open: boolean) {
+    if (!activeShotId) return;
+    setTakeHistoryOpen((previous) => ({ ...previous, [activeShotId]: { image: previous[activeShotId]?.image ?? false, video: previous[activeShotId]?.video ?? false, [kind]: open } }));
+  }
   if (!shot) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -614,7 +632,7 @@ export default function ShotInspector({
 
         {/* Image Versions Section */}
         {versionCount > 0 && (
-          <InspectorSection title="Image takes" defaultOpen={false}>
+          <InspectorSection title="Image takes" open={takeHistoryOpen[shot.id]?.image ?? false} onOpenChange={(open) => changeTakeHistory("image", open)}>
             <ImageVersionTimeline
               versions={versions}
               currentVersionId={currentVersion?.id || null}
@@ -630,7 +648,7 @@ export default function ShotInspector({
 
         {/* Video Versions Section */}
         {videoVersionCount > 0 && (
-          <InspectorSection title="Video takes" defaultOpen={false}>
+          <InspectorSection title="Video takes" open={takeHistoryOpen[shot.id]?.video ?? false} onOpenChange={(open) => changeTakeHistory("video", open)}>
             <VideoVersionTimeline
               versions={videoVersions}
               currentVersionId={currentVideoVersion?.id || null}
