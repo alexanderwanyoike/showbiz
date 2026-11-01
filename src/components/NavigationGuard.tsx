@@ -10,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useApplicationWork } from "../hooks/useApplicationWork";
+import { useLocalDrafts } from "../hooks/useApplicationWork";
 import { applicationWork } from "../lib/application-work";
 
 function workspace(location: Pick<Location, "pathname" | "search">) {
@@ -20,23 +20,26 @@ function workspace(location: Pick<Location, "pathname" | "search">) {
     : location.pathname;
 }
 export function NavigationGuard() {
+  const continuing = useRef(false);
   const origin = useRef<HTMLElement | null>(null);
-  useApplicationWork();
-  // Native status includes delayed echoes; internal navigation leaves only this renderer's drafts.
-  const dirty = applicationWork.snapshot().unsaved.includes("draft");
+  const dirty = useLocalDrafts();
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      applicationWork.snapshot().unsaved.includes("draft") &&
+      applicationWork.getLocalDrafts() &&
       workspace(currentLocation) !== workspace(nextLocation),
   );
   useEffect(() => {
-    if (!dirty && blocker.state === "blocked") blocker.proceed();
+    if (blocker.state === "unblocked") continuing.current = false;
+    if (!dirty && blocker.state === "blocked" && !continuing.current) {
+      continuing.current = true;
+      blocker.proceed();
+    }
   }, [dirty, blocker]);
   return (
     <AlertDialog
       open={dirty && blocker.state === "blocked"}
       onOpenChange={(open) => {
-        if (!open && blocker.state === "blocked") blocker.reset();
+        if (!open && blocker.state === "blocked" && !continuing.current) blocker.reset();
       }}
     >
       <AlertDialogContent
@@ -62,7 +65,8 @@ export function NavigationGuard() {
           <Button
             variant="destructive"
             onClick={() => {
-              if (blocker.state === "blocked") {
+              if (blocker.state === "blocked" && !continuing.current) {
+                continuing.current = true;
                 window.dispatchEvent(
                   new Event("showbiz:discard-workspace-drafts"),
                 );

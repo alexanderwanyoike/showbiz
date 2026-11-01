@@ -40,10 +40,13 @@ export function NewStoryboardDialog({
   const [creationError, setCreationError] = useState<string | null>(null);
   const [newStoryboardName, setNewStoryboardName] = useState("");
   const creating = useRef(false);
+  const attempt = useRef(0);
   const completed = useRef<Storyboard | null>(null);
   useUnsavedWork("draft", open && !!newStoryboardName, newStoryboardName);
   useEffect(() => {
     const discard = () => {
+      attempt.current++;
+      completed.current = null;
       setNewStoryboardName("");
       onOpenChange(false);
       setCreationError(null);
@@ -52,6 +55,7 @@ export function NewStoryboardDialog({
     return () =>
       window.removeEventListener("showbiz:discard-workspace-drafts", discard);
   }, [onOpenChange]);
+  useEffect(() => () => { attempt.current++; }, []);
   useEffect(() => {
     if (open || !completed.current) return;
     const storyboard = completed.current;
@@ -97,10 +101,17 @@ export function NewStoryboardDialog({
     event.preventDefault();
     const name = newStoryboardName.trim();
     if (!name || creating.current) return;
+    const currentAttempt = ++attempt.current;
     creating.current = true;
     setIsCreating(true);
     setCreationError(null);
     const result = await createDraft(name);
+    if (currentAttempt !== attempt.current) {
+      if (result.ok) window.dispatchEvent(new Event("showbiz:project-changed"));
+      creating.current = false;
+      setIsCreating(false);
+      return;
+    }
     if (result.ok) {
       completed.current = result.value;
       setNewStoryboardName("");

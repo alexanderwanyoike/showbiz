@@ -288,6 +288,7 @@ it("does not reopen a discarded creation after its native save finishes", async 
   await user.type(screen.getByRole("textbox", { name: "Storyboard name" }), "Late board{Enter}");
   await act(async () => { await router.navigate("/project/film?view=bible"); });
   await user.click(within(await screen.findByRole("alertdialog", { name: "Discard unsaved changes?" })).getByRole("button", { name: "Discard and continue" }));
+  await screen.findByRole("textbox", { name: "Character name" });
   await act(async () => { finish?.({ ...opening, id: "late", name: "Late board" }); });
   expect(router.state.location.search).toBe("?view=bible");
   await user.click(screen.getByRole("link", { name: "Storyboards" }));

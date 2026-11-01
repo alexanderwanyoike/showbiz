@@ -6,6 +6,10 @@ export function useApplicationWork() {
   return useSyncExternalStore(applicationWork.subscribe, applicationWork.getStatus);
 }
 
+export function useLocalDrafts() {
+  return useSyncExternalStore(applicationWork.subscribe, applicationWork.getLocalDrafts);
+}
+
 export function useUnsavedWork(kind: UnsavedWork, dirty: boolean, value: unknown = dirty) {
   const id = useRef(Symbol(kind));
   useLayoutEffect(() => {
