@@ -478,3 +478,16 @@ it("excludes deleted take bytes and unrelated cache files from a saved project c
     await documents.close();
   }
 });
+
+it("refreshes the recent project name when a saved project is renamed", async () => {
+  const { directory, documents } = setup();
+  const file = path.join(directory, "Morning.showbiz");
+  try {
+    const created = await documents.create(file);
+    if (!created.ok) throw new Error(created.error.message);
+    await documents.invoke("update_project", { id: created.value.project_id, name: "After sunrise" });
+    expect(documents.current()).toMatchObject({ file_path: file, name: "After sunrise" });
+    expect(documents.recent()).toEqual([{ file_path: file, name: "After sunrise" }]);
+    expect(JSON.parse(fs.readFileSync(path.join(directory, "recent.json"), "utf8"))).toEqual(documents.recent());
+  } finally { await documents.close(); }
+});
