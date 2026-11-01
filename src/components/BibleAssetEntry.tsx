@@ -25,6 +25,7 @@ export function BibleAssetEntry({
   takes,
   busy,
   builtFrom,
+  usesReferenceImages,
   basePrompt,
   onRetake,
   onEdit,
@@ -45,6 +46,7 @@ export function BibleAssetEntry({
   takes: BibleAssetVariant[];
   busy: boolean;
   builtFrom: string | null;
+  usesReferenceImages: boolean;
   basePrompt: string;
   active: boolean;
   hidden: boolean;
@@ -278,7 +280,7 @@ export function BibleAssetEntry({
                   kind:
                     mode === "edit"
                       ? "image_edit"
-                      : primary || builtFrom
+                      : usesReferenceImages
                         ? "image_compose"
                         : "image",
                 }}
@@ -293,9 +295,9 @@ export function BibleAssetEntry({
                 size="sm"
                 variant="outline"
                 className="text-xs"
-                disabled={busy || (!!primary && !imageCapabilities.composition)}
+                disabled={busy || (usesReferenceImages && !imageCapabilities.composition)}
                 title={
-                  !imageCapabilities.composition && primary
+                  !imageCapabilities.composition && usesReferenceImages
                     ? "Choose a model that accepts reference images."
                     : undefined
                 }
@@ -314,7 +316,7 @@ export function BibleAssetEntry({
                 className="text-xs"
                 disabled={
                   busy ||
-                  (!!primary &&
+                  (usesReferenceImages &&
                     !imageCapabilities.composition &&
                     !variationEdited &&
                     mode !== "variation")
@@ -324,7 +326,7 @@ export function BibleAssetEntry({
                 aria-expanded={mode === "variation"}
                 aria-controls={`variation-${asset.id}`}
                 title={
-                  !imageCapabilities.composition && primary
+                  !imageCapabilities.composition && usesReferenceImages
                     ? "Choose a model that accepts reference images."
                     : undefined
                 }
@@ -408,7 +410,7 @@ export function BibleAssetEntry({
                   disabled={
                     busy ||
                     !variation.trim() ||
-                    (!!primary && !imageCapabilities.composition)
+                    (usesReferenceImages && !imageCapabilities.composition)
                   }
                   onClick={() =>
                     run("variation", async () => {

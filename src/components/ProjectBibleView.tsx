@@ -1085,6 +1085,7 @@ function AssetTab({
                   takes={takes}
                   busy={busyId !== null}
                   builtFrom={null}
+                  usesReferenceImages={assetReferences(asset, variants).length > 0}
                   basePrompt={primaryPicture(takes)?.prompt ?? ""}
                   onRetake={onRetake}
                   onEdit={onEdit}
@@ -1458,6 +1459,7 @@ function FramesTab({
                 takes={(variants[f.id] ?? []).filter((v) => v.media_url)}
                 busy={busyId !== null}
                 builtFrom={builtFromLabel(f, characters, locations)}
+                usesReferenceImages={assetReferences(f, variants).length > 0}
                 basePrompt={
                   parseRecipe(f.rules_json).prompt ||
                   primaryPicture(variants[f.id] ?? [])?.prompt ||

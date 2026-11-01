@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ProjectBibleView from "../components/ProjectBibleView";
@@ -87,7 +87,7 @@ it("retakes and varies a local prompt-only frame without requiring reference-ima
   await user.click(screen.getByRole("button", { name: "Open Morning details" }));
   const retake = screen.getByRole("button", { name: "Retake" });
   expect(retake.hasAttribute("disabled")).toBe(false);
-  expect(screen.getByText("Estimate: image")).toBeTruthy();
+  expect(within(screen.getByRole("region", { name: "Morning details" })).getByText("Estimate: image")).toBeTruthy();
   await user.click(retake);
   await screen.findByText("Local provider unavailable");
   await user.click(screen.getByRole("button", { name: "Variation…" }));
