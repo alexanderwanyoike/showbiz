@@ -4,6 +4,8 @@ import type { GenerationObserver } from "../../shared/generation-output";
 import type { GenerationUsage } from "../../shared/generation-usage";
 import type { Result } from "../../shared/result";
 
+export type GenerationAccountingResult<T> = Result<T> & { warnings?: string[] };
+
 export type GenerationAccountingRequest = Pick<
   GenerationUsage,
   "project_id" | "provider" | "model_id" | "kind" | "settings"
@@ -27,7 +29,7 @@ export async function runAccountedGeneration<T>(
   request: GenerationAccountingRequest,
   estimate: GenerationCostEstimate,
   operation: (observer: GenerationObserver) => Promise<T>,
-): Promise<Result<T>> {
+): Promise<GenerationAccountingResult<T>> {
   const request_id = crypto.randomUUID();
   try {
     const begun = await invoke<Result<GenerationUsage>>(
@@ -48,6 +50,7 @@ export async function runAccountedGeneration<T>(
     );
     if (!begun.ok) return begun;
     notify(request);
+    const warnings: string[] = [];
     let result: Result<T>;
     let pendingReceipt = false;
     try {
@@ -59,14 +62,15 @@ export async function runAccountedGeneration<T>(
           )
             return;
           pendingReceipt = receipt.provider_request_id !== null && receipt.reported_microusd === null;
-          const recorded = await invoke<Result<null>>(
-            "record_generation_receipt",
-            { request_id, ...receipt },
-          );
-          if (!recorded.ok)
-            throw new Error(
-              `Could not save the provider receipt: ${recorded.error.message}`,
+          try {
+            const recorded = await invoke<Result<null>>(
+              "record_generation_receipt",
+              { request_id, ...receipt },
             );
+            if (!recorded.ok) warnings.push(`Could not save the provider receipt: ${recorded.error.message}`);
+          } catch (cause) {
+            warnings.push(`Could not save the provider receipt: ${cause instanceof Error ? cause.message : String(cause)}`);
+          }
           notify(request);
         },
       });
@@ -86,7 +90,7 @@ export async function runAccountedGeneration<T>(
     }
     notify(request);
     return finished.ok
-      ? result
+      ? warnings.length ? { ...result, warnings } : result
       : failed(
           `The generation ended, but its usage outcome could not be saved: ${finished.error.message}`,
         );
