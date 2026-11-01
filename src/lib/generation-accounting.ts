@@ -14,13 +14,19 @@ const failed = (message: string): Result<never> => ({
   ok: false,
   error: { code: "IO_ERROR", message },
 });
-function notify(request: GenerationAccountingRequest) {
+export interface GenerationUsageChangedDetail {
+  project_id: string;
+  subject_id?: string;
+  warnings: string[];
+}
+function notify(request: GenerationAccountingRequest, warnings: string[] = []) {
   if (typeof window !== "undefined")
     window.dispatchEvent(
-      new CustomEvent("showbiz:usage-changed", {
+      new CustomEvent<GenerationUsageChangedDetail>("showbiz:usage-changed", {
         detail: {
           project_id: request.project_id,
           subject_id: request.subject_id,
+          warnings: [...warnings],
         },
       }),
     );
@@ -71,7 +77,7 @@ export async function runAccountedGeneration<T>(
           } catch (cause) {
             warnings.push(`Could not save the provider receipt: ${cause instanceof Error ? cause.message : String(cause)}`);
           }
-          notify(request);
+          notify(request, warnings);
         },
       });
       result = { ok: true, value };
@@ -95,7 +101,7 @@ export async function runAccountedGeneration<T>(
         if (!reconciled.ok) console.warn("Provider billing remains unconfirmed:", reconciled.error.message);
       } catch { console.warn("Provider billing could not be checked. The charge remains unconfirmed."); }
     }
-    notify(request);
+    notify(request, warnings);
     return warnings.length ? { ...result, warnings } : result;
   } catch (cause) {
     return failed(

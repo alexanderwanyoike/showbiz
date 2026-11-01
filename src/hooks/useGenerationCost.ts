@@ -7,6 +7,7 @@ import type {
 } from "../../shared/generation-cost";
 import type { GenerationUsage } from "../../shared/generation-usage";
 import type { Result } from "../../shared/result";
+import type { GenerationUsageChangedDetail } from "../lib/generation-accounting";
 import type { GenerationSubject } from "../lib/model-generation-accounting";
 
 export function useGenerationCost(
@@ -19,9 +20,15 @@ export function useGenerationCost(
   const [estimate, setEstimate] = useState<GenerationCostEstimate | null>(null);
   const [last, setLast] = useState<GenerationUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [accountingWarning, setAccountingWarning] = useState<string | null>(null);
   const requestKey = JSON.stringify(request);
   useEffect(() => {
-    const usageChanged = () => {
+    setAccountingWarning(null);
+    const usageChanged = (event: Event) => {
+      const detail = (event as CustomEvent<GenerationUsageChangedDetail>).detail;
+      if (detail?.project_id === subject?.project_id && (!subject?.subject_id || detail?.subject_id === subject.subject_id)) {
+        setAccountingWarning(detail.warnings?.length ? detail.warnings.join(" ") : null);
+      }
       setHistoryRefresh((value) => value + 1);
       setPriceRefresh((value) => value + 1);
     };
@@ -32,7 +39,7 @@ export function useGenerationCost(
       window.removeEventListener("showbiz:usage-changed", usageChanged);
       window.removeEventListener("showbiz:pricing-changed", pricingChanged);
     };
-  }, []);
+  }, [subject?.project_id, subject?.subject_id]);
   useEffect(() => {
     let stopped = false;
     setEstimate(null);
@@ -75,5 +82,5 @@ export function useGenerationCost(
       stopped = true;
     };
   }, [subject?.project_id, subject?.subject_id, family, historyRefresh]);
-  return { estimate, last, error };
+  return { estimate, last, error: accountingWarning ?? error };
 }
