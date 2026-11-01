@@ -140,7 +140,8 @@ export async function generateOpenRouterVideo(
               receipt,
             ),
           };
-        receipt = openRouterReceipt(parsed.data);
+        const updated = openRouterReceipt(parsed.data);
+        if (updated.reported_microusd !== null) receipt = updated;
         if (parsed.data.status === "failed")
           return {
             done: true,
