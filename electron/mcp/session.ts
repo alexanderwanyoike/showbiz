@@ -1,3 +1,4 @@
+import { commandChangesData, commandSwitchesDocument } from "../../shared/command-effects";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { mcpTools } from "./tools";
@@ -17,15 +18,6 @@ const failure = (code: string, message: string): McpResult => ({
   ok: false,
   error: { code, message },
 });
-const isMutation = (command: string) =>
-  !command.startsWith("get_") &&
-  ![
-    "http_request",
-    "read_context",
-    "show_export_save_dialog",
-    "export_timeline_video",
-    "export_storyboard_package",
-  ].includes(command);
 function containsVersion(
   nodes: unknown,
   shotId: string,
@@ -58,23 +50,14 @@ export function createMcpSession(
   let revision = 0;
   let activeRequest: { id: string; fingerprint: string } | undefined;
   const cache = new Map<string, { fingerprint: string; result: McpResult }>();
+  const recordResult = (command: string, result: unknown) => {
+    if (!commandChangesData(command, result)) return;
+    revision++;
+    if (commandSwitchesDocument(command)) cache.clear();
+  };
   const invoke: Invoke = async (command, args) => {
     const result = await dispatch(command, args);
-    if (isMutation(command)) revision++;
-    if (
-      [
-        "create_project_document",
-        "open_project_document",
-        "close_project_document",
-        "save_project_document_as",
-        "import_legacy_project",
-      ].includes(command) &&
-      typeof result === "object" &&
-      result !== null &&
-      "ok" in result &&
-      result.ok === true
-    )
-      cache.clear();
+    recordResult(command, result);
     return result;
   };
   async function execute(input: unknown): Promise<McpResult> {
@@ -215,6 +198,7 @@ export function createMcpSession(
   }
   return {
     invoke,
+    recordResult,
     call: execute,
   };
 }
