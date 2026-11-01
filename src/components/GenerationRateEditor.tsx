@@ -34,6 +34,7 @@ export function GenerationRateEditor({
   }, [saving, onBusyChange]);
   const unit = request.kind === "video" ? "second" : "image";
   const customRate = price?.source_kind === "manual" ? selectGenerationRate(price, request) : null;
+  const sharedRate = !!customRate && request.kind === "video" && (customRate.resolution === undefined || customRate.audio === undefined);
   useUnsavedWork("draft", !!amount || !!source, `${amount}\0${source}`);
   async function save() {
     const usd = Number(amount);
@@ -102,7 +103,7 @@ export function GenerationRateEditor({
         setAmount("");
         setSource("");
         setNotice(
-          "Custom rate removed for these settings.",
+          sharedRate ? "Shared custom rate removed." : "Custom rate removed for these settings.",
         );
         window.dispatchEvent(new Event("showbiz:pricing-changed"));
       }
@@ -150,6 +151,7 @@ export function GenerationRateEditor({
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {sharedRate && <p>{customRate?.resolution ?? "All resolutions"} · {customRate?.audio === undefined ? "Any audio setting" : customRate.audio ? "Audio on" : "Audio off"}</p>}
       <div className="flex flex-wrap gap-2">
         <Button
           type="button"
@@ -180,7 +182,7 @@ export function GenerationRateEditor({
             size="sm"
             onClick={() => void reset()}
           >
-            Remove custom rate for these settings
+            {sharedRate ? "Remove shared custom rate" : "Remove custom rate for these settings"}
           </Button>
         )}
       </div>
