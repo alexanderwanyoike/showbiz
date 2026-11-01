@@ -8,7 +8,7 @@ import {
   within,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, createMemoryRouter, RouterProvider } from "react-router";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { applicationWork } from "./application-work";
@@ -30,6 +30,7 @@ import {
   clearShotStartFrame,
   getCurrentImageVersion,
   getShots,
+  getStoryboard,
   updateShot,
 } from "./backend-api";
 import {
@@ -47,13 +48,13 @@ vi.mock("../components/Header", () => ({
 }));
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
-  getStoryboard: async () => ({
+  getStoryboard: vi.fn(async () => ({
     id: "board",
     project_id: "project",
     name: "Opening",
     image_model: "nano-banana-2",
     video_model: "seedance-2-fal",
-  }),
+  })),
   updateStoryboardSettings: vi.fn(
     async (
       id: string,
@@ -760,4 +761,21 @@ it("keeps the previous take status on Stop Waiting and shows a late completed ta
   vi.mocked(getShots).mockResolvedValueOnce(originalShots.map((shot) => shot.id === "shot-1" ? { ...shot, status: "complete", video_url: "late-take.mp4" } : shot));
   await act(async () => { finish?.({ success: true, videoUrl: "late-take.mp4" }); });
   await waitFor(() => expect(container.querySelector("video")?.getAttribute("src")).toBe("late-take.mp4"));
+});
+
+
+it("hides the previous storyboard controls while switching routes, including a failed load", async () => {
+  const router = createMemoryRouter([{ path: "/storyboard/:id", element: createElement(StoryboardPage) }], { initialEntries: ["/storyboard/board"] });
+  render(createElement(RouterProvider, { router }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Shot controls" }));
+  expect(screen.getByRole("button", { name: "Generate video for shot 1" })).toBeTruthy();
+  let reject: ((error: Error) => void) | undefined;
+  vi.mocked(getStoryboard).mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+  await act(async () => { await router.navigate("/storyboard/other"); });
+  expect(screen.queryByRole("button", { name: "Generate video for shot 1" })).toBeNull();
+  expect(screen.queryByText("Opening", { selector: "header span" })).toBeNull();
+  await act(async () => { reject?.(new Error("Other board unavailable")); });
+  expect(screen.queryByRole("button", { name: "Generate video for shot 1" })).toBeNull();
+  expect(screen.getByText("Other board unavailable")).toBeTruthy();
 });
