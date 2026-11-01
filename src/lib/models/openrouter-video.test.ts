@@ -1,7 +1,8 @@
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { generateOpenRouterVideo } from "./openrouter-video";
 const http = vi.hoisted(() => ({ fetch: vi.fn() }));
 vi.mock("./http", () => http);
+afterEach(() => vi.useRealTimers());
 it("submits first and last frames, polls the job and downloads through OpenRouter", async () => {
   http.fetch
     .mockResolvedValueOnce(
@@ -114,4 +115,14 @@ it("records the submitted OpenRouter job before its first status request fails",
   const result = await generateOpenRouterVideo("google/veo-3.1", { mode: "text-to-video", prompt: "morning", settings: { duration: "8s" } }, "key", { receipt });
   expect(receipt).toHaveBeenCalledWith({ provider_request_id: "job-first-poll", reported_microusd: null });
   expect(result).toMatchObject({ ok: false, receipt: { provider_request_id: "job-first-poll", reported_microusd: null } });
+});
+
+it("keeps the submit charge if the first status request is denied", async () => {
+  http.fetch.mockReset();
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: "charged-on-submit", status: "pending", usage: { cost: 0.25 } })))
+    .mockResolvedValueOnce(new Response("denied", { status: 401 }));
+  const receipt = vi.fn();
+  const result = await generateOpenRouterVideo("google/veo-3.1", { mode: "text-to-video", prompt: "morning", settings: { duration: "8s" } }, "key", { receipt });
+  expect(receipt).toHaveBeenCalledWith({ provider_request_id: "charged-on-submit", reported_microusd: 250000 });
+  expect(result).toMatchObject({ ok: false, receipt: { reported_microusd: 250000 } });
 });
