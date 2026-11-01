@@ -1,6 +1,6 @@
 {
   "name": "showbiz",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "AI-powered video storyboard desktop application",
   "author": "Alex Wanyoike <alex.m.wanyoike@gmail.com>",
   "desktopName": "showbiz.desktop",
@@ -55,7 +55,7 @@
         }
       ],
       "category": "AudioVideo",
-      "icon": "build/icons/icon.png",
+      "icon": "build/icons/linux",
       "syncDesktopName": true
     },
     "mac": {

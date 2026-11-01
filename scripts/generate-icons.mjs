@@ -21,6 +21,12 @@ async function generateIcons(root, checking) {
         sharp(source).resize(size, size).png().toBuffer(),
       ),
     );
+    const linuxIcons = await Promise.all(
+      [16, 24, 32, 48, 64, 128, 256, 512].map(async (size) => ({
+        name: `build/icons/linux/${size}x${size}.png`,
+        buffer: await sharp(source).resize(size, size).png().toBuffer(),
+      })),
+    );
     const outputs = [
       { name: "build/icons/icon.png", buffer: png },
       { name: "build/icons/icon.ico", buffer: ico },
@@ -28,6 +34,7 @@ async function generateIcons(root, checking) {
       { name: "public/icon.png", buffer: png },
       { name: "site/favicon.png", buffer: favicon },
       { name: "site/apple-touch-icon.png", buffer: touchIcon },
+      ...linuxIcons,
     ];
     for (const output of outputs) {
       const file = path.join(root, output.name);
