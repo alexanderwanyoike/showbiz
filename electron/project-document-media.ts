@@ -3,6 +3,7 @@ import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { initMediaDirs } from "./media-files";
 import { resolveMediaPath } from "./media";
+import { documentMediaPaths } from "./project-document-copy";
 
 const CHUNK_SIZE = 8 * 1024 * 1024;
 const stamp = (file: string) => {
@@ -24,35 +25,37 @@ export function createDocumentMedia(db: DatabaseSync, directory: string) {
       throw new Error("Invalid embedded media path.");
     return resolveMediaPath(directory, relative);
   }
-  function files(): string[] {
-    const paths: string[] = [];
-    function visit(relative: string) {
-      for (const entry of fs.readdirSync(path.join(directory, relative), {
-        withFileTypes: true,
-      })) {
-        const child = relative ? `${relative}/${entry.name}` : entry.name;
-        if (entry.isSymbolicLink())
-          throw new Error("Project media cannot contain symbolic links.");
-        if (entry.isDirectory()) visit(child);
-        else if (entry.isFile()) {
-          target(child);
-          paths.push(child);
-        } else throw new Error("Project media must contain regular files.");
+  function referencedFile(relative: string): string {
+    const file = target(relative);
+    let current = directory;
+    const segments = path.relative(directory, file).split(path.sep);
+    for (const [index, segment] of segments.entries()) {
+      current = path.join(current, segment);
+      let entry: fs.Stats;
+      try {
+        entry = fs.lstatSync(current);
+      } catch (cause) {
+        if (cause instanceof Error && "code" in cause && cause.code === "ENOENT")
+          throw new Error(`The referenced media ${relative} could not be included in the project.`);
+        throw cause;
       }
+      if (entry.isSymbolicLink())
+        throw new Error("Project media cannot contain symbolic links.");
+      if (index === segments.length - 1 ? !entry.isFile() : !entry.isDirectory())
+        throw new Error("Project media must contain regular files.");
     }
-    visit("");
-    return paths;
+    return file;
   }
   return {
     sync() {
-      const paths = files();
+      const paths = documentMediaPaths(db);
       const next = new Map<string, string>();
       const remove = db.prepare("DELETE FROM document_files WHERE path = ?");
       const chunk = db.prepare(
         "INSERT INTO document_file_chunks(path,sequence,data) VALUES (?,?,?)",
       );
       for (const relative of paths) {
-        const file = target(relative);
+        const file = referencedFile(relative);
         const fingerprint = stamp(file);
         next.set(relative, fingerprint);
         if (stamps.get(relative) === fingerprint) continue;
