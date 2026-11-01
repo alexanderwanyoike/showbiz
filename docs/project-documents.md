@@ -30,7 +30,6 @@ Shot review uses a full-width preview with a horizontal shot strip below. One pr
 
 This layout is informed by [Storyboarder's canvas and board strip](https://wonderunit.com/storyboarder/), [Krita's storyboard docker](https://docs.krita.org/en/reference_manual/dockers/storyboard_docker.html), and [GNOME's utility-pane guidance](https://developer.gnome.org/hig/patterns/containers/utility-panes.html). These are interaction references; no reference application code or artwork was copied. Muzo and Auto Digger inform the restrained materials, compact controls and appearance preferences rather than the pane arrangement.
 
-
 ## Storage limits
 
 Saving queries record-referenced media paths, checks file stamps and synchronously embeds changed chunks on the main thread. It no longer recursively scans unrelated cache files, but a large project or changed video can still delay the UI. Chunking bounds each allocation; it does not make the whole save asynchronous. Rollback can also re-extract saved media. Profile this before moving SQLite/media work to a worker rather than assuming small-fixture timings describe large projects.
