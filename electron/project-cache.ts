@@ -42,7 +42,11 @@ export function createProjectCache(directory: string) {
     },
     remove(media: string): void {
       const folder = path.dirname(media);
-      if (path.dirname(folder) !== directory || !path.basename(folder).startsWith("open-") || path.basename(media) !== "media")
+      if (
+        path.dirname(folder) !== directory ||
+        !path.basename(folder).startsWith("open-") ||
+        path.basename(media) !== "media"
+      )
         throw new Error("Invalid project cache workspace.");
       fs.rmSync(folder, { recursive: true, force: true });
     },

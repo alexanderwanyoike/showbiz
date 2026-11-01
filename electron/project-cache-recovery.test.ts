@@ -44,7 +44,12 @@ it("sweeps abandoned media workspaces but retains live and unverified owners", a
     ).toMatchObject({ ok: true });
     const workspace = documents.mediaDirectory()!;
     expect(
-      JSON.parse(fs.readFileSync(path.join(path.dirname(workspace), ".owner.json"), "utf8")),
+      JSON.parse(
+        fs.readFileSync(
+          path.join(path.dirname(workspace), ".owner.json"),
+          "utf8",
+        ),
+      ),
     ).toMatchObject({ pid: process.pid });
     await documents.close();
     expect(fs.existsSync(workspace)).toBe(false);
@@ -55,15 +60,28 @@ it("sweeps abandoned media workspaces but retains live and unverified owners", a
 });
 
 it("keeps cache ownership outside media replaced during extraction", async () => {
- const directory=fs.mkdtempSync(path.join(os.tmpdir(),"showbiz-cache-extraction-"));
- const documents=createProjectDocuments({migrations:loadMigrations(path.resolve("electron/migrations")),recentPath:path.join(directory,"recent.json"),bind:createProjectCommands});
- const file=path.join(directory,"Film.showbiz");
- try {
-  await documents.create(file);await documents.close();
-  expect(await documents.open(file)).toMatchObject({ok:true});
-  const media=documents.mediaDirectory()!;
-  const workspace=path.dirname(media);
-  expect(JSON.parse(fs.readFileSync(path.join(workspace,".owner.json"),"utf8"))).toMatchObject({pid:process.pid});
-  await documents.close();expect(fs.existsSync(workspace)).toBe(false);
- }finally{await documents.close();fs.rmSync(directory,{recursive:true,force:true});}
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "showbiz-cache-extraction-"),
+  );
+  const documents = createProjectDocuments({
+    migrations: loadMigrations(path.resolve("electron/migrations")),
+    recentPath: path.join(directory, "recent.json"),
+    bind: createProjectCommands,
+  });
+  const file = path.join(directory, "Film.showbiz");
+  try {
+    await documents.create(file);
+    await documents.close();
+    expect(await documents.open(file)).toMatchObject({ ok: true });
+    const media = documents.mediaDirectory()!;
+    const workspace = path.dirname(media);
+    expect(
+      JSON.parse(fs.readFileSync(path.join(workspace, ".owner.json"), "utf8")),
+    ).toMatchObject({ pid: process.pid });
+    await documents.close();
+    expect(fs.existsSync(workspace)).toBe(false);
+  } finally {
+    await documents.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
