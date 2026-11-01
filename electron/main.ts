@@ -42,6 +42,14 @@ app.on("open-file", (event, file) => {
   event.preventDefault();
   projectFiles.add(file);
 });
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
+else app.on("second-instance", (_event, argv, workingDirectory) => {
+  for (const file of projectFileArguments(argv, workingDirectory)) projectFiles.add(file);
+  const window = BrowserWindow.getAllWindows()[0];
+  if (window?.isMinimized()) window.restore();
+  window?.focus();
+});
 for (const file of projectFileArguments(process.argv.slice(isDev ? 2 : 1)))
   projectFiles.add(file);
 
@@ -217,7 +225,7 @@ function createWindow(
   }
 }
 
-app.whenReady().then(async () => {
+if (primaryInstance) app.whenReady().then(async () => {
   if (process.platform === "darwin")
     app.dock?.setIcon(desktopAppIconPath(app.getAppPath(), app.isPackaged));
   Menu.setApplicationMenu(
