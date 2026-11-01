@@ -106,16 +106,32 @@ export interface ImageModelConfig {
   fixedParams?: Record<string, unknown>;
 }
 
-function validateMetadata(config: Record<string, unknown>, kind: "Image" | "Video") {
+function validateMetadata(
+  config: Record<string, unknown>,
+  kind: "Image" | "Video",
+) {
   for (const field of ["name", "description"] as const) {
-    if (typeof config[field] !== "string" || (field === "name" && !config[field]))
-      throw new Error(`${kind} config "${String(config.id)}": "${field}" must be ${field === "name" ? "a non-empty string" : "a string"}`);
+    if (
+      typeof config[field] !== "string" ||
+      (field === "name" && !config[field])
+    )
+      throw new Error(
+        `${kind} config "${String(config.id)}": "${field}" must be ${field === "name" ? "a non-empty string" : "a string"}`,
+      );
   }
   if (typeof config.enabled !== "boolean")
-    throw new Error(`${kind} config "${String(config.id)}": "enabled" must be boolean`);
-  for (const field of ["supportsEditing", "supportsInpainting", "supportsComposition"] as const) {
+    throw new Error(
+      `${kind} config "${String(config.id)}": "enabled" must be boolean`,
+    );
+  for (const field of [
+    "supportsEditing",
+    "supportsInpainting",
+    "supportsComposition",
+  ] as const) {
     if (config[field] !== undefined && typeof config[field] !== "boolean")
-      throw new Error(`${kind} config "${String(config.id)}": "${field}" must be boolean`);
+      throw new Error(
+        `${kind} config "${String(config.id)}": "${field}" must be boolean`,
+      );
   }
 }
 
