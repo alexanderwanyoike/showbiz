@@ -101,3 +101,18 @@ describe("electron media URL resolver", () => {
     );
   });
 });
+
+
+it("reads media from the next project folder after switching documents", async () => {
+  let base = "/Films/First.showbiz.media";
+  const resolver = createElectronMediaUrlResolver({
+    getMediaBasePath: async () => base,
+    readMediaBytes: async () => new Uint8Array([1]),
+    createObjectURL: () => "blob:frame",
+    revokeObjectURL: () => {},
+  });
+  await resolver.resolve(`${base}/images/frame.png`);
+  base = "/Films/Second.showbiz.media";
+  resolver.invalidateAll();
+  await expect(resolver.resolve(`${base}/images/frame.png`)).resolves.toBe("blob:frame");
+});
