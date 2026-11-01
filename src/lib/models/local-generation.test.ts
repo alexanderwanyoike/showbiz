@@ -23,7 +23,7 @@ it("generates local images through the OpenAI-compatible JSON endpoint without r
   );
   expect(JSON.parse(http.fetch.mock.calls[0][1].body)).toMatchObject({
     model: "my-sdxl",
-    response_format: "b64_json",
+    response_format: "url",
   });
   expect(http.fetch.mock.calls[0][1].headers).not.toHaveProperty(
     "Authorization",
@@ -58,7 +58,7 @@ it("generates local video with JSON conditioning and base64 media output", async
     model: "my-wan",
     start_image: "data:image/png;base64,aA==",
     seconds: "8",
-    response_format: "b64_json",
+    response_format: "url",
   });
   if (result.ok) expect(await result.value.media.text()).toBe("video");
 });
@@ -68,4 +68,16 @@ it("preserves the local server's error message and connection failure cause", as
   expect(await generateLocalVideo(config, { mode: "text-to-video", prompt: "Morning", settings: { duration: "8s" } }, "")).toMatchObject({ ok: false, error: { message: expect.stringContaining("Model my-wan is not installed.") } });
   http.fetch.mockRejectedValueOnce(new Error("ECONNREFUSED 127.0.0.1:8080"));
   expect(await generateLocalImage(config, "Morning", "")).toMatchObject({ ok: false, error: { message: expect.stringContaining("ECONNREFUSED") } });
+});
+
+
+it("downloads a local video URL as binary media instead of nesting base64 JSON", async () => {
+  http.fetch.mockClear();
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: "fixture-job", data: [{ url: "/generated-videos/fixture.mp4" }] })))
+    .mockResolvedValueOnce(new Response("fixture-video", { headers: { "content-type": "video/mp4" } }));
+  const result = await generateLocalVideo(config, { mode: "text-to-video", prompt: "Morning", settings: { duration: "8s" } }, "fixture-local-key");
+  expect(result).toMatchObject({ ok: true, value: { receipt: { provider_request_id: "fixture-job", reported_microusd: null } } });
+  if (result.ok) expect(await result.value.media.text()).toBe("fixture-video");
+  expect(http.fetch.mock.calls[1][0]).toBe("http://127.0.0.1:8080/generated-videos/fixture.mp4");
+  expect(http.fetch.mock.calls[1][1].headers).toHaveProperty("Authorization", "Bearer fixture-local-key");
 });
