@@ -126,7 +126,7 @@ Video configs can declare per-mode inputs: `inputs.endImage: "required"` makes v
 
 ### Transports
 
-Transports handle the API specifics for each provider. Most models reuse an existing transport : you only need a new one when integrating a completely new API.
+Transports handle the API specifics for each provider. Most models reuse an existing transport: you only need a new one when integrating a completely new API.
 
 | Transport | API | Example models |
 |-----------|-----|----------------|
@@ -144,7 +144,7 @@ Transports handle the API specifics for each provider. Most models reuse an exis
 
 1. Create a JSON config in `src/lib/models/providers/video/` or `image/`
 2. Set the `transport`, `apiKeyProvider`, model IDs, capabilities, and defaults
-3. Run `yarn test` with schema validation catches mistakes automatically
+3. Run `yarn test`; schema validation catches mistakes automatically
 
 To add a completely new API provider, implement a transport in `src/lib/models/transports/`.
 

@@ -856,7 +856,7 @@
       "finding": "**note** the `observer` parameter is threaded through every transport, but at this head only a test passes one. That is fine as long as #107 lands in this stack.",
       "status": "resolved-earlier",
       "owner": "billing",
-      "resolution": "Production runAccountedGeneration supplies observer from integrated107/111.",
+      "resolution": "Production generation actions pass an accounting observer to provider transports through `runAccountedGeneration`.",
       "commits": [],
       "pull_requests": [],
       "row_index": 51
@@ -890,7 +890,7 @@
       "finding": "`src/components/ShotModelControls.tsx:46`, `:92`: these lines were added after the format commit and never formatted.",
       "status": "resolved-earlier",
       "owner": "billing",
-      "resolution": "Later native UI polish normalized ShotModelControls formatting, root verifies integratedsource.",
+      "resolution": "Current `ShotModelControls` uses consistently formatted multiline props and model-selection callbacks.",
       "commits": [],
       "pull_requests": [],
       "row_index": 53
