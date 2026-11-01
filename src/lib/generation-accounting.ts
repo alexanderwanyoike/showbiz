@@ -68,8 +68,6 @@ export async function runAccountedGeneration<T>(
               estimated_min_microusd: estimate.min_microusd,
               estimated_max_microusd: estimate.max_microusd,
               price_basis: estimate.price,
-              price_source: estimate.price.source_url,
-              price_checked_at: estimate.price.checked_at,
             }
           : {}),
       },
