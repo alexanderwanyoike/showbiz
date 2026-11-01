@@ -1,3 +1,4 @@
+import { createStatusPollRetry } from "./status-poll-retry";
 import { fetch } from "./http";
 import { pollUntilDone } from "./poll";
 
@@ -70,7 +71,7 @@ export async function pollPrediction(
   predictionId: string,
   apiKey: string,
 ): Promise<ReplicatePrediction> {
-  let consecutiveFailures = 0;
+  const retries = createStatusPollRetry();
   return pollUntilDone<ReplicatePrediction>({
     check: async () => {
       let res: Awaited<ReturnType<typeof fetch>>;
@@ -82,15 +83,13 @@ export async function pollPrediction(
           },
         );
       } catch {
-        consecutiveFailures += 1;
-        if (consecutiveFailures < 3) return { done: false };
+        if (retries.allowRetry()) return { done: false };
         throw new Error(
           `Could not read Replicate prediction ${predictionId} after repeated connection failures. Check this prediction before retrying generation.`,
         );
       }
       if (!res.ok && (res.status === 429 || res.status >= 500)) {
-        consecutiveFailures += 1;
-        if (consecutiveFailures < 3) return { done: false };
+        if (retries.allowRetry()) return { done: false };
       }
 
       const text = await res.text();
@@ -100,7 +99,7 @@ export async function pollPrediction(
           `${parseReplicateError(res.status, text)} Prediction: ${predictionId}.`,
         );
       }
-      consecutiveFailures = 0;
+      retries.reset();
 
       const prediction = JSON.parse(text) as ReplicatePrediction;
 

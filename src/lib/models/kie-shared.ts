@@ -1,3 +1,4 @@
+import { createStatusPollRetry } from "./status-poll-retry";
 import { readKieResponse } from "./kie-response";
 export { parseKieError } from "./kie-response";
 import { fetch } from "./http";
@@ -74,7 +75,7 @@ export async function pollKieTask(
 ): Promise<string> {
   const start = Date.now();
   let interval = POLL_INITIAL_MS;
-  let consecutiveFailures = 0;
+  const retries = createStatusPollRetry();
   let lastFailure: string | null = null;
 
   while (Date.now() - start < POLL_TIMEOUT_MS) {
@@ -86,20 +87,19 @@ export async function pollKieTask(
       const res = await fetch(`${KIE_API_BASE}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, { headers: { Authorization: `Bearer ${apiKey}` } });
       parsedResponse = await readKieResponse(res);
     } catch {
-      consecutiveFailures += 1;
-      if (consecutiveFailures < 3) continue;
+      if (retries.allowRetry()) continue;
       throw new Error(`${lastFailure ?? "Repeated connection failures."} Task: ${taskId}.`);
     }
 
     if (!parsedResponse.ok) {
       lastFailure = parsedResponse.error.message;
       if (parsedResponse.retryable) {
-        consecutiveFailures += 1;
-        if (consecutiveFailures < 3) continue;
+        if (retries.allowRetry()) continue;
       }
       throw new Error(`${parsedResponse.error.message} Task: ${taskId}.`);
     }
-    consecutiveFailures = 0;
+    retries.reset();
+    lastFailure = null;
     const json = parsedResponse.value;
 
     const state: string = json?.data?.state ?? "";
