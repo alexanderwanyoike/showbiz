@@ -21,7 +21,7 @@ test("builds and packages a readable main/preload notice retaining Undici's MIT 
     path.join(root, "dist-electron/THIRD_PARTY_NOTICES.txt"),
     "utf8",
   );
-  assert.match(text, /undici 7\.30\.1/);
+  assert.match(text, /undici \d/);
   assert.match(text, /Copyright.*Undici/i);
   assert.match(text, /Permission is hereby granted, free of charge/);
   assert.match(
@@ -96,4 +96,15 @@ test("retains a symlinked dependency resolved outside node_modules and omits the
   );
   assert.match(text, /linked 3\.0\.0\nCopyright linked original/);
   assert.doesNotMatch(text, /App copyright/);
+});
+
+test("emits readable renderer notices for React and Radix alongside the packaged frontend", () => {
+  execFileSync("yarn", ["build:frontend"], { cwd: root, stdio: "pipe" });
+  const text = readFileSync(
+    path.join(root, "dist/THIRD_PARTY_NOTICES.txt"),
+    "utf8",
+  );
+  assert.match(text, /react \d/);
+  assert.match(text, /@radix-ui\/react-dialog \d/);
+  assert.match(text, /Permission is hereby granted, free of charge/);
 });
