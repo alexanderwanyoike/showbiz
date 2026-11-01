@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
@@ -126,7 +127,10 @@ export function createProjectDocuments(options: {
       commands: options.bind(db, media),
     };
   }
-  function persist<T>(document: ActiveDocument, operation: () => T): T {
+  function persist<T>(
+    document: Pick<ActiveDocument, "db" | "archive">,
+    operation: () => T,
+  ): T {
     document.db.exec("SAVEPOINT document_save");
     try {
       const value = operation();
@@ -153,6 +157,96 @@ export function createProjectDocuments(options: {
       throw cause;
     }
   }
+  async function writeDocument(
+    file: string,
+    populate: (
+      temporary: string,
+      media: string,
+    ) => DatabaseSync | Promise<DatabaseSync>,
+    restoreMedia = false,
+  ): Promise<DocumentResult<ProjectDocumentInfo>> {
+    const temporary = `${file}.${randomUUID()}.tmp`;
+    const backup = `${file}.${randomUUID()}.previous`;
+    let db: DatabaseSync | null = null;
+    let media: string | null = null;
+    let release: (() => void) | undefined;
+    let hasBackup = false;
+    let published = false;
+    busy = true;
+    try {
+      release = lockProjectDocument(file);
+      fs.closeSync(fs.openSync(temporary, "wx", 0o600));
+      media = workspace();
+      initMediaDirs(media);
+      db = await populate(temporary, media);
+      const archive = createDocumentMedia(db, media);
+      if (restoreMedia) archive.restore();
+      persist({ db, archive }, () => {});
+      db.close();
+      db = null;
+      if (fs.existsSync(file)) {
+        try {
+          fs.linkSync(file, backup);
+        } catch (cause) {
+          if (
+            !(cause instanceof Error) ||
+            !("code" in cause) ||
+            !["EXDEV", "EPERM", "ENOTSUP", "EOPNOTSUPP", "EMLINK"].includes(
+              String(cause.code),
+            )
+          )
+            throw cause;
+          fs.copyFileSync(
+            file,
+            backup,
+            fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE,
+          );
+        }
+        hasBackup = true;
+      }
+      fs.renameSync(temporary, file);
+      published = true;
+      db = openDatabase(file, options.migrations);
+      const document = prepare(file, db, media, release);
+      const value = activate(document);
+      db = null;
+      if (hasBackup) {
+        try {
+          fs.unlinkSync(backup);
+        } catch (cause) {
+          warning = `The project was saved, but its previous copy could not be removed at ${backup}: ${cause instanceof Error ? cause.message : String(cause)}`;
+        }
+      }
+      return { ok: true, value };
+    } catch (cause) {
+      const errors = [cause instanceof Error ? cause.message : String(cause)];
+      const cleanup = [
+        () => db?.close(),
+        () => {
+          if (published && hasBackup) fs.renameSync(backup, file);
+          else if (published) fs.rmSync(file, { force: true });
+          else if (hasBackup) fs.rmSync(backup, { force: true });
+        },
+        () => fs.rmSync(temporary, { force: true }),
+        () => release?.(),
+        () => {
+          if (media) fs.rmSync(media, { recursive: true, force: true });
+        },
+      ];
+      for (const action of cleanup) {
+        try {
+          action();
+        } catch (error) {
+          errors.push(
+            `Recovery: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+      return fail(new Error(errors.join("\n")));
+    } finally {
+      busy = false;
+    }
+  }
   const documents = {
     current,
     warning: () => warning,
@@ -167,35 +261,22 @@ export function createProjectDocuments(options: {
     async create(
       filePath: string,
     ): Promise<DocumentResult<ProjectDocumentInfo>> {
-      let db: DatabaseSync | null = null;
-      let file: string | null = null;
-      let media: string | null = null;
-      let release: (() => void) | undefined;
-      try {
-        if (busy) throw new Error("A project file operation is in progress.");
-        const target = path.resolve(filePath);
-        fs.closeSync(fs.openSync(target, "wx", 0o600));
-        file = target;
-        release = lockProjectDocument(file);
-        media = workspace();
-        initMediaDirs(media);
-        db = openDatabase(file, options.migrations);
-        db.exec(`PRAGMA application_id=${DOCUMENT_APPLICATION_ID}`);
-        createProjectCommands(db, media).create_project({
-          name: path.basename(file, path.extname(file)),
-        });
-        const document = prepare(file, db, media, release);
-        persist(document, () => {});
-        const value = activate(document);
-        db = null;
-        return { ok: true, value };
-      } catch (cause) {
-        db?.close();
-        release?.();
-        if (file) fs.rmSync(file, { force: true });
-        if (media) fs.rmSync(media, { recursive: true, force: true });
-        return fail(cause);
-      }
+      if (busy)
+        return fail(new Error("A project file operation is in progress."));
+      const file = path.resolve(filePath);
+      return writeDocument(file, (temporary, media) => {
+        const db = openDatabase(temporary, options.migrations);
+        try {
+          db.exec(`PRAGMA application_id=${DOCUMENT_APPLICATION_ID}`);
+          createProjectCommands(db, media).create_project({
+            name: path.basename(file, path.extname(file)),
+          });
+          return db;
+        } catch (cause) {
+          db.close();
+          throw cause;
+        }
+      });
     },
     async open(filePath: string): Promise<DocumentResult<ProjectDocumentInfo>> {
       let db: DatabaseSync | null = null;
@@ -308,33 +389,20 @@ export function createProjectDocuments(options: {
         );
       const file = path.resolve(filePath);
       if (file === active.file) return documents.save();
-      let db: DatabaseSync | null = null;
-      let media: string | null = null;
-      let release: (() => void) | undefined;
-      let created = false;
-      busy = true;
+      const source = active;
       try {
-        persist(active, () => {});
-        fs.closeSync(fs.openSync(file, "wx", 0o600));
-        created = true;
-        release = lockProjectDocument(file);
-        active.db.prepare("VACUUM INTO ?").run(file);
-        db = openDatabase(file, options.migrations);
-        media = workspace();
-        const document = prepare(file, db, media, release);
-        document.archive.restore();
-        const value = activate(document);
-        db = null;
-        return { ok: true, value };
+        persist(source, () => {});
       } catch (cause) {
-        db?.close();
-        release?.();
-        if (created) fs.rmSync(file, { force: true });
-        if (media) fs.rmSync(media, { recursive: true, force: true });
         return fail(cause);
-      } finally {
-        busy = false;
       }
+      return writeDocument(
+        file,
+        (temporary) => {
+          source.db.prepare("VACUUM INTO ?").run(temporary);
+          return openDatabase(temporary, options.migrations);
+        },
+        true,
+      );
     },
     async importLegacy(
       projectId: string,
@@ -351,39 +419,17 @@ export function createProjectDocuments(options: {
         })
       )
         return fail(new Error("The existing project was not found."));
-      let db: DatabaseSync | null = null;
-      let media: string | null = null;
-      let release: (() => void) | undefined;
-      let created = false;
       const file = path.resolve(filePath);
-      busy = true;
-      try {
-        fs.closeSync(fs.openSync(file, "wx", 0o600));
-        created = true;
-        release = lockProjectDocument(file);
-        media = workspace();
-        db = await copyProjectDocument({
+      return writeDocument(file, (temporary, media) =>
+        copyProjectDocument({
           source: source.db,
           sourceMedia: source.media,
-          file,
+          file: temporary,
           media,
           migrations: options.migrations,
           projectId,
-        });
-        const document = prepare(file, db, media, release);
-        persist(document, () => {});
-        const value = activate(document);
-        db = null;
-        return { ok: true, value };
-      } catch (cause) {
-        db?.close();
-        release?.();
-        if (created) fs.rmSync(file, { force: true });
-        if (media) fs.rmSync(media, { recursive: true, force: true });
-        return fail(cause);
-      } finally {
-        busy = false;
-      }
+        }),
+      );
     },
     mediaDirectory: () => active?.media ?? null,
   };
