@@ -5,7 +5,7 @@ import type { Result } from "../../shared/result";
 import { StoryboardSettingsDialog } from "../components/StoryboardSettingsDialog";
 import { GenerationCost } from "../components/GenerationCost";
 import { ShotModelControls } from "../components/ShotModelControls";
-import { resolveShotModels } from "../lib/shot-models";
+import { resolveShotModels, resolveStoryboardModels } from "../lib/shot-models";
 import { DEFAULT_STORYBOARD_MODELS } from "../../shared/model-defaults";
 import type { ShotModelOverrides } from "../../shared/shot-models";
 import { useAgentChanges } from "../hooks/useAgentChanges";
@@ -172,6 +172,10 @@ export default function StoryboardPage() {
   const [activeShotId, setActiveShotId] = useState<string | null>(null);
   const [imagePrompt, setImagePrompt] = useState("");
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
+  const imagePromptInput = useRef<HTMLTextAreaElement>(null);
+  const editPromptInput = useRef<HTMLTextAreaElement>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Model Selection
   const [defaultImageModel, setDefaultImageModel] = useState<ImageModelId>(DEFAULT_STORYBOARD_MODELS.image_model);
@@ -187,7 +191,9 @@ export default function StoryboardPage() {
   const videoModel = selectedModels.video_model as VideoModelId;
 
   const [videoSettingsDrafts, setVideoSettingsDrafts] = useState<Record<string, {model_id:string;settings:VideoGenerationSettings;error:string|null}>>({});
-  const [videoSettingsSaving, setVideoSettingsSaving] = useState(false);
+  const [savingVideoSettingsShots, setSavingVideoSettingsShots] = useState<Set<string>>(new Set());
+  const videoSettingsRequests = useRef(new Map<string, { token: symbol; modelId: string }>());
+  const videoSettingsSaving = !!selectedShotId && savingVideoSettingsShots.has(selectedShotId);
   const currentVideoModel = useMemo(() => videoModels.find((model) => model.id === videoModel), [videoModel, videoModels]);
   const storedVideoSettings = currentVideoModel ? resolveShotVideoSettings(selectedShot?.video_settings_json, currentVideoModel) : {settings:{duration:"auto"},notice:"Choose a video model."};
   const selectedVideoDraft = selectedShot && videoSettingsDrafts[selectedShot.id]?.model_id === videoModel ? videoSettingsDrafts[selectedShot.id] : null;
@@ -239,6 +245,7 @@ export default function StoryboardPage() {
   const [generatingPromptShots, setGeneratingPromptShots] = useState<Set<string>>(new Set());
   const [enhancingPromptShots, setEnhancingPromptShots] = useState<Set<string>>(new Set());
   const videoGenerationRuns = useRef<GenerationRunMap>({});
+  const previousVideoStatus = useRef<Record<string, Shot["status"]>>({});
   const inFlightVideoShots = useRef(new Set<string>());
   const [pendingVideoShots, setPendingVideoShots] = useState<Set<string>>(new Set());
 
@@ -259,6 +266,7 @@ export default function StoryboardPage() {
     if (!id) return;
     const request = ++loadRequest.current;
     setIsLoading(true);
+    setLoadError(null);
     try {
       const [storyboardData, shotsData] = await Promise.all([
         getStoryboard(id),
@@ -268,7 +276,7 @@ export default function StoryboardPage() {
       if (request !== loadRequest.current) return;
 
       if (!storyboardData) {
-        navigate("/");
+        setLoadError("This storyboard is unavailable. Retry loading or return to the project.");
         return;
       }
 
@@ -276,11 +284,20 @@ export default function StoryboardPage() {
       const mappedShots = shotsData.map(shotFromShotWithUrls);
       setShots(mappedShots);
       setSelectedShotId((current) => mappedShots.some((shot) => shot.id === current) ? current : mappedShots[0]?.id ?? null);
-      setDefaultImageModel((storyboardData.image_model as ImageModelId) || DEFAULT_STORYBOARD_MODELS.image_model);
-      const loadedVideoModel: VideoModelId = videoModels.some((m) => m.id === storyboardData.video_model)
-        ? (storyboardData.video_model as VideoModelId)
-        : "seedance-2-fal";
+      const loadedDefaults = resolveStoryboardModels(storyboardData, videoModels);
+      setDefaultImageModel(loadedDefaults.image_model);
+      const loadedVideoModel = loadedDefaults.video_model;
       setDefaultVideoModel(loadedVideoModel);
+      for (const [shotId, pending] of videoSettingsRequests.current) {
+        if (!mappedShots.some((shot) => shot.id === shotId && (shot.video_model ?? loadedVideoModel) === pending.modelId)) videoSettingsRequests.current.delete(shotId);
+      }
+      setSavingVideoSettingsShots((previous) => new Set([...previous].filter((shotId) => videoSettingsRequests.current.has(shotId))));
+      setVideoSettingsDrafts((previous) => {
+        const matching = Object.entries(previous).filter(([shotId, draft]) =>
+          mappedShots.some((shot) => shot.id === shotId && (shot.video_model ?? loadedVideoModel) === draft.model_id),
+        );
+        return matching.length === Object.keys(previous).length ? previous : Object.fromEntries(matching);
+      });
 
       await loadBibleData(storyboardData);
 
@@ -288,8 +305,7 @@ export default function StoryboardPage() {
       await loadVersionDataForShots(mappedShots);
     } catch (error) {
       if (request !== loadRequest.current) return;
-      console.error("Failed to load storyboard:", error);
-      navigate("/");
+      setLoadError(error instanceof Error ? error.message : "Could not load the storyboard. Try again.");
     } finally {
       if (request === loadRequest.current) setIsLoading(false);
     }
@@ -364,8 +380,9 @@ export default function StoryboardPage() {
       const result = await updateStoryboardSettings(id, values.name, values.image_model, values.video_model);
       if (!result.ok) return result;
       setStoryboard(result.value);
-      setDefaultImageModel(result.value.image_model);
-      setDefaultVideoModel(result.value.video_model);
+      const savedDefaults = resolveStoryboardModels(result.value, videoModels);
+      setDefaultImageModel(savedDefaults.image_model);
+      setDefaultVideoModel(savedDefaults.video_model);
       window.dispatchEvent(new Event("showbiz:project-changed"));
       return {ok:true,value:null};
     } finally {setModelSaving(false);}
@@ -382,20 +399,31 @@ export default function StoryboardPage() {
   }
 
   async function handleVideoSettingsChange(settings: VideoGenerationSettings) {
-    if (!selectedShot || !currentVideoModel || videoSettingsSaving) return;
-    const shotId=selectedShot.id;
-    const modelId=currentVideoModel.id;
-    setVideoSettingsDrafts((previous)=>({...previous,[shotId]:{model_id:modelId,settings,error:null}}));
-    setVideoSettingsSaving(true);
+    if (!selectedShot || !currentVideoModel) return;
+    const shotId = selectedShot.id;
+    if (videoSettingsRequests.current.has(shotId)) return;
+    const modelId = currentVideoModel.id;
+    const token = Symbol(shotId);
+    videoSettingsRequests.current.set(shotId, { token, modelId });
+    setVideoSettingsDrafts((previous) => ({ ...previous, [shotId]: { model_id: modelId, settings, error: null } }));
+    setSavingVideoSettingsShots((previous) => new Set(previous).add(shotId));
     try {
-      const result=await setShotVideoSettings(shotId,storeShotVideoSettings(modelId,settings));
+      const result = await setShotVideoSettings(shotId, storeShotVideoSettings(modelId, settings));
+      if (videoSettingsRequests.current.get(shotId)?.token !== token) return;
       if (!result.ok) {
-        setVideoSettingsDrafts((previous)=>({...previous,[shotId]:{model_id:modelId,settings,error:result.error.message}}));
+        setVideoSettingsDrafts((previous) => ({ ...previous, [shotId]: { model_id: modelId, settings, error: result.error.message } }));
         return;
       }
-      setShots((previous)=>previous.map((shot)=>shot.id===shotId?{...shot,video_settings_json:JSON.stringify(result.value)}:shot));
-      setVideoSettingsDrafts((previous)=>{const next={...previous};delete next[shotId];return next;});
-    } finally {setVideoSettingsSaving(false);}
+      setShots((previous) => previous.map((shot) => shot.id === shotId ? { ...shot, video_settings_json: JSON.stringify(result.value) } : shot));
+      setVideoSettingsDrafts((previous) => { const next = { ...previous }; delete next[shotId]; return next; });
+    } catch (cause) {
+      if (videoSettingsRequests.current.get(shotId)?.token === token) setVideoSettingsDrafts((previous) => ({ ...previous, [shotId]: { model_id: modelId, settings, error: cause instanceof Error ? cause.message : "Could not save video settings. Try again." } }));
+    } finally {
+      if (videoSettingsRequests.current.get(shotId)?.token === token) {
+        videoSettingsRequests.current.delete(shotId);
+        setSavingVideoSettingsShots((previous) => { const next = new Set(previous); next.delete(shotId); return next; });
+      }
+    }
   }
   function discardVideoSettings() {
     if(!selectedShot || videoSettingsSaving) return;
@@ -490,8 +518,11 @@ export default function StoryboardPage() {
   // --- Image Handlers ---
 
   async function handleGenerateImage() {
-    if (!id || !activeShotId || !imagePrompt) return;
-
+    if (!id || !activeShotId || !imagePrompt.trim()) return;
+    if (isLoading || loadError) { setImageGenerationError("Reload the storyboard before generating."); return; }
+    if (modelSaving) { setImageGenerationError("Wait for the model change to finish."); return; }
+    if (!shots.some((shot) => shot.id === activeShotId)) { setImageGenerationError("This shot no longer exists."); return; }
+    setImageGenerationError(null);
     setIsGeneratingImage(true);
     try {
       await withApplicationWork("generation", async () => {
@@ -519,7 +550,7 @@ export default function StoryboardPage() {
       });
     } catch (error) {
       console.error("Image generation failed", error);
-      alert("Failed to generate image");
+      setImageGenerationError(error instanceof Error ? error.message : "Could not generate this image. Try again.");
     } finally {
       setIsGeneratingImage(false);
     }
@@ -641,10 +672,12 @@ export default function StoryboardPage() {
     // Open the image generation modal with the version as context
     setActiveShotId(shotId);
     setImagePrompt("");
+    setImageGenerationError(null);
     setIsModalOpen(true);
   }
 
   async function handleOpenEditModal(shotId: string, versionId: string) {
+    if (modelSaving) { setModelError("Wait for the model change to finish."); return; }
     const version = shotCurrentVersions[shotId];
     if (!version) return;
     imageEditOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -661,6 +694,9 @@ export default function StoryboardPage() {
 
   async function handleEditImage() {
     if (!id) return;
+    if (isLoading || loadError) { setImageEditError("Reload the storyboard before generating."); return; }
+    if (modelSaving) { setImageEditError("Wait for the model change to finish."); return; }
+    if (!shots.some((shot) => shot.id === editModalState.shotId)) { setImageEditError("This shot no longer exists."); return; }
     const { shotId, versionId } = editModalState;
     if (isEditingImage || !shotId || !versionId || !editPrompt.trim()) return;
 
@@ -701,10 +737,11 @@ export default function StoryboardPage() {
   async function handleGenerateVideo(shotId: string) {
     const shot = shots.find((s) => s.id === shotId);
     if (!shot || inFlightVideoShots.current.has(shotId)) return;
+    if (isLoading || loadError || modelSaving) { setModelError("Finish loading and saving model changes before generating."); return; }
     const targetModelId = resolveShotModels(shot, defaultModels).video_model as VideoModelId;
     const targetModel = videoModels.find(model => model.id === targetModelId);
     if (!targetModel) { setModelError("Choose an available video model for this shot."); return; }
-    if (videoSettingsDrafts[shotId]) return;
+    if (videoSettingsDrafts[shotId]) { setModelError("Save or discard this shot’s video settings before generating."); return; }
     const targetSettings = selectedShotId === shotId ? videoSettings : resolveShotVideoSettings(shot.video_settings_json,targetModel).settings;
     const runId = startGenerationRun(videoGenerationRuns.current, shotId);
 
@@ -720,6 +757,7 @@ export default function StoryboardPage() {
       return;
     }
 
+    previousVideoStatus.current[shotId] = shot.status;
     inFlightVideoShots.current.add(shotId);
     setPendingVideoShots((previous)=>new Set(previous).add(shotId));
 
@@ -789,27 +827,16 @@ export default function StoryboardPage() {
       inFlightVideoShots.current.delete(shotId);
       setPendingVideoShots((previous)=>{const next=new Set(previous);next.delete(shotId);return next;});
       if (!isCurrentGenerationRun(videoGenerationRuns.current,shotId,runId)) {
-        try {await refreshVersionData(shotId);}
-        catch (error) {console.warn("Could not refresh the completed shot takes:",error);}
+        await loadData();
       }
     }
   }
 
-  async function handleCancelVideoGeneration(shotId: string) {
+  function handleCancelVideoGeneration(shotId: string) {
     invalidateGenerationRun(videoGenerationRuns.current, shotId);
+    const status = previousVideoStatus.current[shotId] ?? (shots.find((shot) => shot.id === shotId)?.video_url ? "complete" : "pending");
     const errorMessage = "Stopped waiting locally. The provider may still finish and charge for this request. New takes appear when it finishes.";
-    setShots((prev) =>
-      prev.map((s) =>
-        s.id === shotId
-          ? { ...s, status: "failed" as const, error_message: errorMessage }
-          : s
-      )
-    );
-    try {
-      await updateShot(shotId, { status: "failed" });
-    } catch (error) {
-      console.error("Failed to persist cancelled generation status:", error);
-    }
+    setShots((previous) => previous.map((shot) => shot.id === shotId ? { ...shot, status, error_message: errorMessage } : shot));
   }
 
   // --- Prompt Generation ---
@@ -889,7 +916,11 @@ export default function StoryboardPage() {
 
   const hasMedia = shots.some((shot) => shot.image_url || shot.end_frame_url || shot.video_url);
 
-  if (isLoading) {
+  const refreshFeedback = (focusTarget: HTMLElement | null = null) => loadError ? (
+    <div role="alert" className="border-b border-border px-4 py-2 text-xs flex flex-wrap items-center gap-2"><span>{loadError}</span><Button variant="outline" size="sm" onClick={async () => { await loadData(); if (focusTarget?.isConnected) focusTarget.focus(); }}>Retry loading storyboard</Button></div>
+  ) : null;
+
+  if (isLoading && !storyboard) {
     return (
       <div className="desktop-page">
         <Header />
@@ -904,7 +935,7 @@ export default function StoryboardPage() {
   }
 
   if (!storyboard) {
-    return null;
+    return <div className="desktop-page"><Header title="Storyboard" backHref="/" backLabel="project" />{refreshFeedback()}</div>;
   }
 
   return (
@@ -918,6 +949,7 @@ export default function StoryboardPage() {
         {/* Inline controls in header */}
         <div className="storyboard-workspace-actions">
           <span className="workspace-item-count">{shots.length} {shots.length === 1 ? "shot" : "shots"}</span>
+          {isLoading && <span role="status" className="text-xs text-muted-foreground">Refreshing…</span>}
           <div role="group" aria-label="Storyboard view" className="storyboard-command-group">
           <StoryboardSettingsDialog name={storyboard.name} defaults={defaultModels} onSave={handleStoryboardSettingsSave} disabled={Object.keys(videoSettingsDrafts).length > 0} />
           <WorkspaceCommand ref={shotControlsToggle} label="Shot controls" aria-pressed={shotControlsOpen} aria-expanded={shotControlsOpen} aria-controls={shotControlsId} disabled={!selectedShot} onClick={() => setShotControlsOpen(!shotControlsOpen)}><PanelRight size={17} /></WorkspaceCommand>
@@ -934,6 +966,7 @@ export default function StoryboardPage() {
 
 
 
+      {refreshFeedback()}
       <ConfirmDeletion restoreFocus={()=>shotDeletionFocus.current?.()} open={!!shotToDelete} onOpenChange={(open)=>{if(!open)setShotToDelete(null);}} title={`Delete shot ${shotToDelete?.order ?? ""}?`} description="This permanently deletes the shot and its image and video takes from this project. This cannot be undone." actionLabel="Delete shot" onConfirm={()=>shotToDelete ? handleDeleteShot(shotToDelete.id) : Promise.resolve({ok:false,error:{code:"NOT_FOUND",message:"The shot no longer exists."}})} />
       {inactiveVideoDraft && <div role="status" className="border-b border-border px-4 py-2 text-xs">Shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order} has unsaved video settings. <Button variant="link" size="sm" onClick={()=>setSelectedShotId(inactiveVideoDraft)}>Return to shot {shots.find((shot)=>shot.id===inactiveVideoDraft)?.order}</Button></div>}
       {exportMessage && <p role="status" className="border-b border-border px-4 py-2 text-sm">{exportMessage}</p>}
@@ -977,8 +1010,9 @@ export default function StoryboardPage() {
               imageModel={imageModels.find(model => model.id === imageModel) ?? null}
               generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={videoCostRequest} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
               frameLibraryHref={`/project/${storyboard.project_id}?view=bible&bibleTab=frames`}
-              generationDisabled={modelSaving || videoSettingsSaving || !!selectedVideoDraft || !!(selectedShotId && (pendingVideoShots.has(selectedShotId) || savingFrameShots.has(selectedShotId) || frameErrors[selectedShotId]))}
+              generationDisabled={isLoading || !!loadError || modelSaving || videoSettingsSaving || !!selectedVideoDraft || !!(selectedShotId && (pendingVideoShots.has(selectedShotId) || savingFrameShots.has(selectedShotId) || frameErrors[selectedShotId]))}
               frameError={selectedShotId ? frameErrors[selectedShotId] : null}
+              modelSaving={modelSaving}
               frameSaving={!!(selectedShotId && savingFrameShots.has(selectedShotId))}
               onDismissFrameError={()=>{if(selectedShotId)setFrameErrors((previous)=>{const next={...previous};delete next[selectedShotId];return next;});}}
               generationPending={!!(selectedShotId && pendingVideoShots.has(selectedShotId))}
@@ -1040,7 +1074,7 @@ export default function StoryboardPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Generate Image with {imageModels.find((m) => m.id === imageModel)?.name}
+              Generate Image with {imageModels.find((m) => m.id === resolveShotModels(shots.find((shot) => shot.id === activeShotId), defaultModels).image_model)?.name ?? "an available model"}
             </DialogTitle>
             <DialogDescription>
               Describe the scene you want to generate for this shot.
@@ -1051,6 +1085,7 @@ export default function StoryboardPage() {
               Image Prompt
             </label>
             <Textarea
+              ref={imagePromptInput}
               className="min-h-[100px]"
               placeholder="Describe the scene (e.g., 'Cyberpunk city street with neon rain')"
               value={imagePrompt}
@@ -1058,6 +1093,8 @@ export default function StoryboardPage() {
               autoFocus
             />
           </div>
+          {refreshFeedback(imagePromptInput.current)}
+          {imageGenerationError && <p role="alert" className="text-sm text-destructive">{imageGenerationError}</p>}
           <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model} request={{kind: "image"}} subject={{project_id: storyboard?.project_id, subject_id: activeShotId ?? undefined}} />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
@@ -1065,7 +1102,7 @@ export default function StoryboardPage() {
             </Button>
             <Button
               onClick={handleGenerateImage}
-              disabled={isGeneratingImage || !imagePrompt.trim()}
+              disabled={isLoading || !!loadError || modelSaving || isGeneratingImage || !imagePrompt.trim() || !shots.some((shot) => shot.id === activeShotId)}
             >
               {isGeneratingImage ? (
                 <>
@@ -1122,6 +1159,7 @@ export default function StoryboardPage() {
                 Edit Prompt
               </label>
               <Textarea
+                ref={editPromptInput}
                 className="min-h-[80px]"
                 aria-label="Frame edit prompt"
                 placeholder="Describe the changes (e.g., 'Make the sky more dramatic' or 'Add fog in the background')"
@@ -1132,6 +1170,7 @@ export default function StoryboardPage() {
               />
             </div>
           </div>
+          {refreshFeedback(editPromptInput.current)}
           {imageEditError && <p role="alert" className="text-sm text-destructive">{imageEditError}</p>}
           <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model} request={{kind: "image_edit"}} subject={{project_id: storyboard?.project_id, subject_id: editModalState.shotId ?? undefined}} />
           <DialogFooter>
@@ -1146,7 +1185,7 @@ export default function StoryboardPage() {
             </Button>
             <Button
               onClick={handleEditImage}
-              disabled={isEditingImage || !editPrompt.trim()}
+              disabled={isLoading || !!loadError || modelSaving || isEditingImage || !editPrompt.trim() || !shots.some((shot) => shot.id === editModalState.shotId)}
             >
               {isEditingImage ? (
                 <>

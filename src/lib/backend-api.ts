@@ -219,16 +219,8 @@ export async function createStoryboard(projectId: string, name: string): Promise
   return invoke("create_storyboard", { projectId, name });
 }
 
-export async function updateStoryboard(id: string, name: string): Promise<Storyboard> {
-  return invoke("update_storyboard", { id, name });
-}
-
 export async function deleteStoryboard(id: string): Promise<boolean> {
   return invoke("delete_storyboard", { id });
-}
-
-export async function updateStoryboardModels(id: string, imageModel: string, videoModel: string): Promise<Storyboard> {
-  return invoke("update_storyboard_models", { id, imageModel, videoModel });
 }
 
 // --- Bibles ---

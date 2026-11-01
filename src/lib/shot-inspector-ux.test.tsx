@@ -15,14 +15,6 @@ import ShotInspector, {
 } from "../components/ShotInspector";
 import { getAvailableImageModels, getAvailableVideoModels } from "./models";
 
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
 
 afterEach(cleanup);
 function inspectorProps(modelId = "wan-flf2v-fal"): ShotInspectorProps {
@@ -369,4 +361,19 @@ it("keeps take history available without displacing generation inputs", async ()
   expect(props.onVersionSelect).toHaveBeenCalledWith("shot", "take");
   expect(screen.getByRole("textbox", { name: "Video prompt" })).toBeTruthy();
   expect(screen.getByRole("combobox", { name: "Video duration" })).toBeTruthy();
+});
+
+it("remembers take disclosures per shot and reveals newly added takes", async () => {
+  const props = { ...inspectorProps("seedance-2-fal"), versionCount: 1, videoVersionCount: 1 };
+  const { rerender } = render(createElement(MemoryRouter, null, createElement(ShotInspector, props)));
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Image takes" }));
+  rerender(createElement(MemoryRouter, null, createElement(ShotInspector, { ...props, shot: { ...props.shot!, id: "second", order: 2 } })));
+  expect(screen.getByRole("button", { name: "Image takes" }).getAttribute("aria-expanded")).toBe("false");
+  rerender(createElement(MemoryRouter, null, createElement(ShotInspector, props)));
+  expect(screen.getByRole("button", { name: "Image takes" }).getAttribute("aria-expanded")).toBe("true");
+  await user.click(screen.getByRole("button", { name: "Image takes" }));
+  rerender(createElement(MemoryRouter, null, createElement(ShotInspector, { ...props, versionCount: 2, videoVersionCount: 2 })));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Image takes" }).getAttribute("aria-expanded")).toBe("true"));
+  expect(screen.getByRole("button", { name: "Video takes" }).getAttribute("aria-expanded")).toBe("true");
 });
