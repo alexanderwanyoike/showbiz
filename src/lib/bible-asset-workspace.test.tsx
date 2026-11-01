@@ -72,7 +72,7 @@ it.each([
       }),
     ).toBeTruthy();
     await user.click(
-      within(workspace).getByRole("button", { name: "Variation…" }),
+      within(workspace).getByRole("button", { name: /^Variation for / }),
     );
     expect(
       within(workspace).getByRole("textbox", {
@@ -103,7 +103,7 @@ it("keeps independent creation and picture-action drafts across detail and libra
     "A quiet portrait",
   );
   await user.click(screen.getByRole("button", { name: "Open Ada details" }));
-  await user.click(screen.getByRole("button", { name: "Variation…" }));
+  await user.click(screen.getByRole("button", { name: /^Variation for / }));
   await user.clear(
     screen.getByRole("textbox", { name: "Variation prompt for Ada" }),
   );
@@ -141,7 +141,7 @@ it("uses one library opener that names its retained unsaved picture draft", asyn
   render(<ProjectBibleView projectId="film" />);
   const user = userEvent.setup();
   await user.click(await screen.findByRole("button", { name: "Open Ada details" }));
-  await user.click(screen.getByRole("button", { name: "Variation…" }));
+  await user.click(screen.getByRole("button", { name: /^Variation for / }));
   await user.type(screen.getByRole("textbox", { name: "Variation prompt for Ada" }), " warmer");
   await user.click(screen.getByRole("button", { name: "Back to library" }));
   const opener = screen.getByRole("button", { name: "Open Ada details, unsaved draft" });

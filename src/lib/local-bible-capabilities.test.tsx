@@ -49,7 +49,7 @@ it("keeps text generation available but disables image editing for a local model
   );
   await user.click(screen.getByRole("button", { name: "Open Morning details" }));
   expect(
-    screen.getByRole("button", { name: "Edit…" }).hasAttribute("disabled"),
+    screen.getByRole("button", { name: /^Edit picture for / }).hasAttribute("disabled"),
   ).toBe(true);
   expect(
     screen.getByRole("button", { name: "Retake" }).hasAttribute("disabled"),
@@ -90,6 +90,6 @@ it("retakes and varies a local prompt-only frame without requiring reference-ima
   expect(within(screen.getByRole("region", { name: "Morning details" })).getByText("Estimate: image")).toBeTruthy();
   await user.click(retake);
   await screen.findByText("Local provider unavailable");
-  await user.click(screen.getByRole("button", { name: "Variation…" }));
+  await user.click(screen.getByRole("button", { name: /^Variation for / }));
   expect(screen.getByRole("button", { name: "Generate variation" }).hasAttribute("disabled")).toBe(false);
 });

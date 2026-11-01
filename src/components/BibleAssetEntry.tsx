@@ -330,7 +330,7 @@ export function BibleAssetEntry({
                     mode !== "variation")
                 }
                 ref={variationAction}
-                aria-label="Variation…"
+                aria-label={`Variation for ${asset.name}${variationEdited ? ", unsaved draft" : ""}`}
                 aria-expanded={mode === "variation"}
                 aria-controls={`variation-${asset.id}`}
                 title={
@@ -363,7 +363,7 @@ export function BibleAssetEntry({
                     mode !== "edit")
                 }
                 ref={editAction}
-                aria-label="Edit…"
+                aria-label={`Edit picture for ${asset.name}${editInstruction ? ", unsaved draft" : ""}`}
                 aria-expanded={mode === "edit"}
                 aria-controls={`edit-${asset.id}`}
                 title={
@@ -395,11 +395,9 @@ export function BibleAssetEntry({
               )}
             </div>
 
+            <div id={`variation-${asset.id}`} hidden={mode !== "variation"}>
             {mode === "variation" && (
-              <div
-                id={`variation-${asset.id}`}
-                className="flex flex-wrap items-end gap-2"
-              >
+              <div className="flex flex-wrap items-end gap-2">
                 <Textarea
                   autoFocus
                   className="min-h-[40px] flex-1 text-xs resize-none"
@@ -454,12 +452,11 @@ export function BibleAssetEntry({
                 </Button>
               </div>
             )}
+            </div>
 
+            <div id={`edit-${asset.id}`} hidden={mode !== "edit" || !primary}>
             {mode === "edit" && primary && (
-              <div
-                id={`edit-${asset.id}`}
-                className="flex flex-wrap items-end gap-2"
-              >
+              <div className="flex flex-wrap items-end gap-2">
                 <Textarea
                   autoFocus
                   className="min-h-[40px] flex-1 text-xs resize-none"
@@ -514,6 +511,7 @@ export function BibleAssetEntry({
                 </Button>
               </div>
             )}
+            </div>
 
             <Button
               size="sm"

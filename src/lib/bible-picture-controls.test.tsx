@@ -103,7 +103,7 @@ it("keeps an edit instruction open after a failed generation so it can be correc
   await user.click(
     await screen.findByRole("button", { name: "Open Ada details" }),
   );
-  await user.click(screen.getByRole("button", { name: "Edit…" }));
+  await user.click(screen.getByRole("button", { name: /^Edit picture for / }));
   const field = screen.getByPlaceholderText(
     "Edit the current picture (e.g. make it night, add rain)...",
   );
@@ -119,7 +119,7 @@ it("keeps an edit instruction open after a failed generation so it can be correc
   ).toBe("Make the light warmer");
   await user.click(screen.getByRole("button", { name: "Cancel edit for Ada" }));
   expect(screen.queryByRole("textbox", { name: "Edit instruction for Ada" })).toBeNull();
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit…" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Edit picture for / }));
 });
 
 it("keeps an adjusted retake prompt after generation fails", async () => {
@@ -128,7 +128,7 @@ it("keeps an adjusted retake prompt after generation fails", async () => {
   await user.click(
     await screen.findByRole("button", { name: "Open Ada details" }),
   );
-  await user.click(screen.getByRole("button", { name: "Variation…" }));
+  await user.click(screen.getByRole("button", { name: /^Variation for / }));
   const field = screen.getByPlaceholderText(
     "Tweak the prompt for a variation...",
   );
@@ -145,7 +145,7 @@ it("keeps an adjusted retake prompt after generation fails", async () => {
   ).toBe("A warmer portrait");
   await user.click(screen.getByRole("button", { name: "Cancel variation for Ada" }));
   expect(screen.queryByRole("textbox", { name: "Variation prompt for Ada" })).toBeNull();
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Variation…" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Variation for / }));
 });
 
 it("tracks a selected frame reference as draft work and clears it explicitly", async () => {
@@ -200,18 +200,18 @@ it("keeps separate edit and variation drafts visible and lets each be cancelled"
   await user.click(
     await screen.findByRole("button", { name: "Open Ada details" }),
   );
-  await user.click(screen.getByRole("button", { name: "Edit…" }));
+  await user.click(screen.getByRole("button", { name: /^Edit picture for / }));
   await user.type(
     screen.getByRole("textbox", { name: "Edit instruction for Ada" }),
     "Warmer light",
   );
-  await user.click(screen.getByRole("button", { name: "Variation…" }));
+  await user.click(screen.getByRole("button", { name: /^Variation for / }));
   expect(applicationWork.getStatus().unsaved).toContain("draft");
   await user.click(
     screen.getByRole("button", { name: "Cancel variation for Ada" }),
   );
   expect(applicationWork.getStatus().unsaved).toContain("draft");
-  await user.click(screen.getByRole("button", { name: "Edit…" }));
+  await user.click(screen.getByRole("button", { name: /^Edit picture for / }));
   expect(
     (
       screen.getByRole("textbox", {
@@ -270,7 +270,7 @@ it("opens the detail workspace and keeps edit drafts across a library visit", as
     name: "Ada details",
   });
   expect(within(commands).getByRole("button", { name: "Retake" })).toBeTruthy();
-  await user.click(within(commands).getByRole("button", { name: "Edit…" }));
+  await user.click(within(commands).getByRole("button", { name: /^Edit picture for / }));
   await user.type(
     within(commands).getByRole("textbox", { name: "Edit instruction for Ada" }),
     "Warm light",
@@ -317,7 +317,7 @@ it("allows a take preview while a new picture is generating without allowing tak
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
   await user.click(await screen.findByRole("button", { name: "Open Ada details" }));
-  await user.click(screen.getByRole("button", { name: "Edit…" }));
+  await user.click(screen.getByRole("button", { name: /^Edit picture for / }));
   await user.type(screen.getByRole("textbox", { name: "Edit instruction for Ada" }), "Warmer light");
   await user.click(screen.getByRole("button", { name: "Generate edit" }));
   try {
