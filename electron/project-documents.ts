@@ -370,6 +370,7 @@ export function createProjectDocuments(options: {
         } else {
           db = openDatabase(file, options.migrations);
         }
+        if (!release) throw new Error("Project lock was not initialized.");
         media = workspace();
         const document = prepare(file, db, media, release, readOnly);
         document.archive.restore();
