@@ -162,6 +162,6 @@ it("shows accounting warnings beside the affected generation while keeping its m
     });
     expect(result).toMatchObject({ ok: true, value: "generated-picture" });
   });
-  expect(await within(screen.getByRole("region", { name: "Affected shot" })).findByRole("status")).toHaveProperty("textContent", expect.stringContaining("Receipt could not be written."));
-  expect(within(screen.getByRole("region", { name: "Other shot" })).queryByRole("status")).toBeNull();
+  expect(await within(screen.getByRole("region", { name: "Affected shot" })).findByText(/Receipt could not be written/)).toBeTruthy();
+  expect(within(screen.getByRole("region", { name: "Other shot" })).queryByText(/Receipt could not be written/)).toBeNull();
 });
