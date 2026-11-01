@@ -1,4 +1,4 @@
-import { commandWorkKind } from "../shared/command-effects";
+import { commandWorkKind, commandIsDocumentScoped } from "../shared/command-effects";
 import { createProjectCache } from "./project-cache";
 import { recoverInterruptedGenerationUsage } from "./commands/generation-usage";
 import fs from "node:fs";
@@ -438,6 +438,7 @@ export function createProjectDocuments(options: {
         );
       const handler = active.commands[command];
       if (!handler) throw new Error(`Unknown project command: ${command}`);
+      if (!commandIsDocumentScoped(command)) throw new Error(`Unclassified project command: ${command}`);
       if (commandWorkKind(command) !== "saving") return handler(args);
       if (active.readOnly)
         throw new Error(
