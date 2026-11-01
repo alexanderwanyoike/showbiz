@@ -108,3 +108,22 @@ test("emits readable renderer notices for React and Radix alongside the packaged
   assert.match(text, /@radix-ui\/react-dialog \d/);
   assert.match(text, /Permission is hereby granted, free of charge/);
 });
+
+test("reports an unknown package with no declared licence instead of treating it as an allowlisted exception", async (t) => {
+  const fixture = mkdtempSync(path.join(tmpdir(), "showbiz-unknown-license-"));
+  t.after(() => rmSync(fixture, { recursive: true, force: true }));
+  const dependency = path.join(fixture, "node_modules/unlicensed");
+  mkdirSync(dependency, { recursive: true });
+  writeFileSync(
+    path.join(dependency, "package.json"),
+    JSON.stringify({ name: "unlicensed", version: "1.0.0" }),
+  );
+  writeFileSync(path.join(dependency, "index.js"), "export const value = 1;");
+  await assert.rejects(
+    collectBundleNotices(
+      { inputs: { "node_modules/unlicensed/index.js": {} } },
+      fixture,
+    ),
+    /Missing licence for bundled package unlicensed/,
+  );
+});
