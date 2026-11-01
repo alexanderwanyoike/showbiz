@@ -30,6 +30,7 @@ import {
   clearShotStartFrame,
   getCurrentImageVersion,
   getShots,
+  updateShot,
 } from "./backend-api";
 import {
   editImageAction,
@@ -743,4 +744,22 @@ it("keeps a frame-edit draft focused through a failed agent refresh and a retry"
   await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
   expect(prompt).toHaveProperty("value", "Morning mist");
   expect(document.activeElement).toBe(prompt);
+});
+
+it("keeps the previous take status on Stop Waiting and shows a late completed take", async () => {
+  const originalShots = await getShots("board");
+  vi.mocked(getShots).mockResolvedValueOnce(originalShots.map((shot) => ({ ...shot, status: "complete", video_url: `saved-${shot.id}.mp4` })));
+  let finish: ((result: Awaited<ReturnType<typeof generateAndSaveVideoRequestAction>>) => void) | undefined;
+  vi.mocked(generateAndSaveVideoRequestAction).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  const { container } = render(createElement(MemoryRouter, { initialEntries: ["/storyboard/board"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Shot controls" }));
+  await user.click(screen.getByRole("button", { name: "Generate video for shot 1" }));
+  await user.click(await screen.findByRole("button", { name: "Stop Waiting" }));
+  expect(within(screen.getByRole("complementary", { name: "Shot controls" })).getByText("complete", { exact: true })).toBeTruthy();
+  expect(updateShot).not.toHaveBeenCalled();
+  expect(container.querySelector("video")?.getAttribute("src")).toBe("saved-shot-1.mp4");
+  vi.mocked(getShots).mockResolvedValueOnce(originalShots.map((shot) => shot.id === "shot-1" ? { ...shot, status: "complete", video_url: "late-take.mp4" } : shot));
+  await act(async () => { finish?.({ success: true, videoUrl: "late-take.mp4" }); });
+  await waitFor(() => expect(container.querySelector("video")?.getAttribute("src")).toBe("late-take.mp4"));
 });
