@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { createProjectDocuments } from "./project-documents";
 import { createProjectCommands } from "./commands/projects";
 import { loadMigrations } from "./db";
-it("opens a read-only project for inspection and makes an editable Save As copy", async () => {
+it.each([false, true])("opens a read-only project and makes an editable copy even when access checks miss ACLs (%s)", async (missedAcl) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "showbiz-readonly-"));
   const source = path.join(directory, "source");
   fs.mkdirSync(source);
@@ -22,6 +22,7 @@ it("opens a read-only project for inspection and makes an editable Save As copy"
     fs.chmodSync(file, 0o400);
     fs.chmodSync(source, 0o500);
     const before = fs.readFileSync(file);
+    if (missedAcl) vi.spyOn(fs, "accessSync").mockImplementation(() => {});
     expect(await documents.open(file)).toMatchObject({
       ok: true,
       value: { read_only: true },
@@ -47,6 +48,7 @@ it("opens a read-only project for inspection and makes an editable Save As copy"
     ]);
     expect(fs.readFileSync(file)).toEqual(before);
   } finally {
+    vi.restoreAllMocks();
     await documents.close();
     fs.chmodSync(source, 0o700);
     fs.chmodSync(file, 0o600);
