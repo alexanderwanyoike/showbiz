@@ -1,4 +1,4 @@
-import { veoOperationSchema } from "./veo-response";
+import { readVeoOperation } from "./veo-response";
 import { fetch } from "./http";
 import { parseGoogleApiError } from "./types";
 
@@ -99,7 +99,9 @@ export async function generateVeoVideoBlob(
     throw new Error(userMessage);
   }
 
-  const data = veoOperationSchema.parse(await response.json());
+  const initial = await readVeoOperation(response);
+  if (!initial.ok) throw new Error(initial.error.message);
+  const data = initial.value;
   const operationName = data.name;
 
   if (!operationName) {
@@ -122,14 +124,16 @@ export async function generateVeoVideoBlob(
 
     const pollRes = await fetch(operationUrl);
 
-    if (!pollRes.ok) {
+    if (!pollRes.ok && (pollRes.status === 429 || pollRes.status >= 500)) {
       console.warn(`Poll request failed: ${pollRes.status}`);
       // Increase interval on failure
       pollInterval = Math.min(pollInterval * 1.5, maxPollInterval);
       continue;
     }
 
-    const pollData = veoOperationSchema.parse(await pollRes.json());
+    const parsed = await readVeoOperation(pollRes);
+    if (!parsed.ok) throw new Error(`${parsed.error.message} Operation: ${operationName}.`);
+    const pollData = parsed.value;
     const elapsed = Math.round((Date.now() - startTime) / 1000);
 
     console.log(
