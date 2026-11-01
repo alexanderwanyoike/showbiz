@@ -21,7 +21,7 @@ function processIdentity(pid: number): Result<string> {
     if (!identity) throw new Error("Process start time is unavailable.");
     return {ok:true,value:identity};
   } catch (cause) {
-    return {ok:false,error:{code:"PROCESS_IDENTITY_UNAVAILABLE",message:cause instanceof Error ? cause.message : String(cause)}};
+    return {ok:false,error:{code:"IO_ERROR",message:cause instanceof Error ? cause.message : String(cause)}};
   }
 }
 export function createProcessOwner(): ProcessOwner {

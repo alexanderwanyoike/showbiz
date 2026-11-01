@@ -1,3 +1,4 @@
+import { createProjectCache } from "./project-cache";
 import { recoverInterruptedGenerationUsage } from "./commands/generation-usage";
 import fs from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -95,11 +96,10 @@ export function createProjectDocuments(options: {
     recent = next;
     warning = null;
   }
-  function workspace() {
-    const cache = path.join(path.dirname(options.recentPath), "project-cache");
-    fs.mkdirSync(cache, { recursive: true, mode: 0o700 });
-    return fs.mkdtempSync(path.join(cache, "open-"));
-  }
+  const cache = createProjectCache(path.join(path.dirname(options.recentPath), "project-cache"));
+  const recovered = cache.sweep();
+  if (!recovered.ok) warning = [warning, recovered.error.message].filter(Boolean).join("\n");
+  const workspace = cache.create;
   function dispose(document: ActiveDocument) {
     document.db.close();
     document.release();
