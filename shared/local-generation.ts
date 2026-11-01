@@ -11,9 +11,10 @@ export const localGenerationSchema = z.strictObject({
         !url.username &&
         !url.password &&
         !url.search &&
-        !url.hash
+        !url.hash &&
+        (url.pathname === "/" || url.pathname === "")
       );
-    }, "Use an HTTP or HTTPS server URL without credentials or query parameters.")
+    }, "Use the HTTP or HTTPS server root URL without /v1, another path, credentials or query parameters.")
     .transform((value) => value.replace(/\/+$/, "")),
   image_model: z.string().trim().max(200),
   video_model: z.string().trim().max(200),
