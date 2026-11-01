@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
+  act,
   cleanup,
   render,
   screen,
@@ -10,6 +11,7 @@ import {
 import { MemoryRouter, Route, Routes } from "react-router";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import { applicationWork } from "./application-work";
 import StoryboardPage from "../pages/StoryboardPage";
 import type { GenerationCostRequest } from "../../shared/generation-cost";
 vi.mock("../components/GenerationCost", () => ({
@@ -28,19 +30,12 @@ import {
   clearShotStartFrame,
   getCurrentImageVersion,
   getShots,
+  updateShot,
 } from "./backend-api";
 import {
   editImageAction,
   generateAndSaveVideoRequestAction,
 } from "../actions/generation-actions";
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
 Element.prototype.scrollIntoView = vi.fn();
 Element.prototype.hasPointerCapture = vi.fn(() => false);
 Element.prototype.setPointerCapture = vi.fn();
@@ -658,4 +653,105 @@ it("keeps a saved take viewable while a new request runs and after it fails", as
     "saved-shot-1.mp4",
   );
   expect(screen.queryByText("failed", { exact: true })).toBeNull();
+});
+
+it.each(["model changed", "shot deleted"])("reconciles an unsaved video settings draft when an agent reports %s", async (change) => {
+  const originalShots = await getShots("board");
+  vi.mocked(setShotVideoSettings).mockResolvedValueOnce({ ok: false, error: { code: "IO_ERROR", message: "Could not save video settings." } });
+  render(createElement(MemoryRouter, { initialEntries: ["/storyboard/board"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Shot controls" }));
+  await user.click(screen.getByRole("combobox", { name: "Video duration" }));
+  await user.click(screen.getByRole("option", { name: "4s" }));
+  await screen.findByRole("alert");
+  vi.mocked(getShots).mockResolvedValueOnce(change === "shot deleted" ? originalShots.filter((shot) => shot.id !== "shot-1") : originalShots.map((shot) => shot.id === "shot-1" ? { ...shot, video_model: "veo-3.1-fal" } : shot));
+  act(() => { window.dispatchEvent(new Event("showbiz:project-changed")); });
+  await screen.findByRole("button", { name: "Select shot 2" });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Storyboard settings" })).toHaveProperty("disabled", false));
+  expect(screen.queryByRole("button", { name: "Return to shot 1" })).toBeNull();
+  expect(applicationWork.snapshot().unsaved).not.toContain("draft");
+});
+
+it("waits for image model persistence before editing a frame and then uses the saved model", async () => {
+  vi.mocked(getCurrentImageVersion).mockResolvedValueOnce({ id: "frame-take", shot_id: "shot-1", parent_version_id: null, version_number: 1, edit_type: "generation", image_path: "images/1.png", prompt: null, edit_prompt: null, mask_path: null, is_current: true, created_at: "now", image_url: "frame-1.png", mask_url: null });
+  let finish: ((result: Awaited<ReturnType<typeof setShotModels>>) => void) | undefined;
+  vi.mocked(setShotModels).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  vi.mocked(editImageAction).mockRejectedValueOnce(new Error("Verification only"));
+  render(createElement(MemoryRouter, { initialEntries: ["/storyboard/board"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Shot controls" }));
+  await user.click(screen.getByRole("button", { name: "Image model for shot 1" }));
+  await user.click(screen.getByRole("option", { name: /^Nano Banana\s*Google AI/ }));
+  expect(screen.getByRole("button", { name: "Edit frame for shot 1" })).toHaveProperty("disabled", true);
+  await act(async () => { finish?.({ ok: true, value: { image_model: "nano-banana", video_model: null } }); });
+  await user.click(screen.getByRole("button", { name: "Edit frame for shot 1" }));
+  const dialog = await screen.findByRole("dialog", { name: "Edit frame for shot 1" });
+  await user.type(within(dialog).getByRole("textbox", { name: "Frame edit prompt" }), "Morning mist");
+  await user.click(within(dialog).getByRole("button", { name: "Edit Image" }));
+  await waitFor(() => expect(editImageAction).toHaveBeenCalledWith(expect.any(String), "Morning mist", "nano-banana", expect.objectContaining({ subject_id: "shot-1" })));
+});
+
+it("saves settings for two shots independently and keeps only the pending shot disabled", async () => {
+  const finish: Record<string, () => void> = {};
+  const save: typeof setShotVideoSettings = async (shotId, settings) => new Promise((resolve) => { finish[shotId] = () => resolve({ ok: true, value: settings }); });
+  vi.mocked(setShotVideoSettings).mockImplementationOnce(save).mockImplementationOnce(save);
+  render(createElement(MemoryRouter, { initialEntries: ["/storyboard/board"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Shot controls" }));
+  await user.click(screen.getByRole("combobox", { name: "Video duration" }));
+  await user.click(screen.getByRole("option", { name: "4s" }));
+  await user.click(screen.getByRole("button", { name: "Select shot 2" }));
+  expect(screen.getByRole("combobox", { name: "Video duration" })).toHaveProperty("disabled", false);
+  await user.click(screen.getByRole("combobox", { name: "Video duration" }));
+  await user.click(screen.getByRole("option", { name: "6s" }));
+  expect(setShotVideoSettings).toHaveBeenCalledTimes(2);
+  await act(async () => { finish["shot-1"](); });
+  expect(screen.getByRole("combobox", { name: "Video duration" })).toHaveProperty("disabled", true);
+  await user.click(screen.getByRole("button", { name: "Select shot 1" }));
+  expect(screen.getByRole("combobox", { name: "Video duration" })).toHaveProperty("disabled", false);
+  expect(screen.getByRole("combobox", { name: "Video duration" }).textContent).toBe("4s");
+  await act(async () => { finish["shot-2"](); });
+  expect(applicationWork.snapshot().unsaved).not.toContain("draft");
+});
+
+it("keeps a frame-edit draft focused through a failed agent refresh and a retry", async () => {
+  vi.mocked(getCurrentImageVersion).mockResolvedValueOnce({ id: "frame-take", shot_id: "shot-1", parent_version_id: null, version_number: 1, edit_type: "generation", image_path: "images/1.png", prompt: null, edit_prompt: null, mask_path: null, is_current: true, created_at: "now", image_url: "frame-1.png", mask_url: null });
+  render(createElement(MemoryRouter, { initialEntries: ["/storyboard/board"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Shot controls" }));
+  await user.click(screen.getByRole("button", { name: "Edit frame for shot 1" }));
+  const dialog = screen.getByRole("dialog", { name: "Edit frame for shot 1" });
+  const prompt = within(dialog).getByRole("textbox", { name: "Frame edit prompt" });
+  await user.type(prompt, "Morning mist");
+  let reject: ((cause: Error) => void) | undefined;
+  vi.mocked(getShots).mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+  act(() => { window.dispatchEvent(new Event("showbiz:project-changed")); });
+  try {
+    expect(screen.getByRole("dialog", { name: "Edit frame for shot 1" })).toBe(dialog);
+    expect(document.activeElement).toBe(prompt);
+    expect(within(dialog).getByRole("button", { name: "Edit Image" })).toHaveProperty("disabled", true);
+  } finally { await act(async () => { reject?.(new Error("The project is busy. Retry loading.")); }); }
+  expect(within(dialog).getByRole("alert")).toHaveProperty("textContent", expect.stringContaining("The project is busy."));
+  await user.click(within(dialog).getByRole("button", { name: "Retry loading storyboard" }));
+  await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
+  expect(prompt).toHaveProperty("value", "Morning mist");
+  expect(document.activeElement).toBe(prompt);
+});
+
+it("keeps the previous take status on Stop Waiting and shows a late completed take", async () => {
+  const originalShots = await getShots("board");
+  vi.mocked(getShots).mockResolvedValueOnce(originalShots.map((shot) => ({ ...shot, status: "complete", video_url: `saved-${shot.id}.mp4` })));
+  let finish: ((result: Awaited<ReturnType<typeof generateAndSaveVideoRequestAction>>) => void) | undefined;
+  vi.mocked(generateAndSaveVideoRequestAction).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  const { container } = render(createElement(MemoryRouter, { initialEntries: ["/storyboard/board"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Shot controls" }));
+  await user.click(screen.getByRole("button", { name: "Generate video for shot 1" }));
+  await user.click(await screen.findByRole("button", { name: "Stop Waiting" }));
+  expect(within(screen.getByRole("complementary", { name: "Shot controls" })).getByText("complete", { exact: true })).toBeTruthy();
+  expect(updateShot).not.toHaveBeenCalled();
+  expect(container.querySelector("video")?.getAttribute("src")).toBe("saved-shot-1.mp4");
+  vi.mocked(getShots).mockResolvedValueOnce(originalShots.map((shot) => shot.id === "shot-1" ? { ...shot, status: "complete", video_url: "late-take.mp4" } : shot));
+  await act(async () => { finish?.({ success: true, videoUrl: "late-take.mp4" }); });
+  await waitFor(() => expect(container.querySelector("video")?.getAttribute("src")).toBe("late-take.mp4"));
 });
