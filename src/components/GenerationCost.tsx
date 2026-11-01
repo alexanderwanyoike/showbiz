@@ -82,11 +82,7 @@ export function GenerationCost({
       </output>
       {estimate?.kind === "estimate" && estimate.stale && (
         <p role="status" className="text-muted-foreground">
-          {estimate.price.source_kind === "published"
-            ? "Published price snapshot may be out of date."
-            : estimate.price.source_kind === "manual"
-              ? "Your saved rate may be out of date."
-              : "Using an older cached price. Live pricing is unconfirmed."}
+          Using an older cached price. Live pricing is unconfirmed.
         </p>
       )}
       {previous && (
@@ -159,13 +155,6 @@ export function GenerationCost({
                   media.
                 </p>
               )}
-              {estimate.price.estimate_basis === "historical_request" &&
-                estimate.max_microusd === 0 && (
-                  <p>
-                    The provider returned a zero historical estimate. This does
-                    not confirm that a new request is free.
-                  </p>
-                )}
               {estimate.price.billing_unit &&
                 estimate.price.billing_unit_microusd !== undefined && (
                   <p>
