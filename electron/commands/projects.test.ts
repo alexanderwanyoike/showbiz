@@ -303,9 +303,9 @@ describe("update_storyboard_models", () => {
     const updated = commands.update_storyboard_models({
       id,
       imageModel: "nano-banana",
-      videoModel: "seedance",
+      videoModel: "local-video",
     });
-    expect(updated).toMatchObject({ image_model: "nano-banana", video_model: "seedance" });
+    expect(updated).toMatchObject({ image_model: "nano-banana", video_model: "local-video" });
   });
 });
 
