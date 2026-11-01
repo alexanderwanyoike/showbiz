@@ -39,6 +39,11 @@ for (const directory of [...packages].sort()) {
       if (cause.code !== "ENOENT") throw cause;
     }
   }
+  // This published standalone release and its upstream tree omit a license file:
+  // https://github.com/develar/lazy-val/tree/b69ad4119f1b19bdab13c61ee2fcc88d46b89071
+  if (!license && metadata.name === "lazy-val" && metadata.version === "1.0.5" && metadata.license === "MIT") {
+    license = `License declared in published package.json: MIT\nAuthor: ${metadata.author}\nRepository: develar/lazy-val\nNo standalone license text was supplied by this release or its upstream repository. This entry retains the published metadata without inventing a copyright notice.`;
+  }
   if (!license)
     throw new Error(`Missing licence for bundled package ${metadata.name}`);
   notices.push(`${metadata.name} ${metadata.version}\n${license}`);
