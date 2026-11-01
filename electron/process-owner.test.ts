@@ -30,3 +30,20 @@ it.each(["linux", "darwin", "win32"] as const)(
     expect(reader.mock.calls.length + command.mock.calls.length).toBe(probes);
   },
 );
+
+
+it("retries a timed-out Windows identity probe and caches the first successful result", async () => {
+  Object.defineProperty(process, "platform", { value: "win32" });
+  const command = vi.mocked(execFileSync);
+  command.mockImplementationOnce(() => {
+    throw Object.assign(new Error("PowerShell start timed out"), { code: "ETIMEDOUT" });
+  });
+  const { createProcessOwner, processOwnerStatus } = await import("./process-owner");
+  const unavailable = createProcessOwner();
+  expect(unavailable.identity).toBeNull();
+  const recovered = createProcessOwner();
+  expect(recovered.identity).toBe("process-start");
+  expect(processOwnerStatus(recovered)).toBe("live");
+  expect(createProcessOwner().identity).toBe(recovered.identity);
+  expect(command).toHaveBeenCalledTimes(2);
+});
