@@ -5,6 +5,7 @@ import { imageConfigs, videoConfigs } from "./models/registry";
 import { getOpenRouterImagePrice } from "./openrouter-pricing";
 import {
   estimateGenerationCost,
+  generationRateMatchesRequest,
   type GenerationCostRequest,
   type GenerationCostEstimate,
   type GenerationPrice,
@@ -81,6 +82,12 @@ export async function getGenerationEstimate(
     }
     let price = stored.value;
     if (price && price.provider !== config.apiKeyProvider) price = null;
+    if (price?.source_kind === "manual" && !price.rates.some((rate) => generationRateMatchesRequest(rate, quantities))) {
+      const providerPrice = await invoke<Result<GenerationPrice | null>>("get_generation_price", { model_id: modelId, kind: request.kind, include_manual: false });
+      if (!providerPrice.ok) return { kind: "unavailable", reason: providerPrice.error.message };
+      price = providerPrice.value;
+      if (price && price.provider !== config.apiKeyProvider) price = null;
+    }
     if (config.apiKeyProvider === "fal" && price?.source_kind !== "manual") {
       const options = config.transportOptions ?? {};
       let endpoint: string | undefined;

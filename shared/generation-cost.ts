@@ -48,6 +48,11 @@ const unavailable = (reason: string): GenerationCostEstimate => ({
   kind: "unavailable",
   reason,
 });
+export function generationRateMatchesRequest(rate: GenerationPriceRate, request: GenerationCostRequest): boolean {
+  return (rate.resolution === undefined || rate.resolution === request.resolution) &&
+    (rate.audio === undefined || rate.audio === request.audio) &&
+    (rate.kind === undefined || rate.kind === request.kind);
+}
 export function estimateGenerationCost(
   price: GenerationPrice | null,
   request: GenerationCostRequest,
@@ -55,13 +60,7 @@ export function estimateGenerationCost(
 ): GenerationCostEstimate {
   if (!price)
     return unavailable("A provider rate is not available for this model.");
-  const matching = price.rates.filter(
-    (rate) =>
-      (rate.resolution === undefined ||
-        rate.resolution === request.resolution) &&
-      (rate.audio === undefined || rate.audio === request.audio) &&
-      (rate.kind === undefined || rate.kind === request.kind),
-  );
+  const matching = price.rates.filter((rate) => generationRateMatchesRequest(rate, request));
   const specificity = (rate: GenerationPriceRate) =>
     Number(rate.resolution !== undefined) +
     Number(rate.audio !== undefined) +

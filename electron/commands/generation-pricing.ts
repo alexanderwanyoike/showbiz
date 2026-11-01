@@ -41,11 +41,12 @@ export function createGenerationPricingCommands(db: DatabaseSync) {
     get_generation_price(args: Args = {}): Result<GenerationPrice | null> {
       return run(() => {
         if (!idValid(args.model_id) || !kindValid(args.kind)) return invalid();
+        if (args.include_manual !== undefined && typeof args.include_manual !== "boolean") return invalid();
         const suffix = `${args.kind}:${args.model_id}`;
         return {
           ok: true,
           value:
-            read(`generation_price:${suffix}`) ??
+            (args.include_manual === false ? null : read(`generation_price:${suffix}`)) ??
             read(`generation_price_cache:${suffix}`) ??
             providerPrices.find((price) => price.model_id === args.model_id) ??
             null,
