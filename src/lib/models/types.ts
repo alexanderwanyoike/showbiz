@@ -5,19 +5,8 @@ import type { ApiKeyProvider } from "../../../shared/provider-catalog";
 export type ImageModelId = string;
 export type VideoModelId = string;
 
-export interface VideoModelCapabilities {
-  durations: string[];
-  resolutions?: string[];
-  aspectRatios?: string[];
-  hasAudio?: boolean;
-}
-
-export interface VideoGenerationSettings {
-  duration: string;
-  resolution?: string;
-  aspectRatio?: string;
-  audio?: boolean;
-}
+import type { VideoModelCapabilities, VideoGenerationSettings } from "../../../shared/model-config";
+export type { VideoModelCapabilities, VideoGenerationSettings } from "../../../shared/model-config";
 
 export interface VideoModelModeCapabilities {
   textToVideo?: {

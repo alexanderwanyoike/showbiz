@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import path from "node:path";
 import { openDatabase, loadMigrations } from "../db";
-import { createDataCommands } from "../command-map";
+import { createTestDataCommands as createDataCommands, testCatalog } from "../test-support/data-commands";
 import { createInvokeHandler } from "../ipc";
 import { createMcpSession } from "./session";
 
@@ -18,7 +18,7 @@ it("discovers model metadata and prices and changes defaults and independent sho
       name: "Opening",
     });
     const shot = commands.create_shot({ storyboardId: board.id });
-    const session = createMcpSession(createInvokeHandler(commands));
+    const session = createMcpSession(createInvokeHandler({ ...commands, ...testCatalog }));
     const models = await session.call({
       tool: "get_generation_models",
       args: {},

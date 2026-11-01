@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, it } from "vitest";
 import { openDatabase, loadMigrations } from "../db";
-import { createDataCommands } from "../command-map";
+import { createTestDataCommands as createDataCommands } from "../test-support/data-commands";
 import { createInvokeHandler } from "../ipc";
 it("keeps video settings on their own shot and restores them with their model identity after reopening", async () => {
   const directory = fs.mkdtempSync(

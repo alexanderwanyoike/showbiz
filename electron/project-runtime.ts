@@ -10,7 +10,7 @@ import type { CommandMap } from "./ipc";
 
 export function createProjectRuntime(options: {
   appDirectory: string;
-  modelDirectory?: string;
+  modelDirectory: string;
   legacyDb: DatabaseSync;
   migrations: string[];
   exports: (db: DatabaseSync, media: string) => CommandMap;
@@ -20,6 +20,8 @@ export function createProjectRuntime(options: {
   beginSave: () => () => void;
   changed: Parameters<typeof createProjectDocumentCommands>[0]["changed"];
 }) {
+  const catalog = createGenerationModelCommands(options.modelDirectory);
+  const deviceSettings = createSettingsCommands(options.legacyDb);
   const documents = createProjectDocuments({
     migrations: options.migrations,
     recentPath: path.join(options.appDirectory, "recent-projects.json"),
@@ -28,13 +30,15 @@ export function createProjectRuntime(options: {
       media: path.join(options.appDirectory, "media"),
     },
     bind: (db, media) =>
-      createDataCommands(db, media, options.exports(db, media), (provider) => createSettingsCommands(options.legacyDb).get_api_key({ provider })),
+      createDataCommands(db, media, {
+        exports: options.exports(db, media),
+        readBillingKey: (provider) => deviceSettings.get_api_key({ provider }),
+        readGenerationModels: catalog.get_generation_models,
+      }),
   });
   const globals: CommandMap = {
-    ...createGenerationModelCommands(
-      options.modelDirectory ?? path.resolve("src/lib/models/providers"),
-    ),
-    ...createSettingsCommands(options.legacyDb),
+    ...catalog,
+    ...deviceSettings,
     ...createHttpCommands(),
     ...createProjectDocumentCommands({ ...options, documents }),
   };
