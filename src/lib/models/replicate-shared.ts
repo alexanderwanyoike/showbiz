@@ -67,20 +67,30 @@ export async function pollPrediction(
   predictionId: string,
   apiKey: string
 ): Promise<ReplicatePrediction> {
+  let consecutiveFailures = 0;
   return pollUntilDone<ReplicatePrediction>({
     check: async () => {
-      const res = await fetch(
-        `${REPLICATE_API_BASE}/predictions/${predictionId}`,
-        {
+      let res: Response;
+      try {
+        res = await fetch(`${REPLICATE_API_BASE}/predictions/${encodeURIComponent(predictionId)}`, {
           headers: { Authorization: `Bearer ${apiKey}` },
-        }
-      );
+        });
+      } catch {
+        consecutiveFailures += 1;
+        if (consecutiveFailures < 3) return { done: false };
+        throw new Error(`Could not read Replicate prediction ${predictionId} after repeated connection failures. Check this prediction before retrying generation.`);
+      }
+      if (!res.ok && (res.status === 429 || res.status >= 500)) {
+        consecutiveFailures += 1;
+        if (consecutiveFailures < 3) return { done: false };
+      }
 
       const text = await res.text();
 
       if (!res.ok) {
-        throw new Error(parseReplicateError(res.status, text));
+        throw new Error(`${parseReplicateError(res.status, text)} Prediction: ${predictionId}.`);
       }
+      consecutiveFailures = 0;
 
       const prediction = JSON.parse(text) as ReplicatePrediction;
 
@@ -100,7 +110,7 @@ export async function pollPrediction(
     maxInterval: POLL_MAX_MS,
     timeout: POLL_TIMEOUT_MS,
     backoff: { type: "exponential", factor: 2 },
-    label: "replicate",
+    label: `Replicate prediction ${predictionId}`,
   });
 }
 
