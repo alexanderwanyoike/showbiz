@@ -18,9 +18,7 @@ export const generationPriceSchema = z
       z
         .url()
         .max(2048)
-        .refine((value) =>
-          ["http:", "https:"].includes(new URL(value).protocol),
-        ),
+        .refine((value) => /^https?:/i.test(value)),
     ]),
     checked_at: z.iso.datetime(),
     endpoint_id: z.string().min(1).max(256).optional(),
