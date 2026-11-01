@@ -17,7 +17,7 @@
     "package:electron": "yarn icons:check && yarn build:frontend && yarn build:electron && electron-builder",
     "test": "yarn icons:check && yarn test:icons && vitest run && yarn test:distribution",
     "test:watch": "vitest",
-    "test:distribution": "node --test scripts/prepare-release.test.mjs",
+    "test:distribution": "node --test scripts/prepare-release.test.mjs scripts/font-assets.test.mjs",
     "prepare:release": "node scripts/prepare-release.mjs",
     "build:mcp": "node scripts/build-mcp.mjs",
     "mcp": "node dist-electron/showbiz-mcp.cjs",
