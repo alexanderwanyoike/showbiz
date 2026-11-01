@@ -45,3 +45,9 @@ Read-only live verification used the configured FAL generation key: pricing and 
 Receipt or outcome storage errors do not turn successful media delivery into a failed generation. The generated result is returned with explicit accounting warnings, also shown beside the affected subject's generation costs. No receipt amount is invented when storage fails. A failure to begin the usage record still stops the operation before submitting a generation request.
 
 Provider reconciliation runs after media is delivered. Usage & billing displays recorded project rows and totals before provider lookups finish, keeps the ledger visible during refresh, and updates receipts when the background check completes. Automatic checks of an unconfirmed request back off for one minute on this device; changing its billing credential or choosing Refresh charges retries immediately. Identical in-flight selections share one check. Reported counts include only newly written charges, so concurrent receipts cannot inflate them.
+
+Billing cooldowns retain credential fingerprints rather than API keys. The keys
+exist only in the active reconciliation call. Pending provider receipts remain
+unconfirmed in request details; ordinary provider lag is not promoted to an
+accounting-failure warning. Failed lookups and receipt-storage failures remain
+visible.
