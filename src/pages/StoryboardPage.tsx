@@ -920,7 +920,7 @@ export default function StoryboardPage() {
     <div role="alert" className="border-b border-border px-4 py-2 text-xs flex flex-wrap items-center gap-2"><span>{loadError}</span><Button variant="outline" size="sm" onClick={async () => { await loadData(); if (focusTarget?.isConnected) focusTarget.focus(); }}>Retry loading storyboard</Button></div>
   ) : null;
 
-  if (isLoading && !storyboard) {
+  if (isLoading && storyboard?.id !== id) {
     return (
       <div className="desktop-page">
         <Header />
@@ -934,7 +934,7 @@ export default function StoryboardPage() {
     );
   }
 
-  if (!storyboard) {
+  if (!storyboard || storyboard.id !== id) {
     return <div className="desktop-page"><Header title="Storyboard" backHref="/" backLabel="project" />{refreshFeedback()}</div>;
   }
 
