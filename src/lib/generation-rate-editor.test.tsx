@@ -72,3 +72,11 @@ it("removes only the custom rate for the displayed resolution and audio settings
     expect(commands.get_generation_price({ model_id: price.model_id, kind: "video" })).toMatchObject({ ok: true, value: { rates: [second] } });
   } finally { db.close(); }
 });
+
+it("makes a shared custom rate's wider scope explicit before removing it", async () => {
+  native.invoke.mockResolvedValue({ ok: true, value: null });
+  render(createElement(GenerationRateEditor, { modelId: "veo-3.1-openrouter", provider: "openrouter", request: { kind: "video", resolution: "720p", audio: false }, price: { provider: "openrouter", model_id: "veo-3.1-openrouter", currency: "USD", source_kind: "manual", source_url: "", checked_at: new Date().toISOString(), rates: [{ unit: "second", microusd: 100000 }] } }));
+  expect(screen.getByText("All resolutions · Any audio setting")).toBeTruthy();
+  await userEvent.setup().click(screen.getByRole("button", { name: "Remove shared custom rate" }));
+  expect(await screen.findByText("Shared custom rate removed.")).toBeTruthy();
+});
