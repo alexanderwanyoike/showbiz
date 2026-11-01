@@ -86,7 +86,7 @@ describe("primaryPicture", () => {
 describe("recipeVariantIds", () => {
   const variants: Record<string, BibleAssetVariant[]> = {
     c1: [variant({ id: "c1-primary", asset_id: "c1", is_primary: true })],
-    l1: [variant({ id: "l1-primary", asset_id: "l1", is_primary: true })],
+    l1: [variant({ id: "l1-primary", asset_id: "l1", is_primary: true }), variant({ id: "l1-view", asset_id: "l1" })],
   };
 
   it("resolves each character's primary picture plus the chosen location view", () => {
@@ -103,7 +103,7 @@ describe("recipeVariantIds", () => {
 describe("assetReferences", () => {
   const variants: Record<string, BibleAssetVariant[]> = {
     char1: [variant({ id: "char1-pic", asset_id: "char1", is_primary: true })],
-    loc1: [variant({ id: "loc1-pic", asset_id: "loc1", is_primary: true })],
+    loc1: [variant({ id: "loc1-pic", asset_id: "loc1", is_primary: true }), variant({ id: "loc1-view", asset_id: "loc1" })],
     frame1: [variant({ id: "frame1-take", asset_id: "frame1", is_primary: true })],
   };
 
@@ -232,4 +232,12 @@ describe("builtFromLabel", () => {
     const frame = asset({ asset_type: "reference", rules_json: null });
     expect(builtFromLabel(frame, characters, locations)).toBeNull();
   });
+});
+
+
+it("resolves a saved frame recipe against surviving location pictures", () => {
+  const recipe: FrameRecipe = { characters: [], location: "room", locationVariantId: "deleted-view", prompt: "Morning" };
+  const remaining = { room: [variant({ id: "surviving-primary", asset_id: "room", is_primary: true })] };
+  expect(recipeVariantIds(recipe, remaining)).toEqual(["surviving-primary"]);
+  expect(recipeVariantIds(recipe, {})).toEqual([]);
 });

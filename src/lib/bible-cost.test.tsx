@@ -33,14 +33,6 @@ vi.mock("./backend-api", async (original) => ({
     },
   ],
 }));
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
 Element.prototype.scrollIntoView = vi.fn();
 Element.prototype.hasPointerCapture = () => false;
 Element.prototype.setPointerCapture = vi.fn();
@@ -62,7 +54,7 @@ vi.mock("./generation-pricing", () => ({
 }));
 it("shows an image estimate before creating a bible picture", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
-  await screen.findByRole("button", { name: "Picture actions for Morning" });
+  await screen.findByRole("button", { name: "Open Morning details" });
   expect(
     (await screen.findAllByLabelText("Estimated generation cost"))[0]
       .textContent,
@@ -71,7 +63,7 @@ it("shows an image estimate before creating a bible picture", async () => {
 
 it("retains the frame draft and its usage identity when generation fails", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
-  await screen.findByRole("button", { name: "Picture actions for Morning" });
+  await screen.findByRole("button", { name: "Open Morning details" });
   const user = userEvent.setup();
   await user.click(screen.getByRole("tab", { name: /^frames$/i }));
   await user.type(

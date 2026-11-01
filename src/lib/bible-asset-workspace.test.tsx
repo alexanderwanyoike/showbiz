@@ -72,7 +72,7 @@ it.each([
       }),
     ).toBeTruthy();
     await user.click(
-      within(workspace).getByRole("button", { name: "Variation…" }),
+      within(workspace).getByRole("button", { name: /^Variation for / }),
     );
     expect(
       within(workspace).getByRole("textbox", {
@@ -103,7 +103,7 @@ it("keeps independent creation and picture-action drafts across detail and libra
     "A quiet portrait",
   );
   await user.click(screen.getByRole("button", { name: "Open Ada details" }));
-  await user.click(screen.getByRole("button", { name: "Variation…" }));
+  await user.click(screen.getByRole("button", { name: /^Variation for / }));
   await user.clear(
     screen.getByRole("textbox", { name: "Variation prompt for Ada" }),
   );
@@ -119,10 +119,86 @@ it("keeps independent creation and picture-action drafts across detail and libra
     screen.getByRole("textbox", { name: "Character prompt" }),
   ).toHaveProperty("value", "A quiet portrait");
   expect(document.activeElement).toBe(
-    screen.getByRole("button", { name: "Open Ada details" }),
+    screen.getByRole("button", { name: "Open Ada details, unsaved draft" }),
   );
-  await user.click(screen.getByRole("button", { name: "Open Ada details" }));
+  await user.click(
+    screen.getByRole("button", { name: "Open Ada details, unsaved draft" }),
+  );
   expect(
     screen.getByRole("textbox", { name: "Variation prompt for Ada" }),
   ).toHaveProperty("value", "Warmer light");
+});
+
+it("returns to the linked tab library when the route changes from frame details", async () => {
+  const view = render(
+    <ProjectBibleView projectId="film" initialTab="frames" />,
+  );
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Open Opening details" }),
+  );
+  view.rerender(<ProjectBibleView projectId="film" initialTab="characters" />);
+  expect(
+    await screen.findByRole("button", { name: "Open Ada details" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("complementary", { name: "New character" }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("region", { name: "Opening details" })).toBeNull();
+});
+
+it("uses one library opener that names its retained unsaved picture draft", async () => {
+  render(<ProjectBibleView projectId="film" />);
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Open Ada details" }),
+  );
+  await user.click(screen.getByRole("button", { name: /^Variation for / }));
+  await user.type(
+    screen.getByRole("textbox", { name: "Variation prompt for Ada" }),
+    " warmer",
+  );
+  await user.click(screen.getByRole("button", { name: "Back to library" }));
+  const opener = screen.getByRole("button", {
+    name: "Open Ada details, unsaved draft",
+  });
+  expect(document.activeElement).toBe(opener);
+  expect(
+    screen.queryByRole("button", { name: "Picture actions for Ada" }),
+  ).toBeNull();
+  await user.click(opener);
+  expect(
+    screen.getByRole("textbox", { name: "Variation prompt for Ada" }),
+  ).toHaveProperty("value", "Warm morning light warmer");
+});
+
+it("names picture draft actions and exposes their controlled sections even while collapsed", async () => {
+  render(<ProjectBibleView projectId="film" />);
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Open Ada details" }),
+  );
+  const variation = screen.getByRole("button", { name: "Variation for Ada" });
+  const edit = screen.getByRole("button", { name: "Edit picture for Ada" });
+  for (const action of [variation, edit]) {
+    expect(action.getAttribute("aria-expanded")).toBe("false");
+    const section = document.getElementById(
+      action.getAttribute("aria-controls") ?? "",
+    );
+    expect(section).toBeTruthy();
+    expect(section?.hidden).toBe(true);
+  }
+  await user.click(variation);
+  await user.type(
+    screen.getByRole("textbox", { name: "Variation prompt for Ada" }),
+    " warmer",
+  );
+  const draft = screen.getByRole("button", {
+    name: "Variation for Ada, unsaved draft",
+  });
+  await user.click(draft);
+  expect(draft.getAttribute("aria-expanded")).toBe("false");
+  expect(
+    document.getElementById(draft.getAttribute("aria-controls") ?? "")?.hidden,
+  ).toBe(true);
 });

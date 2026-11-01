@@ -1,6 +1,10 @@
 import "../bible-workspace.css";
 import "../bible-asset-workspace.css";
-import { BibleAssetEntry } from "./BibleAssetEntry";
+import { DEFAULT_BIBLE_IMAGE_MODEL } from "../lib/bible-assets";
+import {
+  BibleAssetEntry,
+  type BibleDetailFocusTargets,
+} from "./BibleAssetEntry";
 import { modelProviderName } from "../lib/model-provider";
 import { ConfirmDeletion } from "./ConfirmDeletion";
 import type { Result } from "../../shared/result";
@@ -32,6 +36,7 @@ import {
   getBibleAssets,
   getBibleVariantImageBase64,
   getBibles,
+  updateBibleAsset,
   updateBibleAssetVariantStatus,
   type BibleAsset,
   type BibleAssetVariant,
@@ -138,8 +143,10 @@ export default function ProjectBibleView({
   const [composerOpen, setComposerOpen] = useState(true);
   const [activeAssetId, setActiveAssetId] = useState<string | null>(null);
   const newAction = useRef<HTMLButtonElement>(null);
-  const workspace = useRef<HTMLElement>(null);
   const deletionOrigin = useRef<HTMLElement | null>(null);
+  const currentPicture = useRef<HTMLButtonElement>(null);
+  const detailBack = useRef<HTMLButtonElement>(null);
+  const detailFocus = { picture: currentPicture, back: detailBack };
   const [bibleId, setBibleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const loadRequest = useRef(0);
@@ -148,18 +155,24 @@ export default function ProjectBibleView({
     {},
   );
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [localImageModel, setLocalImageModel] =
-    useState<ImageModelId>("nano-banana");
+  const [localImageModel, setLocalImageModel] = useState<ImageModelId>(
+    DEFAULT_BIBLE_IMAGE_MODEL,
+  );
   const imageModel = generationModel?.value ?? localImageModel;
   const setImageModel = generationModel?.onChange ?? setLocalImageModel;
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [generatingAssetId, setGeneratingAssetId] = useState<string | null>(
+    null,
+  );
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<BibleDeletion | null>(null);
+  const [deletionOpen, setDeletionOpen] = useState(false);
   const pendingAssets = useRef(new Map<string, BibleAsset>());
   useAgentChanges(load);
   useEffect(() => {
     setTab(initialTab);
+    setActiveAssetId(null);
   }, [initialTab, projectId]);
 
   const imageModels = getAvailableImageModels();
@@ -271,7 +284,7 @@ export default function ProjectBibleView({
       await withApplicationWork(
         !file && prompt.trim() ? "generation" : "saving",
         async () => {
-          const draftKey = `${type}:${name.trim()}`;
+          const draftKey = `${type}:creation`;
           let asset = pendingAssets.current.get(draftKey);
           if (!asset || !assets.some((entry) => entry.id === asset?.id)) {
             asset = await createBibleAsset(bibleId, {
@@ -287,7 +300,20 @@ export default function ProjectBibleView({
             setAssets((prev) => [created, ...prev]);
             setVariants((prev) => ({ ...prev, [created.id]: [] }));
             pendingAssets.current.set(draftKey, asset);
+          } else if (asset.name !== name.trim()) {
+            asset = await updateBibleAsset(asset.id, {
+              ...asset,
+              name: name.trim(),
+            });
+            pendingAssets.current.set(draftKey, asset);
+            const updated = asset;
+            setAssets((previous) =>
+              previous.map((entry) =>
+                entry.id === updated.id ? updated : entry,
+              ),
+            );
           }
+          if (!file && prompt.trim()) setGeneratingAssetId(asset.id);
           if (file) {
             await addVariant(asset.id, await fileToDataUrl(file), {
               name: file.name,
@@ -309,6 +335,7 @@ export default function ProjectBibleView({
       setError(message);
       return { ok: false, error: { code: "IO_ERROR", message } };
     } finally {
+      setGeneratingAssetId(null);
       setBusyId(null);
     }
   }
@@ -355,6 +382,7 @@ export default function ProjectBibleView({
         ? document.activeElement
         : null;
     setDeletion({ kind: "picture", variant });
+    setDeletionOpen(true);
   }
 
   function handleDeleteAsset(asset: BibleAsset) {
@@ -363,6 +391,7 @@ export default function ProjectBibleView({
         ? document.activeElement
         : null;
     setDeletion({ kind: "asset", asset });
+    setDeletionOpen(true);
   }
 
   async function confirmDeletion(): Promise<Result<null>> {
@@ -484,7 +513,7 @@ export default function ProjectBibleView({
     setBusyId("make-frame");
     try {
       await withApplicationWork("generation", async () => {
-        const draftKey = `frame:${JSON.stringify(recipe)}`;
+        const draftKey = "frame:creation";
         let asset = pendingAssets.current.get(draftKey);
         if (!asset || !assets.some((entry) => entry.id === asset?.id)) {
           asset = await createBibleAsset(bibleId, {
@@ -500,7 +529,21 @@ export default function ProjectBibleView({
           setAssets((prev) => [created, ...prev]);
           setVariants((prev) => ({ ...prev, [created.id]: [] }));
           pendingAssets.current.set(draftKey, asset);
+        } else if (asset.rules_json !== JSON.stringify(recipe)) {
+          asset = await updateBibleAsset(asset.id, {
+            ...asset,
+            name: recipe.prompt.slice(0, 50) || "Frame",
+            rules_json: JSON.stringify(recipe),
+          });
+          pendingAssets.current.set(draftKey, asset);
+          const updated = asset;
+          setAssets((previous) =>
+            previous.map((entry) =>
+              entry.id === updated.id ? updated : entry,
+            ),
+          );
         }
+        setGeneratingAssetId(asset.id);
         const dataUrl = await composeFromVariantIds(
           recipeVariantIds(recipe, variants),
           recipe.prompt,
@@ -524,6 +567,7 @@ export default function ProjectBibleView({
       setError(message);
       return { ok: false, error: { code: "IO_ERROR", message } };
     } finally {
+      setGeneratingAssetId(null);
       setBusyId(null);
     }
   }
@@ -695,7 +739,6 @@ export default function ProjectBibleView({
       asChild
     >
       <section
-        ref={workspace}
         role="region"
         aria-label="Project bible"
         className="bible-workspace flex h-full flex-col"
@@ -749,6 +792,7 @@ export default function ProjectBibleView({
                 composerOpen={composerOpen}
                 onCloseComposer={closeComposer}
                 modelControl={modelControl(assetTab)}
+                detailFocus={detailFocus}
                 detailModelControl={modelControl(`${assetTab}-detail`)}
                 activeAssetId={selectedAssetId}
                 onOpenAsset={setActiveAssetId}
@@ -758,6 +802,7 @@ export default function ProjectBibleView({
                 assets={assetTab === "characters" ? characters : locations}
                 variants={variants}
                 busyId={busyId}
+                generatingAssetId={generatingAssetId}
                 onNew={handleNewAsset}
                 onClearDraft={() => {
                   for (const key of pendingAssets.current.keys())
@@ -791,6 +836,7 @@ export default function ProjectBibleView({
               composerOpen={composerOpen}
               onCloseComposer={closeComposer}
               modelControl={modelControl("frames")}
+              detailFocus={detailFocus}
               detailModelControl={modelControl("frames-detail")}
               activeAssetId={selectedAssetId}
               onOpenAsset={setActiveAssetId}
@@ -800,6 +846,7 @@ export default function ProjectBibleView({
               frames={frames}
               variants={variants}
               busyId={busyId}
+              generatingAssetId={generatingAssetId}
               onMakeFrame={handleMakeFrame}
               onClearDraft={() => {
                 for (const key of pendingAssets.current.keys())
@@ -829,20 +876,13 @@ export default function ProjectBibleView({
             if (deletionOrigin.current?.isConnected)
               deletionOrigin.current.focus();
             else
-              (
-                workspace.current?.querySelector<HTMLButtonElement>(
-                  "button[data-current-picture]:not(:disabled)",
-                ) ??
-                workspace.current?.querySelector<HTMLButtonElement>(
-                  'button[aria-label="Back to library"]',
-                ) ??
-                newAction.current
+              (currentPicture.current && !currentPicture.current.disabled
+                ? currentPicture.current
+                : (detailBack.current ?? newAction.current)
               )?.focus();
           }}
-          open={!!deletion}
-          onOpenChange={(open) => {
-            if (!open) setDeletion(null);
-          }}
+          open={deletionOpen}
+          onOpenChange={setDeletionOpen}
           title={
             deletion?.kind === "asset" ? "Delete Bible entry" : "Delete picture"
           }
@@ -867,6 +907,7 @@ function AssetTab({
   onCloseComposer,
   modelControl,
   detailModelControl,
+  detailFocus,
   activeAssetId,
   onOpenAsset,
   onBack,
@@ -875,6 +916,7 @@ function AssetTab({
   assets,
   variants,
   busyId,
+  generatingAssetId,
   onNew,
   onClearDraft,
   onRetake,
@@ -891,6 +933,7 @@ function AssetTab({
   onCloseComposer: () => void;
   modelControl: ReactNode;
   detailModelControl: ReactNode;
+  detailFocus: BibleDetailFocusTargets;
   activeAssetId: string | null;
   onOpenAsset: (id: string) => void;
   onBack: () => void;
@@ -899,6 +942,7 @@ function AssetTab({
   assets: BibleAsset[];
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
+  generatingAssetId: string | null;
   onNew: (
     type: "character" | "location",
     name: string,
@@ -1080,10 +1124,15 @@ function AssetTab({
                   hidden={!!activeAssetId && activeAssetId !== asset.id}
                   onOpen={() => onOpenAsset(asset.id)}
                   onBack={onBack}
+                  detailFocus={detailFocus}
                   modelControl={detailModelControl}
                   takes={takes}
                   busy={busyId !== null}
+                  generating={generatingAssetId === asset.id}
                   builtFrom={null}
+                  usesReferenceImages={
+                    assetReferences(asset, variants).length > 0
+                  }
                   basePrompt={primaryPicture(takes)?.prompt ?? ""}
                   onRetake={onRetake}
                   onEdit={onEdit}
@@ -1112,6 +1161,7 @@ function FramesTab({
   onCloseComposer,
   modelControl,
   detailModelControl,
+  detailFocus,
   activeAssetId,
   onOpenAsset,
   onBack,
@@ -1120,6 +1170,7 @@ function FramesTab({
   frames,
   variants,
   busyId,
+  generatingAssetId,
   onMakeFrame,
   onClearDraft,
   onRetake,
@@ -1135,6 +1186,7 @@ function FramesTab({
   onCloseComposer: () => void;
   modelControl: ReactNode;
   detailModelControl: ReactNode;
+  detailFocus: BibleDetailFocusTargets;
   activeAssetId: string | null;
   onOpenAsset: (id: string) => void;
   onBack: () => void;
@@ -1143,6 +1195,7 @@ function FramesTab({
   frames: BibleAsset[];
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
+  generatingAssetId: string | null;
   onMakeFrame: (recipe: FrameRecipe) => Promise<Result<void>>;
   onClearDraft: () => void;
   onRetake: (
@@ -1196,8 +1249,17 @@ function FramesTab({
     ) {
       setLocationId(null);
       setLocationVariantId(null);
+    } else if (
+      locationId &&
+      !(variants[locationId] ?? []).some(
+        (variant) => variant.id === locationVariantId && variant.media_url,
+      )
+    ) {
+      setLocationVariantId(
+        primaryPicture(variants[locationId] ?? [])?.id ?? null,
+      );
     }
-  }, [characters, locations, locationId, variants]);
+  }, [characters, locations, locationId, locationVariantId, variants]);
 
   function toggleChar(id: string) {
     setSelectedChars((prev) => {
@@ -1446,10 +1508,13 @@ function FramesTab({
                 hidden={!!activeAssetId && activeAssetId !== f.id}
                 onOpen={() => onOpenAsset(f.id)}
                 onBack={onBack}
+                detailFocus={detailFocus}
                 modelControl={detailModelControl}
                 takes={(variants[f.id] ?? []).filter((v) => v.media_url)}
                 busy={busyId !== null}
+                generating={generatingAssetId === f.id}
                 builtFrom={builtFromLabel(f, characters, locations)}
+                usesReferenceImages={assetReferences(f, variants).length > 0}
                 basePrompt={
                   parseRecipe(f.rules_json).prompt ||
                   primaryPicture(variants[f.id] ?? [])?.prompt ||

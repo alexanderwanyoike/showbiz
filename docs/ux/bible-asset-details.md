@@ -1,12 +1,18 @@
 # Bible asset details
 
-Characters, locations and frames open a dedicated detail workspace when selected. The previous editor popover is removed.
+Characters, locations and frames each have one library opener for their dedicated detail workspace. Its accessible name identifies retained unsaved picture drafts. The previous editor popover is removed.
 
 The workspace contains the current image, take history, recorded prompt/model/source and existing generation actions. Creation controls are hidden while inspecting an entry; their independent drafts remain available on return. Large previews, take controls and price queries render only for the active entry.
 
-Take selection uses stable creation order instead of the backend's primary-first return order. Selecting a picture keeps its number and keyboard focus. Take preview and delete controls are separate 28px buttons. Mutation controls are disabled while saving; failed mutations preserve the saved selection. Cancelled deletion and inline editing return focus to their opener. Deleting the current take retains a reachable focus target.
+Take selection uses stable creation order instead of the backend's primary-first return order. Selecting a picture keeps its number and keyboard focus. Take preview and delete controls are separate 28px buttons. Read-only previews remain available while a new picture is generating; the owning library entry shows progress. Mutation controls are disabled while saving; failed mutations preserve the saved selection. Cancelled deletion and inline editing return focus to their opener. Deleting the current take retains a reachable focus target.
 
 The next-generation estimate is grouped with the model and generation actions. It does not imply a confirmed charge for an existing picture. Provider pricing, billing reconciliation, storage schemas and native commands are unchanged.
+
+A failed first picture retains its creation entry while the current draft is corrected, including name and frame-reference changes. Clear draft ends that retry identity. View changes and background refreshes retain drafts; a deliberate route discard or component remount ends the local draft. Its already-created incomplete entry remains in the library and can be resumed with Variation or Upload, without matching a new draft to an old entry by name.
+
+Location references use surviving pictures. If a selected view is deleted, the current recipe and saved-frame retakes fall back to the location's current primary picture. A frame with no reference pictures uses text generation, including on local models; its estimate and capability checks use that same input mode.
+
+The Bible supports a document-controlled generation model and an intentionally tested standalone local mode. Both share one Bible default; this control affects future Bible operations rather than storyboard defaults or existing takes.
 
 ## Patterns
 
@@ -14,7 +20,7 @@ This follows the existing Showbiz shot workspace's main preview, take browser an
 
 ## Verification
 
-The combined suite passes 1,221 tests in 123 files. The final six-line inline-Cancel focus fix separately passes 18 affected tests in three suites and strict TypeScript. Both required builds, 39 distribution checks and full Linux AppImage/Debian packaging pass. Packaged assets, native menu bridge, migrations and provider model catalogs are inspected in the ASAR.
+Maintained regressions cover linked-tab selection, independent drafts, retry identity after corrections, deliberate remount recovery, deleted location references, local model capability gates, pending-library status, read-only preview, accessible draft disclosures and deletion exit/focus. Current test/build results and rendered evidence belong in the relevant PR under Tested.
 
 Actual-renderer verification uses a disposable self-contained project with uploaded local sample pictures: five character takes, three location takes and four takes for one frame. All three entry types open detail sections. Manual checks cover creation-draft retention, variation-draft retention across library/detail visits, native take selection/order/focus, full-image preview and Escape focus, take-delete confirmation and cancellation, frame prompt reuse, and inline variation cancellation focus.
 

@@ -74,7 +74,6 @@ export function BiblePictureTile({
         <button
           type="button"
           onClick={onExpand}
-          disabled={disabled}
           className="bible-picture-expand absolute bottom-1 right-1"
           aria-label={`View ${label ?? "picture"}`}
           title={`View ${label ?? "picture"}`}
