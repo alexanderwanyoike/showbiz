@@ -40,13 +40,19 @@ class TauriResponse {
   }
 
   async blob(): Promise<Blob> {
-    return new Blob([new Uint8Array(this.getBytes()).buffer], { type: this.headers.get("content-type") ?? "" });
+    return new Blob([new Uint8Array(this.getBytes()).buffer], {
+      type: this.headers.get("content-type") ?? "",
+    });
   }
+}
+
+export interface HttpRequestInit extends RequestInit {
+  timeout_ms?: number;
 }
 
 export async function fetch(
   input: string | URL,
-  init?: RequestInit
+  init?: HttpRequestInit,
 ): Promise<TauriResponse> {
   const url = typeof input === "string" ? input : input.toString();
   const method = (init?.method ?? "GET").toUpperCase();
@@ -66,15 +72,14 @@ export async function fetch(
   }
 
   const body =
-    init?.body !== undefined && init?.body !== null
-      ? String(init.body)
-      : null;
+    init?.body !== undefined && init?.body !== null ? String(init.body) : null;
 
   const result = await invoke<TauriHttpResponse>("http_request", {
     url,
     method,
     headers,
     body,
+    ...(init?.timeout_ms !== undefined ? { timeout_ms: init.timeout_ms } : {}),
   });
 
   return new TauriResponse(result.status, result.body_b64, result.headers);

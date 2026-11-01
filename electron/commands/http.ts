@@ -1,3 +1,5 @@
+import { Agent } from "undici";
+
 /**
  * Cross-origin HTTP proxy for the Electron shell. Ports
  * the retired Rust backend's commands/http_client.rs: a thin main-process fetch that
@@ -9,11 +11,15 @@
 
 type Header = [string, string];
 
+// Local inference can be silent beyond five minutes; the per-request signal still bounds total work.
+const inferenceDispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
+
 interface HttpRequestArgs {
   url: string;
   method: string;
   headers: Header[];
   body: string | null;
+  timeout_ms?: number;
 }
 
 interface HttpResponse {
@@ -29,10 +35,16 @@ interface FetchResponseLike {
   arrayBuffer(): Promise<ArrayBuffer>;
 }
 
-type FetchFn = (url: string, init?: Record<string, unknown>) => Promise<FetchResponseLike>;
+type FetchFn = (
+  url: string,
+  init?: Record<string, unknown>,
+) => Promise<FetchResponseLike>;
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+function messageOf(error: unknown, depth = 0): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return error instanceof Error && error.cause && depth < 3
+    ? `${message}: ${messageOf(error.cause, depth + 1)}`
+    : message;
 }
 
 /**
@@ -54,6 +66,18 @@ export function buildFetchArgs(args: HttpRequestArgs): {
     method: args.method,
     headers: args.headers,
   };
+  if (args.timeout_ms !== undefined) {
+    if (
+      !Number.isSafeInteger(args.timeout_ms) ||
+      args.timeout_ms < 1 ||
+      args.timeout_ms > 3600000
+    )
+      throw new Error(
+        "Choose an HTTP timeout between 1 millisecond and 1 hour.",
+      );
+    init.dispatcher = inferenceDispatcher;
+    init.signal = AbortSignal.timeout(args.timeout_ms);
+  }
   if (args.body !== null && args.body !== undefined) {
     init.body = args.body;
   }
@@ -61,13 +85,20 @@ export function buildFetchArgs(args: HttpRequestArgs): {
 }
 
 /** Pure mapping from status + raw bytes to the Rust HttpResponse JSON shape. */
-export function encodeResponse(status: number, bytes: Uint8Array): HttpResponse {
+export function encodeResponse(
+  status: number,
+  bytes: Uint8Array,
+): HttpResponse {
   return { status, body_b64: Buffer.from(bytes).toString("base64") };
 }
 
-export function createHttpCommands(fetchFn: FetchFn = fetch as unknown as FetchFn) {
+export function createHttpCommands(
+  fetchFn: FetchFn = fetch as unknown as FetchFn,
+) {
   return {
-    async http_request(rawArgs?: Record<string, unknown>): Promise<HttpResponse> {
+    async http_request(
+      rawArgs?: Record<string, unknown>,
+    ): Promise<HttpResponse> {
       const args = (rawArgs ?? {}) as unknown as HttpRequestArgs;
       const { url, init } = buildFetchArgs(args);
 
