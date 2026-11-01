@@ -41,3 +41,9 @@ Cache cleanup is conservative. Legacy workspaces without ownership metadata cann
 Abandoned-lock replacement is serialized with an adjacent `.showbiz.lock.guard` directory, using atomic `mkdir` acquisition as in [proper-lockfile](https://github.com/moxystudio/node-proper-lockfile) (MIT; design reference only, no copied source). Competing opens fail with the guard path instead of deleting another process's fresh lock. The guard normally exists only during acquisition. If the process crashes during that short operation, close every Showbiz instance before manually removing the named guard. Unverifiable ownership is never reclaimed automatically.
 
 The document database closes before its ownership lock is released, so another writer cannot enter while the previous connection is still open. Ownership tokens are checked on release. This process's platform start identity is read once and reused; other processes are still verified independently. A malformed cache owner marker is reported with its path while cleanup continues for other caches.
+
+## OS project opening
+
+OS launches use Electron's [single-instance routing pattern](https://www.electronjs.org/docs/latest/api/app/#apprequestsingleinstancelockadditionaldata). A second launch in the same Electron profile forwards project arguments to the existing window before another device database or MCP bridge starts. Relative paths are resolved against the launching process's working directory. Project switching still obeys the active-work and unsaved-draft guards.
+
+Independent instances remain available with separate Electron `--user-data-dir` profiles and separate `XDG_DATA_HOME` device-storage directories. Each publishes its own MCP descriptor; agents still explicitly choose an instance. Do not share one device database between independent instances.
