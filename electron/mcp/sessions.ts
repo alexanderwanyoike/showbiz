@@ -56,6 +56,10 @@ export function callBridge(
   input: unknown,
   options: { timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<BridgeResult> {
+  const hasRequestId = typeof input === "object" && input !== null && "args" in input
+    && typeof input.args === "object" && input.args !== null && "request_id" in input.args
+    && typeof input.args.request_id === "string";
+  const retry = hasRequestId ? "Retry with the same request ID and arguments to check the result." : "Retry the read when Showbiz is available.";
   return new Promise((resolve) => {
     let pending: ClientRequest | undefined;
     let settled = false;
@@ -65,7 +69,7 @@ export function callBridge(
         error: {
           code: "CANCELLED",
           message:
-            "Stopped waiting for Showbiz. The operation may still finish. Retry with the same request ID and arguments to check the result.",
+            `Stopped waiting for Showbiz. The operation may still finish. ${retry}`,
         },
       });
       pending?.destroy();
@@ -146,7 +150,7 @@ export function callBridge(
         error: {
           code: "TIMEOUT",
           message:
-            "Showbiz has not finished this request. The operation may still complete. Retry with the same request ID and arguments before starting it again.",
+            `Showbiz has not finished this request. The operation may still complete. ${retry}`,
         },
       });
       pending?.destroy();
