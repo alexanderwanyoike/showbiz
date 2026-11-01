@@ -1,0 +1,2450 @@
+{
+  "base": "785e1b4b0a0e74771599dcb87bf6093587eb58c0",
+  "items": [
+    {
+      "pr": 99,
+      "section": "Bugs",
+      "finding": "**fix** `CLAUDE.md:3,36,47,59,78-170` and `AGENTS.md:30,34`: both still describe the removed NLE: \"assembled into a final movie with native ffmpeg\", `ffmpeg-static`/`ffprobe-static`, `export_timeline_video`, `timeline/`, `export-payload.ts`, `timeline-utils.ts`, `useHtml5TimelinePlayback.ts`, `export.ts export-deps.ts`. `README.md:92` still says \"ffmpeg export\". This is still true at the top of the stack (#118). Agents working in this repo will be sent looking for code that no longer exists. Update all three to the package-export model.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "Current architecture documentation replaces removed NLE instructions and package-export guidance across README/CLAUDE/AGENTS.",
+      "commits": [
+        "91f1ecb"
+      ],
+      "pull_requests": [
+        135
+      ],
+      "row_index": 0
+    },
+    {
+      "pr": 99,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/storyboard-package.ts:58-60`: the \"cannot overwrite source media\" check can never fire, because the destination must end in `.zip`/`.sbz` and sources are limited to image/video extensions. Drop it, or explain what it guards.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Removed unreachable guard separately: accepted media suffixes cannot equal ZIP/SBZ destination suffixes",
+      "commits": [
+        "475678e"
+      ],
+      "pull_requests": [
+        134
+      ],
+      "row_index": 1
+    },
+    {
+      "pr": 99,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/storyboard-package.ts:43`: one missing media file (realpath ENOENT) fails the whole export with the raw OS message, and nothing names the shot. Name the shot or role in the error.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Selected-media failure names shot ID, role, relative filename and original filesystem cause; existing destination retained",
+      "commits": [
+        "475678e"
+      ],
+      "pull_requests": [
+        134
+      ],
+      "row_index": 2
+    },
+    {
+      "pr": 100,
+      "section": "Bugs",
+      "finding": "**fix** `electron/project-document-media.ts:48`: `sync()` embeds every file in the cache directory (`files()`), not only the paths that records reference (`documentMediaPaths`). Some commands drop rows without unlinking files (`delete_version` in `electron/commands/image-versions.ts:260`, and the `delete_shot` cascades). Failure: a user deletes an unwanted take, then shares or Save As copies the `.showbiz`. The deleted image is still inside the file, and the file grows without bound. Legacy conversion already copies only referenced paths (`project-document-copy.ts:55`), so the two disagree. Fix: sync from `documentMediaPaths(db)`, or prune unreferenced files first.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "Package sync embeds only record-referenced media; deleted/unreferenced cache data is excluded.",
+      "commits": [
+        "4886ea8"
+      ],
+      "pull_requests": [
+        119
+      ],
+      "row_index": 3
+    },
+    {
+      "pr": 100,
+      "section": "Bugs",
+      "finding": "**fix** `electron/project-documents.ts:177`, `:318`, `:361`: `create`, `saveAs` and `importLegacy` open the target with `\"wx\"`, but the native `showSaveDialog` has already asked \"Replace existing file?\". Failure: the user confirms Replace and gets a raw `EEXIST: file already exists, open '...'` banner. Catch EEXIST with a clear message, or replace safely through a temp file and rename.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "Confirmed replacement publishes through temporary/backup files with guarded rollback.",
+      "commits": [
+        "088cb34"
+      ],
+      "pull_requests": [
+        122
+      ],
+      "row_index": 4
+    },
+    {
+      "pr": 100,
+      "section": "Bugs",
+      "finding": "**note** `electron/project-documents.ts:96-104`: each open extracts all media into `project-cache/open-XXXX`, which is removed only on dispose. After a crash, a full duplicate of the project's media stays forever, once per crash. Sweep it at startup, skipping directories with a live lock owner.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "Project cache startup sweep identifies live owners and removes abandoned extraction workspaces.",
+      "commits": [
+        "6009aea"
+      ],
+      "pull_requests": [
+        129
+      ],
+      "row_index": 5
+    },
+    {
+      "pr": 100,
+      "section": "Bugs",
+      "finding": "**note** `electron/project-document-lock.ts:11-22`: stale-lock detection is only `process.kill(pid, 0)`. After a reboot, a reused PID blocks opening with \"already open in Showbiz\", and nothing points at `X.showbiz.lock`. Because the lock sits next to the document, read-only locations cannot be opened.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "Lock ownership includes process identity to reject PID reuse; read-only document inspection no longer requires a writable adjacent lock.",
+      "commits": [
+        "6009aea",
+        "77c831c"
+      ],
+      "pull_requests": [
+        129,
+        132
+      ],
+      "row_index": 6
+    },
+    {
+      "pr": 100,
+      "section": "Bugs",
+      "finding": "**note** `electron/project-documents.ts:176` vs `:206`: `create`/`saveAs` store `path.resolve(file)`, but `open` compares `fs.realpathSync(file)`. A document under a symlinked directory, reopened from Recent, misses the \"already active\" shortcut and then collides with its own lock.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "Create/Open/Save As share canonical real-file identity through symlinked directories.",
+      "commits": [
+        "caff7c3"
+      ],
+      "pull_requests": [
+        127
+      ],
+      "row_index": 7
+    },
+    {
+      "pr": 100,
+      "section": "Bugs",
+      "finding": "**note** `electron/main.ts:61`: `will-quit` does `void projects.dispose()` and ignores the result, so a failed final persist is lost without a trace. At least log it.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "Synchronous final disposal inspects its Result and logs final-save failures during will-quit; native Electron43 normal close and an induced missing referenced-cache-media failure both exit0, with the failure logged rather than lost.",
+      "commits": [
+        "edf969a"
+      ],
+      "pull_requests": [
+        145
+      ],
+      "row_index": 8
+    },
+    {
+      "pr": 100,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/project-documents.ts:129-155`: every mutation runs a synchronous recursive `readdirSync`, a stat per media file, seven path queries and a read of the changed media into SQLite, all on the main thread. A failed command re-extracts the whole project. This scales with project size, so document it as a known limitation.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "docs/project-documents.md:36 explicitly records synchronous main-thread embedding and rollback extraction as a large-project limitation.",
+      "commits": [
+        "91f1ecb"
+      ],
+      "pull_requests": [
+        135
+      ],
+      "row_index": 9
+    },
+    {
+      "pr": 100,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/project-documents.ts:294-299`: read vs write is decided by command prefix (`get_`/`export_`/`show_`). Use an explicit list next to `createDataCommands` (or reuse `MUTATING_COMMANDS`).",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "Document read/write classification uses shared explicit saved-data command effects; read-only mode rejects classified mutations rather than guessing by prefix.",
+      "commits": [
+        "77c831c"
+      ],
+      "pull_requests": [
+        132,
+        121
+      ],
+      "row_index": 10
+    },
+    {
+      "pr": 100,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/project-document-copy.ts:59-67`: one dangling legacy take aborts the whole conversion, and the error does not name the file.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Legacy copy now identifies operation and referenced relative file while retaining cause. Raw ENOENT already included an absolute path, so review wording that no file was named was overstated",
+      "commits": [
+        "475678e"
+      ],
+      "pull_requests": [
+        134
+      ],
+      "row_index": 11
+    },
+    {
+      "pr": 100,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/main.ts:56`: `app.addRecentDocument` is called, but there is no `open-file`/argv handling or `fileAssociations`, so OS recent entries do nothing.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "OS argv/open-file URLs enter the guarded document workflow; native path and URI launches verified in real Electron.",
+      "commits": [
+        "a61d234"
+      ],
+      "pull_requests": [
+        136
+      ],
+      "row_index": 12
+    },
+    {
+      "pr": 100,
+      "section": "Design/DRY",
+      "finding": "**note** `src/App.tsx:32`: `DocumentMenu` exists for browser-transport verification and is shipped as product UI.",
+      "status": "resolved-earlier",
+      "owner": "mcp-ui",
+      "resolution": "App now renders ApplicationMenu; DocumentMenu is its File menu content with product lifecycle actions, not a second standalone browser-verification toolbar. The review describes the older PR100 surface.",
+      "commits": [
+        "785e1b4"
+      ],
+      "pull_requests": [
+        114,
+        118
+      ],
+      "row_index": 13
+    },
+    {
+      "pr": 100,
+      "section": "Nits",
+      "finding": "`docs/project-documents.md:27` still says the navigator is omitted. It is now one collapsible navigator.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "docs/project-documents.md:29 describes the single collapsible project navigator.",
+      "commits": [
+        "91f1ecb"
+      ],
+      "pull_requests": [
+        135
+      ],
+      "row_index": 14
+    },
+    {
+      "pr": 100,
+      "section": "Nits",
+      "finding": "`RecentProjectDocument.name` updates only on activate, so renames show the old name.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Committed project renames refresh recent metadata; a recent-list persistence failure preserves rename/current document/in-memory name, exposes a separate warning, and retries on Save.",
+      "commits": [
+        "6d2ef1a",
+        "d97bbed",
+        "c1c89ec",
+        "3477954",
+        "3388d54"
+      ],
+      "pull_requests": [
+        138
+      ],
+      "row_index": 15
+    },
+    {
+      "pr": 100,
+      "section": "Nits",
+      "finding": "Commit atomicity: `5ed6f8d` removes dead code and also formats unrelated files. `5677151` combines a refactor with formatting. `1cfceca` adds Save As and locking together.",
+      "status": "qualified-not-applicable",
+      "owner": "all",
+      "resolution": "Historical commit phase/label/atomicity criticism cannot be corrected without prohibited history rewriting. Current repair commits keep RED, GREEN, refactoring, formatting and documentation separate; no amend or force push.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 16
+    },
+    {
+      "pr": 101,
+      "section": "Bugs",
+      "finding": "**fix** `electron/mcp/tools.ts:21`: the `aliases` map rewrites `storyboard_id` to `storyboardId` for every tool, `export_storyboard_package` (`:207`) included. The native handler reads `args.storyboard_id` (`electron/commands/storyboard-package.ts:11`). Failure: every MCP export returns `INVALID_INPUT` \"Choose a storyboard and ZIP or SBZ format\". `session.test.ts:76` stubs dispatch, so it never sees the args. Give the tool its own `args`, and assert the dispatched args in a test.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Native mapper preserved; export-specific timeout, fail-fast mutation lease, concurrent reads and PENDING replay; 29 focused tests/types pass; combined frontend/Electron builds passed root integration",
+      "commits": [
+        "ff6dd59"
+      ],
+      "pull_requests": [
+        120
+      ],
+      "row_index": 17
+    },
+    {
+      "pr": 101,
+      "section": "Bugs",
+      "finding": "**fix** `electron/mcp/sessions.ts:105` with `electron/mcp/session.ts:200`: `callBridge` gives up after 5s with `UNAVAILABLE` (\"instance is unavailable, list sessions and attach again\"), but export opens a native save dialog. Failure: the user takes more than 5s to choose a path, and the agent is told the instance is gone. The export still runs, and the `tail` queue holds every later call behind the dialog, so those time out too. Use a longer per-tool timeout, or a pending result.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Native mapper preserved; export-specific timeout, fail-fast mutation lease, concurrent reads and PENDING replay; 29 focused tests/types pass; combined frontend/Electron builds passed root integration",
+      "commits": [
+        "ff6dd59"
+      ],
+      "pull_requests": [
+        120
+      ],
+      "row_index": 18
+    },
+    {
+      "pr": 101,
+      "section": "Bugs",
+      "finding": "**fix** `src/pages/StoryboardPage.tsx:207`, `src/pages/ProjectPage.tsx:51`: `useAgentChanges(loadData)` reruns the mount loader, which calls `setIsLoading(true)` (`:223`) and swaps the page for the spinner. `showbiz:data_changed` reaches every window after any agent mutation, even in another project. Failures: the user's focused video-prompt textarea unmounts. Unsaved video settings reset to model defaults (`:249`). A transient load error runs `navigate(\"/\")`. Every agent edit refetches six version queries per shot plus all bible variants. Reload in the background without touching `isLoading`, view state or navigation.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Refresh retains the mounted inspector/dialog and focus, reports recoverable errors with Retry, and gates paid submission while stale.",
+      "commits": [
+        "11f1e4e",
+        "8f1a95b"
+      ],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 19
+    },
+    {
+      "pr": 101,
+      "section": "Bugs",
+      "finding": "**note** `electron/mcp/session.ts:63`: `revision++` runs even when the native command returns `{ ok: false }`, so a rejected edit makes the agent's next attempt hit `CONFLICT`.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Shared saved-data effects, rejected/cancelled results preserve revisions, preload wrapper and single renderer work lease; 33 focused tests and strict types pass",
+      "commits": [
+        "06d62a3"
+      ],
+      "pull_requests": [
+        121
+      ],
+      "row_index": 20
+    },
+    {
+      "pr": 101,
+      "section": "Design/DRY",
+      "finding": "**fix** `electron/mcp/session.ts:20`: `isMutation` is a hand-kept denylist (\"everything except `get_*` and five names\"), while `electron/work-runtime.ts:11` has the canonical `MUTATING_COMMANDS`. `check_for_updates`/`download_update`/`open_update_release` bump the revision and cause spurious `CONFLICT`s, and the lists will drift. Reuse the one list.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Shared saved-data effects, rejected/cancelled results preserve revisions, preload wrapper and single renderer work lease; 33 focused tests and strict types pass",
+      "commits": [
+        "06d62a3"
+      ],
+      "pull_requests": [
+        121
+      ],
+      "row_index": 21
+    },
+    {
+      "pr": 101,
+      "section": "Design/DRY",
+      "finding": "**fix** `electron/preload.ts:8`: `onDataChanged` passes the renderer callback straight to `ipcRenderer.on`, which leaks the `IpcRendererEvent`. The neighbouring `onProjectDocument` wraps it. Follow that pattern.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Shared saved-data effects, rejected/cancelled results preserve revisions, preload wrapper and single renderer work lease; 33 focused tests and strict types pass",
+      "commits": [
+        "06d62a3"
+      ],
+      "pull_requests": [
+        121
+      ],
+      "row_index": 22
+    },
+    {
+      "pr": 101,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/main.ts:65-71`: UI IPC goes `work.invoke(... session.invoke)`, which dispatches through `work.invoke(-1, ...)` again, so every UI mutation takes two nested \"saving\" leases.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Shared saved-data effects, rejected/cancelled results preserve revisions, preload wrapper and single renderer work lease; 33 focused tests and strict types pass",
+      "commits": [
+        "06d62a3"
+      ],
+      "pull_requests": [
+        121
+      ],
+      "row_index": 23
+    },
+    {
+      "pr": 101,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/local-bridge.ts:121`, `electron/mcp/sessions.ts:45`: descriptors and `showbiz-mcp-*` socket dirs are never cleaned after a crash, and a reused PID makes a dead instance listable.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Authenticated health and constrained stale cleanup; Windows ACL limits documented; all35MCP tests/types and root combined builds pass",
+      "commits": [
+        "537c947"
+      ],
+      "pull_requests": [
+        128
+      ],
+      "row_index": 24
+    },
+    {
+      "pr": 101,
+      "section": "Design/DRY",
+      "finding": "**note** on Windows, the 0600/0700 modes and the uid check do nothing, so the pipe is protected only by the secret and the profile ACL. Add one line to `docs/mcp.md`.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Authenticated health and constrained stale cleanup; Windows ACL limits documented; all35MCP tests/types and root combined builds pass",
+      "commits": [
+        "537c947"
+      ],
+      "pull_requests": [
+        128
+      ],
+      "row_index": 25
+    },
+    {
+      "pr": 101,
+      "section": "Nits",
+      "finding": "`docs/mcp.md:32,41,49` references \"PR #100\", \"PR #99\" and Forgecut internals. Describe the features instead.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Removed PR-specific and sibling implementation references from MCP workflow docs",
+      "commits": [
+        "7900e8d"
+      ],
+      "pull_requests": [
+        120
+      ],
+      "row_index": 26
+    },
+    {
+      "pr": 101,
+      "section": "Nits",
+      "finding": "`c42671e` (bridge start + adapter packaging) has no preceding red commit.",
+      "status": "qualified-not-applicable",
+      "owner": "mcp-ui",
+      "resolution": "Original missing RED is historical and must not be rewritten. All current repair slices record independently committed intended RED before GREEN; no force/amend",
+      "commits": [],
+      "pull_requests": [
+        120
+      ],
+      "row_index": 27
+    },
+    {
+      "pr": 102,
+      "section": "Bugs",
+      "finding": "**fix** `src/pages/StoryboardPage.tsx:260-264`: `loadData` still resets `videoSettings` to the defaults of the *storyboard default* video model. The effect at `:184-187` re-runs only when the effective `videoModel` changes. Failure: shot 1 overrides the video model to Veo 3.1 and is selected. Then an agent change (`useAgentChanges(loadData)`) or a failed `updateShot`/reorder calls `loadData()`. The settings become Seedance defaults, `videoModel` stays Veo, and the effect does not fire. `handleGenerateVideo` then sends Seedance settings to Veo (`targetSettings = videoSettings`, `:683`). Fix: let the effect own the reset, or reset from the selected shot's resolved model.",
+      "status": "resolved-earlier",
+      "owner": "ui",
+      "resolution": "Settings are already derived per selected shot/model; loadData no longer resets them.",
+      "commits": [],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 28
+    },
+    {
+      "pr": 102,
+      "section": "Bugs",
+      "finding": "**fix** `src/pages/StoryboardPage.tsx:1013-1014`, `:1084-1085`: \"Wait for model persistence\" only gates the video button (`generationDisabled` in `ShotInspector.tsx:512`). The image Generate and Edit dialog buttons ignore `modelSaving`. Failure: change the shot's image override, then submit the edit dialog before `set_shot_models` resolves. The image is generated with the previous model.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Image/edit openers, submit controls and handlers wait for model persistence; requests and labels resolve the target shot; generation failures are inline.",
+      "commits": [
+        "228809e",
+        "e245f92"
+      ],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 29
+    },
+    {
+      "pr": 102,
+      "section": "Bugs",
+      "finding": "**note** `src/pages/StoryboardPage.tsx:990`, `:1045`: the \"Generate/Edit Image with X\" labels use the *selected* shot's `imageModel`. Generation uses `activeShotId` / `editModalState.shotId`. Branching from another shot shows one model and generates with a different one.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Image/edit openers, submit controls and handlers wait for model persistence; requests and labels resolve the target shot; generation failures are inline.",
+      "commits": [
+        "228809e",
+        "e245f92"
+      ],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 30
+    },
+    {
+      "pr": 102,
+      "section": "Bugs",
+      "finding": "**note** `electron/commands/shot-models.ts:10-27`: validation checks only the shape (a trimmed string of at most 200 characters). Unknown or retired model IDs are persisted, and they fail late at the provider.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Single explicit runtime catalog uses shared renderer/native validators and rejects unavailable/wrong-kind overrides; 187 focused tests/types pass; combined builds passed root",
+      "commits": [
+        "9048eef"
+      ],
+      "pull_requests": [
+        125
+      ],
+      "row_index": 31
+    },
+    {
+      "pr": 102,
+      "section": "Design/DRY",
+      "finding": "**note** `src/lib/backend-api.ts:515`: `set_shot_models` takes snake_case `shot_id`, while neighbouring wrappers pass camelCase args. It is a one-off convention.",
+      "status": "qualified-not-applicable",
+      "owner": "ui",
+      "resolution": "Snake_case matches the required IPC JSON contract and adjacent current set_shot_video_settings/clear_shot_start_frame wrappers. Renaming the boundary solely to resemble older camelCase wrappers would break the mandated native/MCP convention.",
+      "commits": [],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 32
+    },
+    {
+      "pr": 102,
+      "section": "Design/DRY",
+      "finding": "**note** `src/components/ShotModelControls.tsx:35-45`: the model-name lookup is written twice. Extract one helper.",
+      "status": "resolved-earlier",
+      "owner": "ui",
+      "resolution": "ShotModelControls delegates both fields to shared GenerationModelField; no duplicated model-name lookup remains.",
+      "commits": [],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 33
+    },
+    {
+      "pr": 102,
+      "section": "Design/DRY",
+      "finding": "**note** commit `28c05b4` \"refactor: clarify model control types and format focused files\" mixes a type refactor with formatting across 472 lines. That breaks the one-thing-per-commit rule.",
+      "status": "qualified-not-applicable",
+      "owner": "all",
+      "resolution": "Historical commit phase/label/atomicity criticism cannot be corrected without prohibited history rewriting. Current repair commits keep RED, GREEN, refactoring, formatting and documentation separate; no amend or force push.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 34
+    },
+    {
+      "pr": 102,
+      "section": "Nits",
+      "finding": "`src/pages/StoryboardPage.tsx:944-946`: these lines are misindented. `image_model`/`video_model` are passed into `ShotInspector`'s `shot`, but the inspector never declares or reads them, so they are dead.",
+      "status": "resolved-earlier",
+      "owner": "ui",
+      "resolution": "Current StoryboardPage no longer passes unused image_model/video_model fields in the inspector shot object.",
+      "commits": [],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 35
+    },
+    {
+      "pr": 102,
+      "section": "Nits",
+      "finding": "`docs/shot-models.md:13`: the licence sentence is filler.",
+      "status": "qualified-not-applicable",
+      "owner": "ui",
+      "resolution": "Retained concise pattern/license attribution because AGENTS explicitly requires documenting the established open-source pattern and respecting its license. This is required provenance, not an unused runtime feature.",
+      "commits": [
+        "3ce9bc1"
+      ],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 36
+    },
+    {
+      "pr": 103,
+      "section": "Bugs",
+      "finding": "**fix** `electron/commands/generation-usage.ts:26-34`: the \"running becomes interrupted\" sweep runs inside `createGenerationUsageCommands`, which runs on every `bind`. That includes `saveAs` (`electron/project-documents.ts:321-324`: `VACUUM INTO`, then `prepare`). Failure: Save As while a video generation is in flight marks that request `interrupted`. When the generation completes, `finish_generation_usage({status:\"completed\"})` is rejected because the row \"already has a final outcome\", so a charged request is recorded as interrupted. On `open`, the sweep also writes to the file before the embedded-media validation at ~`:238`, so a file the app refuses has still been modified. Fix: run the sweep only on a genuine open, after validation. Add a regression test for Save As during a running request.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "Interrupted-usage recovery runs only during validated writable project open, not every command binding or Save As.",
+      "commits": [
+        "ae4f389"
+      ],
+      "pull_requests": [
+        124
+      ],
+      "row_index": 37
+    },
+    {
+      "pr": 103,
+      "section": "Bugs",
+      "finding": "**note** `electron/commands/generation-usage.ts:278-279`: the \"Estimated, unconfirmed\" total includes the estimates of `failed`, `cancelled` and `interrupted` rows. Those are usually not billed, so the total over-reports. Either say so in the UI, or bucket those rows separately.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Usage help now explicitly includes failed/cancelled/interrupted requests, any can incur a charge.",
+      "commits": [
+        "fcd76f6",
+        "16bf5a2"
+      ],
+      "pull_requests": [
+        149
+      ],
+      "row_index": 38,
+      "delivery": {
+        "branch": "codex/review-usage-provenance",
+        "head": "988467b",
+        "depends": "#146",
+        "scope": "Unconfirmed outcome explanation",
+        "pr": 149
+      }
+    },
+    {
+      "pr": 103,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/commands/generation-usage.ts:150-161`: `price_source`/`price_checked_at` duplicate the frozen `price_basis_json` snapshot, and callers can override them, so the two can disagree. A non-string `price_source` wins the `??` chain and is then stored as `null`. Take both fields from the snapshot, and reject bad explicit values.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Validate explicit provenance, reject contradictions, derive stored fields from immutable snapshot.",
+      "commits": [
+        "ebabc40",
+        "668f535"
+      ],
+      "pull_requests": [
+        146
+      ],
+      "row_index": 39,
+      "delivery": {
+        "branch": "codex/review-quote-provenance",
+        "head": "69800ea",
+        "pr": 146,
+        "depends": "#133 and f",
+        "scope": "Immutable quote provenance"
+      }
+    },
+    {
+      "pr": 103,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/mcp/tools.ts:80-91`: `get_generation_cost_summary` advertises `offset`/`limit` through `define`, but they do nothing. `subject_id` filtering exists in the command, but no tool or UI can reach it.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Subject-scoped native/MCP totals and ledger rows are exposed; unused summary pagination is removed. All 41 affected tests and types pass.",
+      "commits": [
+        "13c370d"
+      ],
+      "pull_requests": [
+        133
+      ],
+      "row_index": 40
+    },
+    {
+      "pr": 103,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/commands/generation-usage.ts:27-30`: the `sqlite_master` existence guard cannot fail after migration 04, so it is dead.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "The obsolete sqlite_master guard was removed when interrupted usage recovery moved to validated project open; current generation-usage.ts:32 directly performs the sweep.",
+      "commits": [
+        "ae4f389"
+      ],
+      "pull_requests": [
+        124
+      ],
+      "row_index": 41
+    },
+    {
+      "pr": 103,
+      "section": "Nits",
+      "finding": "`electron/migrations/04_generation_usage.sql`: it uses an underscore, but 01 to 03 use `NN-kebab-name.sql`.",
+      "status": "qualified-not-applicable",
+      "owner": "root",
+      "resolution": "Migration filenames are append-only shipped schema history. Renaming migration04 could change ordering/application; preserve its existing filename rather than rewrite shipped migrations.",
+      "commits": [],
+      "pull_requests": [
+        124
+      ],
+      "row_index": 42
+    },
+    {
+      "pr": 103,
+      "section": "Nits",
+      "finding": "`src/pages/UsagePage.tsx:41`: every refresh, including each agent change, calls `setData(null)`, so the table flashes \"Loading usage…\". `offset` is not reset when the route `:id` changes.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Refresh126 preserves same-scope ledger, reads before providerlookup, changesproject starts offset0.",
+      "commits": [
+        "a6ae2c2"
+      ],
+      "pull_requests": [
+        126
+      ],
+      "row_index": 43
+    },
+    {
+      "pr": 104,
+      "section": "Bugs",
+      "finding": "**fix** `src/lib/models/kie-shared.ts:66` (also `:43`, `:95`, `transports/kie-image.ts:41`) and `src/lib/models/veo-shared.ts:102,132`: `.parse()` runs *before* the `!res.ok` check. Failure: kie.ai or Veo returns an error body that does not match the schema (e.g. `code` as a string, `data` as an array, `error` with extra nesting). The user gets a raw ZodError dump instead of `parseKieError(...)` / the Google error message, and a status that would have been retried or explained is lost. Use `safeParse`, and fall through to the status-based error.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "KIE safe error parsing across upload/task/poll/Flux and Veo safe operation/error handling.",
+      "commits": [
+        "d3f44b8",
+        "c53bd27",
+        "ccdf679",
+        "e002fb0",
+        "2a840ba"
+      ],
+      "pull_requests": [
+        148
+      ],
+      "row_index": 44,
+      "delivery": {
+        "branch": "codex/review-provider-recovery",
+        "head": "50f2da2",
+        "depends": "e; #144 notice integration at publication",
+        "scope": "Provider errors, polling and receipts",
+        "pr": 148
+      }
+    },
+    {
+      "pr": 104,
+      "section": "Design/DRY",
+      "finding": "**fix** `src/lib/models/types.ts:4-5`: `ImageModelId`/`VideoModelId` are now plain `string`. The PR says \"use the validated model registry as the source of model IDs\", but nothing derives the IDs from it, so a typo in any model ID literal now compiles. Derive a union from the config filenames/registry, or say in the docs that compile-time checking was intentionally dropped.",
+      "status": "fixed",
+      "owner": "root",
+      "resolution": "CLAUDE.md:80 explicitly documents extensible string IDs and runtime availability/kind validation, the review's offered documentation alternative.",
+      "commits": [
+        "91f1ecb",
+        "9048eef"
+      ],
+      "pull_requests": [
+        135,
+        125
+      ],
+      "row_index": 45
+    },
+    {
+      "pr": 104,
+      "section": "Design/DRY",
+      "finding": "**note** `e52efc9` \"fix: restore strict typing for model responses and desktop tests\" spans 20 files: response schemas, a type widening, test query changes and a `tsconfig.json` reformat. That is several commits' worth of change.",
+      "status": "qualified",
+      "owner": "billing",
+      "resolution": "Historical commit grouping cannot be rewritten with amend/rebase forbidden; current fixes separate atomic RED/GREEN.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 46
+    },
+    {
+      "pr": 104,
+      "section": "Nits",
+      "finding": "`src/lib/desktop-workspace.test.tsx:79` and `src/lib/project-documents.test.tsx:196`: removing `exact: true` left whitespace-only lines inside the option objects.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Removed whitespace-only query-option lines from the two maintained fixtures; git diff --check passes.",
+      "commits": [
+        "8fb4f20"
+      ],
+      "pull_requests": [],
+      "row_index": 47
+    },
+    {
+      "pr": 104,
+      "section": "Nits",
+      "finding": "`src/lib/models/fal-shared.test.ts:248` etc.: `(error instanceof Error ? error.message : String(error))` right after `expect(error).toBeInstanceOf(Error)` is noise. Type the catch result instead.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Provider fixture cleanup removes the redundant instanceof ternary and asserts message properties directly without unsafe narrowing; final provider suite129tests/types pass.",
+      "commits": [
+        "7c03288",
+        "502d713",
+        "74bf4fa"
+      ],
+      "pull_requests": [
+        148
+      ],
+      "row_index": 48,
+      "delivery": {
+        "branch": "codex/review-provider-recovery",
+        "head": "50f2da2",
+        "depends": "e; #144 notice integration at publication",
+        "scope": "Provider errors, polling and receipts",
+        "pr": 148
+      }
+    },
+    {
+      "pr": 105,
+      "section": "Bugs",
+      "finding": "**note** `src/lib/models/openrouter-video.ts:107`, `:155`: a single non-2xx poll response, or a network error, ends a long paid Veo job as failed, and the job ID is not in the message. Retry 429/5xx a few times, or at least include the job ID so \"check the provider job\" is actionable. (`replicate-shared.ts` behaves the same way.)",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Bounded polling retries and job identity in failures; no duplicate generation POST.",
+      "commits": [
+        "ab93f58",
+        "00edbd7"
+      ],
+      "pull_requests": [
+        148
+      ],
+      "row_index": 49,
+      "delivery": {
+        "branch": "codex/review-provider-recovery",
+        "head": "50f2da2",
+        "depends": "e; #144 notice integration at publication",
+        "scope": "Provider errors, polling and receipts",
+        "pr": 148
+      }
+    },
+    {
+      "pr": 105,
+      "section": "Bugs",
+      "finding": "**note** `src/lib/models/openrouter-video.ts:94`: no receipt is read from the submit response. If the first poll fails, a known `usage.cost` is recorded as unknown. `receipt = openRouterReceipt(initial.data)` is a cheap fix.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Initial submission receipt preserves known charges, including0, through missing later usage.",
+      "commits": [
+        "5bacd63",
+        "fdef5fc"
+      ],
+      "pull_requests": [
+        148
+      ],
+      "row_index": 50,
+      "delivery": {
+        "branch": "codex/review-provider-recovery",
+        "head": "50f2da2",
+        "depends": "e; #144 notice integration at publication",
+        "scope": "Provider errors, polling and receipts",
+        "pr": 148
+      }
+    },
+    {
+      "pr": 105,
+      "section": "Design/DRY",
+      "finding": "**note** the `observer` parameter is threaded through every transport, but at this head only a test passes one. That is fine as long as #107 lands in this stack.",
+      "status": "resolved-earlier",
+      "owner": "billing",
+      "resolution": "Production runAccountedGeneration supplies observer from integrated107/111.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 51
+    },
+    {
+      "pr": 105,
+      "section": "Design/DRY",
+      "finding": "**note** the `usage: { cost }` zod shape is repeated in `openrouter-image.ts`, `openrouter-video.ts` and `openrouter-receipt.ts`. Export one `usageSchema`.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Shared usage contract across OpenRouter images/video/receipts/native billing.",
+      "commits": [
+        "6d4a62c"
+      ],
+      "pull_requests": [
+        148
+      ],
+      "row_index": 52,
+      "delivery": {
+        "branch": "codex/review-provider-recovery",
+        "head": "50f2da2",
+        "depends": "e; #144 notice integration at publication",
+        "scope": "Provider errors, polling and receipts",
+        "pr": 148
+      }
+    },
+    {
+      "pr": 105,
+      "section": "Nits",
+      "finding": "`src/components/ShotModelControls.tsx:46`, `:92`: these lines were added after the format commit and never formatted.",
+      "status": "resolved-earlier",
+      "owner": "billing",
+      "resolution": "Later native UI polish normalized ShotModelControls formatting, root verifies integratedsource.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 53
+    },
+    {
+      "pr": 105,
+      "section": "Nits",
+      "finding": "`src/lib/models/providers/image/nano-banana-2.json`: it has no `provider`. Now that it shares a family with the OpenRouter entry, the Gemini option shows no provider label. Add `\"provider\": \"Gemini\"`.",
+      "status": "resolved-earlier",
+      "owner": "billing",
+      "resolution": "modelProviderName falls back from apiKeyProvider to the catalog name in all current model pickers. Gemini therefore has its proper provider label without redundant config data.",
+      "commits": [],
+      "pull_requests": [
+        110
+      ],
+      "row_index": 54
+    },
+    {
+      "pr": 105,
+      "section": "Nits",
+      "finding": "`veo-3.1-openrouter.json:35` uses `\"4K\"`, while `veo-3.1-fal.json` uses `\"4k\"`. Confirm against the OpenRouter docs.",
+      "status": "qualified",
+      "owner": "billing",
+      "resolution": "The unauthenticated OpenRouter catalog returned HTTP 200 and advertised Veo 3.1 resolutions 720p, 1080p and 4K. Its uppercase spelling is correct.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 55
+    },
+    {
+      "pr": 106,
+      "section": "Bugs",
+      "finding": "**fix** `electron/commands/http.ts:76` (reached from `src/lib/models/local-generation.ts:25`): local generation goes through `http_request`, which calls Node's `fetch` with undici defaults (`headersTimeout`/`bodyTimeout` = 300s). LocalAI's `/video` and `/v1/images/generations` block until inference finishes. Failure: a Wan or LTX clip that takes more than 5 minutes on a consumer GPU aborts with `UND_ERR_HEADERS_TIMEOUT`. The user sees \"Could not connect\", and LocalAI keeps computing a result nobody will receive. Fix: add a per-request timeout/dispatcher option on `http_request`, set high or unlimited for local calls, with a test.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Scoped one-hour local inference deadline, binary URL downloads with base64 compatibility, preserved diagnostics/request IDs, same-origin auth, root URL validation, shared typed credential policy and no unadvertised end-frame forwarding.",
+      "commits": [
+        "be6d1a2",
+        "89f3f00",
+        "8a7d85e",
+        "006e735",
+        "efb9874",
+        "2688297",
+        "52dd575",
+        "0571376",
+        "48162d9",
+        "f0f6dd7",
+        "adaebef",
+        "753a351",
+        "d1a8960"
+      ],
+      "pull_requests": [
+        147
+      ],
+      "row_index": 56,
+      "delivery": {
+        "branch": "codex/review-local-generation",
+        "head": "346bfa1",
+        "depends": "d",
+        "scope": "Local inference transport",
+        "pr": 147
+      }
+    },
+    {
+      "pr": 106,
+      "section": "Bugs",
+      "finding": "**fix** `src/components/ProjectBibleView.tsx:894`, `:902`, `:946`: Retake and Variation are disabled when `!!primary && !imageCapabilities.composition`. For a frame, `assetReferences` (`src/lib/bible-compose.ts:46`) uses the recipe's refs, not the primary. Failure: make a text-only frame with Local image (allowed at `:773`). Once it has a primary, Retake and Variation are greyed out, although the text-only path would work. That contradicts \"retaining text-only generation\". Gate on `assetReferences(asset, variants).length > 0`, which also removes the repeated condition.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Capabilities and cost follow actual reference IDs rather than presence of an existing output picture.",
+      "commits": [
+        "a2d8eea",
+        "6e769a5"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 57
+    },
+    {
+      "pr": 106,
+      "section": "Bugs",
+      "finding": "**note** `src/lib/models/local-generation.ts:64`: the bare `catch {}` turns connection refused, timeouts, JSON parse failures and IPC errors into one \"Could not connect\" message. Keep the cause. At `:33`, the LocalAI error body (\"model not found\", etc.) is discarded on non-2xx, but it is the most useful diagnostic for a local setup.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Scoped one-hour local inference deadline, binary URL downloads with base64 compatibility, preserved diagnostics/request IDs, same-origin auth, root URL validation, shared typed credential policy and no unadvertised end-frame forwarding.",
+      "commits": [
+        "be6d1a2",
+        "89f3f00",
+        "8a7d85e",
+        "006e735",
+        "efb9874",
+        "2688297",
+        "52dd575",
+        "0571376",
+        "48162d9",
+        "f0f6dd7",
+        "adaebef",
+        "753a351",
+        "d1a8960"
+      ],
+      "pull_requests": [
+        147
+      ],
+      "row_index": 58,
+      "delivery": {
+        "branch": "codex/review-local-generation",
+        "head": "346bfa1",
+        "depends": "d",
+        "scope": "Local inference transport",
+        "pr": 147
+      }
+    },
+    {
+      "pr": 106,
+      "section": "Design/DRY",
+      "finding": "**note** `src/lib/models/local-generation.ts:137`: the video payload is base64-decoded several times (proxy b64, `atob`, `JSON.parse`, inner `atob`, then a per-byte `Uint8Array.from` callback). A 30 to 50MB clip means hundreds of MB of transient strings and a main-thread stall. At least use a `charCodeAt` loop like `http.ts`. Better, request a `url` response and fetch the blob.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Scoped one-hour local inference deadline, binary URL downloads with base64 compatibility, preserved diagnostics/request IDs, same-origin auth, root URL validation, shared typed credential policy and no unadvertised end-frame forwarding.",
+      "commits": [
+        "be6d1a2",
+        "89f3f00",
+        "8a7d85e",
+        "006e735",
+        "efb9874",
+        "2688297",
+        "52dd575",
+        "0571376",
+        "48162d9",
+        "f0f6dd7",
+        "adaebef",
+        "753a351",
+        "d1a8960"
+      ],
+      "pull_requests": [
+        147
+      ],
+      "row_index": 59,
+      "delivery": {
+        "branch": "codex/review-local-generation",
+        "head": "346bfa1",
+        "depends": "d",
+        "scope": "Local inference transport",
+        "pr": 147
+      }
+    },
+    {
+      "pr": 106,
+      "section": "Design/DRY",
+      "finding": "**note** `src/actions/generation-actions.ts:10,27,79,126,145`: `!apiKey && model.apiKeyProvider !== \"local\"` is copy-pasted five times. Use a `requiresApiKey` flag on the provider catalog, or one `resolveApiKey(model)` helper.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Scoped one-hour local inference deadline, binary URL downloads with base64 compatibility, preserved diagnostics/request IDs, same-origin auth, root URL validation, shared typed credential policy and no unadvertised end-frame forwarding.",
+      "commits": [
+        "be6d1a2",
+        "89f3f00",
+        "8a7d85e",
+        "006e735",
+        "efb9874",
+        "2688297",
+        "52dd575",
+        "0571376",
+        "48162d9",
+        "f0f6dd7",
+        "adaebef",
+        "753a351",
+        "d1a8960"
+      ],
+      "pull_requests": [
+        147
+      ],
+      "row_index": 60,
+      "delivery": {
+        "branch": "codex/review-local-generation",
+        "head": "346bfa1",
+        "depends": "d",
+        "scope": "Local inference transport",
+        "pr": 147
+      }
+    },
+    {
+      "pr": 106,
+      "section": "Nits",
+      "finding": "`shared/local-generation.ts:133`: a base URL with a path (`http://127.0.0.1:8080/v1`, the common OpenAI-style base) produces `/v1/v1/...`. Reject the path or document the root-URL requirement.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Scoped one-hour local inference deadline, binary URL downloads with base64 compatibility, preserved diagnostics/request IDs, same-origin auth, root URL validation, shared typed credential policy and no unadvertised end-frame forwarding.",
+      "commits": [
+        "be6d1a2",
+        "89f3f00",
+        "8a7d85e",
+        "006e735",
+        "efb9874",
+        "2688297",
+        "52dd575",
+        "0571376",
+        "48162d9",
+        "f0f6dd7",
+        "adaebef",
+        "753a351",
+        "d1a8960"
+      ],
+      "pull_requests": [
+        147
+      ],
+      "row_index": 61,
+      "delivery": {
+        "branch": "codex/review-local-generation",
+        "head": "346bfa1",
+        "depends": "d",
+        "scope": "Local inference transport",
+        "pr": 147
+      }
+    },
+    {
+      "pr": 106,
+      "section": "Nits",
+      "finding": "`src/lib/models/local-generation.ts:122`: `end_image` is forwarded, but `local-video.json` does not advertise end frames, so this is unreachable.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Scoped one-hour local inference deadline, binary URL downloads with base64 compatibility, preserved diagnostics/request IDs, same-origin auth, root URL validation, shared typed credential policy and no unadvertised end-frame forwarding.",
+      "commits": [
+        "be6d1a2",
+        "89f3f00",
+        "8a7d85e",
+        "006e735",
+        "efb9874",
+        "2688297",
+        "52dd575",
+        "0571376",
+        "48162d9",
+        "f0f6dd7",
+        "adaebef",
+        "753a351",
+        "d1a8960"
+      ],
+      "pull_requests": [
+        147
+      ],
+      "row_index": 62,
+      "delivery": {
+        "branch": "codex/review-local-generation",
+        "head": "346bfa1",
+        "depends": "d",
+        "scope": "Local inference transport",
+        "pr": 147
+      }
+    },
+    {
+      "pr": 106,
+      "section": "Nits",
+      "finding": "`src/components/SettingsDialog.tsx:353`: LocalAI's \"Connected\" state depends only on the optional key, so a keyless setup always shows as not connected.",
+      "status": "resolved-earlier",
+      "owner": "billing",
+      "resolution": "PR111 labels credentials Key saved rather than claiming a connection.",
+      "commits": [],
+      "pull_requests": [
+        111
+      ],
+      "row_index": 63
+    },
+    {
+      "pr": 107,
+      "section": "Bugs",
+      "finding": "**fix** `electron/commands/generation-pricing.ts:48`: a manual override fully replaces the provider/cached/bundled price (`read(manual) ?? read(cache) ?? providerPrices...`), but the rate editor saves just one rate, scoped to the selected resolution/audio (`rates: [rate]`). Failure: on `veo-3.1-fal`, save a custom rate for 720p without audio, then switch to 1080p or turn audio on. The estimate becomes \"Estimate unavailable\" instead of the bundled per-second rate. Fix: merge manual rates over provider rates so the most specific one wins.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Custom rates resolve per matching facet with provider provenance on fallback. Exact scoped removal preserves other overrides and identifies generic shared rates.",
+      "commits": [
+        "399436e",
+        "41b2893",
+        "0af59db",
+        "3bdfea3",
+        "9693747",
+        "d1a74a5",
+        "0b03d66",
+        "e70916a",
+        "0cb2c23",
+        "f5bbba5"
+      ],
+      "pull_requests": [
+        150
+      ],
+      "row_index": 64,
+      "delivery": {
+        "branch": "codex/review-price-facets",
+        "head": "653f860",
+        "depends": "#126",
+        "scope": "Setting-specific manual rates",
+        "pr": 150
+      }
+    },
+    {
+      "pr": 107,
+      "section": "Bugs",
+      "finding": "**fix** `src/components/GenerationRateEditor.tsx:164` with `electron/commands/generation-pricing.ts:97`: \"Use provider rate\" is only shown when the current estimate is manual, and it deletes the whole `generation_price:<kind>:<model>` row. That removes the overrides for every setting. Combined with the bug above, the user has to switch back to the setting with an override to reset, and doing so also wipes the others. Clear only the selected rate signature, or label the button as resetting all settings.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Custom rates resolve per matching facet with provider provenance on fallback. Exact scoped removal preserves other overrides and identifies generic shared rates.",
+      "commits": [
+        "399436e",
+        "41b2893",
+        "0af59db",
+        "3bdfea3",
+        "9693747",
+        "d1a74a5",
+        "0b03d66",
+        "e70916a",
+        "0cb2c23",
+        "f5bbba5"
+      ],
+      "pull_requests": [
+        150
+      ],
+      "row_index": 65,
+      "delivery": {
+        "branch": "codex/review-price-facets",
+        "head": "653f860",
+        "depends": "#126",
+        "scope": "Setting-specific manual rates",
+        "pr": 150
+      }
+    },
+    {
+      "pr": 107,
+      "section": "Bugs",
+      "finding": "**note** `src/lib/generation-accounting.ts:65`: if `record_generation_receipt` fails, the observer throws, and the OpenRouter/local transports call it before returning media (`transports/openrouter.ts:14`). A ledger write failure turns a paid, successful generation into `failed`, and the media is discarded. Keep the media and report the accounting error separately, as `finish_generation_usage` failures already are.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Receipt and finish-storage failures preserve successful media with typed, scoped warnings. Initial ledger creation still precedes generation.",
+      "commits": [
+        "fee6def",
+        "3e17c04",
+        "b3c261a",
+        "02fa4eb",
+        "4b6bebb",
+        "81e3208",
+        "9cb63b7",
+        "3888b29",
+        "e7ac73a"
+      ],
+      "pull_requests": [
+        123
+      ],
+      "row_index": 66
+    },
+    {
+      "pr": 107,
+      "section": "Design/DRY",
+      "finding": "**note** `shared/provider-prices.ts:3`: all bundled Gemini/FAL rates share `checked_at` 2026-10-31, and only OpenRouter refreshes. From 2026-11-07 every bundled estimate permanently shows \"Rate is older than 7 days\", and the user cannot act on it. Exempt bundled rates, or word it \"bundled rate from <date>\".",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Manual/published dates remain explicit provenance; automatic stale-API warnings now apply only to provider caches.",
+      "commits": [
+        "173bedb",
+        "dca56b9",
+        "db014f3"
+      ],
+      "pull_requests": [
+        151
+      ],
+      "row_index": 67,
+      "delivery": {
+        "branch": "codex/review-provider-price-cache",
+        "head": "58ff607",
+        "depends": "#150",
+        "scope": "Provider price cache/provenance",
+        "pr": 151
+      }
+    },
+    {
+      "pr": 107,
+      "section": "Design/DRY",
+      "finding": "**note** `src/lib/openrouter-pricing.ts:44`: the `1120` tokens-per-image multiplier for one hardcoded slug has no comment on where it comes from. This is exactly the non-obvious \"why\" a comment is for.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "The comment cites Google's pricing: a default 1K image uses 1,120 output tokens; other sizes differ.",
+      "commits": [
+        "a77729c"
+      ],
+      "pull_requests": [
+        148
+      ],
+      "row_index": 68,
+      "delivery": {
+        "branch": "codex/review-provider-recovery",
+        "head": "50f2da2",
+        "depends": "e; #144 notice integration at publication",
+        "scope": "Provider errors, polling and receipts",
+        "pr": 148
+      }
+    },
+    {
+      "pr": 107,
+      "section": "Design/DRY",
+      "finding": "**note** `src/components/GenerationCost.tsx:54`: `modelId.startsWith(\"local-\")` duplicates the derived `provider === \"local\"` a few lines above.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Local estimate copy derives from model provider rather than ID prefix.",
+      "commits": [
+        "1402980"
+      ],
+      "pull_requests": [
+        148
+      ],
+      "row_index": 69,
+      "delivery": {
+        "branch": "codex/review-provider-recovery",
+        "head": "50f2da2",
+        "depends": "e; #144 notice integration at publication",
+        "scope": "Provider errors, polling and receipts",
+        "pr": 148
+      }
+    },
+    {
+      "pr": 107,
+      "section": "Nits",
+      "finding": "`electron/generation-usage.test.ts:224-232`, `electron/commands/generation-usage.ts:190` and parts of `ProjectBibleView.tsx` were missed by the format commit.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Root reformatted generation usage under124, UI agent normalized Bible.",
+      "commits": [
+        "ae4f389",
+        "26e9840"
+      ],
+      "pull_requests": [],
+      "row_index": 70
+    },
+    {
+      "pr": 107,
+      "section": "Nits",
+      "finding": "`handleMakeFrame` now creates the frame asset before composing (`7471592`). A failed generation leaves an empty \"Frame\" card. If that is intended, mention it in the PR body.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "UI agent documents intentional incomplete asset/retry lifecycle in PR and Bible details docs.",
+      "commits": [
+        "cc01e91",
+        "d3916b0"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 71
+    },
+    {
+      "pr": 108,
+      "section": "Design/DRY",
+      "finding": "**fix** `electron/command-map.ts:23`: `createDataCommands` also registers `get_generation_models` with `path.resolve(\"src/lib/models/providers\")`, which is relative to the process cwd. In the app, the `globals` copy in `project-runtime.ts` (with `app.getAppPath()`) wins, so this copy only works in tests run from the repo root. Anything that calls `createDataCommands` from another cwd, or a packaged build, gets `IO_ERROR`. Register it in one place and pass the directory in. `project-runtime.ts:35` has the same cwd fallback.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Single explicit runtime catalog uses shared renderer/native validators and rejects unavailable/wrong-kind overrides; 187 focused tests/types pass; combined builds passed root",
+      "commits": [
+        "9048eef"
+      ],
+      "pull_requests": [
+        125
+      ],
+      "row_index": 72
+    },
+    {
+      "pr": 108,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/commands/generation-models.ts:44`: the bare `catch {}` drops the cause. A malformed config produces \"Could not read the installed generation model catalog\" without naming the file or the zod issue.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Single explicit runtime catalog uses shared renderer/native validators and rejects unavailable/wrong-kind overrides; 187 focused tests/types pass; combined builds passed root",
+      "commits": [
+        "9048eef"
+      ],
+      "pull_requests": [
+        125
+      ],
+      "row_index": 73
+    },
+    {
+      "pr": 108,
+      "section": "Design/DRY",
+      "finding": "**note** the main process re-parses the provider JSON with its own looser schema, while the renderer registry validates the same files separately, and `package.json` now ships `src/lib/models/providers/**/*.json` into the asar just for this. Two parsers of one catalog will drift. Consider having one shared schema in `shared/`.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Single explicit runtime catalog uses shared renderer/native validators and rejects unavailable/wrong-kind overrides; 187 focused tests/types pass; combined builds passed root; scalar follow-up78 tests/types pass, final integrated build passed",
+      "commits": [
+        "fe9e2c2"
+      ],
+      "pull_requests": [
+        125
+      ],
+      "row_index": 74
+    },
+    {
+      "pr": 109,
+      "section": "Bugs",
+      "finding": "**fix** `src/pages/StoryboardPage.tsx:191-193`, `:705`: `videoSettingsDrafts` is never reconciled when `loadData` reloads shots/models. `selectedVideoDraft` only shows a draft whose `model_id === videoModel`. Failure: a settings save fails on shot A (the draft is kept with an error), then the agent changes A's video model or deletes A (`useAgentChanges(loadData)`). Now: (a) the draft is invisible, so there is no Retry/Discard. (b) Generate looks enabled, but `handleGenerateVideo` silently returns on `if (videoSettingsDrafts[shotId]) return;`. (c) Storyboard settings stays disabled and the unsaved-work guard stays armed until reload. For a deleted shot, the banner reads \"Shot  has unsaved video settings\". Fix: prune drafts for missing shots or mismatched models in `loadData`, and do not return silently.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Agent reload removes drafts for missing shots or changed effective models; rejected generation reports an actionable error.",
+      "commits": [
+        "4a9faf7",
+        "97fbac2"
+      ],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 75
+    },
+    {
+      "pr": 109,
+      "section": "Bugs",
+      "finding": "**note** `src/pages/StoryboardPage.tsx:798-812`: Stop Waiting still persists `status: \"failed\"` even when the shot has a saved take. That contradicts \"restore the prior take status\" on the failure path. After a late completion, `finally` (`:787-791`) only refreshes versions, so `shot.video_url`/`status` stay stale until reload.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Stopping local waiting preserves prior status/media without changing native provider state; late completion reloads actual shot and takes.",
+      "commits": [
+        "78cb501",
+        "c6bc454"
+      ],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 76
+    },
+    {
+      "pr": 109,
+      "section": "Design/DRY",
+      "finding": "**fix** `src/lib/backend-api.ts:222-231`: `updateStoryboard` and `updateStoryboardModels` have no renderer callers left now that the page uses `updateStoryboardSettings`, so they are dead code. The main-process commands are still used by MCP, so remove only the wrappers.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Unused renderer wrappers removed; native/MCP commands remain intact.",
+      "commits": [
+        "40e3648"
+      ],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 77
+    },
+    {
+      "pr": 109,
+      "section": "Design/DRY",
+      "finding": "**note** `src/pages/StoryboardPage.tsx:202`: `has_end_frame` is not part of `GenerationCostRequest`, and nothing reads it. It is also true for a text-to-video request with no start frame. Drop it, or add it to the contract.",
+      "status": "resolved-earlier",
+      "owner": "ui",
+      "resolution": "has_end_frame is declared and consumed by provider pricing.",
+      "commits": [],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 78
+    },
+    {
+      "pr": 109,
+      "section": "Design/DRY",
+      "finding": "**note** `src/pages/StoryboardPage.tsx:383`, `:399`: `videoSettingsSaving` is page-wide, and `handleVideoSettingsChange` returns silently while it is set, so Retry on shot A is ignored while B saves.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Each shot has an independent pending request token and saving state; agent model/deletion invalidates late saves.",
+      "commits": [
+        "92ccdb9",
+        "99d37ce"
+      ],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 79
+    },
+    {
+      "pr": 109,
+      "section": "Nits",
+      "finding": "`src/pages/StoryboardPage.tsx:368`: `handleStoryboardSettingsSave` takes `defaultVideoModel` from the raw row, while `loadData` falls back to `seedance-2-fal`. Make the two paths match.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Load and save share enabled-model fallback resolution.",
+      "commits": [
+        "214a804",
+        "cbe3b94"
+      ],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 80
+    },
+    {
+      "pr": 109,
+      "section": "Nits",
+      "finding": "Commit order: the tests in `2e9a60d`, `4186a81`, `cb4f83c` and `fb0d62e` land after the code they cover, so they were never red first. `380be71 style:` changes layout classes.",
+      "status": "qualified-not-applicable",
+      "owner": "all",
+      "resolution": "Historical commit phase/label/atomicity criticism cannot be corrected without prohibited history rewriting. Current repair commits keep RED, GREEN, refactoring, formatting and documentation separate; no amend or force push.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 81
+    },
+    {
+      "pr": 109,
+      "section": "Spec",
+      "finding": "\"Persist video settings per shot and model\": `video_settings_json` holds a single `{model_id, settings}` slot, so editing under model B overwrites model A's settings. That is \"per shot, tagged with its model\". Narrow the claim, or store a map keyed by model.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Docs explicitly describe the intentional single model-tagged slot, replacement on save, and defaults when model identity differs.",
+      "commits": [
+        "3ce9bc1"
+      ],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 82
+    },
+    {
+      "pr": 110,
+      "section": "Bugs",
+      "finding": "**fix** `src/components/ProjectBibleView.tsx:694-703`: the pruning effect clears `locationId`/`locationVariantId` only when the location has no pictures left. It never checks that the chosen view still exists. Failure: on Frames, pick \"Street\" View 2, then delete that picture in Locations (Frames stays mounted) while Street has others, and Generate frame. `recipeVariantIds` pushes the dangling id, the image lookup returns null, and the frame is composed without the location. The dead id is also saved into `rules_json`, so later retakes lose it too. Fix: reset, or fall back to the primary, when `locationVariantId` is not in `variants[locationId]`.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Deleted selected location view falls back to a surviving primary while retaining location and prompt. Saved recipes also resolve surviving location pictures for Retake/cost/capability consistency.",
+      "commits": [
+        "74008e3",
+        "142d67c",
+        "bbe67bc",
+        "3707d0b"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 83
+    },
+    {
+      "pr": 110,
+      "section": "Bugs",
+      "finding": "**note** `src/components/ProjectBibleView.tsx:211`, `:327`: the retry identity is an in-memory `pendingAssets` map keyed by exact name/recipe. If the user fixes a typo, tweaks the prompt, or leaves and returns to the Bible, the retry creates a second entry and orphans the empty one. \"Retry without duplicating\" only holds for identical input in one mount.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Failed current drafts retain asset identity across name/prompt/recipe corrections; Clear ends retry identity. Remount has no retained local draft and incomplete library entry remains recoverable through Variation/Upload without text-matching new drafts.",
+      "commits": [
+        "13bcdf3",
+        "67c3ba0",
+        "8d0e203",
+        "28f4085",
+        "5749d2b"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 84
+    },
+    {
+      "pr": 110,
+      "section": "Design/DRY",
+      "finding": "**fix** `src/pages/ProjectPage.tsx:148`, `src/components/ProjectBibleView.tsx:128-130`: ProjectPage is the only caller and always passes the model, so the optional `generationModel` prop, the `localImageModel` fallback state and the ternary are dead. Make the prop required. That also removes a third hard-coded `\"nano-banana\"` default (others: `src/contexts/ProjectDocumentContext.tsx:30,43`). Hoist it to one constant.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Preserved intentional standalone and document-controlled APIs; both use a shared Bible default. Existing model-session/local tests cover these production modes.",
+      "commits": [
+        "44d97cb"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 85
+    },
+    {
+      "pr": 110,
+      "section": "Design/DRY",
+      "finding": "**note** about 190KB of verification screenshots in `docs/assets/verification/` are committed only for the PR body, and that cost grows with every PR. Use PR attachments instead.",
+      "status": "qualified-not-applicable",
+      "owner": "ui",
+      "resolution": "Existing committed screenshots satisfy required accessible PR evidence; root chooses future artifact storage.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 86
+    },
+    {
+      "pr": 110,
+      "section": "Nits",
+      "finding": "`src/components/ProjectBibleView.tsx:512`: `onOpenChange` nulls `deletion` immediately, so the dialog text flips to \"Delete picture\" during the exit animation.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Deletion target remains stable while Radix exit animation completes; regression observes real closed-state dialog DOM.",
+      "commits": [
+        "8b76d9e",
+        "a49421f"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 87
+    },
+    {
+      "pr": 110,
+      "section": "Nits",
+      "finding": "`src/components/ProjectBibleView.tsx:949`: a static `aria-label` hides the visible \"Draft\" badge and does not name the entry. `aria-controls` points at an id that is absent while collapsed.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Action accessible names identify asset and retained draft; aria-controls targets exist while collapsed.",
+      "commits": [
+        "273407b",
+        "db8557e"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 88
+    },
+    {
+      "pr": 110,
+      "section": "Nits",
+      "finding": "`src/components/ProjectBibleView.tsx:925`: passing `label` draws a lowercase caption (\"take 1 for Alice\") over every 112px thumbnail. `actionLabel` alone would give the accessible name.",
+      "status": "resolved-earlier",
+      "owner": "ui",
+      "resolution": "Current take labels use compact Take N captions separately from accessible target names.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 89
+    },
+    {
+      "pr": 111,
+      "section": "Bugs",
+      "finding": "**fix** `src/lib/generation-accounting.ts:81-86`: `runAccountedGeneration` awaits `sync_generation_charges` before `notify` and before returning the result, so every FAL/OpenRouter result is held behind the billing calls. Failure: on a slow FAL billing API, `readFalCharges` can walk 10 pages at 10s each (about 100s), and the finished media stays hidden that whole time. It usually comes back empty anyway, because billing lags completion. Run it fire-and-forget, or leave it to the Usage page.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Background reconciliation returns media/local ledger immediately. Unconfirmed reads cool down60s, explicit refresh or credential changes retry, duplicate selections share in-flight work, counts use SQLite changes.",
+      "commits": [
+        "bddc7be",
+        "f188bcf",
+        "2df0357",
+        "ab1eba7",
+        "2ddb70e",
+        "f50294c",
+        "0c0dfd8",
+        "6ad0136",
+        "421db64",
+        "0e786c9",
+        "3d04821",
+        "ef56121",
+        "fbd3503",
+        "4c3250b",
+        "0529f19",
+        "a6ae2c2"
+      ],
+      "pull_requests": [],
+      "row_index": 90
+    },
+    {
+      "pr": 111,
+      "section": "Bugs",
+      "finding": "**fix** `src/lib/generation-pricing.ts:142-143`: when a FAL live refresh fails, the code returns `unavailable` even if a recent cached FAL price exists. OpenRouter (`:163-176`) falls back to the cache and flags it `stale`. Failure: a brief offline period or a FAL 5xx makes every FAL model show \"Estimate unavailable\", and `begin_generation_usage` records the row with no estimate. That contradicts \"flag cached provider prices when live refresh fails\".",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Matching same-account cache fallback, endpoint-specific native keys, atomic account check, live/cached/refresh-unavailable labels.",
+      "commits": [
+        "5592641",
+        "e72bc93",
+        "e127ccd",
+        "f8c9440",
+        "51e68d4",
+        "1145b40",
+        "d5b932b",
+        "286deaa",
+        "4aa7f1e",
+        "1811a5d",
+        "db014f3"
+      ],
+      "pull_requests": [
+        151
+      ],
+      "row_index": 91,
+      "delivery": {
+        "branch": "codex/review-provider-price-cache",
+        "head": "58ff607",
+        "depends": "#150",
+        "scope": "Provider price cache/provenance",
+        "pr": 151
+      }
+    },
+    {
+      "pr": 111,
+      "section": "Bugs",
+      "finding": "**note** `src/lib/generation-billing.ts:34-48` with `UsagePage`: every Usage load, page change and agent refresh blocks the whole ledger on provider round-trips for up to 50 pending rows. Rows that will never resolve (an OpenRouter 404, a FAL key without billing scope) are re-queried on every visit. Render first and reconcile in the background.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Background reconciliation returns media/local ledger immediately. Unconfirmed reads cool down60s, explicit refresh or credential changes retry, duplicate selections share in-flight work, counts use SQLite changes.",
+      "commits": [
+        "bddc7be",
+        "f188bcf",
+        "2df0357",
+        "ab1eba7",
+        "2ddb70e",
+        "f50294c",
+        "0c0dfd8",
+        "6ad0136",
+        "421db64",
+        "0e786c9",
+        "3d04821",
+        "ef56121",
+        "fbd3503",
+        "4c3250b",
+        "0529f19",
+        "a6ae2c2"
+      ],
+      "pull_requests": [],
+      "row_index": 92
+    },
+    {
+      "pr": 111,
+      "section": "Bugs",
+      "finding": "**note** `src/lib/fal-pricing.ts:66-86`: a `historical_api_price` with `total_cost: 0` passes `nonnegative()` and becomes a ~$0.00 estimate. An endpoint the account has never used would show as free, against \"never treat unknown as free\".",
+      "status": "qualified",
+      "owner": "billing",
+      "resolution": "Official FAL docs do not define zero as no-history. Retain the provider zero as an estimate and explicitly warn it does not establish free future requests.",
+      "commits": [
+        "c2ee985",
+        "618de73",
+        "db014f3"
+      ],
+      "pull_requests": [
+        151
+      ],
+      "row_index": 93,
+      "delivery": {
+        "branch": "codex/review-provider-price-cache",
+        "head": "58ff607",
+        "depends": "#150",
+        "scope": "Provider price cache/provenance",
+        "pr": 151
+      }
+    },
+    {
+      "pr": 111,
+      "section": "Design/DRY",
+      "finding": "**note** `src/lib/fal-pricing.ts:86`: FAL estimates are one `unit: \"request\"` average, so a 5s and a 10s video estimate the same. `billing_unit`/`billing_unit_microusd` are already fetched; map them to `second`/`image` rates.",
+      "status": "qualified",
+      "owner": "billing",
+      "resolution": "Official unit_price method requires expected billable units. Token/megapixel/model-specific quantities and resolution/audio scaling are not established by unit label alone. Keep live unit metadata plus explicitly unadjusted historical per-call estimate; do not invent duration-specific rates.",
+      "commits": [
+        "db014f3"
+      ],
+      "pull_requests": [
+        151
+      ],
+      "row_index": 94,
+      "delivery": {
+        "branch": "codex/review-provider-price-cache",
+        "head": "58ff607",
+        "depends": "#150",
+        "scope": "Provider price cache/provenance",
+        "pr": 151
+      }
+    },
+    {
+      "pr": 111,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/commands/generation-pricing.ts:49,88`: the FAL cache key is `kind:model_id`, but the endpoint varies within `video` (t2v/i2v/end-frame). Toggling mode overwrites and refetches, and concurrent estimates race on the same row. Add `endpoint_id` to the key.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Matching same-account cache fallback, endpoint-specific native keys, atomic account check, live/cached/refresh-unavailable labels.",
+      "commits": [
+        "5592641",
+        "e72bc93",
+        "e127ccd",
+        "f8c9440",
+        "51e68d4",
+        "1145b40",
+        "d5b932b",
+        "286deaa",
+        "4aa7f1e",
+        "1811a5d",
+        "db014f3"
+      ],
+      "pull_requests": [
+        151
+      ],
+      "row_index": 95,
+      "delivery": {
+        "branch": "codex/review-provider-price-cache",
+        "head": "58ff607",
+        "depends": "#150",
+        "scope": "Provider price cache/provenance",
+        "pr": 151
+      }
+    },
+    {
+      "pr": 111,
+      "section": "Design/DRY",
+      "finding": "**note** `electron/command-map.ts:27`: the `readBillingKey` fallback reads keys from the project document's `settings` table. Production always passes the device reader, so this path exists only for tests and is a trap for a future caller. Make the parameter required.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "MCP125 requires device reader and removes project credential fallback.",
+      "commits": [
+        "ceaf68e",
+        "fe9e2c2"
+      ],
+      "pull_requests": [
+        125
+      ],
+      "row_index": 96
+    },
+    {
+      "pr": 111,
+      "section": "Nits",
+      "finding": "`electron/commands/generation-billing.ts:85,119`: `result.reported++` runs even when the guarded UPDATE changed 0 rows (two concurrent syncs). Use `.run().changes`.",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Background reconciliation returns media/local ledger immediately. Unconfirmed reads cool down60s, explicit refresh or credential changes retry, duplicate selections share in-flight work, counts use SQLite changes.",
+      "commits": [
+        "bddc7be",
+        "f188bcf",
+        "2df0357",
+        "ab1eba7",
+        "2ddb70e",
+        "f50294c",
+        "0c0dfd8",
+        "6ad0136",
+        "421db64",
+        "0e786c9",
+        "3d04821",
+        "ef56121",
+        "fbd3503",
+        "4c3250b",
+        "0529f19",
+        "a6ae2c2"
+      ],
+      "pull_requests": [],
+      "row_index": 97
+    },
+    {
+      "pr": 111,
+      "section": "Nits",
+      "finding": "`src/components/GenerationCost.tsx:127`: a price fetched seconds ago is labelled \"(cached)\".",
+      "status": "fixed",
+      "owner": "billing",
+      "resolution": "Matching same-account cache fallback, endpoint-specific native keys, atomic account check, live/cached/refresh-unavailable labels.",
+      "commits": [
+        "5592641",
+        "e72bc93",
+        "e127ccd",
+        "f8c9440",
+        "51e68d4",
+        "1145b40",
+        "d5b932b",
+        "286deaa",
+        "4aa7f1e",
+        "1811a5d",
+        "db014f3"
+      ],
+      "pull_requests": [
+        151
+      ],
+      "row_index": 98,
+      "delivery": {
+        "branch": "codex/review-provider-price-cache",
+        "head": "58ff607",
+        "depends": "#150",
+        "scope": "Provider price cache/provenance",
+        "pr": 151
+      }
+    },
+    {
+      "pr": 111,
+      "section": "Nits",
+      "finding": "`fdd9ee0` bundles the `published` provenance change with the new ModelPricingDialog.",
+      "status": "qualified",
+      "owner": "billing",
+      "resolution": "Historical grouping cannot be rewritten without forbidden amend/rebase; new work is focused atomic commits/PRs.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 99
+    },
+    {
+      "pr": 112,
+      "section": "Bugs",
+      "finding": "**fix** `src/components/WorkspaceCommand.tsx:11`: `title` is taken out of props and shown only in a Radix Tooltip. The shared Button has `disabled:pointer-events-none`, and a disabled button cannot take focus, so the tooltip never opens while the command is disabled. Every \"why is this disabled\" message is now unreachable. Failure: `src/components/ShotList.tsx:139-148`: deleting a generating shot used to show \"Wait for this shot's current request to finish.\" on hover, and now shows nothing. The same happens with \"Save or discard the unsaved shot settings first.\" (`StoryboardSettingsDialog.tsx:75-84`) and with the disabled Export/Shot controls. Fix: wrap disabled commands in a focusable span trigger, or show a visible hint.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Focusable aria-disabled wrapper exposes real hover/keyboard tooltip while inner native command stays disabled;14 focused tests/types pass; final disclosure/delete constraints also verified; actual keyboard focus/visible tooltip screenshot embedded, precise controlled renderer QA/native fixture limits stated",
+      "commits": [
+        "aaf1752"
+      ],
+      "pull_requests": [
+        142
+      ],
+      "row_index": 100,
+      "compatibility": {
+        "pr": 142,
+        "head": "e136a72",
+        "verification": "43 impacted tests and strict types pass after131 merge; root combined1421 tests pass"
+      }
+    },
+    {
+      "pr": 112,
+      "section": "Bugs",
+      "finding": "**note** `src/components/ProjectBibleView.tsx:429-449,961`: the Bible model select moved into the creation dock, but Retake, Variation and Edit in the picture popover use the same model and only display it. Changing the retake model means reopening \"New character\".",
+      "status": "resolved-earlier",
+      "owner": "ui",
+      "resolution": "Current asset detail contains the effective generation model control.",
+      "commits": [],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 101
+    },
+    {
+      "pr": 112,
+      "section": "Bugs",
+      "finding": "**note** `src/components/ProjectBibleView.tsx:961-1089`: the pending spinners live inside the popover, which unmounts on close. After the popover closes, the card shows no sign of generating, while every other card's More is disabled (`busyId !== null`) with no visible reason.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Both initial creation and picture-action requests show progress on the owning library card.",
+      "commits": [
+        "82b1e41",
+        "938affa",
+        "8a0b363",
+        "753df45"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 102
+    },
+    {
+      "pr": 112,
+      "section": "Bugs",
+      "finding": "**note** `src/components/ProjectBibleView.tsx:986`: `{actionModel?.name} · {modelProviderName(actionModel)}` renders \" · \" for an unknown model. Use the dock's guard from `:442`.",
+      "status": "resolved-earlier",
+      "owner": "ui",
+      "resolution": "Current metadata falls back to actual model ID or Not recorded.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 103
+    },
+    {
+      "pr": 112,
+      "section": "Design/DRY",
+      "finding": "**note** `src/test/setup.ts` now stubs ResizeObserver globally, but 12 test files still stub it locally, 4 of them added in this PR (`b9b534a`, `f78a697`). Remove at least the new ones.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Removed duplicate observers in owned storyboard/inspector and Bible fixtures; global setup remains. Other agent handles its own fixtures.",
+      "commits": [
+        "40e3648",
+        "44d97cb"
+      ],
+      "pull_requests": [],
+      "row_index": 104
+    },
+    {
+      "pr": 112,
+      "section": "Design/DRY",
+      "finding": "**note** `6036fc9` \"feat: refine native workspace commands and inspector density\" bundles about six independent behaviour changes across 16 files.",
+      "status": "qualified-not-applicable",
+      "owner": "all",
+      "resolution": "Historical commit phase/label/atomicity criticism cannot be corrected without prohibited history rewriting. Current repair commits keep RED, GREEN, refactoring, formatting and documentation separate; no amend or force push.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 105
+    },
+    {
+      "pr": 112,
+      "section": "Design/DRY",
+      "finding": "**note** `src/App.tsx:36-38`, `src/pages/StoryboardPage.tsx:928`: `aria-pressed` and `aria-expanded` on the same disclosure button. Keep `aria-expanded` + `aria-controls`.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Shot controls now exposes expanded+controls only; selected filmstrip shots retain legitimate pressed semantics; actual keyboard focus/visible tooltip screenshot embedded, precise controlled renderer QA/native fixture limits stated",
+      "commits": [
+        "aaf1752"
+      ],
+      "pull_requests": [
+        142
+      ],
+      "row_index": 106,
+      "compatibility": {
+        "pr": 142,
+        "head": "e136a72",
+        "verification": "43 impacted tests and strict types pass after131 merge; root combined1421 tests pass"
+      }
+    },
+    {
+      "pr": 112,
+      "section": "Nits",
+      "finding": "`src/components/BiblePictureActions.tsx:35`: `aria-label=\"Unsaved draft\"` on a role-less span inside a labelled button is never announced. Fold it into the button label.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "One library opener includes retained unsaved draft in its accessible name and receives focus on return.",
+      "commits": [
+        "739e346",
+        "3ccae7f"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 107
+    },
+    {
+      "pr": 112,
+      "section": "Nits",
+      "finding": "`src/components/ProjectBibleView.tsx:430-448`, `961-1089`: the JSX indentation is broken.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Removed old duplicate popup/action markup; formatted the changed Bible workspace and dedicated asset-detail source without unrelated whole-application formatting.",
+      "commits": [
+        "26e9840"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 108
+    },
+    {
+      "pr": 112,
+      "section": "Nits",
+      "finding": "`docs/ux/native-control-polish.md` hard-codes test counts that will go stale.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Living owned UX docs describe behavior, keeping current validation counts in PR evidence. Pattern/license provenance retained because AGENTS requires it.",
+      "commits": [
+        "cc01e91"
+      ],
+      "pull_requests": [],
+      "row_index": 109
+    },
+    {
+      "pr": 113,
+      "section": "Bugs",
+      "finding": "**fix** `src/components/NewStoryboardDialog.tsx:46`: the `showbiz:discard-workspace-drafts` handler closes the dialog even while `creating.current` is true, and it never clears `completed.current`, which the in-flight save sets later (`:105`). Failure: submit a name, then while saving use a native menu to go to the Bible view (same ProjectPage, no unmount) and pick Discard. The save then finishes and sets `completed.current`. On the next render that changes `onCreated`'s identity, the effect at `:55` navigates to the storyboard the user discarded. Fix: ignore discard while creating, or clear `completed.current` in the handler. Add a regression test.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Discard invalidates pending creation callback, refreshes persisted result without navigating; stable local-draft useSyncExternalStore primitive retains native echo distinction; 19 tests/types pass; rendered Discard navigation verified once and screenshot embedded; actual15s delayed successful native creation recovered without late navigation, persisted board reachable, screenshot embedded",
+      "commits": [
+        "9ccf8f5"
+      ],
+      "pull_requests": [
+        141
+      ],
+      "row_index": 110
+    },
+    {
+      "pr": 113,
+      "section": "Bugs",
+      "finding": "**note** `src/components/ShotList.tsx:206`: Delete is disabled for `status === \"generating\" || generationPending`, but `aria-description` only explains the pending case.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Saved generating status now explains disabled Delete just like local pending requests; actual keyboard focus/visible tooltip screenshot embedded, precise controlled renderer QA/native fixture limits stated",
+      "commits": [
+        "aaf1752"
+      ],
+      "pull_requests": [
+        142
+      ],
+      "row_index": 111,
+      "compatibility": {
+        "pr": 142,
+        "head": "e136a72",
+        "verification": "43 impacted tests and strict types pass after131 merge; root combined1421 tests pass"
+      }
+    },
+    {
+      "pr": 113,
+      "section": "Design/DRY",
+      "finding": "**note** `src/components/NavigationGuard.tsx:24-29`: `useApplicationWork()` is called only to trigger re-renders and its value is discarded. Dirtiness is then read from `applicationWork.snapshot()` during render, outside `useSyncExternalStore`. A small `useLocalDrafts()` hook would state the intent and avoid torn reads.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Discard invalidates pending creation callback, refreshes persisted result without navigating; stable local-draft useSyncExternalStore primitive retains native echo distinction; 19 tests/types pass; rendered Discard navigation verified once and screenshot embedded; actual15s delayed successful native creation recovered without late navigation, persisted board reachable, screenshot embedded",
+      "commits": [
+        "9ccf8f5"
+      ],
+      "pull_requests": [
+        141
+      ],
+      "row_index": 112
+    },
+    {
+      "pr": 113,
+      "section": "Design/DRY",
+      "finding": "**note** `src/pages/UsagePage.tsx:27-28`: the `{projectId, offset}` reset (`23b00df`) covers a case the app cannot produce, because `document-content` is keyed by `file_path`. It is harmless, but it is extra state.",
+      "status": "qualified-intentional",
+      "owner": "root-billing",
+      "resolution": "Both owners confirm project-scoped pagination intentionally defends reusable route-param-driven UsagePage and stale async responses even though normal native file identity also remounts.126 tests cover pagination and retained same-scope ledger.",
+      "commits": [
+        "e81c428"
+      ],
+      "pull_requests": [
+        126
+      ],
+      "row_index": 113
+    },
+    {
+      "pr": 113,
+      "section": "Nits",
+      "finding": "`src/components/ShotInspector.tsx:613,629`: take histories now start collapsed, and the open state is per slot, not per shot, so a new take is hidden after generation. Confirm this is the intended UX.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Each shot retains disclosure state independently and newly received takes reveal their history.",
+      "commits": [
+        "0fd133e",
+        "0aa25ad"
+      ],
+      "pull_requests": [
+        131
+      ],
+      "row_index": 114
+    },
+    {
+      "pr": 113,
+      "section": "Nits",
+      "finding": "The icon-only \"Edit frame\" `WorkspaceCommand` shows no reason when it is disabled by `frameSaving` (same root cause as the #112 tooltip finding).",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "UI131 supplies frameSaving/modelSaving reasons. Focusable aria-disabled wrapper exposes real hover/keyboard tooltip while inner native command stays disabled;14 focused tests/types pass; final disclosure/delete constraints also verified; actual keyboard focus/visible tooltip screenshot embedded, precise controlled renderer QA/native fixture limits stated",
+      "commits": [
+        "e245f92",
+        "aaf1752"
+      ],
+      "pull_requests": [
+        131,
+        142
+      ],
+      "row_index": 115,
+      "compatibility": {
+        "pr": 142,
+        "head": "e136a72",
+        "verification": "43 impacted tests and strict types pass after131 merge; root combined1421 tests pass"
+      }
+    },
+    {
+      "pr": 114,
+      "section": "Bugs",
+      "finding": "**fix (already fixed in #118)** `electron/desktop-shell.ts:167`, wired at `electron/main.ts:102`: detach reads `window.webContents.id` inside the `closed` handler, and in real Electron that throws `Object has been destroyed`. Every window close or quit throws an uncaught main-process exception. #118 captures the id at attach time. Do not merge this PR without #118.",
+      "status": "resolved-earlier",
+      "owner": "mcp-ui",
+      "resolution": "PR118 captures the immutable webContents ID before BrowserWindow destruction; no duplicate fix required",
+      "commits": [
+        "785e1b4"
+      ],
+      "pull_requests": [
+        118
+      ],
+      "row_index": 116
+    },
+    {
+      "pr": 114,
+      "section": "Bugs",
+      "finding": "**note** `src/components/ApplicationMenu.tsx:52-79`: Alt-only detection (`altOnly`) is reset only by another keydown, never on `blur`/`pointerdown`. Failure on Windows/Linux: after Alt+Tab back into the window, or an Alt+drag window move on Linux, focus jumps to the File trigger.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Shared native shortcuts and mac destinations, editor focus, abandoned Alt reset, guarded File feedback, overlay geometry and navigator disclosure; 42 tests/types pass; actual rendered guarded File workflow verified and screenshot embedded, OS-specific manual limits stated",
+      "commits": [
+        "8051930"
+      ],
+      "pull_requests": [
+        140
+      ],
+      "row_index": 117
+    },
+    {
+      "pr": 114,
+      "section": "Design/DRY",
+      "finding": "**note** `src/components/DocumentMenu.tsx:24-29`: every File item (New and Open too) is greyed out whenever `work.unsaved` is non-empty, which includes a typed Bible prompt, and nothing explains why. The accelerator path through `ProjectDocumentContext.tsx:73` does explain. The browser-fallback shortcut (`:55-58`) calls `preventDefault` and then does nothing. Disable only on `busy`/`loading`, and let the controller's guard message surface.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Shared native shortcuts and mac destinations, editor focus, abandoned Alt reset, guarded File feedback, overlay geometry and navigator disclosure; 42 tests/types pass; actual rendered guarded File workflow verified and screenshot embedded, OS-specific manual limits stated",
+      "commits": [
+        "8051930"
+      ],
+      "pull_requests": [
+        140
+      ],
+      "row_index": 118
+    },
+    {
+      "pr": 114,
+      "section": "Design/DRY",
+      "finding": "**note** macOS: the in-window `ApplicationMenu` always renders, so on darwin the global menu bar is duplicated inside the window. `hiddenInset` without `trafficLightPosition` probably leaves the traffic lights off-centre in the 48px bar. macOS was not exercised, so confirm this is intended.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Shared native shortcuts and mac destinations, editor focus, abandoned Alt reset, guarded File feedback, overlay geometry and navigator disclosure; 42 tests/types pass; actual rendered guarded File workflow verified and screenshot embedded, OS-specific manual limits stated",
+      "commits": [
+        "8051930"
+      ],
+      "pull_requests": [
+        140
+      ],
+      "row_index": 119
+    },
+    {
+      "pr": 114,
+      "section": "Design/DRY",
+      "finding": "**note** shortcut labels live in three renderer places (`DocumentMenu`, `ApplicationMenu`, `KeyboardShortcutsDialog`), and the real accelerators live in a fourth (`electron/app-menu.ts`). `48180ae` had to fix only one of them. A shared descriptor list would prevent drift.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Shared native shortcuts and mac destinations, editor focus, abandoned Alt reset, guarded File feedback, overlay geometry and navigator disclosure; 42 tests/types pass; actual rendered guarded File workflow verified and screenshot embedded, OS-specific manual limits stated",
+      "commits": [
+        "8051930"
+      ],
+      "pull_requests": [
+        140
+      ],
+      "row_index": 120
+    },
+    {
+      "pr": 114,
+      "section": "Nits",
+      "finding": "`src/components/ApplicationMenu.tsx:98`: View commands do not restore editor focus.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Shared native shortcuts and mac destinations, editor focus, abandoned Alt reset, guarded File feedback, overlay geometry and navigator disclosure; 42 tests/types pass; actual rendered guarded File workflow verified and screenshot embedded, OS-specific manual limits stated",
+      "commits": [
+        "8051930"
+      ],
+      "pull_requests": [
+        140
+      ],
+      "row_index": 121
+    },
+    {
+      "pr": 114,
+      "section": "Nits",
+      "finding": "`src/application-menu.css:34-42`: the right caption padding stays reserved in fullscreen, where the overlay is hidden (#117 reworks this rule).",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Shared native shortcuts and mac destinations, editor focus, abandoned Alt reset, guarded File feedback, overlay geometry and navigator disclosure; 42 tests/types pass; actual rendered guarded File workflow verified and screenshot embedded, OS-specific manual limits stated",
+      "commits": [
+        "8051930"
+      ],
+      "pull_requests": [
+        140
+      ],
+      "row_index": 122
+    },
+    {
+      "pr": 114,
+      "section": "Nits",
+      "finding": "`956c19c` is labelled `style:` but changes layout. Several merge commits carry feature-style messages, so the history is not linear and atomic.",
+      "status": "qualified-not-applicable",
+      "owner": "mcp-ui",
+      "resolution": "Historical style/merge labels remain immutable; current tests, implementation, refactoring and formatting are separate focused commits. Normal merge commits are permitted Git flow, not a data loss bug",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 123
+    },
+    {
+      "pr": 115,
+      "section": "Bugs",
+      "finding": "**note** `src/components/ProjectBibleView.tsx:161-163`: `activeAssetId` is cleared only by the Tabs `onValueChange` handler (`:728`), not by the `initialTab` effect, and one id is shared across the three force-mounted tabs. Failure: if `initialTab` changes while a character detail is open, Frames renders empty (no composer, heading, entries or New button). This is latent today because the `bibleTab=frames` link remounts the page. The fix is one line: `setActiveAssetId(null)` in the effect.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Linked tab changes clear incompatible selected asset state.",
+      "commits": [
+        "fb58764",
+        "6293232"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 124
+    },
+    {
+      "pr": 115,
+      "section": "Bugs",
+      "finding": "**note** `src/components/BiblePictureTile.tsx:64-66`: the take \"View\" button is `disabled={busyId !== null}`, so no take can be previewed during any Bible generation (often tens of seconds). Previewing changes nothing. Only select and delete need the guard.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Readonly enlarged take previews remain available while mutation controls wait for generation.",
+      "commits": [
+        "51376b9",
+        "8d53473"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 125
+    },
+    {
+      "pr": 115,
+      "section": "Design/DRY",
+      "finding": "**fix** `src/components/BibleAssetEntry.tsx:148-159`: the library card has two tab stops that both call `onOpen`: \"Open X details\" and an Ellipsis \"Picture actions for X\". The Ellipsis suggests a menu that no longer exists, and it seems to survive so the old tests keep passing (`bible-cost.test.tsx:65,74`, `local-bible-capabilities.test.tsx:39`, `bible-picture-controls.test.tsx:104`). Drop it, move the draft indicator onto the opener, and update the tests.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "One library opener includes retained unsaved draft in its accessible name and receives focus on return.",
+      "commits": [
+        "739e346",
+        "3ccae7f"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 126
+    },
+    {
+      "pr": 115,
+      "section": "Design/DRY",
+      "finding": "**note** `src/components/ProjectBibleView.tsx:141-142,352-365,827-841`: `deletionOrigin` duplicates the origin capture `ConfirmDeletion` already does. The fallback finds its target by the visible label `'button[aria-label=\"Back to library\"]'`, so renaming the label silently breaks focus restore. Use a ref or a data attribute.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Deletion focus restoration uses stable picture/back/new refs rather than label selectors. Existing take-delete/focus journeys pass.",
+      "commits": [
+        "a62a5ab"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 127
+    },
+    {
+      "pr": 115,
+      "section": "Design/DRY",
+      "finding": "**note** `docs/ux/bible-asset-details.md`: the Verification half restates test counts and sandbox notes that go stale on the next PR. Keep that in the PR body.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "Living owned UX docs describe behavior, keeping current validation counts in PR evidence. Pattern/license provenance retained because AGENTS requires it.",
+      "commits": [
+        "cc01e91"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 128
+    },
+    {
+      "pr": 115,
+      "section": "Nits",
+      "finding": "Commit atomicity: `5ab3da5` is labelled `style:` but changes behaviour (removes the model/provider line, adds the estimate label, disables expand). `22fd4fc` adds a `caption` prop. `50624d7` reformats about 1,300 lines of pre-existing `ProjectBibleView` code, which hides the real change.",
+      "status": "qualified-not-applicable",
+      "owner": "all",
+      "resolution": "Historical commit phase/label/atomicity criticism cannot be corrected without prohibited history rewriting. Current repair commits keep RED, GREEN, refactoring, formatting and documentation separate; no amend or force push.",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 129
+    },
+    {
+      "pr": 115,
+      "section": "Nits",
+      "finding": "`src/components/BibleAssetEntry.tsx:157`: `aria-label=\"Unsaved draft\"` on a role-less `<span>` is not announced.",
+      "status": "fixed",
+      "owner": "ui",
+      "resolution": "One library opener includes retained unsaved draft in its accessible name and receives focus on return.",
+      "commits": [
+        "739e346",
+        "3ccae7f"
+      ],
+      "pull_requests": [
+        143
+      ],
+      "row_index": 130
+    },
+    {
+      "pr": 116,
+      "section": "Bugs",
+      "finding": "**fix** `package.json` (`package:electron`, `test`): `icons:check` compares the bytes of freshly rendered sharp/png2icons output with the committed PNG/ICO/ICNS, and it now gates `yarn build`. `yarn build` runs in the CI `build-check` matrix on `macos-15` (arm64) and `windows-latest`. libvips resize/PNG output is not guaranteed byte-identical across platforms, CPU SIMD paths or sharp upgrades. Failure: a release or tag build fails on macOS/Windows with \"App icons are stale\" although nothing changed. Run the check only in the Linux `test` job (drop it from `package:electron`), or compare decoded pixels with a tolerance.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Exact committed bytes checked only Linux CI; conversion causes retained; seven tests/Linux iconcheck pass; Linux packaging and installed artifact validation passed",
+      "commits": [
+        "ba214b6"
+      ],
+      "pull_requests": [
+        130
+      ],
+      "row_index": 131
+    },
+    {
+      "pr": 116,
+      "section": "Bugs",
+      "finding": "**note** `scripts/generate-icons.mjs:59`: the outer `catch {}` replaces every sharp/png2icons/fs failure with one generic message and drops the cause. Include `cause.message`.",
+      "status": "fixed",
+      "owner": "mcp-ui",
+      "resolution": "Exact committed bytes checked only Linux CI; conversion causes retained; seven tests/Linux iconcheck pass; Linux packaging and installed artifact validation passed",
+      "commits": [
+        "ba214b6"
+      ],
+      "pull_requests": [
+        130
+      ],
+      "row_index": 132
+    },
+    {
+      "pr": 116,
+      "section": "Nits",
+      "finding": "`src/components/AppMark.tsx`: the defs (including `id=\"showbiz-mark\"`) are injected per instance, so a second `<AppMark />` on screen would duplicate DOM ids. That is fine today with one titlebar instance.",
+      "status": "qualified-not-applicable",
+      "owner": "mcp-ui",
+      "resolution": "rg confirms only one AppMark, in Header; no current duplicate SVG definition instance. Normal Git merge cannot erase already merged ancestor commits. No hypothetical abstraction added.",
+      "commits": [],
+      "pull_requests": [
+        130
+      ],
+      "row_index": 133
+    },
+    {
+      "pr": 116,
+      "section": "Nits",
+      "finding": "`1a430d7` is labelled `style:`, but at 175+/79- lines across 4 files it is large enough that a reviewer cannot easily confirm it is formatting-only. I spot-checked it and it is.",
+      "status": "qualified-not-applicable",
+      "owner": "mcp-ui",
+      "resolution": "Reviewer explicitly confirmed the original large style commit is formatting only. No current behavior to repair; current formatting is confined to owned files",
+      "commits": [],
+      "pull_requests": [],
+      "row_index": 134
+    },
+    {
+      "pr": 117,
+      "section": "Nits",
+      "finding": "**note** `1d304ae` \"fix: keep a single Settings gear aligned with native controls\" combines two behaviour changes: removing the Appearance command (`Header.tsx`) and changing the caption spacing (`application-menu.css`). The spacing change has no test, and the doc says OS caption spacing was not manually exercised. Worth a quick look on Windows before release.",
+      "status": "qualified-verification-limit",
+      "owner": "root",
+      "resolution": "Historical combined commit cannot be rewritten. Current caption geometry/focus/fullscreen changes are tested in the desktop-menu slice; actual Windows caption-button interaction remains a stated platform verification limit, not falsely claimed as manually exercised.",
+      "commits": [
+        "6f39c3c"
+      ],
+      "pull_requests": [],
+      "row_index": 135
+    }
+  ],
+  "deliveries": [
+    {
+      "pr": 119,
+      "head": "4886ea8",
+      "scope": "referenced-media packages",
+      "status": "local verified; CI pending"
+    },
+    {
+      "pr": 122,
+      "head": "088cb34",
+      "status": "focused tests, types, frontend and Electron builds passed; CI pending"
+    },
+    {
+      "pr": 124,
+      "head": "ae4f389",
+      "status": "focused tests, types, frontend and Electron builds passed; CI pending"
+    },
+    {
+      "pr": 127,
+      "head": "caff7c3",
+      "status": "focused tests, types, frontend and Electron builds passed; CI pending"
+    },
+    {
+      "pr": 131,
+      "head": "53bec02",
+      "scope": "storyboard request/draft state",
+      "status": "focused tests/types, combined builds and rendered proof passed"
+    },
+    {
+      "pr": 137,
+      "head": "66f81c3",
+      "scope": "production font assets",
+      "status": "production RED/GREEN/build and rendered font HTTP200 proof passed"
+    },
+    {
+      "pr": 138,
+      "head": "3388d54",
+      "scope": "recent-project rename metadata",
+      "status": "32 document tests/types passed; combined build/manual pending"
+    },
+    {
+      "pr": 139,
+      "head": "8fb4f20",
+      "scope": "whitespace-only maintained fixture cleanup",
+      "status": "git diff --check passed; runtime unchanged"
+    },
+    {
+      "pr": 143,
+      "head": "d2b83d1",
+      "scope": "Bible picture draft/reference workflow",
+      "status": "87 focused tests, strict types, combined builds and actual rendered draft/library proof passed"
+    },
+    {
+      "pr": 145,
+      "head": "edf969a",
+      "scope": "final project disposal Result and logging",
+      "status": "native Electron43 normal/failure shutdown demos exit0; combined1421Vitest/types/bothbundles pass"
+    }
+  ],
+  "reconciliation": {
+    "type": "completion accounting of existing findings, not a new formal review",
+    "source_files": [
+      "/tmp/showbiz-review-ui-progress.json",
+      "/tmp/showbiz-review-mcp-progress.json",
+      "/tmp/showbiz-review-billing-progress.json"
+    ],
+    "pending_policy": "Pending or partial owner evidence is retained rather than inferred complete.",
+    "completed_at_utc": "2026-11-01T01:53:53.928576+00:00",
+    "summary": {
+      "Fixed": 103,
+      "Resolved later": 13,
+      "Qualified": 20
+    },
+    "latest_validation": "Root reports1421 combined Vitest tests, strict TypeScript, frontend and Electron bundles passed; finalLinux packaging and CI pending at ledger generation.",
+    "pending_delivery_metadata": []
+  },
+  "verification": {
+    "vitest_passed": 1421,
+    "icon_tests_passed": 7,
+    "distribution_tests_passed": 42,
+    "typecheck": "passed",
+    "frontend_build": "passed",
+    "electron_build": "passed",
+    "linux_appimage_and_deb": "passed",
+    "installed_undici_notice": "verified",
+    "packaged_project_uri_mcp": "passed",
+    "native_normal_close": "passed",
+    "native_final_save_error_logging": "passed",
+    "paid_cloud_or_real_local_inference": "not_exercised",
+    "native_windows_macos": "not_exercised",
+    "ci_test_jobs": "passed",
+    "merged_prs": false
+  }
+}
