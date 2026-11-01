@@ -255,3 +255,16 @@ it("uses the macOS global menu without duplicating its row inside the window", a
   start();
   expect(screen.queryByRole("menubar", { name: "Application menu" })).toBeNull();
 });
+it("explains guarded File commands instead of silently disabling both entry points", async () => {
+  const { applicationWork } = await import("./application-work");
+  applicationWork.receive({ active: [], unsaved: ["prompt"], closing: false });
+  try {
+    start();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("menuitem", { name: "File" }));
+    const open = screen.getByRole("menuitem", { name: "Open Project…" });
+    expect(open.getAttribute("aria-disabled")).not.toBe("true");
+    await user.click(open);
+    expect(await screen.findByText("Finish generation, saving and unsaved edits before changing project files.")).toBeTruthy();
+  } finally { applicationWork.receive({ active: [], unsaved: [], closing: false }); }
+});
