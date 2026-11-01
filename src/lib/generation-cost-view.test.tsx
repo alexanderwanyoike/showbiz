@@ -143,3 +143,25 @@ it("does not hide recorded history while a future pricing change is being calcul
   await act(async () => { window.dispatchEvent(new Event("showbiz:pricing-changed")); });
   expect(screen.getByLabelText("Last generation cost").textContent).toContain("$3.20 reported");
 });
+
+it("shows accounting warnings beside the affected generation while keeping its media result", async () => {
+  const { act, within } = await import("@testing-library/react");
+  const { runAccountedGeneration } = await import("./generation-accounting");
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockImplementation(async (command: string) => command === "record_generation_receipt"
+    ? { ok: false, error: { code: "IO_ERROR", message: "Receipt could not be written." } }
+    : { ok: true, value: { items: [] } });
+  render(createElement("div", null,
+    createElement("section", { "aria-label": "Affected shot" }, createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" }, subject: { project_id: "film", subject_id: "shot" } })),
+    createElement("section", { "aria-label": "Other shot" }, createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" }, subject: { project_id: "film", subject_id: "other" } })),
+  ));
+  await act(async () => {
+    const result = await runAccountedGeneration({ project_id: "film", subject_id: "shot", provider: "openrouter", model_id: "image", kind: "image", settings: {} }, { kind: "unavailable", reason: "No quote" }, async (observer) => {
+      await observer.receipt({ reported_microusd: 23000, provider_request_id: "fixture-job" });
+      return "generated-picture";
+    });
+    expect(result).toMatchObject({ ok: true, value: "generated-picture" });
+  });
+  expect(await within(screen.getByRole("region", { name: "Affected shot" })).findByRole("status")).toHaveProperty("textContent", expect.stringContaining("Receipt could not be written."));
+  expect(within(screen.getByRole("region", { name: "Other shot" })).queryByRole("status")).toBeNull();
+});
