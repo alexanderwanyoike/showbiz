@@ -12,8 +12,9 @@ contextBridge.exposeInMainWorld("showbiz", {
   runMenuCommand: (command: DesktopMenuCommand): Promise<Result<null>> => ipcRenderer.invoke("showbiz:menu-command", command),
   setTitleBarAppearance: (appearance: DesktopTitleBarAppearance): Promise<Result<null>> => ipcRenderer.invoke("showbiz:titlebar-appearance", appearance),
   onDataChanged: (callback: () => void) => {
-    ipcRenderer.on("showbiz:data_changed", callback);
-    return () => ipcRenderer.removeListener("showbiz:data_changed", callback);
+    const listener = () => callback();
+    ipcRenderer.on("showbiz:data_changed", listener);
+    return () => ipcRenderer.removeListener("showbiz:data_changed", listener);
   },
   onProjectDocument: (cb: () => void) => {
     const listener = () => cb();
