@@ -720,3 +720,27 @@ it("saves settings for two shots independently and keeps only the pending shot d
   await act(async () => { finish["shot-2"](); });
   expect(applicationWork.snapshot().unsaved).not.toContain("draft");
 });
+
+it("keeps a frame-edit draft focused through a failed agent refresh and a retry", async () => {
+  vi.mocked(getCurrentImageVersion).mockResolvedValueOnce({ id: "frame-take", shot_id: "shot-1", parent_version_id: null, version_number: 1, edit_type: "generation", image_path: "images/1.png", prompt: null, edit_prompt: null, mask_path: null, is_current: true, created_at: "now", image_url: "frame-1.png", mask_url: null });
+  render(createElement(MemoryRouter, { initialEntries: ["/storyboard/board"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Shot controls" }));
+  await user.click(screen.getByRole("button", { name: "Edit frame for shot 1" }));
+  const dialog = screen.getByRole("dialog", { name: "Edit frame for shot 1" });
+  const prompt = within(dialog).getByRole("textbox", { name: "Frame edit prompt" });
+  await user.type(prompt, "Morning mist");
+  let reject: ((cause: Error) => void) | undefined;
+  vi.mocked(getShots).mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+  act(() => { window.dispatchEvent(new Event("showbiz:project-changed")); });
+  try {
+    expect(screen.getByRole("dialog", { name: "Edit frame for shot 1" })).toBe(dialog);
+    expect(document.activeElement).toBe(prompt);
+    expect(within(dialog).getByRole("button", { name: "Edit Image" })).toHaveProperty("disabled", true);
+  } finally { await act(async () => { reject?.(new Error("The project is busy. Retry loading.")); }); }
+  expect(within(dialog).getByRole("alert")).toHaveProperty("textContent", expect.stringContaining("The project is busy."));
+  await user.click(within(dialog).getByRole("button", { name: "Retry loading storyboard" }));
+  await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
+  expect(prompt).toHaveProperty("value", "Morning mist");
+  expect(document.activeElement).toBe(prompt);
+});
