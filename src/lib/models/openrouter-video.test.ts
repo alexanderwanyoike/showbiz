@@ -143,3 +143,10 @@ it("recovers transient status failures without submitting another paid job", asy
   expect(await pending).toMatchObject({ ok: true, value: { receipt: { provider_request_id: "retry-job", reported_microusd: 400000 } } });
   expect(http.fetch.mock.calls.filter(([, options]) => options.method === "POST")).toHaveLength(1);
 });
+it("does not erase a known submit charge when later status bodies omit usage", async () => {
+  http.fetch.mockReset();
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: "known-charge", status: "pending", usage: { cost: 0 } })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ id: "known-charge", status: "completed" })))
+    .mockResolvedValueOnce(new Response("video"));
+  expect(await generateOpenRouterVideo("google/veo-3.1", { mode: "text-to-video", prompt: "morning", settings: { duration: "8s" } }, "key")).toMatchObject({ ok: true, value: { receipt: { reported_microusd: 0 } } });
+});
