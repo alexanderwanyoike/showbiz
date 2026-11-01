@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { createElement, type ReactNode } from "react";
 import {
+  act,
   cleanup,
   render,
   screen,
@@ -10,6 +11,7 @@ import {
 import { MemoryRouter, Route, Routes } from "react-router";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import { applicationWork } from "./application-work";
 import StoryboardPage from "../pages/StoryboardPage";
 import type { GenerationCostRequest } from "../../shared/generation-cost";
 vi.mock("../components/GenerationCost", () => ({
@@ -658,4 +660,21 @@ it("keeps a saved take viewable while a new request runs and after it fails", as
     "saved-shot-1.mp4",
   );
   expect(screen.queryByText("failed", { exact: true })).toBeNull();
+});
+
+it.each(["model changed", "shot deleted"])("reconciles an unsaved video settings draft when an agent reports %s", async (change) => {
+  const originalShots = await getShots("board");
+  vi.mocked(setShotVideoSettings).mockResolvedValueOnce({ ok: false, error: { code: "IO_ERROR", message: "Could not save video settings." } });
+  render(createElement(MemoryRouter, { initialEntries: ["/storyboard/board"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Shot controls" }));
+  await user.click(screen.getByRole("combobox", { name: "Video duration" }));
+  await user.click(screen.getByRole("option", { name: "4s" }));
+  await screen.findByRole("alert");
+  vi.mocked(getShots).mockResolvedValueOnce(change === "shot deleted" ? originalShots.filter((shot) => shot.id !== "shot-1") : originalShots.map((shot) => shot.id === "shot-1" ? { ...shot, video_model: "veo-3.1-fal" } : shot));
+  act(() => { window.dispatchEvent(new Event("showbiz:project-changed")); });
+  await screen.findByRole("button", { name: "Select shot 2" });
+  await waitFor(() => expect(screen.getByRole("button", { name: "Storyboard settings" })).toHaveProperty("disabled", false));
+  expect(screen.queryByRole("button", { name: "Return to shot 1" })).toBeNull();
+  expect(applicationWork.snapshot().unsaved).not.toContain("draft");
 });
