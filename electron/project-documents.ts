@@ -108,8 +108,12 @@ export function createProjectDocuments(options: {
   const workspace = cache.create;
   function dispose(document: ActiveDocument) {
     document.db.close();
-    document.release();
-    cache.remove(document.media);
+    for (const cleanup of [document.release, () => cache.remove(document.media)]) {
+      try { cleanup(); }
+      catch (cause) {
+        warning = [warning, `The project was closed, but cleanup failed for ${document.file}: ${cause instanceof Error ? cause.message : String(cause)}`].filter(Boolean).join("\n");
+      }
+    }
   }
   function activate(document: ActiveDocument) {
     const value = info(document);
