@@ -234,3 +234,6 @@ it("detaches a closed native window without reading its destroyed webContents", 
   });
   expect(live.contents.copy).toHaveBeenCalledOnce();
 });
+it("centers macOS traffic lights in the shared 48px title bar", () => {
+  expect(desktopWindowOptions("darwin", false)).toHaveProperty("trafficLightPosition", { x: 16, y: 16 });
+});
