@@ -36,3 +36,9 @@ This layout is informed by [Storyboarder's canvas and board strip](https://wonde
 Saving queries record-referenced media paths, checks file stamps and synchronously embeds changed chunks on the main thread. It no longer recursively scans unrelated cache files, but a large project or changed video can still delay the UI. Chunking bounds each allocation; it does not make the whole save asynchronous. Rollback can also re-extract saved media. Profile this before moving SQLite/media work to a worker rather than assuming small-fixture timings describe large projects.
 
 Cache cleanup is conservative. Legacy workspaces without ownership metadata cannot be proven abandoned automatically. A failed OS ownership probe retains a lock/cache rather than risking active work. A cache is never required to back up or share a valid self-contained project.
+
+## Lock reclamation
+
+Abandoned-lock replacement is serialized with an adjacent `.showbiz.lock.guard` directory, using atomic `mkdir` acquisition as in [proper-lockfile](https://github.com/moxystudio/node-proper-lockfile) (MIT; design reference only, no copied source). Competing opens fail with the guard path instead of deleting another process's fresh lock. The guard normally exists only during acquisition. If the process crashes during that short operation, close every Showbiz instance before manually removing the named guard. Unverifiable ownership is never reclaimed automatically.
+
+The document database closes before its ownership lock is released, so another writer cannot enter while the previous connection is still open. Ownership tokens are checked on release. This process's platform start identity is read once and reused; other processes are still verified independently. A malformed cache owner marker is reported with its path while cleanup continues for other caches.

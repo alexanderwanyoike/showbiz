@@ -5,6 +5,7 @@ import { expect, it } from "vitest";
 import { createProjectDocuments } from "./project-documents";
 import { createProjectCommands } from "./commands/projects";
 import { loadMigrations } from "./db";
+import { createProjectCache } from "./project-cache";
 import { createProcessOwner } from "./process-owner";
 it("sweeps abandoned media workspaces but retains live and unverified owners", async () => {
   const directory = fs.mkdtempSync(
@@ -82,6 +83,35 @@ it("keeps cache ownership outside media replaced during extraction", async () =>
     expect(fs.existsSync(workspace)).toBe(false);
   } finally {
     await documents.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+it("continues recovering later abandoned caches after a corrupt owner marker", () => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "showbiz-cache-corrupt-"),
+  );
+  const corrupt = path.join(directory, "open-a-corrupt");
+  const stale = path.join(directory, "open-z-stale");
+  fs.mkdirSync(corrupt);
+  fs.writeFileSync(path.join(corrupt, ".owner.json"), "");
+  fs.mkdirSync(stale);
+  fs.writeFileSync(
+    path.join(stale, ".owner.json"),
+    JSON.stringify({
+      ...createProcessOwner(),
+      identity: "previous-incarnation",
+    }),
+  );
+  try {
+    const recovered = createProjectCache(directory).sweep();
+    expect(fs.existsSync(stale)).toBe(false);
+    expect(fs.existsSync(corrupt)).toBe(true);
+    expect(recovered).toMatchObject({
+      ok: false,
+      error: { message: expect.stringContaining(corrupt) },
+    });
+  } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
