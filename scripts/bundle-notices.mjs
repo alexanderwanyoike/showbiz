@@ -85,7 +85,7 @@ export async function collectBundleNotices(metafile, root = process.cwd()) {
     const declared = declaredLicenseOnly.get(
       `${metadata.name}@${metadata.version}`,
     );
-    if (!license && declared?.license === metadata.license) {
+    if (!license && declared && declared.license === metadata.license) {
       license = `License declared in published package.json: ${declared.license}\nAuthor: ${metadata.author}\nRepository: ${declared.repository}\nNo standalone license text was supplied by this release. This entry retains the published metadata without inventing a copyright notice.`;
     }
     if (!license)
