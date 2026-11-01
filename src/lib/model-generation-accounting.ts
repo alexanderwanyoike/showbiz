@@ -5,7 +5,7 @@ import { runAccountedGeneration } from "./generation-accounting";
 import type { GenerationCostRequest } from "../../shared/generation-cost";
 import type { GenerationObserver } from "../../shared/generation-output";
 import type { GenerationUsage } from "../../shared/generation-usage";
-import type { Result } from "../../shared/result";
+import type { GenerationAccountingResult } from "./generation-accounting";
 import type {
   DocumentResult,
   ProjectDocumentState,
@@ -20,7 +20,7 @@ export async function accountModelGeneration<T>(
   request: GenerationCostRequest,
   subject: GenerationSubject | undefined,
   operation: (observer: GenerationObserver) => Promise<T>,
-): Promise<Result<T>> {
+): Promise<GenerationAccountingResult<T>> {
   try {
     let projectId = subject?.project_id;
     if (!projectId) {

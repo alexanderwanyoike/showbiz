@@ -52,3 +52,9 @@ Custom rates override only matching generation settings. Other resolutions or au
 FAL cache entries are separated by generation endpoint, including first/last-frame video endpoints. A failed refresh can retain only a matching historical estimate from the same device credential, with its original retrieval date and an explicit refresh-unavailable label. Account-specific cache writes check the initiating key again at the synchronous device-storage boundary; key material is not stored in the price basis or project history.
 
 A zero returned by FAL's historical estimate API is treated as an unavailable quote, not a zero-cost estimate for the next request. It is not included in a new request's unconfirmed estimate total. Explicit manual zero rates and actual zero monetary receipts remain valid. The API documentation does not define zero as proof of missing account history. Historical per-call amounts remain separate from live unit prices: converting units into a settings-specific quote requires a documented billable quantity, rather than assuming tokens or model-specific units are video seconds.
+Billing cooldowns retain credential fingerprints rather than API keys. The keys
+exist only in the active reconciliation call. Pending provider receipts remain
+unconfirmed in request details; ordinary provider lag is not promoted to an
+accounting-failure warning. Failed lookups and receipt-storage failures remain
+visible.
+Accounting warnings remain available for the current app session when a cost panel is unmounted, scoped to the project, subject and generation family. Returning to the subject restores its latest warning. A history-read failure remains visible alongside a storage warning. These bounded session notices do not claim that a failed database write was saved durably.
