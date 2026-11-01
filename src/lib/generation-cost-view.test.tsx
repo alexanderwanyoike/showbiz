@@ -309,3 +309,15 @@ it("shows accounting warnings beside the affected generation while keeping its m
     ),
   ).toBeNull();
 });
+
+it("does not replace a newer request's cost warning with an older background check", async () => {
+  const { act } = await import("@testing-library/react");
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockResolvedValue({ ok: true, value: { items: [] } });
+  render(createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" }, subject: { project_id: "film", subject_id: "shot" } }));
+  await act(async () => {
+    window.dispatchEvent(new CustomEvent("showbiz:usage-changed", { detail: { project_id: "film", subject_id: "shot", request_id: "new-request", started: true, warnings: [] } }));
+    window.dispatchEvent(new CustomEvent("showbiz:usage-changed", { detail: { project_id: "film", subject_id: "shot", request_id: "old-request", started: false, warnings: ["Old request billing is pending."] } }));
+  });
+  expect(screen.queryByText("Old request billing is pending.")).toBeNull();
+});
