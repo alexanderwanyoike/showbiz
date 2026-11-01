@@ -136,3 +136,17 @@ it("returns to the linked tab library when the route changes from frame details"
   expect(screen.getByRole("complementary", { name: "New character" })).toBeTruthy();
   expect(screen.queryByRole("region", { name: "Opening details" })).toBeNull();
 });
+
+it("uses one library opener that names its retained unsaved picture draft", async () => {
+  render(<ProjectBibleView projectId="film" />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Open Ada details" }));
+  await user.click(screen.getByRole("button", { name: "Variation…" }));
+  await user.type(screen.getByRole("textbox", { name: "Variation prompt for Ada" }), " warmer");
+  await user.click(screen.getByRole("button", { name: "Back to library" }));
+  const opener = screen.getByRole("button", { name: "Open Ada details, unsaved draft" });
+  expect(document.activeElement).toBe(opener);
+  expect(screen.queryByRole("button", { name: "Picture actions for Ada" })).toBeNull();
+  await user.click(opener);
+  expect(screen.getByRole("textbox", { name: "Variation prompt for Ada" })).toHaveProperty("value", "Warm morning light warmer");
+});
