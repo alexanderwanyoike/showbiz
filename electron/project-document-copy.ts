@@ -57,14 +57,21 @@ export async function copyProjectDocument(options: {
       ? await fs.realpath(options.sourceMedia)
       : options.sourceMedia;
     for (const relative of paths) {
-      const source = await fs.realpath(
-        resolveMediaPath(options.sourceMedia, relative),
-      );
-      if (!source.startsWith(`${base}${path.sep}`))
-        throw new Error("Project media points outside its media folder.");
-      const target = resolveMediaPath(options.media, relative);
-      await fs.mkdir(path.dirname(target), { recursive: true });
-      await fs.copyFile(source, target);
+      try {
+        const source = await fs.realpath(
+          resolveMediaPath(options.sourceMedia, relative),
+        );
+        if (!source.startsWith(`${base}${path.sep}`))
+          throw new Error("Project media points outside its media folder.");
+        const target = resolveMediaPath(options.media, relative);
+        await fs.mkdir(path.dirname(target), { recursive: true });
+        await fs.copyFile(source, target);
+      } catch (cause) {
+        throw new Error(
+          `Could not copy project media "${relative}": ${cause instanceof Error ? cause.message : String(cause)}`,
+          { cause },
+        );
+      }
     }
     return db;
   } catch (cause) {
