@@ -62,3 +62,9 @@ all outcomes, including failed, cancelled and interrupted requests. A failed
 request can still incur a provider charge; the total remains an estimate until a
 receipt is available. The usage help explains this scope rather than counting
 unsuccessful requests as free.
+
+Billing cooldowns retain credential fingerprints rather than API keys. The keys
+exist only in the active reconciliation call. Pending provider receipts remain
+unconfirmed in request details; ordinary provider lag is not promoted to an
+accounting-failure warning. Failed lookups and receipt-storage failures remain
+visible.
