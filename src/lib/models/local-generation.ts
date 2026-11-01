@@ -44,6 +44,9 @@ async function requestMedia(config: LocalGenerationConfig, path: string, body: R
     return failure(`Local generation request failed: ${cause instanceof Error ? cause.message : String(cause)}`, receipt);
   }
 }
+function validMediaBlob(blob: Blob, family: "image" | "video"): boolean {
+  return blob.size > 0 && (!blob.type || blob.type === "application/octet-stream" || blob.type.startsWith(`${family}/`));
+}
 function decodeBase64(value: string): Uint8Array<ArrayBuffer> {
   const binary = atob(value);
   const bytes = new Uint8Array(binary.length);
@@ -54,7 +57,7 @@ async function imageDataUrl(blob: Blob): Promise<string> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   let binary = "";
   for (let index = 0; index < bytes.length; index++) binary += String.fromCharCode(bytes[index]);
-  return `data:${blob.type || "image/png"};base64,${btoa(binary)}`;
+  return `data:${blob.type.startsWith("image/") ? blob.type : "image/png"};base64,${btoa(binary)}`;
 }
 export async function generateLocalImage(config: LocalGenerationConfig, prompt: string, apiKey: string): Promise<GenerationOutput<string>> {
   if (!config.image_model) return { ok: false, error: { code: "INVALID_INPUT", message: "Configure your local image model in Settings first." } };
@@ -62,6 +65,7 @@ export async function generateLocalImage(config: LocalGenerationConfig, prompt: 
   if (!result.ok) return result;
   try {
     const media = result.value.media;
+    if ("blob" in media && !validMediaBlob(media.blob, "image")) return failure("The local server returned an empty or unsupported image download.", result.value.receipt);
     return { ok: true, value: { media: "blob" in media ? await imageDataUrl(media.blob) : `data:${media.media_type ?? "image/png"};base64,${media.base64}`, receipt: result.value.receipt } };
   } catch (cause) { return failure(`The local image could not be read: ${cause instanceof Error ? cause.message : String(cause)}`, result.value.receipt); }
 }
@@ -76,6 +80,7 @@ export async function generateLocalVideo(config: LocalGenerationConfig, request:
   if (!result.ok) return result;
   try {
     const media = result.value.media;
+    if ("blob" in media && !validMediaBlob(media.blob, "video")) return failure("The local server returned an empty or unsupported video download.", result.value.receipt);
     return { ok: true, value: { media: "blob" in media ? media.blob : new Blob([decodeBase64(media.base64)], { type: media.media_type ?? "video/mp4" }), receipt: result.value.receipt } };
   } catch { return failure("The local server returned invalid base64 video.", result.value.receipt); }
 }
