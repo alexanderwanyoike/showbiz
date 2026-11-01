@@ -13,7 +13,7 @@ interface Documents {
   legacy(): { id: string; name: string }[];
   create(path: string): DocumentOperation;
   open(path: string): DocumentOperation;
-  close(): DocumentResult<null> | Promise<DocumentResult<null>>;
+  close(): DocumentResult<null>;
   saveAs(path: string): DocumentOperation;
   importLegacy(id: string, path: string): DocumentOperation;
 }
