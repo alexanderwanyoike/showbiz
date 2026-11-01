@@ -349,6 +349,13 @@ export function createProjectDocuments(options: {
             throw cause;
           readOnly = true;
         }
+        if (!readOnly) {
+          try { release = lockProjectDocument(file); }
+          catch (cause) {
+            if (!(cause instanceof Error) || !("code" in cause) || !["EACCES", "EROFS", "EPERM"].includes(String(cause.code))) throw cause;
+            readOnly = true;
+          }
+        }
         if (readOnly) {
           db = new DatabaseSync(file, { readOnly: true });
           db.exec("PRAGMA foreign_keys=ON");
@@ -361,7 +368,6 @@ export function createProjectDocuments(options: {
             );
           release = () => {};
         } else {
-          release = lockProjectDocument(file);
           db = openDatabase(file, options.migrations);
         }
         media = workspace();
