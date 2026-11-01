@@ -1,3 +1,4 @@
+import { responseErrorMessage } from "./provider-error-message";
 import { z } from "zod";
 import { fetch } from "./http";
 import type { LocalGenerationConfig } from "../../../shared/local-generation";
@@ -31,14 +32,16 @@ async function requestMedia(
       },
       body: JSON.stringify({ ...body, response_format: "b64_json" }),
     });
-    if (!response.ok)
+    if (!response.ok) {
+      const detail = await responseErrorMessage(response);
       return {
         ok: false,
         error: {
           code: "IO_ERROR",
-          message: `Local generation failed (${response.status}). Check the server, model configuration and optional key.`,
+          message: `Local generation failed (${response.status}). ${detail ?? "Check the server, model configuration and optional key."}`,
         },
       };
+    }
     const parsed = responseSchema.safeParse(await response.json());
     if (!parsed.success)
       return {
@@ -62,13 +65,13 @@ async function requestMedia(
         },
       },
     };
-  } catch {
+  } catch (cause) {
     return {
       ok: false,
       error: {
         code: "IO_ERROR",
         message:
-          "Could not connect to the local generation server or read its response.",
+          `Could not connect to the local generation server or read its response: ${cause instanceof Error ? cause.message : String(cause)}` ,
       },
     };
   }
