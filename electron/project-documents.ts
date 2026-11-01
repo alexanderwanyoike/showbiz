@@ -416,7 +416,7 @@ export function createProjectDocuments(options: {
         return fail(cause);
       }
     },
-    async close(): Promise<DocumentResult<null>> {
+    close(): DocumentResult<null> {
       if (busy)
         return fail(new Error("A project file operation is in progress."));
       try {
