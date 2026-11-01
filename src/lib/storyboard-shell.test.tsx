@@ -75,8 +75,8 @@ it("places the shot-inspector toggle in the workspace toolbar rather than over t
     ),
   );
   const toggle = await screen.findByRole("button", { name: "Shot controls" });
-  expect(toggle.getAttribute("aria-pressed")).toBe(
-    toggle.getAttribute("aria-expanded"),
-  );
+  expect(toggle.getAttribute("aria-pressed")).toBeNull();
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(toggle.getAttribute("aria-controls")).toBeTruthy();
   expect(toggle.closest("header")?.className).toContain("workspace-toolbar");
 });

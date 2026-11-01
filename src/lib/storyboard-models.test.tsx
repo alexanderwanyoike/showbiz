@@ -682,7 +682,13 @@ it("waits for image model persistence before editing a frame and then uses the s
   await user.click(await screen.findByRole("button", { name: "Shot controls" }));
   await user.click(screen.getByRole("button", { name: "Image model for shot 1" }));
   await user.click(screen.getByRole("option", { name: /^Nano Banana\s*Google AI/ }));
-  expect(screen.getByRole("button", { name: "Edit frame for shot 1" })).toHaveProperty("disabled", true);
+  const editCommand = screen.getByRole("button", { name: "Edit frame for shot 1" });
+  expect(editCommand.getAttribute("aria-disabled")).toBe("true");
+  expect(editCommand.getAttribute("aria-description")).toBe("Wait for the model change to finish.");
+  expect(editCommand.querySelector("button")).toHaveProperty("disabled", true);
+  await user.click(editCommand);
+  expect(screen.queryByRole("dialog", { name: "Edit frame for shot 1" })).toBeNull();
+  expect(editImageAction).not.toHaveBeenCalled();
   await act(async () => { finish?.({ ok: true, value: { image_model: "nano-banana", video_model: null } }); });
   await user.click(screen.getByRole("button", { name: "Edit frame for shot 1" }));
   const dialog = await screen.findByRole("dialog", { name: "Edit frame for shot 1" });

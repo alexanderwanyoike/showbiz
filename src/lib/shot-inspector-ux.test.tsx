@@ -198,8 +198,10 @@ it("edits the selected image take and explains unavailable editing", async () =>
     ),
   );
   expect(
-    screen.getByRole("button", { name: "Edit frame for shot 1" }),
-  ).toHaveProperty("disabled", true);
+    screen
+      .getByRole("button", { name: "Edit frame for shot 1" })
+      .getAttribute("aria-disabled"),
+  ).toBe("true");
   await userEvent
     .setup()
     .click(screen.getByRole("button", { name: "About frame editing" }));
@@ -217,8 +219,10 @@ it("edits the selected image take and explains unavailable editing", async () =>
     ),
   );
   expect(
-    screen.getByRole("button", { name: "Edit frame for shot 1" }),
-  ).toHaveProperty("disabled", true);
+    screen
+      .getByRole("button", { name: "Edit frame for shot 1" })
+      .getAttribute("aria-disabled"),
+  ).toBe("true");
   await userEvent
     .setup()
     .click(screen.getByRole("button", { name: "About frame editing" }));
@@ -362,6 +366,31 @@ it("keeps take history available without displacing generation inputs", async ()
   expect(screen.getByRole("textbox", { name: "Video prompt" })).toBeTruthy();
   expect(screen.getByRole("combobox", { name: "Video duration" })).toBeTruthy();
 });
+it.each([
+  [false, true, "Wait for frame selection to finish saving."],
+  [false, false, "Choose a saved frame take before editing this frame."],
+  [true, true, "Wait for the model change to finish."],
+  [true, false, "Wait for the model change to finish."],
+] as const)(
+  "explains frame editing prerequisites when model saving is %s and frame saving is %s",
+  async (modelSaving, frameSaving, reason) => {
+    const props = {
+      ...inspectorProps("seedance-2-fal"),
+      frameSaving,
+      modelSaving,
+      imageModel: getAvailableImageModels().find(
+        (model) => model.supportsImageEditing,
+      ),
+    };
+    render(
+      createElement(MemoryRouter, null, createElement(ShotInspector, props)),
+    );
+    const command = screen.getByRole("button", {
+      name: "Edit frame for shot 1",
+    });
+    expect(command.getAttribute("aria-description")).toBe(reason);
+  },
+);
 
 it("remembers take disclosures per shot and reveals newly added takes", async () => {
   const props = { ...inspectorProps("seedance-2-fal"), versionCount: 1, videoVersionCount: 1 };
