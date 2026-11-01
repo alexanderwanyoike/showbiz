@@ -1,3 +1,6 @@
+import { desktopShellMetadata } from "./desktop-shell";
+import type { DesktopMenuCommand, DesktopTitleBarAppearance } from "../shared/desktop-shell";
+import type { Result } from "../shared/result";
 import { contextBridge, ipcRenderer } from "electron";
 import type { ApplicationWorkStatus } from "../shared/application-work";
 import type { UpdateStatus } from "../shared/update-status";
@@ -5,6 +8,23 @@ import type { UpdateStatus } from "../shared/update-status";
 // The renderer-facing bridge; src/lib/bridge.ts detects this to pick the
 // Electron shell over Tauri. Sandboxed preload: keep it a pure passthrough.
 contextBridge.exposeInMainWorld("showbiz", {
+  desktop: desktopShellMetadata(process.platform),
+  runMenuCommand: (command: DesktopMenuCommand): Promise<Result<null>> => ipcRenderer.invoke("showbiz:menu-command", command),
+  setTitleBarAppearance: (appearance: DesktopTitleBarAppearance): Promise<Result<null>> => ipcRenderer.invoke("showbiz:titlebar-appearance", appearance),
+  onDataChanged: (callback: () => void) => {
+    ipcRenderer.on("showbiz:data_changed", callback);
+    return () => ipcRenderer.removeListener("showbiz:data_changed", callback);
+  },
+  onProjectDocument: (cb: () => void) => {
+    const listener = () => cb();
+    ipcRenderer.on("showbiz:project_document", listener);
+    return () => ipcRenderer.removeListener("showbiz:project_document", listener);
+  },
+  onDocumentAction: (cb: (action: "new" | "open" | "save" | "save_as" | "close") => void) => {
+    const listener = (_event: unknown, action: "new" | "open" | "save" | "save_as" | "close") => cb(action);
+    ipcRenderer.on("showbiz:document_action", listener);
+    return () => ipcRenderer.removeListener("showbiz:document_action", listener);
+  },
   onApplicationWork: (cb: (status: ApplicationWorkStatus) => void) => {
     const listener = (_event: unknown, status: ApplicationWorkStatus) => cb(status);
     ipcRenderer.on("showbiz:application_work", listener);
@@ -24,11 +44,4 @@ contextBridge.exposeInMainWorld("showbiz", {
     ipcRenderer.invoke("showbiz:invoke", cmd, args),
   readMediaBytes: (relativePath: string) =>
     ipcRenderer.invoke("showbiz:read-media-bytes", relativePath),
-  // Native export progress: main forwards ffmpeg percent here. Returns an
-  // unsubscribe so the renderer can detach when an export ends.
-  onExportProgress: (cb: (payload: { percent: number }) => void) => {
-    const listener = (_event: unknown, payload: { percent: number }) => cb(payload);
-    ipcRenderer.on("showbiz:export-progress", listener);
-    return () => ipcRenderer.removeListener("showbiz:export-progress", listener);
-  },
 });

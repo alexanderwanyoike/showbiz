@@ -1,3 +1,4 @@
+import type { GenerationObserver } from "../../../shared/generation-output";
 import type {
   ImageModelId,
   VideoModelId,
@@ -93,14 +94,16 @@ function videoConfigToProvider(config: VideoModelConfig): VideoModelProvider {
       prompt: string,
       imageBase64: string | null,
       apiKey: string,
-      settings?: VideoGenerationSettings
+      settings?: VideoGenerationSettings,
+      observer?: GenerationObserver
     ): Promise<string> {
       const blob = await transport.generateVideo(
         config,
         prompt,
         imageBase64,
         apiKey,
-        settings ?? config.defaults
+        settings ?? config.defaults,
+        observer
       );
       return blobToBase64(blob);
     },
@@ -109,27 +112,30 @@ function videoConfigToProvider(config: VideoModelConfig): VideoModelProvider {
       prompt: string,
       imageBase64: string | null,
       apiKey: string,
-      settings?: VideoGenerationSettings
+      settings?: VideoGenerationSettings,
+      observer?: GenerationObserver
     ): Promise<Blob> {
       return transport.generateVideo(
         config,
         prompt,
         imageBase64,
         apiKey,
-        settings ?? config.defaults
+        settings ?? config.defaults,
+        observer
       );
     },
 
-    async generateVideoFromRequest(request, apiKey): Promise<Blob> {
+    async generateVideoFromRequest(request, apiKey, observer): Promise<Blob> {
       if (transport.generateVideoRequest) {
-        return transport.generateVideoRequest(config, request, apiKey);
+        return transport.generateVideoRequest(config, request, apiKey, observer);
       }
       return transport.generateVideo(
         config,
         request.prompt,
         request.startImage ?? null,
         apiKey,
-        request.settings
+        request.settings,
+        observer
       );
     },
   };
@@ -148,8 +154,8 @@ function imageConfigToProvider(config: ImageModelConfig): ImageModelProvider {
     supportsInpainting: config.supportsInpainting,
     modeCapabilities: imageModeCapabilities(config),
 
-    async generateImage(prompt: string, apiKey: string): Promise<string> {
-      return transport.generateImage(config, prompt, apiKey);
+    async generateImage(prompt: string, apiKey: string, observer?: GenerationObserver): Promise<string> {
+      return transport.generateImage(config, prompt, apiKey, observer);
     },
   };
 
@@ -157,9 +163,10 @@ function imageConfigToProvider(config: ImageModelConfig): ImageModelProvider {
     provider.editImage = async (
       prompt: string,
       sourceImageBase64: string,
-      apiKey: string
+      apiKey: string,
+      observer?: GenerationObserver
     ): Promise<string> => {
-      return transport.editImage!(config, prompt, sourceImageBase64, apiKey);
+      return transport.editImage!(config, prompt, sourceImageBase64, apiKey, observer);
     };
   }
 
@@ -168,9 +175,10 @@ function imageConfigToProvider(config: ImageModelConfig): ImageModelProvider {
     provider.composeImage = async (
       prompt: string,
       referenceImages: string[],
-      apiKey: string
+      apiKey: string,
+      observer?: GenerationObserver
     ): Promise<string> => {
-      return transport.composeImage!(config, prompt, referenceImages, apiKey);
+      return transport.composeImage!(config, prompt, referenceImages, apiKey, observer);
     };
   }
 
