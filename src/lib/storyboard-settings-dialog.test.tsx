@@ -4,7 +4,6 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { StoryboardSettingsDialog } from "../components/StoryboardSettingsDialog";
-vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 
 afterEach(cleanup);
 it("discards a cancelled storyboard draft and retains a failed draft for retry", async () => {
