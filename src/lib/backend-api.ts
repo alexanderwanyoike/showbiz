@@ -227,7 +227,7 @@ export async function deleteStoryboard(id: string): Promise<boolean> {
   return invoke("delete_storyboard", { id });
 }
 
-export async function updateStoryboardModels(id: string, imageModel: string, videoModel: string): Promise<Storyboard> {
+export async function updateStoryboardModels(id: string, imageModel: string, videoModel: string): Promise<Storyboard | Result<never>> {
   return invoke("update_storyboard_models", { id, imageModel, videoModel });
 }
 
