@@ -51,7 +51,9 @@ export function createProjectDocumentCommands(options: {
       pending = false;
     }
   }
-  async function change(operation: () => DocumentOperation | DocumentResult<null>): DocumentOperation {
+  async function change(
+    operation: () => DocumentOperation | DocumentResult<null>,
+  ): DocumentOperation {
     if (!options.canSwitch()) return busy;
     const end = options.beginSave();
     try {

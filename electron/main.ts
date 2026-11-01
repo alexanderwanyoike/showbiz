@@ -114,7 +114,8 @@ async function registerIpc(
       : projects.invoke(command, args);
   app.on("will-quit", () => {
     const result = closeProjectStorage(projects.dispose, () => db.close());
-    if (!result.ok) console.error("Could not close project storage:", result.error.message);
+    if (!result.ok)
+      console.error("Could not close project storage:", result.error.message);
     const warning = projects.documents.warning();
     if (warning) console.warn(warning);
   });
