@@ -494,7 +494,7 @@ export default function ProjectBibleView({
     setBusyId("make-frame");
     try {
       await withApplicationWork("generation", async () => {
-        const draftKey = `frame:${JSON.stringify(recipe)}`;
+        const draftKey = "frame:creation";
         let asset = pendingAssets.current.get(draftKey);
         if (!asset || !assets.some((entry) => entry.id === asset?.id)) {
           asset = await createBibleAsset(bibleId, {
@@ -510,6 +510,15 @@ export default function ProjectBibleView({
           setAssets((prev) => [created, ...prev]);
           setVariants((prev) => ({ ...prev, [created.id]: [] }));
           pendingAssets.current.set(draftKey, asset);
+        } else if (asset.rules_json !== JSON.stringify(recipe)) {
+          asset = await updateBibleAsset(asset.id, {
+            ...asset,
+            name: recipe.prompt.slice(0, 50) || "Frame",
+            rules_json: JSON.stringify(recipe),
+          });
+          pendingAssets.current.set(draftKey, asset);
+          const updated = asset;
+          setAssets((previous) => previous.map((entry) => entry.id === updated.id ? updated : entry));
         }
         const dataUrl = await composeFromVariantIds(
           recipeVariantIds(recipe, variants),
