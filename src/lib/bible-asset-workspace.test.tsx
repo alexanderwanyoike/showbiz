@@ -150,3 +150,23 @@ it("uses one library opener that names its retained unsaved picture draft", asyn
   await user.click(opener);
   expect(screen.getByRole("textbox", { name: "Variation prompt for Ada" })).toHaveProperty("value", "Warm morning light warmer");
 });
+
+it("names picture draft actions and exposes their controlled sections even while collapsed", async () => {
+  render(<ProjectBibleView projectId="film" />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Open Ada details" }));
+  const variation = screen.getByRole("button", { name: "Variation for Ada" });
+  const edit = screen.getByRole("button", { name: "Edit picture for Ada" });
+  for (const action of [variation, edit]) {
+    expect(action.getAttribute("aria-expanded")).toBe("false");
+    const section = document.getElementById(action.getAttribute("aria-controls") ?? "");
+    expect(section).toBeTruthy();
+    expect(section?.hidden).toBe(true);
+  }
+  await user.click(variation);
+  await user.type(screen.getByRole("textbox", { name: "Variation prompt for Ada" }), " warmer");
+  const draft = screen.getByRole("button", { name: "Variation for Ada, unsaved draft" });
+  await user.click(draft);
+  expect(draft.getAttribute("aria-expanded")).toBe("false");
+  expect(document.getElementById(draft.getAttribute("aria-controls") ?? "")?.hidden).toBe(true);
+});
