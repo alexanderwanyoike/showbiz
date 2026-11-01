@@ -106,6 +106,19 @@ export interface ImageModelConfig {
   fixedParams?: Record<string, unknown>;
 }
 
+function validateMetadata(config: Record<string, unknown>, kind: "Image" | "Video") {
+  for (const field of ["name", "description"] as const) {
+    if (typeof config[field] !== "string" || (field === "name" && !config[field]))
+      throw new Error(`${kind} config "${String(config.id)}": "${field}" must be ${field === "name" ? "a non-empty string" : "a string"}`);
+  }
+  if (typeof config.enabled !== "boolean")
+    throw new Error(`${kind} config "${String(config.id)}": "enabled" must be boolean`);
+  for (const field of ["supportsEditing", "supportsInpainting", "supportsComposition"] as const) {
+    if (config[field] !== undefined && typeof config[field] !== "boolean")
+      throw new Error(`${kind} config "${String(config.id)}": "${field}" must be boolean`);
+  }
+}
+
 export function validateVideoConfig(raw: unknown): VideoModelConfig {
   const config = raw as Record<string, unknown>;
 
@@ -131,6 +144,8 @@ export function validateVideoConfig(raw: unknown): VideoModelConfig {
       );
     }
   }
+
+  validateMetadata(config, "Video");
 
   if (typeof config.id !== "string" || !config.id) {
     throw new Error(`Video config: "id" must be a non-empty string`);
@@ -220,6 +235,8 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
       );
     }
   }
+
+  validateMetadata(config, "Image");
 
   if (typeof config.id !== "string" || !config.id) {
     throw new Error(`Image config: "id" must be a non-empty string`);
