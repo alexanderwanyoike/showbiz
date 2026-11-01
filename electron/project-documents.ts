@@ -127,7 +127,10 @@ export function createProjectDocuments(options: {
       commands: options.bind(db, media),
     };
   }
-  function persist<T>(document: Pick<ActiveDocument, "db" | "archive">, operation: () => T): T {
+  function persist<T>(
+    document: Pick<ActiveDocument, "db" | "archive">,
+    operation: () => T,
+  ): T {
     document.db.exec("SAVEPOINT document_save");
     try {
       const value = operation();
@@ -156,7 +159,10 @@ export function createProjectDocuments(options: {
   }
   async function writeDocument(
     file: string,
-    populate: (temporary: string, media: string) => DatabaseSync | Promise<DatabaseSync>,
+    populate: (
+      temporary: string,
+      media: string,
+    ) => DatabaseSync | Promise<DatabaseSync>,
     restoreMedia = false,
   ): Promise<DocumentResult<ProjectDocumentInfo>> {
     const temporary = `${file}.${randomUUID()}.tmp`;
@@ -182,9 +188,19 @@ export function createProjectDocuments(options: {
         try {
           fs.linkSync(file, backup);
         } catch (cause) {
-          if (!(cause instanceof Error) || !("code" in cause) ||
-              !["EXDEV", "EPERM", "ENOTSUP", "EOPNOTSUPP", "EMLINK"].includes(String(cause.code))) throw cause;
-          fs.copyFileSync(file, backup, fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE);
+          if (
+            !(cause instanceof Error) ||
+            !("code" in cause) ||
+            !["EXDEV", "EPERM", "ENOTSUP", "EOPNOTSUPP", "EMLINK"].includes(
+              String(cause.code),
+            )
+          )
+            throw cause;
+          fs.copyFileSync(
+            file,
+            backup,
+            fs.constants.COPYFILE_EXCL | fs.constants.COPYFILE_FICLONE,
+          );
         }
         hasBackup = true;
       }
@@ -195,8 +211,9 @@ export function createProjectDocuments(options: {
       const value = activate(document);
       db = null;
       if (hasBackup) {
-        try { fs.unlinkSync(backup); }
-        catch (cause) {
+        try {
+          fs.unlinkSync(backup);
+        } catch (cause) {
           warning = `The project was saved, but its previous copy could not be removed at ${backup}: ${cause instanceof Error ? cause.message : String(cause)}`;
         }
       }
@@ -212,14 +229,23 @@ export function createProjectDocuments(options: {
         },
         () => fs.rmSync(temporary, { force: true }),
         () => release?.(),
-        () => { if (media) fs.rmSync(media, { recursive: true, force: true }); },
+        () => {
+          if (media) fs.rmSync(media, { recursive: true, force: true });
+        },
       ];
       for (const action of cleanup) {
-        try { action(); }
-        catch (error) { errors.push(`Recovery: ${error instanceof Error ? error.message : String(error)}`); }
+        try {
+          action();
+        } catch (error) {
+          errors.push(
+            `Recovery: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
       }
       return fail(new Error(errors.join("\n")));
-    } finally { busy = false; }
+    } finally {
+      busy = false;
+    }
   }
   const documents = {
     current,
@@ -232,16 +258,24 @@ export function createProjectDocuments(options: {
             options.legacy.media,
           ).get_projects()
         : [],
-    async create(filePath: string): Promise<DocumentResult<ProjectDocumentInfo>> {
-      if (busy) return fail(new Error("A project file operation is in progress."));
+    async create(
+      filePath: string,
+    ): Promise<DocumentResult<ProjectDocumentInfo>> {
+      if (busy)
+        return fail(new Error("A project file operation is in progress."));
       const file = path.resolve(filePath);
       return writeDocument(file, (temporary, media) => {
         const db = openDatabase(temporary, options.migrations);
         try {
           db.exec(`PRAGMA application_id=${DOCUMENT_APPLICATION_ID}`);
-          createProjectCommands(db, media).create_project({ name: path.basename(file, path.extname(file)) });
+          createProjectCommands(db, media).create_project({
+            name: path.basename(file, path.extname(file)),
+          });
           return db;
-        } catch (cause) { db.close(); throw cause; }
+        } catch (cause) {
+          db.close();
+          throw cause;
+        }
       });
     },
     async open(filePath: string): Promise<DocumentResult<ProjectDocumentInfo>> {
@@ -346,17 +380,29 @@ export function createProjectDocuments(options: {
         return handler(args);
       return persist(active, () => handler(args));
     },
-    async saveAs(filePath: string): Promise<DocumentResult<ProjectDocumentInfo>> {
-      if (!active || busy) return fail(new Error("Open a project and finish active file operations first."));
+    async saveAs(
+      filePath: string,
+    ): Promise<DocumentResult<ProjectDocumentInfo>> {
+      if (!active || busy)
+        return fail(
+          new Error("Open a project and finish active file operations first."),
+        );
       const file = path.resolve(filePath);
       if (file === active.file) return documents.save();
       const source = active;
-      try { persist(source, () => {}); }
-      catch (cause) { return fail(cause); }
-      return writeDocument(file, (temporary) => {
-        source.db.prepare("VACUUM INTO ?").run(temporary);
-        return openDatabase(temporary, options.migrations);
-      }, true);
+      try {
+        persist(source, () => {});
+      } catch (cause) {
+        return fail(cause);
+      }
+      return writeDocument(
+        file,
+        (temporary) => {
+          source.db.prepare("VACUUM INTO ?").run(temporary);
+          return openDatabase(temporary, options.migrations);
+        },
+        true,
+      );
     },
     async importLegacy(
       projectId: string,
@@ -374,10 +420,16 @@ export function createProjectDocuments(options: {
       )
         return fail(new Error("The existing project was not found."));
       const file = path.resolve(filePath);
-      return writeDocument(file, (temporary, media) => copyProjectDocument({
-        source: source.db, sourceMedia: source.media, file: temporary, media,
-        migrations: options.migrations, projectId,
-      }));
+      return writeDocument(file, (temporary, media) =>
+        copyProjectDocument({
+          source: source.db,
+          sourceMedia: source.media,
+          file: temporary,
+          media,
+          migrations: options.migrations,
+          projectId,
+        }),
+      );
     },
     mediaDirectory: () => active?.media ?? null,
   };

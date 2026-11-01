@@ -18,9 +18,12 @@ async function fixture() {
   const legacyDb = openDatabase(":memory:", migrations);
   const media = path.join(directory, "legacy-media");
   initMediaDirs(media);
-  const project = createProjectCommands(legacyDb, media).create_project({ name: "Legacy film" });
+  const project = createProjectCommands(legacyDb, media).create_project({
+    name: "Legacy film",
+  });
   const documents = createProjectDocuments({
-    legacy: { db: legacyDb, media }, migrations,
+    legacy: { db: legacyDb, media },
+    migrations,
     recentPath: path.join(directory, "recent.json"),
     bind: (db, files) => createProjectCommands(db, files),
   });
@@ -32,7 +35,13 @@ async function fixture() {
   const original = path.join(directory, "Source.showbiz");
   const created = await documents.create(original);
   if (!created.ok) throw new Error(created.error.message);
-  return { directory, documents, project, original, originalProjectId: created.value.project_id };
+  return {
+    directory,
+    documents,
+    project,
+    original,
+    originalProjectId: created.value.project_id,
+  };
 }
 
 it.each(["create", "saveAs", "importLegacy"] as const)(
@@ -41,16 +50,26 @@ it.each(["create", "saveAs", "importLegacy"] as const)(
     const source = await fixture();
     const previous = await fixture();
     await previous.documents.close();
-    const result = operation === "importLegacy"
-      ? await source.documents.importLegacy(source.project.id, previous.original)
-      : await source.documents[operation](previous.original);
+    const result =
+      operation === "importLegacy"
+        ? await source.documents.importLegacy(
+            source.project.id,
+            previous.original,
+          )
+        : await source.documents[operation](previous.original);
     expect(result).toMatchObject({ ok: true });
     if (!result.ok) throw new Error(result.error.message);
     expect(result.value.project_id).not.toBe(previous.originalProjectId);
     if (operation !== "create")
-      expect(result.value.project_id).toBe(operation === "importLegacy" ? source.project.id : source.originalProjectId);
+      expect(result.value.project_id).toBe(
+        operation === "importLegacy"
+          ? source.project.id
+          : source.originalProjectId,
+      );
     expect(source.documents.current()?.file_path).toBe(previous.original);
-    expect(source.documents.current()?.name).toBe(operation === "importLegacy" ? "Legacy film" : "Source");
+    expect(source.documents.current()?.name).toBe(
+      operation === "importLegacy" ? "Legacy film" : "Source",
+    );
     expect((await source.documents.close()).ok).toBe(true);
     expect((await previous.documents.open(previous.original)).ok).toBe(true);
   },
@@ -67,5 +86,7 @@ it("keeps the previous target bytes and current project if activation cannot sav
   expect(result).toMatchObject({ ok: false });
   expect(fs.readFileSync(previous.original)).toEqual(before);
   expect(source.documents.current()?.file_path).toBe(source.original);
-  expect(await source.documents.invoke("get_projects")).toMatchObject([{name:"Source"}]);
+  expect(await source.documents.invoke("get_projects")).toMatchObject([
+    { name: "Source" },
+  ]);
 });
