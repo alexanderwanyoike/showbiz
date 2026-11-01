@@ -20,10 +20,22 @@ export function WorkspaceCommand({
       variant="ghost"
       size="icon-sm"
       {...props}
-      disabled={disabled}
-      className={`workspace-command ${className}`}
+      className={`workspace-command ${disabled ? "opacity-50" : ""} ${className}`}
       aria-label={label}
-      aria-hidden={disabled ? true : props["aria-hidden"]}
+      aria-disabled={disabled || undefined}
+      aria-description={disabled ? title : props["aria-description"]}
+      onClick={(event) => {
+        if (disabled) { event.preventDefault(); event.stopPropagation(); return; }
+        props.onClick?.(event);
+      }}
+      onPointerDown={(event) => {
+        if (disabled) { event.preventDefault(); return; }
+        props.onPointerDown?.(event);
+      }}
+      onKeyDown={(event) => {
+        if (disabled && ["Enter", " ", "ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); return; }
+        props.onKeyDown?.(event);
+      }}
     >
       {children}
     </Button>
@@ -31,22 +43,7 @@ export function WorkspaceCommand({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        {disabled ? (
-          <span
-            role="button"
-            tabIndex={0}
-            aria-label={label}
-            aria-disabled="true"
-            aria-description={title}
-            aria-expanded={props["aria-expanded"]}
-            aria-controls={props["aria-controls"]}
-            className="workspace-command-unavailable"
-          >
-            {button}
-          </span>
-        ) : (
-          button
-        )}
+        {button}
       </TooltipTrigger>
       <TooltipContent side="bottom" sideOffset={6}>
         {title ?? label}
