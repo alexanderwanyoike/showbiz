@@ -60,9 +60,6 @@ export async function exportStoryboardPackage(
       manifest.shots.push({ id: shot.id, order: shot.order, duration: shot.duration, media });
     }
     if (files.length === 0) return { ok: false, error: { code: "INVALID_INPUT", message: "This storyboard has no media to export" } };
-    if (files.some((file) => file.source === path.resolve(destination))) {
-      return { ok: false, error: { code: "INVALID_INPUT", message: "The package cannot overwrite source media" } };
-    }
     const zip = new ZipFile();
     zip.on("error", (error: Error) => (zip.outputStream as Readable).destroy(error));
     zip.addBuffer(Buffer.from(JSON.stringify(manifest, null, 2)), "storyboard.json");
