@@ -56,6 +56,7 @@ export interface ShotInspectorProps {
   frameLibraryHref?: string;
   frameError?: { role: ShotFrameRole; message: string } | null;
   frameSaving?: boolean;
+  modelSaving?: boolean;
   onDismissFrameError?: () => void;
   generationCost?: ReactNode;
   generationDisabled?: boolean;
@@ -379,6 +380,7 @@ export default function ShotInspector({
   frameLibraryHref,
   frameError,
   frameSaving = false,
+  modelSaving = false,
   onDismissFrameError,
   generationCost,
   generationDisabled = false,
@@ -458,9 +460,11 @@ export default function ShotInspector({
                       label={`Edit frame for shot ${shot.order}`}
                       disabled={
                         frameSaving ||
+                        modelSaving ||
                         !currentVersion ||
                         !imageModel?.supportsImageEditing
                       }
+                      title={modelSaving ? "Wait for the model change to finish." : frameSaving ? "Wait for the frame to finish saving." : undefined}
                       onClick={() => {
                         if (currentVersion)
                           onEditImage(shot.id, currentVersion.id);

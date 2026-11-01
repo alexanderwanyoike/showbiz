@@ -172,6 +172,7 @@ export default function StoryboardPage() {
   const [activeShotId, setActiveShotId] = useState<string | null>(null);
   const [imagePrompt, setImagePrompt] = useState("");
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [imageGenerationError, setImageGenerationError] = useState<string | null>(null);
 
   // Model Selection
   const [defaultImageModel, setDefaultImageModel] = useState<ImageModelId>(DEFAULT_STORYBOARD_MODELS.image_model);
@@ -496,8 +497,10 @@ export default function StoryboardPage() {
   // --- Image Handlers ---
 
   async function handleGenerateImage() {
-    if (!id || !activeShotId || !imagePrompt) return;
-
+    if (!id || !activeShotId || !imagePrompt.trim()) return;
+    if (modelSaving) { setImageGenerationError("Wait for the model change to finish."); return; }
+    if (!shots.some((shot) => shot.id === activeShotId)) { setImageGenerationError("This shot no longer exists."); return; }
+    setImageGenerationError(null);
     setIsGeneratingImage(true);
     try {
       await withApplicationWork("generation", async () => {
@@ -525,7 +528,7 @@ export default function StoryboardPage() {
       });
     } catch (error) {
       console.error("Image generation failed", error);
-      alert("Failed to generate image");
+      setImageGenerationError(error instanceof Error ? error.message : "Could not generate this image. Try again.");
     } finally {
       setIsGeneratingImage(false);
     }
@@ -647,10 +650,12 @@ export default function StoryboardPage() {
     // Open the image generation modal with the version as context
     setActiveShotId(shotId);
     setImagePrompt("");
+    setImageGenerationError(null);
     setIsModalOpen(true);
   }
 
   async function handleOpenEditModal(shotId: string, versionId: string) {
+    if (modelSaving) { setModelError("Wait for the model change to finish."); return; }
     const version = shotCurrentVersions[shotId];
     if (!version) return;
     imageEditOpener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -667,6 +672,8 @@ export default function StoryboardPage() {
 
   async function handleEditImage() {
     if (!id) return;
+    if (modelSaving) { setImageEditError("Wait for the model change to finish."); return; }
+    if (!shots.some((shot) => shot.id === editModalState.shotId)) { setImageEditError("This shot no longer exists."); return; }
     const { shotId, versionId } = editModalState;
     if (isEditingImage || !shotId || !versionId || !editPrompt.trim()) return;
 
@@ -985,6 +992,7 @@ export default function StoryboardPage() {
               frameLibraryHref={`/project/${storyboard.project_id}?view=bible&bibleTab=frames`}
               generationDisabled={modelSaving || videoSettingsSaving || !!selectedVideoDraft || !!(selectedShotId && (pendingVideoShots.has(selectedShotId) || savingFrameShots.has(selectedShotId) || frameErrors[selectedShotId]))}
               frameError={selectedShotId ? frameErrors[selectedShotId] : null}
+              modelSaving={modelSaving}
               frameSaving={!!(selectedShotId && savingFrameShots.has(selectedShotId))}
               onDismissFrameError={()=>{if(selectedShotId)setFrameErrors((previous)=>{const next={...previous};delete next[selectedShotId];return next;});}}
               generationPending={!!(selectedShotId && pendingVideoShots.has(selectedShotId))}
@@ -1046,7 +1054,7 @@ export default function StoryboardPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Generate Image with {imageModels.find((m) => m.id === imageModel)?.name}
+              Generate Image with {imageModels.find((m) => m.id === resolveShotModels(shots.find((shot) => shot.id === activeShotId), defaultModels).image_model)?.name ?? "an available model"}
             </DialogTitle>
             <DialogDescription>
               Describe the scene you want to generate for this shot.
@@ -1064,6 +1072,7 @@ export default function StoryboardPage() {
               autoFocus
             />
           </div>
+          {imageGenerationError && <p role="alert" className="text-sm text-destructive">{imageGenerationError}</p>}
           <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model} request={{kind: "image"}} subject={{project_id: storyboard?.project_id, subject_id: activeShotId ?? undefined}} />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
@@ -1071,7 +1080,7 @@ export default function StoryboardPage() {
             </Button>
             <Button
               onClick={handleGenerateImage}
-              disabled={isGeneratingImage || !imagePrompt.trim()}
+              disabled={modelSaving || isGeneratingImage || !imagePrompt.trim() || !shots.some((shot) => shot.id === activeShotId)}
             >
               {isGeneratingImage ? (
                 <>
@@ -1152,7 +1161,7 @@ export default function StoryboardPage() {
             </Button>
             <Button
               onClick={handleEditImage}
-              disabled={isEditingImage || !editPrompt.trim()}
+              disabled={modelSaving || isEditingImage || !editPrompt.trim() || !shots.some((shot) => shot.id === editModalState.shotId)}
             >
               {isEditingImage ? (
                 <>
