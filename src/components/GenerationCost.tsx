@@ -124,7 +124,7 @@ export function GenerationCost({
                 ) : estimate.price.source_kind === "published" ? (
                   <span>Published price snapshot</span>
                 ) : (
-                  "Provider API pricing (cached)"
+                  estimate.price_freshness === "live" ? "Live provider API pricing" : estimate.price_freshness === "stale" ? "Cached provider API pricing (refresh unavailable)" : "Cached provider API pricing"
                 )}{" "}
                 · {estimate.price.provider} · USD
               </p>

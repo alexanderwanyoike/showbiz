@@ -42,6 +42,7 @@ export type GenerationCostEstimate =
       max_microusd: number;
       price: GenerationPrice;
       stale: boolean;
+      price_freshness?: "live" | "cached" | "stale";
       excludes_input_cost: boolean;
     };
 const unavailable = (reason: string): GenerationCostEstimate => ({

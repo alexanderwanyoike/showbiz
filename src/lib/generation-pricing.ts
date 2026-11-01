@@ -83,6 +83,7 @@ export async function getGenerationEstimate(
         ];
     }
     let refreshUnconfirmed = false;
+    let priceFreshness: "live" | "cached" = "cached";
     let price = stored.value;
     if (price && price.provider !== config.apiKeyProvider) price = null;
     if (
@@ -133,7 +134,7 @@ export async function getGenerationEstimate(
           const currentKey = await invoke<string | null>("get_api_key", { provider: "fal" });
           if (price?.source_kind === "provider" && price.endpoint_id === endpoint && price.estimate_basis === "historical_request" && Number.isFinite(Date.parse(price.checked_at)) && currentKey === key && fresh.error.code !== "INVALID_INPUT") refreshUnconfirmed = true;
           else return { kind: "unavailable", reason: fresh.error.message };
-        } else price = fresh.value;
+        } else { price = fresh.value; priceFreshness = "live"; }
       }
     }
     const needsRefresh =
@@ -154,6 +155,7 @@ export async function getGenerationEstimate(
       if (!refreshed.ok)
         return { kind: "unavailable", reason: refreshed.error.message };
       refreshUnconfirmed = refreshed.value === null;
+      if (refreshed.value) priceFreshness = "live";
       price = refreshed.value ?? price;
       if (!price)
         return {
@@ -162,9 +164,8 @@ export async function getGenerationEstimate(
         };
     }
     const estimate = estimateGenerationCost(price, quantities);
-    return estimate.kind === "estimate" && refreshUnconfirmed
-      ? { ...estimate, stale: true }
-      : estimate;
+    if (estimate.kind !== "estimate" || estimate.price.source_kind === "manual" || estimate.price.source_kind === "published") return estimate;
+    return { ...estimate, stale: estimate.stale || refreshUnconfirmed, price_freshness: refreshUnconfirmed ? "stale" : priceFreshness };
   } catch {
     return {
       kind: "unavailable",
