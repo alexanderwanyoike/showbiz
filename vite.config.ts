@@ -1,3 +1,4 @@
+import { rendererNotices } from "./scripts/renderer-notices.mjs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
@@ -7,7 +8,7 @@ export default defineConfig({
   // Relative asset paths: packaged Electron loads index.html from a file://
   // asar path where absolute /assets/ URLs resolve nowhere.
   base: "./",
-  plugins: [react()],
+  plugins: [react(), rendererNotices()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),
