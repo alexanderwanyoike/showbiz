@@ -57,22 +57,44 @@ it("authenticates live bridge identity without dispatching application commands 
   }
 });
 
-
 it("rejects descriptor socket paths outside the local transport namespace", () => {
- const id = randomUUID();
- const descriptor = {id, pid:process.pid,secret:"a".repeat(64)};
- for (const socket of ["\\\\host\\pipe\\x", "/tmp/other-app.sock", path.join(tmpdir(),"showbiz-mcp-abcdef", "..", "outside", "app.sock")])
-   expect(sessionSchema.safeParse({...descriptor,socket}).success).toBe(false);
+  const id = randomUUID();
+  const descriptor = { id, pid: process.pid, secret: "a".repeat(64) };
+  for (const socket of [
+    "\\\\host\\pipe\\x",
+    "/tmp/other-app.sock",
+    path.join(tmpdir(), "showbiz-mcp-abcdef", "..", "outside", "app.sock"),
+  ])
+    expect(sessionSchema.safeParse({ ...descriptor, socket }).success).toBe(
+      false,
+    );
 });
 
 it("only accepts the descriptor's own local Windows pipe", () => {
- const nativeProcess = process;
- const id = randomUUID();
- try {
-   vi.stubGlobal("process", {...nativeProcess, platform:"win32"});
-   const descriptor = {id,pid: nativeProcess.pid,secret:"a".repeat(64)};
-   expect(sessionSchema.safeParse({...descriptor,socket:`\\\\.\\pipe\\showbiz-${id}`}).success).toBe(true);
-   expect(sessionSchema.safeParse({...descriptor,socket:`\\\\host\\pipe\\showbiz-${id}`}).success).toBe(false);
-   expect(sessionSchema.safeParse({...descriptor,socket:`\\\\.\\pipe\\showbiz-${randomUUID()}`}).success).toBe(false);
- } finally { vi.unstubAllGlobals(); }
+  const nativeProcess = process;
+  const id = randomUUID();
+  try {
+    vi.stubGlobal("process", { ...nativeProcess, platform: "win32" });
+    const descriptor = { id, pid: nativeProcess.pid, secret: "a".repeat(64) };
+    expect(
+      sessionSchema.safeParse({
+        ...descriptor,
+        socket: `\\\\.\\pipe\\showbiz-${id}`,
+      }).success,
+    ).toBe(true);
+    expect(
+      sessionSchema.safeParse({
+        ...descriptor,
+        socket: `\\\\host\\pipe\\showbiz-${id}`,
+      }).success,
+    ).toBe(false);
+    expect(
+      sessionSchema.safeParse({
+        ...descriptor,
+        socket: `\\\\.\\pipe\\showbiz-${randomUUID()}`,
+      }).success,
+    ).toBe(false);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
