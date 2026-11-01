@@ -147,20 +147,6 @@ export function createProjectDocuments(options: {
     try {
       const value = operation();
       document.archive.sync();
-      const embedded = new Set(
-        document.db
-          .prepare("SELECT path FROM document_files")
-          .all()
-          .map((row) => row.path),
-      );
-      if (
-        documentMediaPaths(document.db).some(
-          (relative) => !embedded.has(relative),
-        )
-      )
-        throw new Error(
-          "A referenced media file could not be included in the project.",
-        );
       document.db.exec("RELEASE document_save");
       return value;
     } catch (cause) {
