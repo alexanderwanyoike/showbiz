@@ -3,9 +3,28 @@ import path from "node:path";
 
 // This release and upstream omit a standalone licence text:
 // https://github.com/develar/lazy-val/tree/b69ad4119f1b19bdab13c61ee2fcc88d46b89071
-const upstreamLicensePackages = new Set(["@radix-ui/react-use-size@1.1.1", "@radix-ui/react-context@1.1.2", "@radix-ui/number@1.1.1", "@radix-ui/react-compose-refs@1.1.2", "@radix-ui/react-direction@1.1.1", "@radix-ui/react-use-rect@1.1.1", "@radix-ui/react-use-layout-effect@1.1.1", "@radix-ui/react-use-previous@1.1.1", "@radix-ui/rect@1.1.1", "@radix-ui/react-id@1.1.1", "@radix-ui/react-use-callback-ref@1.1.1", "@radix-ui/react-use-escape-keydown@1.1.1"]);
+const upstreamLicensePackages = new Set([
+  "@radix-ui/react-use-size@1.1.1",
+  "@radix-ui/react-context@1.1.2",
+  "@radix-ui/number@1.1.1",
+  "@radix-ui/react-compose-refs@1.1.2",
+  "@radix-ui/react-direction@1.1.1",
+  "@radix-ui/react-use-rect@1.1.1",
+  "@radix-ui/react-use-layout-effect@1.1.1",
+  "@radix-ui/react-use-previous@1.1.1",
+  "@radix-ui/rect@1.1.1",
+  "@radix-ui/react-id@1.1.1",
+  "@radix-ui/react-use-callback-ref@1.1.1",
+  "@radix-ui/react-use-escape-keydown@1.1.1",
+]);
 
-const declaredLicenseOnly = new Map([["lazy-val@1.0.5", {license:"MIT",repository:"develar/lazy-val"}], ["react-remove-scroll-bar@2.3.8", {license:"MIT",repository:"theKashey/react-remove-scroll-bar"}]]);
+const declaredLicenseOnly = new Map([
+  ["lazy-val@1.0.5", { license: "MIT", repository: "develar/lazy-val" }],
+  [
+    "react-remove-scroll-bar@2.3.8",
+    { license: "MIT", repository: "theKashey/react-remove-scroll-bar" },
+  ],
+]);
 
 export async function collectBundleNotices(metafile, root = process.cwd()) {
   const project = await realpath(root);
@@ -53,10 +72,19 @@ export async function collectBundleNotices(metafile, root = process.cwd()) {
         if (cause.code !== "ENOENT") throw cause;
       }
     }
-    if (!license && metadata.license === "MIT" && upstreamLicensePackages.has(`${metadata.name}@${metadata.version}`)) {
-      license = await readFile(new URL("./licenses/radix-ui-MIT.txt", import.meta.url), "utf8");
+    if (
+      !license &&
+      metadata.license === "MIT" &&
+      upstreamLicensePackages.has(`${metadata.name}@${metadata.version}`)
+    ) {
+      license = await readFile(
+        new URL("./licenses/radix-ui-MIT.txt", import.meta.url),
+        "utf8",
+      );
     }
-    const declared = declaredLicenseOnly.get(`${metadata.name}@${metadata.version}`);
+    const declared = declaredLicenseOnly.get(
+      `${metadata.name}@${metadata.version}`,
+    );
     if (!license && declared?.license === metadata.license) {
       license = `License declared in published package.json: ${declared.license}\nAuthor: ${metadata.author}\nRepository: ${declared.repository}\nNo standalone license text was supplied by this release. This entry retains the published metadata without inventing a copyright notice.`;
     }

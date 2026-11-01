@@ -99,9 +99,12 @@ test("retains a symlinked dependency resolved outside node_modules and omits the
 });
 
 test("emits readable renderer notices for React and Radix alongside the packaged frontend", () => {
-  execFileSync("yarn", ["build:frontend"], {cwd:root,stdio:"pipe"});
-  const text = readFileSync(path.join(root,"dist/THIRD_PARTY_NOTICES.txt"),"utf8");
-  assert.match(text,/react \d/);
-  assert.match(text,/@radix-ui\/react-dialog \d/);
-  assert.match(text,/Permission is hereby granted, free of charge/);
+  execFileSync("yarn", ["build:frontend"], { cwd: root, stdio: "pipe" });
+  const text = readFileSync(
+    path.join(root, "dist/THIRD_PARTY_NOTICES.txt"),
+    "utf8",
+  );
+  assert.match(text, /react \d/);
+  assert.match(text, /@radix-ui\/react-dialog \d/);
+  assert.match(text, /Permission is hereby granted, free of charge/);
 });
