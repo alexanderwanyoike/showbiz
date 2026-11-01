@@ -178,3 +178,14 @@ it("retains distinct cached prices for different endpoints of the same model and
     expect(commands.get_generation_price({ kind: "video", model_id: base.model_id, endpoint_id: "fal-ai/veo3.1/image-to-video" })).toMatchObject({ ok: true, value: { endpoint_id: "fal-ai/veo3.1/image-to-video", rates: [{ microusd: 2000000 }] } });
   } finally { db.close(); }
 });
+
+it("rejects a delayed account-specific cache write after its device key changes", async () => {
+  const { createSettingsCommands } = await import("./settings");
+  const db = openTestDb();
+  try {
+    const commands = createSettingsCommands(db);
+    commands.save_api_key({ provider: "fal", apiKey: "fixture-key-new" });
+    expect(commands.save_generation_price({ kind: "image", account_key: "fixture-key-old", price: { provider: "fal", model_id: "account-specific-fal", currency: "USD", source_kind: "provider", source_url: "https://api.fal.ai/v1/models/pricing/estimate", endpoint_id: "fixture/endpoint", checked_at: new Date().toISOString(), rates: [{ unit: "request", microusd: 23000 }] } })).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
+    expect(commands.get_generation_price({ kind: "image", model_id: "account-specific-fal", endpoint_id: "fixture/endpoint" })).toMatchObject({ ok: true, value: null });
+  } finally { db.close(); }
+});
