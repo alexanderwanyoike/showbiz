@@ -1,3 +1,5 @@
+import { readKieResponse } from "./kie-response";
+export { parseKieError } from "./kie-response";
 import { fetch } from "./http";
 
 const KIE_API_BASE = "https://api.kie.ai";
@@ -7,16 +9,11 @@ const POLL_INITIAL_MS = 3000;
 const POLL_MAX_MS = 10000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
-export function parseKieError(code: number, msg: string): string {
-  if (code === 401) return "Invalid kie.ai API key.";
-  if (code === 402) return "Insufficient kie.ai credits. Please top up your account.";
-  if (code === 429) return "kie.ai rate limit exceeded. Please try again later.";
-  if (msg) return msg;
-  return `kie.ai error (code ${code})`;
-}
-
 // Upload a base64 image to kie hosting, returns the CDN download URL.
-export async function uploadImageToKie(imageBase64: string, apiKey: string): Promise<string> {
+export async function uploadImageToKie(
+  imageBase64: string,
+  apiKey: string,
+): Promise<string> {
   const base64Data = imageBase64.startsWith("data:")
     ? imageBase64
     : `data:image/png;base64,${imageBase64}`;
@@ -34,12 +31,9 @@ export async function uploadImageToKie(imageBase64: string, apiKey: string): Pro
     }),
   });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`kie.ai image upload failed (${res.status}): ${text}`);
-  }
-
-  const json = await res.json();
+  const parsed = await readKieResponse(res);
+  if (!parsed.ok) throw new Error(parsed.error.message);
+  const json = parsed.value;
   const url: string | undefined = json?.data?.downloadUrl;
   if (!url) {
     throw new Error("kie.ai image upload returned no downloadUrl");
@@ -51,7 +45,7 @@ export async function uploadImageToKie(imageBase64: string, apiKey: string): Pro
 export async function createKieTask(
   model: string,
   input: Record<string, unknown>,
-  apiKey: string
+  apiKey: string,
 ): Promise<string> {
   const res = await fetch(`${KIE_API_BASE}/api/v1/jobs/createTask`, {
     method: "POST",
@@ -62,11 +56,9 @@ export async function createKieTask(
     body: JSON.stringify({ model, input }),
   });
 
-  const json = await res.json();
-
-  if (!res.ok || json.code !== 200) {
-    throw new Error(parseKieError(json.code ?? res.status, json.msg ?? json.message ?? ""));
-  }
+  const parsed = await readKieResponse(res);
+  if (!parsed.ok) throw new Error(parsed.error.message);
+  const json = parsed.value;
 
   const taskId: string | undefined = json?.data?.taskId;
   if (!taskId) {
@@ -76,7 +68,10 @@ export async function createKieTask(
 }
 
 // Poll a kie.ai task until it succeeds, returns the first result URL.
-export async function pollKieTask(taskId: string, apiKey: string): Promise<string> {
+export async function pollKieTask(
+  taskId: string,
+  apiKey: string,
+): Promise<string> {
   const start = Date.now();
   let interval = POLL_INITIAL_MS;
 
@@ -88,21 +83,19 @@ export async function pollKieTask(taskId: string, apiKey: string): Promise<strin
       `${KIE_API_BASE}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
       {
         headers: { Authorization: `Bearer ${apiKey}` },
-      }
+      },
     );
 
-    const json = await res.json();
-
-    if (!res.ok || (json.code !== undefined && json.code !== 200)) {
-      throw new Error(parseKieError(json.code ?? res.status, json.msg ?? json.message ?? ""));
-    }
+    const parsedResponse = await readKieResponse(res);
+    if (!parsedResponse.ok) throw new Error(parsedResponse.error.message);
+    const json = parsedResponse.value;
 
     const state: string = json?.data?.state ?? "";
 
     if (state === "success") {
       let resultUrls: string[] = [];
       try {
-        const parsed = JSON.parse(json.data.resultJson ?? "{}");
+        const parsed = JSON.parse(json.data?.resultJson ?? "{}");
         resultUrls = parsed.resultUrls ?? [];
       } catch {
         // fall through
@@ -114,7 +107,9 @@ export async function pollKieTask(taskId: string, apiKey: string): Promise<strin
     }
 
     if (state === "fail") {
-      throw new Error(`kie.ai generation failed: ${json?.data?.failMsg ?? "unknown error"}`);
+      throw new Error(
+        `kie.ai generation failed: ${json?.data?.failMsg ?? "unknown error"}`,
+      );
     }
 
     // states: waiting, queuing, generating — keep polling
@@ -129,7 +124,7 @@ export async function generateKieVideoBlob(
   input: Record<string, unknown>,
   imageBase64: string | null,
   apiKey: string,
-  imageInputKey = "image_urls"
+  imageInputKey = "image_urls",
 ): Promise<Blob> {
   const resolvedInput = { ...input };
 

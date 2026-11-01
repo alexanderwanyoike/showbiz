@@ -274,8 +274,8 @@ describe("create_storyboard", () => {
     expect(storyboard.id.startsWith("sb-")).toBe(true);
     expect(storyboard.project_id).toBe(projectId);
     expect(storyboard.name).toBe("SB");
-    expect(storyboard.image_model).toBe("imagen4");
-    expect(storyboard.video_model).toBe("veo3");
+    expect(storyboard.image_model).toBe("nano-banana-2");
+    expect(storyboard.video_model).toBe("seedance-2-fal");
     expect(typeof storyboard.created_at).toBe("string");
   });
 });

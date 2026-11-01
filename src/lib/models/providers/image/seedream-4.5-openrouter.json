@@ -1,0 +1,17 @@
+{
+  "id": "seedream-4.5-openrouter",
+  "name": "Seedream 4.5",
+  "description": "Seedream 4.5 generation and reference editing through OpenRouter.",
+  "transport": "openrouter-image",
+  "enabled": true,
+  "apiKeyProvider": "openrouter",
+  "provider": "OpenRouter",
+  "modelFamily": "seedream-4.5",
+  "models": {
+    "generate": "bytedance-seed/seedream-4.5",
+    "edit": "bytedance-seed/seedream-4.5"
+  },
+  "supportsEditing": true,
+  "supportsInpainting": false,
+  "supportsComposition": true
+}
