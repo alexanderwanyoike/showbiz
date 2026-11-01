@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createElement } from "react";
+import { createElement, createRef } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
@@ -56,4 +56,24 @@ it("also exposes the disabled reason on pointer hover", async () => {
   expect(
     await screen.findByRole("tooltip", { name: "Choose a shot first." }),
   ).toBeTruthy();
+});
+
+it("preserves the command node, ref and keyboard focus when availability changes", async () => {
+  const ref = createRef<HTMLButtonElement>();
+  const action = vi.fn();
+  const view = (disabled: boolean) => createElement(WorkspaceCommand, { ref, label: "Export", disabled, title: "Export is running.", onClick: action }, "Export");
+  const { rerender } = render(view(false));
+  const user = userEvent.setup();
+  await user.tab();
+  const command = screen.getByRole("button", { name: "Export" });
+  rerender(view(true));
+  expect(screen.getByRole("button", { name: "Export" })).toBe(command);
+  expect(ref.current).toBe(command);
+  expect(document.activeElement).toBe(command);
+  await user.keyboard("{Enter} ");
+  expect(action).not.toHaveBeenCalled();
+  rerender(view(false));
+  expect(ref.current).toBe(command);
+  await user.keyboard("{Enter}");
+  expect(action).toHaveBeenCalledTimes(1);
 });
