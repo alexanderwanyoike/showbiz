@@ -335,3 +335,13 @@
     animation: none;
   }
 }
+.usage-refresh-error {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--destructive) 45%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--destructive) 10%, var(--surface-panel));
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
