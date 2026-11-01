@@ -14,6 +14,7 @@ interface ToolDefinition {
   schema: z.ZodObject;
   command: string;
   mutates: boolean;
+  requestTimeoutMs?: number;
   args: (input: Record<string, unknown>) => Record<string, unknown>;
 }
 const aliases: Record<string, string> = {
@@ -259,10 +260,14 @@ export const mcpTools: ToolDefinition[] = [
     "Select an existing video take belonging to this shot.",
     true,
   ),
-  define(
-    "export_storyboard_package",
-    { storyboard_id: id, format: z.enum(["zip", "sbz"]) },
-    "Export selected media using Showbiz's save dialog. Requires the storyboard package feature.",
-    true,
-  ),
+  {
+    ...define(
+      "export_storyboard_package",
+      { storyboard_id: id, format: z.enum(["zip", "sbz"]) },
+      "Export storyboard media using the native save dialog. Retry a pending result with the same request ID; reads remain available while the dialog is open.",
+      true,
+    ),
+    requestTimeoutMs: 300000,
+    args: (input) => ({storyboard_id: input.storyboard_id, format: input.format}),
+  },
 ];
