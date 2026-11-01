@@ -11,7 +11,7 @@ it("keeps price overrides on the device before, during and after a project is op
     path.join(os.tmpdir(), "showbiz-price-runtime-"),
   );
   const db = openTestDb();
-  const runtime = createProjectRuntime({
+  const runtime = createProjectRuntime({ modelDirectory: path.resolve("src/lib/models/providers"),
     appDirectory: directory,
     legacyDb: db,
     migrations: loadMigrations(path.resolve("electron/migrations")),
@@ -61,7 +61,7 @@ it("reconciles an open document with the device provider key rather than a porta
   const db = openTestDb();
   const http = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({ billing_events: [{ request_id: "fal-job", cost_total: 0.02 }], has_more: false, next_cursor: null })));
   vi.stubGlobal("fetch", http);
-  const runtime = createProjectRuntime({ appDirectory: directory, legacyDb: db, migrations: loadMigrations(path.resolve("electron/migrations")), exports: () => ({}), chooseOpen: async () => null, chooseSave: async (name) => path.join(directory, name), canSwitch: () => true, beginSave: () => () => {}, changed: () => {} });
+  const runtime = createProjectRuntime({ modelDirectory: path.resolve("src/lib/models/providers"), appDirectory: directory, legacyDb: db, migrations: loadMigrations(path.resolve("electron/migrations")), exports: () => ({}), chooseOpen: async () => null, chooseSave: async (name) => path.join(directory, name), canSwitch: () => true, beginSave: () => () => {}, changed: () => {} });
   try {
     await runtime.invoke("save_api_key", { provider: "fal", apiKey: "device-only-key" });
     await runtime.invoke("create_project_document");

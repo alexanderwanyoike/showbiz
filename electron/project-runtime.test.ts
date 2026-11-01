@@ -12,7 +12,7 @@ it("keeps provider credentials application-wide while commands follow only the o
     path.join(os.tmpdir(), "showbiz-document-runtime-"),
   );
   const db = openTestDb();
-  const runtime = createProjectRuntime({
+  const runtime = createProjectRuntime({ modelDirectory: path.resolve("src/lib/models/providers"),
     appDirectory: directory,
     legacyDb: db,
     migrations: loadMigrations(path.resolve("electron/migrations")),

@@ -1,3 +1,5 @@
+import type { ReadGenerationModels } from "./generation-models";
+import { validateStoryboardModels } from "./storyboard-model-validation";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import type { Result } from "../../shared/result";
@@ -9,7 +11,7 @@ const settingsSchema = z.strictObject({
   image_model: z.string().trim().min(1).max(200),
   video_model: z.string().trim().min(1).max(200),
 });
-export function createStoryboardSettingsCommands(db: DatabaseSync) {
+export function createStoryboardSettingsCommands(db: DatabaseSync, readGenerationModels: ReadGenerationModels) {
   return {
     update_storyboard_settings(
       args?: Record<string, unknown>,
@@ -25,6 +27,8 @@ export function createStoryboardSettingsCommands(db: DatabaseSync) {
         };
       try {
         const value = parsed.data;
+        const models = validateStoryboardModels(readGenerationModels, value.image_model, value.video_model);
+        if (!models.ok) return models;
         const updated = db
           .prepare(
             "UPDATE storyboards SET name = ?, image_model = ?, video_model = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *",
