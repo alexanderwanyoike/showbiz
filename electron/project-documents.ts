@@ -163,7 +163,10 @@ export function createProjectDocuments(options: {
       const absolute = path.resolve(filePath);
       const file = fs.existsSync(absolute)
         ? fs.realpathSync(absolute)
-        : path.join(fs.realpathSync(path.dirname(absolute)), path.basename(absolute));
+        : path.join(
+            fs.realpathSync(path.dirname(absolute)),
+            path.basename(absolute),
+          );
       return { ok: true, value: file };
     } catch (cause) {
       return fail(cause);
