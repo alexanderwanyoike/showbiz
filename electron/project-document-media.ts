@@ -10,11 +10,20 @@ const stamp = (file: string) => {
   const stat = fs.statSync(file, { bigint: true });
   return `${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`;
 };
-export function createDocumentMedia(db: DatabaseSync, directory: string) {
+interface DocumentMedia {
+  sync(): void;
+  restore(): void;
+  rebind(db: DatabaseSync): DocumentMedia;
+}
+export function createDocumentMedia(
+  db: DatabaseSync,
+  directory: string,
+  initialStamps: ReadonlyMap<string, string> = new Map(),
+): DocumentMedia {
   db.exec(`CREATE TABLE IF NOT EXISTS document_files (path TEXT PRIMARY KEY, size INTEGER NOT NULL CHECK(size >= 0));
     CREATE TABLE IF NOT EXISTS document_file_chunks (path TEXT NOT NULL REFERENCES document_files(path) ON DELETE CASCADE, sequence INTEGER NOT NULL, data BLOB NOT NULL, PRIMARY KEY(path, sequence));
     PRAGMA secure_delete = ON;`);
-  let stamps = new Map<string, string>();
+  let stamps = new Map(initialStamps);
   function target(relative: unknown): string {
     if (
       typeof relative !== "string" ||
@@ -55,6 +64,9 @@ export function createDocumentMedia(db: DatabaseSync, directory: string) {
     return file;
   }
   return {
+    rebind(database) {
+      return createDocumentMedia(database, directory, stamps);
+    },
     sync() {
       const paths = documentMediaPaths(db);
       const next = new Map<string, string>();
