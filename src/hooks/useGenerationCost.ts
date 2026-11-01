@@ -28,15 +28,20 @@ export function useGenerationCost(
   const requestKey = JSON.stringify(request);
   const family = request.kind === "video" ? "video" : "image";
   useEffect(() => {
-    const notice = subject?.project_id ? getAccountingNotice(subject.project_id, subject.subject_id, family) : undefined;
-    setAccountingWarning(notice?.warnings.length ? notice.warnings.join(" ") : null);
+    const notice = subject?.project_id
+      ? getAccountingNotice(subject.project_id, subject.subject_id, family)
+      : undefined;
+    setAccountingWarning(
+      notice?.warnings.length ? notice.warnings.join(" ") : null,
+    );
     activeAccountingRequest.current = notice?.request_id ?? null;
     const usageChanged = (event: Event) => {
       const detail = (event as CustomEvent<GenerationUsageChangedDetail>)
         .detail;
       if (
         detail?.project_id === subject?.project_id &&
-        (!subject?.subject_id || detail?.subject_id === subject.subject_id) && (!detail.kind_family || detail.kind_family === family)
+        (!subject?.subject_id || detail?.subject_id === subject.subject_id) &&
+        (!detail.kind_family || detail.kind_family === family)
       ) {
         if (detail.started) activeAccountingRequest.current = detail.request_id;
         if (
@@ -100,5 +105,9 @@ export function useGenerationCost(
       stopped = true;
     };
   }, [subject?.project_id, subject?.subject_id, family, historyRefresh]);
-  return { estimate, last, error: [accountingWarning, error].filter(Boolean).join(" ") || null };
+  return {
+    estimate,
+    last,
+    error: [accountingWarning, error].filter(Boolean).join(" ") || null,
+  };
 }

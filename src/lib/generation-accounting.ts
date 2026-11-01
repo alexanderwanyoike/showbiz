@@ -30,7 +30,13 @@ function notify(
   warnings: string[] = [],
   started = false,
 ) {
-  retainAccountingNotice({ ...request, request_id: requestId, warnings, started, kind_family: request.kind === "video" ? "video" : "image" });
+  retainAccountingNotice({
+    ...request,
+    request_id: requestId,
+    warnings,
+    started,
+    kind_family: request.kind === "video" ? "video" : "image",
+  });
   if (typeof window !== "undefined")
     window.dispatchEvent(
       new CustomEvent<GenerationUsageChangedDetail>("showbiz:usage-changed", {
@@ -132,7 +138,9 @@ export async function runAccountedGeneration<T>(
       })
         .then((reconciled) => {
           const messages = reconciled.ok
-            ? reconciled.value.notes.filter((note) => note.kind !== "pending").map((note) => note.message)
+            ? reconciled.value.notes
+                .filter((note) => note.kind !== "pending")
+                .map((note) => note.message)
             : [reconciled.error.message];
           notify(request, request_id, [...warnings, ...messages]);
         })

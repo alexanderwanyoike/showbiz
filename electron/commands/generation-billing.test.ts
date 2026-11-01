@@ -449,17 +449,53 @@ it("retains only a credential fingerprint in billing cooldown entries", async ()
   const db = openTestDb();
   const writes = vi.spyOn(Map.prototype, "set");
   try {
-    db.prepare("INSERT INTO projects(id,name) VALUES ('fingerprint','Film')").run();
+    db.prepare(
+      "INSERT INTO projects(id,name) VALUES ('fingerprint','Film')",
+    ).run();
     const usage = createGenerationUsageCommands(db);
-    usage.begin_generation_usage({ request_id: "fingerprint-request", project_id: "fingerprint", provider: "fal", model_id: "flux", kind: "image" });
-    usage.record_generation_receipt({ request_id: "fingerprint-request", provider_request_id: "job", reported_microusd: null });
-    usage.finish_generation_usage({ request_id: "fingerprint-request", status: "completed" });
+    usage.begin_generation_usage({
+      request_id: "fingerprint-request",
+      project_id: "fingerprint",
+      provider: "fal",
+      model_id: "flux",
+      kind: "image",
+    });
+    usage.record_generation_receipt({
+      request_id: "fingerprint-request",
+      provider_request_id: "job",
+      reported_microusd: null,
+    });
+    usage.finish_generation_usage({
+      request_id: "fingerprint-request",
+      status: "completed",
+    });
     const secret = "test-only-credential-not-for-retention";
-    const commands = createGenerationBillingCommands(db, () => secret, vi.fn<typeof fetch>().mockResolvedValue(new Response("denied", { status: 403 })));
-    expect(await commands.sync_generation_charges({ project_id: "fingerprint" })).toMatchObject({ ok: true });
-    const retained = writes.mock.calls.map(([, value]) => value).filter(value => value && typeof value === "object" && "until" in value && "message" in value);
+    const commands = createGenerationBillingCommands(
+      db,
+      () => secret,
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response("denied", { status: 403 })),
+    );
+    expect(
+      await commands.sync_generation_charges({ project_id: "fingerprint" }),
+    ).toMatchObject({ ok: true });
+    const retained = writes.mock.calls
+      .map(([, value]) => value)
+      .filter(
+        (value) =>
+          value &&
+          typeof value === "object" &&
+          "until" in value &&
+          "message" in value,
+      );
     expect(retained).toHaveLength(1);
     expect(JSON.stringify(retained)).not.toContain(secret);
-    expect(retained[0]).toMatchObject({ credential_id: createHash("sha256").update(secret).digest("hex") });
-  } finally { writes.mockRestore(); db.close(); }
+    expect(retained[0]).toMatchObject({
+      credential_id: createHash("sha256").update(secret).digest("hex"),
+    });
+  } finally {
+    writes.mockRestore();
+    db.close();
+  }
 });

@@ -25,7 +25,12 @@ export function createGenerationBillingCommands(
 ) {
   const retryAfter = new Map<
     string,
-    { credential_id: string | null; until: number; message: string; kind?: "pending" | "failure" }
+    {
+      credential_id: string | null;
+      until: number;
+      message: string;
+      kind?: "pending" | "failure";
+    }
   >();
   const inFlight = new Map<string, Promise<Result<GenerationBillingSync>>>();
   async function reconcile(
@@ -46,7 +51,12 @@ export function createGenerationBillingCommands(
         credentials.set("fal", readKey("fal-billing") ?? readKey("fal"));
       if (candidates.some((row) => row.provider === "openrouter"))
         credentials.set("openrouter", readKey("openrouter"));
-      const credentialIds = new Map([...credentials].map(([provider, key]) => [provider, key ? createHash("sha256").update(key).digest("hex") : null]));
+      const credentialIds = new Map(
+        [...credentials].map(([provider, key]) => [
+          provider,
+          key ? createHash("sha256").update(key).digest("hex") : null,
+        ]),
+      );
       const notes: GenerationBillingSync["notes"] = [];
       const identity = (row: PendingCharge) =>
         JSON.stringify([project_id, row.request_id]);
@@ -58,7 +68,11 @@ export function createGenerationBillingCommands(
           cached.credential_id === credentialIds.get(row.provider) &&
           cached.until > Date.now()
         ) {
-          notes.push({ request_id: row.request_id, message: cached.message, kind: cached.kind });
+          notes.push({
+            request_id: row.request_id,
+            message: cached.message,
+            kind: cached.kind,
+          });
           return false;
         }
         return true;
