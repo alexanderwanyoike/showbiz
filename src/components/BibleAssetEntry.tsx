@@ -29,6 +29,7 @@ export function BibleAssetEntry({
   asset,
   takes,
   busy,
+  generating,
   builtFrom,
   usesReferenceImages,
   basePrompt,
@@ -51,6 +52,7 @@ export function BibleAssetEntry({
   asset: BibleAsset;
   takes: BibleAssetVariant[];
   busy: boolean;
+  generating: boolean;
   builtFrom: string | null;
   usesReferenceImages: boolean;
   basePrompt: string;
@@ -150,7 +152,7 @@ export function BibleAssetEntry({
           <div>
             <strong>{asset.name}</strong>
             <span>
-              {pending ? (
+              {pending || generating ? (
                 <span role="status" aria-label={`Generating picture for ${asset.name}`}>
                   Generating…
                 </span>

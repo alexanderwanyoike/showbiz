@@ -157,6 +157,7 @@ export default function ProjectBibleView({
   const setImageModel = generationModel?.onChange ?? setLocalImageModel;
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [generatingAssetId, setGeneratingAssetId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<BibleDeletion | null>(null);
   const [deletionOpen, setDeletionOpen] = useState(false);
@@ -301,6 +302,7 @@ export default function ProjectBibleView({
             const updated = asset;
             setAssets((previous) => previous.map((entry) => entry.id === updated.id ? updated : entry));
           }
+          if (!file && prompt.trim()) setGeneratingAssetId(asset.id);
           if (file) {
             await addVariant(asset.id, await fileToDataUrl(file), {
               name: file.name,
@@ -322,6 +324,7 @@ export default function ProjectBibleView({
       setError(message);
       return { ok: false, error: { code: "IO_ERROR", message } };
     } finally {
+      setGeneratingAssetId(null);
       setBusyId(null);
     }
   }
@@ -525,6 +528,7 @@ export default function ProjectBibleView({
           const updated = asset;
           setAssets((previous) => previous.map((entry) => entry.id === updated.id ? updated : entry));
         }
+        setGeneratingAssetId(asset.id);
         const dataUrl = await composeFromVariantIds(
           recipeVariantIds(recipe, variants),
           recipe.prompt,
@@ -548,6 +552,7 @@ export default function ProjectBibleView({
       setError(message);
       return { ok: false, error: { code: "IO_ERROR", message } };
     } finally {
+      setGeneratingAssetId(null);
       setBusyId(null);
     }
   }
@@ -782,6 +787,7 @@ export default function ProjectBibleView({
                 assets={assetTab === "characters" ? characters : locations}
                 variants={variants}
                 busyId={busyId}
+                generatingAssetId={generatingAssetId}
                 onNew={handleNewAsset}
                 onClearDraft={() => {
                   for (const key of pendingAssets.current.keys())
@@ -825,6 +831,7 @@ export default function ProjectBibleView({
               frames={frames}
               variants={variants}
               busyId={busyId}
+              generatingAssetId={generatingAssetId}
               onMakeFrame={handleMakeFrame}
               onClearDraft={() => {
                 for (const key of pendingAssets.current.keys())
@@ -893,6 +900,7 @@ function AssetTab({
   assets,
   variants,
   busyId,
+  generatingAssetId,
   onNew,
   onClearDraft,
   onRetake,
@@ -918,6 +926,7 @@ function AssetTab({
   assets: BibleAsset[];
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
+  generatingAssetId: string | null;
   onNew: (
     type: "character" | "location",
     name: string,
@@ -1103,6 +1112,7 @@ function AssetTab({
                   modelControl={detailModelControl}
                   takes={takes}
                   busy={busyId !== null}
+                  generating={generatingAssetId === asset.id}
                   builtFrom={null}
                   usesReferenceImages={assetReferences(asset, variants).length > 0}
                   basePrompt={primaryPicture(takes)?.prompt ?? ""}
@@ -1142,6 +1152,7 @@ function FramesTab({
   frames,
   variants,
   busyId,
+  generatingAssetId,
   onMakeFrame,
   onClearDraft,
   onRetake,
@@ -1166,6 +1177,7 @@ function FramesTab({
   frames: BibleAsset[];
   variants: Record<string, BibleAssetVariant[]>;
   busyId: string | null;
+  generatingAssetId: string | null;
   onMakeFrame: (recipe: FrameRecipe) => Promise<Result<void>>;
   onClearDraft: () => void;
   onRetake: (
@@ -1480,6 +1492,7 @@ function FramesTab({
                 modelControl={detailModelControl}
                 takes={(variants[f.id] ?? []).filter((v) => v.media_url)}
                 busy={busyId !== null}
+                generating={generatingAssetId === f.id}
                 builtFrom={builtFromLabel(f, characters, locations)}
                 usesReferenceImages={assetReferences(f, variants).length > 0}
                 basePrompt={
