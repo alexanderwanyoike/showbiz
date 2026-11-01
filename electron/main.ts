@@ -1,3 +1,4 @@
+import { closeProjectStorage } from "./project-shutdown";
 import {
   createProjectFileOpening,
   projectFileArguments,
@@ -112,8 +113,10 @@ async function registerIpc(
       ? updateHandler(command, args)
       : projects.invoke(command, args);
   app.on("will-quit", () => {
-    void projects.dispose();
-    db.close();
+    const result = closeProjectStorage(projects.dispose, () => db.close());
+    if (!result.ok) console.error("Could not close project storage:", result.error.message);
+    const warning = projects.documents.warning();
+    if (warning) console.warn(warning);
   });
 
   const session = createMcpSession(
