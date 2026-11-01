@@ -74,7 +74,7 @@ export function GenerationCost({
           ? "Estimating cost…"
           : estimate.kind === "estimate"
             ? `Estimated${estimate.price.estimate_basis === "historical_request" ? " (provider history)" : ""} ~${formatGenerationEstimate(estimate.min_microusd, estimate.max_microusd)}`
-            : modelId.startsWith("local-")
+            : provider === "local"
               ? "Local running cost not estimated"
               : "Estimate unavailable"}
       </output>
