@@ -270,3 +270,22 @@ it("reuses the incomplete creation entry after its name and prompt are corrected
   expect(screen.queryByRole("button", { name: "Open Ada details" })).toBeNull();
   expect(screen.getByRole("button", { name: "Open Ada Lovelace details" })).toBeTruthy();
 });
+
+it("keeps the incomplete frame when its failed recipe is corrected", async () => {
+  render(createElement(ProjectBibleView, { projectId: "film", initialTab: "frames" }));
+  const user = userEvent.setup();
+  const prompt = await screen.findByRole("textbox", { name: "Frame prompt" });
+  await user.type(prompt, "At the window");
+  await user.click(screen.getByRole("button", { name: "Generate frame" }));
+  await screen.findByText("Provider unavailable");
+  await user.type(prompt, " at sunrise");
+  await user.click(screen.getByRole("button", { name: "Generate frame" }));
+  await screen.findByText("Provider unavailable");
+  expect(createBibleAsset).toHaveBeenCalledTimes(1);
+  const calls = vi.mocked(generateImageAction).mock.calls;
+  expect(calls[1][2]?.subject_id).toBe(calls[0][2]?.subject_id);
+  expect(updateBibleAsset).toHaveBeenCalledWith(calls[0][2]?.subject_id, expect.objectContaining({
+    name: "At the window at sunrise",
+    rules_json: JSON.stringify({ characters: [], location: null, locationVariantId: null, prompt: "At the window at sunrise" }),
+  }));
+});
