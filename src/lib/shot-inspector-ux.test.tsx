@@ -367,14 +367,17 @@ it("keeps take history available without displacing generation inputs", async ()
   expect(screen.getByRole("combobox", { name: "Video duration" })).toBeTruthy();
 });
 it.each([
-  [true, "Wait for frame selection to finish saving."],
-  [false, "Choose a saved frame take before editing this frame."],
+  [false, true, "Wait for frame selection to finish saving."],
+  [false, false, "Choose a saved frame take before editing this frame."],
+  [true, true, "Wait for the model change to finish."],
+  [true, false, "Wait for the model change to finish."],
 ] as const)(
-  "explains frame editing prerequisites when frame saving is %s",
-  async (frameSaving, reason) => {
+  "explains frame editing prerequisites when model saving is %s and frame saving is %s",
+  async (modelSaving, frameSaving, reason) => {
     const props = {
       ...inspectorProps("seedance-2-fal"),
       frameSaving,
+      modelSaving,
       imageModel: getAvailableImageModels().find(
         (model) => model.supportsImageEditing,
       ),
