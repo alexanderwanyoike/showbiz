@@ -57,3 +57,93 @@ it("saves an explicit user rate for the selected provider and settings on this d
     db.close();
   }
 });
+
+it("removes only the custom rate for the displayed resolution and audio settings", async () => {
+  const db = openTestDb();
+  try {
+    const commands: Record<
+      string,
+      (args?: Record<string, unknown>) => unknown
+    > = createGenerationPricingCommands(db);
+    native.invoke.mockImplementation(async (command, args) =>
+      commands[command]?.(args),
+    );
+    const second = {
+      unit: "second" as const,
+      kind: "video" as const,
+      microusd: 200000,
+      resolution: "1080p",
+      audio: true,
+    };
+    const price = {
+      provider: "openrouter",
+      model_id: "veo-3.1-openrouter",
+      currency: "USD" as const,
+      source_kind: "manual" as const,
+      source_url: "",
+      checked_at: new Date().toISOString(),
+      rates: [
+        {
+          unit: "second" as const,
+          kind: "video" as const,
+          microusd: 100000,
+          resolution: "720p",
+          audio: false,
+        },
+        second,
+      ],
+    };
+    commands.save_generation_price({ kind: "video", price });
+    render(
+      createElement(GenerationRateEditor, {
+        modelId: price.model_id,
+        provider: price.provider,
+        request: { kind: "video", resolution: "720p", audio: false },
+        price,
+      }),
+    );
+    await userEvent
+      .setup()
+      .click(
+        screen.getByRole("button", {
+          name: "Remove custom rate for these settings",
+        }),
+      );
+    expect(
+      await screen.findByText("Custom rate removed for these settings."),
+    ).toBeTruthy();
+    expect(
+      commands.get_generation_price({
+        model_id: price.model_id,
+        kind: "video",
+      }),
+    ).toMatchObject({ ok: true, value: { rates: [second] } });
+  } finally {
+    db.close();
+  }
+});
+
+it("makes a shared custom rate's wider scope explicit before removing it", async () => {
+  native.invoke.mockResolvedValue({ ok: true, value: null });
+  render(
+    createElement(GenerationRateEditor, {
+      modelId: "veo-3.1-openrouter",
+      provider: "openrouter",
+      request: { kind: "video", resolution: "720p", audio: false },
+      price: {
+        provider: "openrouter",
+        model_id: "veo-3.1-openrouter",
+        currency: "USD",
+        source_kind: "manual",
+        source_url: "",
+        checked_at: new Date().toISOString(),
+        rates: [{ unit: "second", microusd: 100000 }],
+      },
+    }),
+  );
+  expect(screen.getByText("All resolutions · Any audio setting")).toBeTruthy();
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Remove shared custom rate" }));
+  expect(await screen.findByText("Shared custom rate removed.")).toBeTruthy();
+});

@@ -1,7 +1,13 @@
 import type { DatabaseSync } from "node:sqlite";
-import { generationPriceSchema } from "../../shared/generation-price-schema";
+import {
+  generationPriceSchema,
+  generationRateScopeSchema,
+} from "../../shared/generation-price-schema";
 import { providerPrices } from "../../shared/provider-prices";
-import type { GenerationPrice } from "../../shared/generation-cost";
+import {
+  generationRateSignature,
+  type GenerationPrice,
+} from "../../shared/generation-cost";
 import type { Result } from "../../shared/result";
 
 type Args = Record<string, unknown>;
@@ -41,11 +47,18 @@ export function createGenerationPricingCommands(db: DatabaseSync) {
     get_generation_price(args: Args = {}): Result<GenerationPrice | null> {
       return run(() => {
         if (!idValid(args.model_id) || !kindValid(args.kind)) return invalid();
+        if (
+          args.include_manual !== undefined &&
+          typeof args.include_manual !== "boolean"
+        )
+          return invalid();
         const suffix = `${args.kind}:${args.model_id}`;
         return {
           ok: true,
           value:
-            read(`generation_price:${suffix}`) ??
+            (args.include_manual === false
+              ? null
+              : read(`generation_price:${suffix}`)) ??
             read(`generation_price_cache:${suffix}`) ??
             providerPrices.find((price) => price.model_id === args.model_id) ??
             null,
@@ -63,17 +76,12 @@ export function createGenerationPricingCommands(db: DatabaseSync) {
             : "generation_price_cache";
         if (price.source_kind === "manual") {
           const previous = read(`${prefix}:${args.kind}:${price.model_id}`);
-          const signature = (rate: GenerationPrice["rates"][number]) =>
-            JSON.stringify([
-              rate.unit,
-              rate.kind ?? null,
-              rate.resolution ?? null,
-              rate.audio ?? null,
-            ]);
-          const updated = new Set(price.rates.map(signature));
+          const updated = new Set(price.rates.map(generationRateSignature));
           const retained =
             previous?.provider === price.provider
-              ? previous.rates.filter((rate) => !updated.has(signature(rate)))
+              ? previous.rates.filter(
+                  (rate) => !updated.has(generationRateSignature(rate)),
+                )
               : [];
           const combined = generationPriceSchema.safeParse({
             ...price,
@@ -94,9 +102,20 @@ export function createGenerationPricingCommands(db: DatabaseSync) {
     clear_generation_price(args: Args = {}): Result<null> {
       return run(() => {
         if (!idValid(args.model_id) || !kindValid(args.kind)) return invalid();
-        db.prepare("DELETE FROM settings WHERE key = ?").run(
-          `generation_price:${args.kind}:${args.model_id}`,
+        const scope = generationRateScopeSchema.safeParse(args.rate_scope);
+        if (!scope.success) return invalid();
+        const key = `generation_price:${args.kind}:${args.model_id}`;
+        const previous = read(key);
+        if (!previous) return { ok: true, value: null };
+        const signature = generationRateSignature(scope.data);
+        const rates = previous.rates.filter(
+          (rate) => generationRateSignature(rate) !== signature,
         );
+        if (rates.length)
+          db.prepare(
+            "UPDATE settings SET value = ?, updated_at = CURRENT_TIMESTAMP WHERE key = ?",
+          ).run(JSON.stringify({ ...previous, rates }), key);
+        else db.prepare("DELETE FROM settings WHERE key = ?").run(key);
         return { ok: true, value: null };
       });
     },

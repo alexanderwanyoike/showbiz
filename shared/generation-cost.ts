@@ -48,19 +48,32 @@ const unavailable = (reason: string): GenerationCostEstimate => ({
   kind: "unavailable",
   reason,
 });
-export function estimateGenerationCost(
-  price: GenerationPrice | null,
+export function generationRateSignature(
+  rate: Pick<GenerationPriceRate, "unit" | "kind" | "resolution" | "audio">,
+): string {
+  return JSON.stringify([
+    rate.unit,
+    rate.kind ?? null,
+    rate.resolution ?? null,
+    rate.audio ?? null,
+  ]);
+}
+export function generationRateMatchesRequest(
+  rate: GenerationPriceRate,
   request: GenerationCostRequest,
-  now = Date.now(),
-): GenerationCostEstimate {
-  if (!price)
-    return unavailable("A provider rate is not available for this model.");
-  const matching = price.rates.filter(
-    (rate) =>
-      (rate.resolution === undefined ||
-        rate.resolution === request.resolution) &&
-      (rate.audio === undefined || rate.audio === request.audio) &&
-      (rate.kind === undefined || rate.kind === request.kind),
+): boolean {
+  return (
+    (rate.resolution === undefined || rate.resolution === request.resolution) &&
+    (rate.audio === undefined || rate.audio === request.audio) &&
+    (rate.kind === undefined || rate.kind === request.kind)
+  );
+}
+export function selectGenerationRate(
+  price: GenerationPrice,
+  request: GenerationCostRequest,
+): GenerationPriceRate | null {
+  const matching = price.rates.filter((rate) =>
+    generationRateMatchesRequest(rate, request),
   );
   const specificity = (rate: GenerationPriceRate) =>
     Number(rate.resolution !== undefined) +
@@ -68,11 +81,20 @@ export function estimateGenerationCost(
     Number(rate.kind !== undefined);
   const rank = Math.max(...matching.map(specificity));
   const best = matching.filter((rate) => specificity(rate) === rank);
-  if (best.length !== 1)
+  return best.length === 1 ? best[0] : null;
+}
+export function estimateGenerationCost(
+  price: GenerationPrice | null,
+  request: GenerationCostRequest,
+  now = Date.now(),
+): GenerationCostEstimate {
+  if (!price)
+    return unavailable("A provider rate is not available for this model.");
+  const rate = selectGenerationRate(price, request);
+  if (!rate)
     return unavailable(
       "A rate is not available for these generation settings.",
     );
-  const rate = best[0];
   if (!Number.isSafeInteger(rate.microusd) || rate.microusd < 0)
     return unavailable("The provider rate is invalid.");
   const maximum = rate.max_microusd ?? rate.microusd;
