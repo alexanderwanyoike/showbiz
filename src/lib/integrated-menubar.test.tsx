@@ -257,7 +257,7 @@ it("uses the macOS global menu without duplicating its row inside the window", a
 });
 it("explains guarded File commands instead of silently disabling both entry points", async () => {
   const { applicationWork } = await import("./application-work");
-  applicationWork.receive({ active: [], unsaved: ["prompt"], closing: false });
+  applicationWork.receive({ active: [], unsaved: ["draft"], closing: false });
   try {
     start();
     const user = userEvent.setup();

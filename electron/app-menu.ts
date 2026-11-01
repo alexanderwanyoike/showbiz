@@ -1,52 +1,32 @@
+import type { MenuItemConstructorOptions } from "electron";
+import type { ApplicationMenuAction, DesktopPlatform, DesktopMenuCommand } from "../shared/desktop-shell";
+import { menuAccelerator, type DocumentMenuAction } from "../shared/menu-shortcuts";
+interface ApplicationMenuItem {
+  label?: string;
+  role?: MenuItemConstructorOptions["role"];
+  type?: "separator";
+  accelerator?: string;
+  click?: () => void;
+  submenu?: ApplicationMenuItem[];
+}
 export function projectApplicationMenu(
-  send: (action: "new" | "open" | "save" | "save_as" | "close") => void,
-) {
-  return [
-    {
-      label: "&File",
-      submenu: [
-        {
-          label: "New Project…",
-          accelerator: "CmdOrCtrl+N",
-          click: () => send("new"),
-        },
-        {
-          label: "Open Project…",
-          accelerator: "CmdOrCtrl+O",
-          click: () => send("open"),
-        },
-        { type: "separator" as const },
-        {
-          label: "Save",
-          accelerator: "CmdOrCtrl+S",
-          click: () => send("save"),
-        },
-        {
-          label: "Save As…",
-          accelerator: "CmdOrCtrl+Shift+S",
-          click: () => send("save_as"),
-        },
-        { type: "separator" as const },
-        {
-          label: "Close Project",
-          accelerator: "CmdOrCtrl+Shift+W",
-          click: () => send("close"),
-        },
-        { type: "separator" as const },
-        { role: "quit" as const },
-      ],
-    },
-    { role: "editMenu" as const },
-    {
-      label: "&View",
-      submenu: [
-        { role: "resetZoom" as const },
-        { role: "zoomIn" as const },
-        { role: "zoomOut" as const },
-        { type: "separator" as const },
-        { role: "togglefullscreen" as const },
-      ],
-    },
-    { role: "windowMenu" as const },
+  send: (action: DocumentMenuAction) => void,
+  options: { platform: DesktopPlatform; sendApplicationAction: (action: ApplicationMenuAction) => void } = { platform: "linux", sendApplicationAction: () => {} },
+): ApplicationMenuItem[] {
+  const { platform, sendApplicationAction } = options;
+  const separator: ApplicationMenuItem = { type: "separator" };
+  const file = (label: string, action: DocumentMenuAction): ApplicationMenuItem => ({ label, accelerator: menuAccelerator(action, platform), click: () => send(action) });
+  const command = (role: ApplicationMenuItem["role"], shortcut: DesktopMenuCommand): ApplicationMenuItem => ({ role, accelerator: menuAccelerator(shortcut, platform) });
+  const appAction = (label: string, action: ApplicationMenuAction): ApplicationMenuItem => ({ label, click: () => sendApplicationAction(action) });
+  const menu: ApplicationMenuItem[] = [
+    { label: "&File", submenu: [file("New Project…", "new"), file("Open Project…", "open"), separator, file("Save", "save"), file("Save As…", "save_as"), separator, file("Close Project", "close"), ...(platform === "darwin" ? [] : [separator, command("quit", "quit")])] },
+    { label: "&Edit", submenu: [command("undo", "undo"), command("redo", "redo"), separator, command("cut", "cut"), command("copy", "copy"), command("paste", "paste"), separator, command("selectAll", "select_all")] },
+    { label: "&View", submenu: [command("resetZoom", "zoom_reset"), command("zoomIn", "zoom_in"), command("zoomOut", "zoom_out"), separator, command("togglefullscreen", "toggle_fullscreen"), ...(platform === "darwin" ? [separator, appAction("Appearance…", "appearance")] : [])] },
+    { role: "windowMenu" },
   ];
+  if (platform === "darwin") {
+    menu.unshift({ role: "appMenu", submenu: [{ role: "about" }, separator, { ...appAction("Settings…", "settings"), accelerator: "Command+," }, separator, { role: "services" }, separator, { role: "hide" }, { role: "hideOthers" }, { role: "unhide" }, separator, command("quit", "quit")] });
+    menu.push({ label: "Help", submenu: [appAction("Keyboard Shortcuts…", "shortcuts"), appAction("Check for Updates…", "updates")] });
+  }
+  return menu;
 }

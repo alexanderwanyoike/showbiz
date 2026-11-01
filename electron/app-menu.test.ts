@@ -24,11 +24,11 @@ it("keeps native View accelerators aligned with the integrated zoom and fullscre
   const { projectApplicationMenu } = await import("./app-menu");
   const menu = projectApplicationMenu(vi.fn());
   expect(menu.find((item) => item.label === "&View")?.submenu).toEqual([
-    { role: "resetZoom" },
-    { role: "zoomIn" },
-    { role: "zoomOut" },
+    { role: "resetZoom", accelerator: "CmdOrCtrl+0" },
+    { role: "zoomIn", accelerator: "CmdOrCtrl+Plus" },
+    { role: "zoomOut", accelerator: "CmdOrCtrl+-" },
     { type: "separator" },
-    { role: "togglefullscreen" },
+    { role: "togglefullscreen", accelerator: "F11" },
   ]);
   expect(menu).not.toContainEqual({ role: "viewMenu" });
 });

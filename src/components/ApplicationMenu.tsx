@@ -1,3 +1,4 @@
+import { menuShortcutLabel } from "../../shared/menu-shortcuts";
 import {
   useCallback,
   useEffect,
@@ -11,9 +12,7 @@ import {
   captureMenuEditor,
   restoreMenuEditor,
   isMacDesktop,
-  menuShortcut,
-  redoShortcut,
-  fullscreenShortcut,
+  desktopPlatform,
 } from "../lib/menu-editor";
 import type { DesktopMenuCommand } from "../../shared/desktop-shell";
 export type MenuSettingsSection = "providers" | "appearance" | "updates";
@@ -33,6 +32,9 @@ export function ApplicationMenu({
   const activeMenu = useRef("");
   const deferred = useRef<(() => void) | null>(null);
   const mac = isMacDesktop();
+  const platform = desktopPlatform();
+  const nativeMac = window.showbiz?.desktop?.platform === "darwin";
+  const shortcut = (command: DesktopMenuCommand) => menuShortcutLabel(command, platform);
   const native = !!window.showbiz?.runMenuCommand;
   const capture = useCallback(() => {
     const next = captureMenuEditor();
@@ -40,6 +42,7 @@ export function ApplicationMenu({
     setEditor(next);
   }, []);
   useEffect(() => {
+    if (nativeMac) return;
     let altOnly = false;
     const focusMenu = () => {
       if (!root.current?.contains(document.activeElement)) capture();
@@ -86,15 +89,24 @@ export function ApplicationMenu({
       )
         capture();
     };
+    const resetAlt = () => { altOnly = false; };
+    window.addEventListener("blur", resetAlt);
+    window.addEventListener("pointerdown", resetAlt);
     window.addEventListener("keydown", keyDown);
     window.addEventListener("keyup", keyUp);
     document.addEventListener("focusin", focusIn);
     return () => {
+      window.removeEventListener("blur", resetAlt);
+      window.removeEventListener("pointerdown", resetAlt);
       window.removeEventListener("keydown", keyDown);
       window.removeEventListener("keyup", keyUp);
       document.removeEventListener("focusin", focusIn);
     };
-  }, [mac, capture]);
+  }, [mac, nativeMac, capture]);
+  useEffect(() => window.showbiz?.onApplicationMenuAction?.((action) => {
+    if (action === "shortcuts") onShortcuts();
+    else onSettings(action === "settings" ? "providers" : action);
+  }), [onSettings, onShortcuts]);
   function nativeAction(command: DesktopMenuCommand, restore = false) {
     const target = editorRef.current;
     deferred.current = () => {
@@ -151,7 +163,7 @@ export function ApplicationMenu({
     commandId: DesktopMenuCommand,
     shortcut: string,
     disabled = false,
-    restore = false,
+    restore = true,
   ) => (
     <Menubar.Item
       className="app-menu-item"
@@ -166,6 +178,7 @@ export function ApplicationMenu({
     </Menubar.Item>
   );
   const separator = <Menubar.Separator className="app-menu-separator" />;
+  if (nativeMac) return null;
   return (
     <Menubar.Root
       ref={root}
@@ -215,30 +228,30 @@ export function ApplicationMenu({
             {command(
               "Undo",
               "undo",
-              menuShortcut("Z", mac),
+              shortcut("undo"),
               !editor.writable,
               true,
             )}
-            {command("Redo", "redo", redoShortcut(), !editor.writable, true)}
+            {command("Redo", "redo", shortcut("redo"), !editor.writable, true)}
             {separator}
             {command(
               "Cut",
               "cut",
-              menuShortcut("X", mac),
+              shortcut("cut"),
               !editor.writable || !editor.selected,
               true,
             )}
             {command(
               "Copy",
               "copy",
-              menuShortcut("C", mac),
+              shortcut("copy"),
               !editor.selected,
               true,
             )}
             {command(
               "Paste",
               "paste",
-              menuShortcut("V", mac),
+              shortcut("paste"),
               !editor.writable,
               true,
             )}
@@ -246,7 +259,7 @@ export function ApplicationMenu({
             {command(
               "Select All",
               "select_all",
-              menuShortcut("A", mac),
+              shortcut("select_all"),
               !editor.editable,
               true,
             )}
@@ -259,14 +272,14 @@ export function ApplicationMenu({
         </Menubar.Trigger>
         {content(
           <>
-            {command("Zoom In", "zoom_in", menuShortcut("+", mac))}
-            {command("Zoom Out", "zoom_out", menuShortcut("-", mac))}
-            {command("Actual Size", "zoom_reset", menuShortcut("0", mac))}
+            {command("Zoom In", "zoom_in", shortcut("zoom_in"))}
+            {command("Zoom Out", "zoom_out", shortcut("zoom_out"))}
+            {command("Actual Size", "zoom_reset", shortcut("zoom_reset"))}
             {separator}
             {command(
               "Toggle Full Screen",
               "toggle_fullscreen",
-              fullscreenShortcut(),
+              shortcut("toggle_fullscreen"),
             )}
             {separator}
             <Menubar.Item

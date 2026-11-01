@@ -43,7 +43,6 @@ function DocumentWorkspace() {
         {document.current && (
           <WorkspaceCommand
             label="Project navigator"
-            aria-pressed={navigatorOpen}
             aria-expanded={navigatorOpen}
             aria-controls="project-navigation-panel"
             onClick={() =>

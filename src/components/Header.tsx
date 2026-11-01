@@ -1,3 +1,4 @@
+import { useTitlebarArea } from "../hooks/useTitlebarArea";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AppMark } from "./AppMark";
 import { Download, Settings } from "lucide-react";
@@ -27,6 +28,7 @@ export function Header({
   const chrome = useRef<HTMLElement>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [menuError, setMenuError] = useState<string | null>(null);
+  const titlebarArea = useTitlebarArea();
   const titlebar = useTitlebarAppearance(chrome);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
@@ -48,6 +50,7 @@ export function Header({
   return (
     <header
       ref={chrome}
+      style={titlebarArea}
       className="desktop-chrome integrated-titlebar"
       data-native-titlebar={
         window.showbiz?.desktop?.customTitlebar ? "true" : "false"

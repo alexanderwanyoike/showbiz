@@ -23,3 +23,5 @@ export interface DesktopTitleBarAppearance {
   color: string;
   symbolColor: string;
 }
+
+export type ApplicationMenuAction = "settings" | "appearance" | "shortcuts" | "updates";
