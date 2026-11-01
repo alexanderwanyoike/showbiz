@@ -22,10 +22,5 @@ This follows the existing Showbiz shot workspace's main preview, take browser an
 
 Maintained regressions cover linked-tab selection, independent drafts, retry identity after corrections, deliberate remount recovery, deleted location references, local model capability gates, pending-library status, read-only preview, accessible draft disclosures and deletion exit/focus. Current test/build results and rendered evidence belong in the relevant PR under Tested.
 
-Actual-renderer verification uses a disposable self-contained project with uploaded local sample pictures: five character takes, three location takes and four takes for one frame. All three entry types open detail sections. Manual checks cover creation-draft retention, variation-draft retention across library/detail visits, native take selection/order/focus, full-image preview and Escape focus, take-delete confirmation and cancellation, frame prompt reuse, and inline variation cancellation focus.
 
-A missing-key variation request preserves the draft, current picture and five existing takes. The real project ledger remains empty; no provider response or charge is fabricated and no paid generation is performed. Uploaded sample provenance remains labelled as uploaded, with an unrecorded model rather than an invented one.
-
-Screenshots show native light/dark at 1280x720 and the actual renderer in a 760x640 iframe. The compact workspace scrolls from preview/takes to metadata/actions. The iframe verifies renderer layout, not operating system window resizing.
-
-The packaged Linux desktop build is launched separately with a temporary Chromium profile; its native process and command bridge are verified. The existing desktop project is left open and unchanged. Caption-button clicks, native dragging/resizing and Windows/macOS appearance cannot be manually exercised with the available browser controls.
+Rendered verification should exercise the library/detail round trip, independent draft retention, native take ordering and selection, preview and deletion focus, generation failure recovery, and compact layouts. Record the specific fixture, screenshots, build results and platform limits in the PR rather than carrying a historical run forward in this guide.
