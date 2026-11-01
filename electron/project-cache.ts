@@ -40,6 +40,16 @@ export function createProjectCache(directory: string) {
         };
       }
     },
+    remove(media: string): void {
+      const folder = path.dirname(media);
+      if (
+        path.dirname(folder) !== directory ||
+        !path.basename(folder).startsWith("open-") ||
+        path.basename(media) !== "media"
+      )
+        throw new Error("Invalid project cache workspace.");
+      fs.rmSync(folder, { recursive: true, force: true });
+    },
     create(): string {
       fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
       const folder = fs.mkdtempSync(path.join(directory, "open-"));
@@ -53,7 +63,9 @@ export function createProjectCache(directory: string) {
         fs.rmSync(folder, { recursive: true, force: true });
         throw cause;
       }
-      return folder;
+      const media = path.join(folder, "media");
+      fs.mkdirSync(media, { mode: 0o700 });
+      return media;
     },
   };
 }
