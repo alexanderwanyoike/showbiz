@@ -289,3 +289,18 @@ it("keeps the incomplete frame when its failed recipe is corrected", async () =>
     rules_json: JSON.stringify({ characters: [], location: null, locationVariantId: null, prompt: "At the window at sunrise" }),
   }));
 });
+
+it("shows generation progress on a newly created entry before its first picture arrives", async () => {
+  let fail: ((error: Error) => void) | undefined;
+  vi.mocked(generateImageAction).mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  await user.type(await screen.findByRole("textbox", { name: "Character name" }), "Ada");
+  await user.type(screen.getByRole("textbox", { name: "Character prompt" }), "A portrait");
+  await user.click(screen.getByRole("button", { name: "Generate character" }));
+  try {
+    expect(await screen.findByRole("status", { name: "Generating picture for Ada" })).toBeTruthy();
+  } finally { fail?.(new Error("Provider unavailable")); }
+  await screen.findByText("Provider unavailable");
+  expect(screen.queryByRole("status", { name: "Generating picture for Ada" })).toBeNull();
+});
