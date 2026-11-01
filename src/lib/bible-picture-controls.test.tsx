@@ -356,3 +356,21 @@ it("keeps the deletion target stable while its dialog exits", async () => {
     style.remove();
   }
 });
+
+it("keeps generation progress visible on its library entry after leaving details", async () => {
+  let fail: ((error: Error) => void) | undefined;
+  vi.mocked(editImageAction).mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+  render(createElement(ProjectBibleView, { projectId: "film" }));
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Open Ada details" }));
+  await user.click(screen.getByRole("button", { name: /^Edit picture for Ada/ }));
+  await user.type(screen.getByRole("textbox", { name: "Edit instruction for Ada" }), "Warmer light");
+  await user.click(screen.getByRole("button", { name: "Generate edit" }));
+  try {
+    await user.click(screen.getByRole("button", { name: "Back to library" }));
+    expect(screen.getByRole("status", { name: "Generating picture for Ada" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /^Open Ada details/ }));
+    expect(screen.getByRole("button", { name: "Generate edit" }).hasAttribute("disabled")).toBe(true);
+  } finally { fail?.(new Error("Provider unavailable")); }
+  await screen.findByText("Provider unavailable");
+});
