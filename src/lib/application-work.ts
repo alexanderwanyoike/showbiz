@@ -21,6 +21,7 @@ export function createRendererWork(send: Invoke) {
   function failed() { error = "Work status could not be confirmed. Wait for Showbiz to respond before installing an update."; publish(); }
   return {
     snapshot,
+    getLocalDrafts: () => [...drafts.values()].includes("draft"),
     getStatus: () => status,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     receive(next: ApplicationWorkStatus) { remote = next; error = null; publish(); },

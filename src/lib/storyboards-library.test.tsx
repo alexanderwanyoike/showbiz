@@ -278,3 +278,45 @@ it("retains the approved Bible draft while project metadata refreshes", async ()
     finish?.([opening]);
   });
 });
+it("does not reopen a discarded creation after its native save finishes", async () => {
+  let finish: ((value: typeof opening) => void) | undefined;
+  commands.create.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const router = createMemoryRouter([
+    { path: "*", element: createElement(Application) },
+  ]);
+  render(createElement(RouterProvider, { router }));
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "New Storyboard" }),
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: "Storyboard name" }),
+    "Late board{Enter}",
+  );
+  await act(async () => {
+    await router.navigate("/project/film?view=bible");
+  });
+  await user.click(
+    within(
+      await screen.findByRole("alertdialog", {
+        name: "Discard unsaved changes?",
+      }),
+    ).getByRole("button", { name: "Discard and continue" }),
+  );
+  await screen.findByRole("textbox", { name: "Character name" });
+  await act(async () => {
+    finish?.({ ...opening, id: "late", name: "Late board" });
+  });
+  expect(router.state.location.search).toBe("?view=bible");
+  await user.click(screen.getByRole("link", { name: "Storyboards" }));
+  expect(router.state.location.pathname).toBe("/project/film");
+  expect(
+    screen.queryByRole("region", { name: "Created storyboard canvas" }),
+  ).toBeNull();
+  router.dispose();
+});
