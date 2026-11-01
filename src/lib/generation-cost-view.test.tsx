@@ -432,3 +432,15 @@ it("shows a history read failure alongside a retained accounting warning", async
   expect(await screen.findByText(/Usage history unavailable/)).toBeTruthy();
   expect(screen.getByText(/Receipt storage unavailable/)).toBeTruthy();
 });
+it("does not turn a pending provider receipt into an accounting failure warning", async () => {
+  const { act } = await import("@testing-library/react");
+  const { runAccountedGeneration } = await import("./generation-accounting");
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockImplementation(async (command: string) => command === "sync_generation_charges" ? { ok: true, value: { checked: 1, reported: 0, notes: [{ request_id: "job", kind: "pending", message: "Provider receipt has not arrived yet." }] } } : { ok: true, value: { items: [] } });
+  render(createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" }, subject: { project_id: "pending-not-failure", subject_id: "shot" } }));
+  await act(async () => {
+    await runAccountedGeneration({ project_id: "pending-not-failure", subject_id: "shot", provider: "openrouter", model_id: "image", kind: "image", settings: {} }, { kind: "unavailable", reason: "No quote" }, async observer => { await observer.receipt({ reported_microusd: null, provider_request_id: "job" }); return "picture"; });
+  });
+  expect(mocks.invoke.mock.calls.some(([command]) => command === "sync_generation_charges")).toBe(true);
+  expect(screen.queryByText(/Provider receipt has not arrived yet/)).toBeNull();
+});
