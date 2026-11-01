@@ -60,3 +60,9 @@ it("selects project paths from command line arguments without treating flags or 
     path.resolve("relative.showbiz"),
   ]);
 });
+
+it("accepts file URLs passed by Linux desktop launchers", async () => {
+ const {pathToFileURL} = await import("node:url");
+ const file=path.resolve("A film with spaces.showbiz");
+ expect(projectFileArguments([pathToFileURL(file).href,"https://example.test/Film.showbiz"])).toEqual([file]);
+});
