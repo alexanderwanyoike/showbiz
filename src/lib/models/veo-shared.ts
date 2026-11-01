@@ -1,3 +1,4 @@
+import { veoOperationSchema } from "./veo-response";
 import { fetch } from "./http";
 import { parseGoogleApiError } from "./types";
 
@@ -98,7 +99,7 @@ export async function generateVeoVideoBlob(
     throw new Error(userMessage);
   }
 
-  const data = await response.json();
+  const data = veoOperationSchema.parse(await response.json());
   const operationName = data.name;
 
   if (!operationName) {
@@ -128,7 +129,7 @@ export async function generateVeoVideoBlob(
       continue;
     }
 
-    const pollData = await pollRes.json();
+    const pollData = veoOperationSchema.parse(await pollRes.json());
     const elapsed = Math.round((Date.now() - startTime) / 1000);
 
     console.log(

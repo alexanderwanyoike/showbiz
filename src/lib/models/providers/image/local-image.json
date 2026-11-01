@@ -1,0 +1,15 @@
+{
+  "id": "local-image",
+  "name": "Local image",
+  "description": "Generate an image with the installed LocalAI model configured on this device.",
+  "transport": "local-image",
+  "enabled": true,
+  "apiKeyProvider": "local",
+  "provider": "LocalAI",
+  "models": {
+    "generate": "local-image"
+  },
+  "supportsEditing": false,
+  "supportsInpainting": false,
+  "supportsComposition": false
+}
