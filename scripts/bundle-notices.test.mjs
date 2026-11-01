@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { collectBundleNotices } from "./bundle-notices.mjs";
 import { fileURLToPath } from "node:url";
@@ -35,4 +35,19 @@ test("retains the resolved nested dependency's exact license rather than a top-l
   const text = await collectBundleNotices({ inputs: { [input]: {} } }, fixture);
   assert.match(text, /dependency 1\.0\.0\nCopyright nested original/);
   assert.doesNotMatch(text, /unrelated top-level/);
+});
+
+test("retains a symlinked dependency resolved outside node_modules and omits the app's own sources", async (t) => {
+  const fixture = mkdtempSync(path.join(tmpdir(), "showbiz-symlink-license-"));
+  t.after(() => rmSync(fixture, { recursive: true, force: true }));
+  const app = path.join(fixture, "app");
+  packageFixture(app, "test-app", "1.0.0", "App copyright should not be copied as a dependency");
+  const linked = path.join(fixture, "linked-source");
+  packageFixture(linked, "linked", "3.0.0", "Copyright linked original");
+  mkdirSync(path.join(app, "node_modules"));
+  symlinkSync(linked, path.join(app, "node_modules/linked"), "junction");
+  const input = path.relative(app, path.join(linked, "index.js")).split(path.sep).join("/");
+  const text = await collectBundleNotices({ inputs: { [input]: {}, "index.js": {} } }, app);
+  assert.match(text, /linked 3\.0\.0\nCopyright linked original/);
+  assert.doesNotMatch(text, /App copyright/);
 });
