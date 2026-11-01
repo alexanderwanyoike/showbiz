@@ -160,6 +160,7 @@ export default function ProjectBibleView({
   useAgentChanges(load);
   useEffect(() => {
     setTab(initialTab);
+    setActiveAssetId(null);
   }, [initialTab, projectId]);
 
   const imageModels = getAvailableImageModels();
