@@ -5,14 +5,21 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import ProjectBibleView from "../components/ProjectBibleView";
 import { generateImageAction } from "../actions/generation-actions";
-import { createBibleAsset, getBibles, getBibleAssets, updateBibleAsset } from "./backend-api";
+import {
+  createBibleAsset,
+  getBibles,
+  getBibleAssets,
+  updateBibleAsset,
+} from "./backend-api";
 vi.mock("../components/GenerationCost", () => ({ GenerationCost: () => null }));
 vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
   getBibles: vi.fn(async () => [{ id: "bible" }]),
   getBibleAssets: vi.fn(async () => []),
   getBibleAssetVariants: async () => [],
-  updateBibleAsset: vi.fn(async (id: string, values: Record<string, unknown>) => ({ ...values, id })),
+  updateBibleAsset: vi.fn(
+    async (id: string, values: Record<string, unknown>) => ({ ...values, id }),
+  ),
   createBibleAsset: vi.fn(
     async (_id: string, values: Record<string, unknown>) => ({
       ...values,
@@ -177,7 +184,9 @@ it("labels generation and its prerequisites clearly and protects inputs while th
   expect(within(panel).getByText("Name")).toBeTruthy();
   expect(within(panel).getByText("Prompt for generation")).toBeTruthy();
   expect(
-    within(panel).getByText("Used for new pictures and retakes in this Bible view."),
+    within(panel).getByText(
+      "Used for new pictures and retakes in this Bible view.",
+    ),
   ).toBeTruthy();
   const name = within(panel).getByRole("textbox", { name: "Character name" });
   const prompt = within(panel).getByRole("textbox", {
@@ -245,9 +254,11 @@ it("retries a failed first picture on its existing entry instead of creating dup
 
 it("names the provider for direct Bible generation models", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
-  expect((await screen.findByRole("combobox", { name: "Bible generation model" })).textContent).toContain("Google AI (Gemini)");
+  expect(
+    (await screen.findByRole("combobox", { name: "Bible generation model" }))
+      .textContent,
+  ).toContain("Google AI (Gemini)");
 });
-
 
 it("reuses the incomplete creation entry after its name and prompt are corrected", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));
@@ -266,13 +277,23 @@ it("reuses the incomplete creation entry after its name and prompt are corrected
   expect(createBibleAsset).toHaveBeenCalledTimes(1);
   const calls = vi.mocked(generateImageAction).mock.calls;
   expect(calls[1][2]?.subject_id).toBe(calls[0][2]?.subject_id);
-  expect(updateBibleAsset).toHaveBeenCalledWith(calls[0][2]?.subject_id, expect.objectContaining({ name: "Ada Lovelace" }));
+  expect(updateBibleAsset).toHaveBeenCalledWith(
+    calls[0][2]?.subject_id,
+    expect.objectContaining({ name: "Ada Lovelace" }),
+  );
   expect(screen.queryByRole("button", { name: "Open Ada details" })).toBeNull();
-  expect(screen.getByRole("button", { name: "Open Ada Lovelace details" })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Open Ada Lovelace details" }),
+  ).toBeTruthy();
 });
 
 it("keeps the incomplete frame when its failed recipe is corrected", async () => {
-  render(createElement(ProjectBibleView, { projectId: "film", initialTab: "frames" }));
+  render(
+    createElement(ProjectBibleView, {
+      projectId: "film",
+      initialTab: "frames",
+    }),
+  );
   const user = userEvent.setup();
   const prompt = await screen.findByRole("textbox", { name: "Frame prompt" });
   await user.type(prompt, "At the window");
@@ -284,46 +305,85 @@ it("keeps the incomplete frame when its failed recipe is corrected", async () =>
   expect(createBibleAsset).toHaveBeenCalledTimes(1);
   const calls = vi.mocked(generateImageAction).mock.calls;
   expect(calls[1][2]?.subject_id).toBe(calls[0][2]?.subject_id);
-  expect(updateBibleAsset).toHaveBeenCalledWith(calls[0][2]?.subject_id, expect.objectContaining({
-    name: "At the window at sunrise",
-    rules_json: JSON.stringify({ characters: [], location: null, locationVariantId: null, prompt: "At the window at sunrise" }),
-  }));
+  expect(updateBibleAsset).toHaveBeenCalledWith(
+    calls[0][2]?.subject_id,
+    expect.objectContaining({
+      name: "At the window at sunrise",
+      rules_json: JSON.stringify({
+        characters: [],
+        location: null,
+        locationVariantId: null,
+        prompt: "At the window at sunrise",
+      }),
+    }),
+  );
 });
 
 it("shows generation progress on a newly created entry before its first picture arrives", async () => {
   let fail: ((error: Error) => void) | undefined;
-  vi.mocked(generateImageAction).mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+  vi.mocked(generateImageAction).mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        fail = reject;
+      }),
+  );
   render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.type(await screen.findByRole("textbox", { name: "Character name" }), "Ada");
-  await user.type(screen.getByRole("textbox", { name: "Character prompt" }), "A portrait");
+  await user.type(
+    await screen.findByRole("textbox", { name: "Character name" }),
+    "Ada",
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: "Character prompt" }),
+    "A portrait",
+  );
   await user.click(screen.getByRole("button", { name: "Generate character" }));
   try {
-    expect(await screen.findByRole("status", { name: "Generating picture for Ada" })).toBeTruthy();
-  } finally { fail?.(new Error("Provider unavailable")); }
+    expect(
+      await screen.findByRole("status", { name: "Generating picture for Ada" }),
+    ).toBeTruthy();
+  } finally {
+    fail?.(new Error("Provider unavailable"));
+  }
   await screen.findByText("Provider unavailable");
-  expect(screen.queryByRole("status", { name: "Generating picture for Ada" })).toBeNull();
+  expect(
+    screen.queryByRole("status", { name: "Generating picture for Ada" }),
+  ).toBeNull();
 });
-
 
 it("recovers an incomplete entry through its library details after a deliberate remount", async () => {
   const first = render(createElement(ProjectBibleView, { projectId: "film" }));
   const user = userEvent.setup();
-  await user.type(await screen.findByRole("textbox", { name: "Character name" }), "Ada");
-  await user.type(screen.getByRole("textbox", { name: "Character prompt" }), "A portrait");
+  await user.type(
+    await screen.findByRole("textbox", { name: "Character name" }),
+    "Ada",
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: "Character prompt" }),
+    "A portrait",
+  );
   await user.click(screen.getByRole("button", { name: "Generate character" }));
   await screen.findByText("Provider unavailable");
   const created = await vi.mocked(createBibleAsset).mock.results[0].value;
   first.unmount();
   vi.mocked(getBibleAssets).mockResolvedValueOnce([created]);
   render(createElement(ProjectBibleView, { projectId: "film" }));
-  expect(await screen.findByRole("textbox", { name: "Character name" })).toHaveProperty("value", "");
-  expect(screen.getByRole("textbox", { name: "Character prompt" })).toHaveProperty("value", "");
+  expect(
+    await screen.findByRole("textbox", { name: "Character name" }),
+  ).toHaveProperty("value", "");
+  expect(
+    screen.getByRole("textbox", { name: "Character prompt" }),
+  ).toHaveProperty("value", "");
   await user.click(screen.getByRole("button", { name: "Open Ada details" }));
   await user.click(screen.getByRole("button", { name: "Variation for Ada" }));
-  await user.type(screen.getByRole("textbox", { name: "Variation prompt for Ada" }), "A corrected portrait");
+  await user.type(
+    screen.getByRole("textbox", { name: "Variation prompt for Ada" }),
+    "A corrected portrait",
+  );
   await user.click(screen.getByRole("button", { name: "Generate variation" }));
   await screen.findByText("Provider unavailable");
   expect(createBibleAsset).toHaveBeenCalledTimes(1);
-  expect(vi.mocked(generateImageAction).mock.calls[1][2]?.subject_id).toBe(created.id);
+  expect(vi.mocked(generateImageAction).mock.calls[1][2]?.subject_id).toBe(
+    created.id,
+  );
 });

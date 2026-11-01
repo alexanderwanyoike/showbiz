@@ -1,7 +1,10 @@
 import "../bible-workspace.css";
 import "../bible-asset-workspace.css";
 import { DEFAULT_BIBLE_IMAGE_MODEL } from "../lib/bible-assets";
-import { BibleAssetEntry, type BibleDetailFocusTargets } from "./BibleAssetEntry";
+import {
+  BibleAssetEntry,
+  type BibleDetailFocusTargets,
+} from "./BibleAssetEntry";
 import { modelProviderName } from "../lib/model-provider";
 import { ConfirmDeletion } from "./ConfirmDeletion";
 import type { Result } from "../../shared/result";
@@ -152,13 +155,16 @@ export default function ProjectBibleView({
     {},
   );
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [localImageModel, setLocalImageModel] =
-    useState<ImageModelId>(DEFAULT_BIBLE_IMAGE_MODEL);
+  const [localImageModel, setLocalImageModel] = useState<ImageModelId>(
+    DEFAULT_BIBLE_IMAGE_MODEL,
+  );
   const imageModel = generationModel?.value ?? localImageModel;
   const setImageModel = generationModel?.onChange ?? setLocalImageModel;
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [generatingAssetId, setGeneratingAssetId] = useState<string | null>(null);
+  const [generatingAssetId, setGeneratingAssetId] = useState<string | null>(
+    null,
+  );
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [deletion, setDeletion] = useState<BibleDeletion | null>(null);
   const [deletionOpen, setDeletionOpen] = useState(false);
@@ -301,7 +307,11 @@ export default function ProjectBibleView({
             });
             pendingAssets.current.set(draftKey, asset);
             const updated = asset;
-            setAssets((previous) => previous.map((entry) => entry.id === updated.id ? updated : entry));
+            setAssets((previous) =>
+              previous.map((entry) =>
+                entry.id === updated.id ? updated : entry,
+              ),
+            );
           }
           if (!file && prompt.trim()) setGeneratingAssetId(asset.id);
           if (file) {
@@ -527,7 +537,11 @@ export default function ProjectBibleView({
           });
           pendingAssets.current.set(draftKey, asset);
           const updated = asset;
-          setAssets((previous) => previous.map((entry) => entry.id === updated.id ? updated : entry));
+          setAssets((previous) =>
+            previous.map((entry) =>
+              entry.id === updated.id ? updated : entry,
+            ),
+          );
         }
         setGeneratingAssetId(asset.id);
         const dataUrl = await composeFromVariantIds(
@@ -725,7 +739,7 @@ export default function ProjectBibleView({
       asChild
     >
       <section
-                role="region"
+        role="region"
         aria-label="Project bible"
         className="bible-workspace flex h-full flex-col"
       >
@@ -864,7 +878,8 @@ export default function ProjectBibleView({
             else
               (currentPicture.current && !currentPicture.current.disabled
                 ? currentPicture.current
-                : detailBack.current ?? newAction.current)?.focus();
+                : (detailBack.current ?? newAction.current)
+              )?.focus();
           }}
           open={deletionOpen}
           onOpenChange={setDeletionOpen}
@@ -1115,7 +1130,9 @@ function AssetTab({
                   busy={busyId !== null}
                   generating={generatingAssetId === asset.id}
                   builtFrom={null}
-                  usesReferenceImages={assetReferences(asset, variants).length > 0}
+                  usesReferenceImages={
+                    assetReferences(asset, variants).length > 0
+                  }
                   basePrompt={primaryPicture(takes)?.prompt ?? ""}
                   onRetake={onRetake}
                   onEdit={onEdit}
@@ -1238,7 +1255,9 @@ function FramesTab({
         (variant) => variant.id === locationVariantId && variant.media_url,
       )
     ) {
-      setLocationVariantId(primaryPicture(variants[locationId] ?? [])?.id ?? null);
+      setLocationVariantId(
+        primaryPicture(variants[locationId] ?? [])?.id ?? null,
+      );
     }
   }, [characters, locations, locationId, locationVariantId, variants]);
 

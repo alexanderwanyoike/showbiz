@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   ArrowLeft,
   ImageIcon,
@@ -153,10 +159,17 @@ export function BibleAssetEntry({
             <strong>{asset.name}</strong>
             <span>
               {pending || generating ? (
-                <span role="status" aria-label={`Generating picture for ${asset.name}`}>
+                <span
+                  role="status"
+                  aria-label={`Generating picture for ${asset.name}`}
+                >
                   Generating…
                 </span>
-              ) : <>{takes.length} {takes.length === 1 ? "take" : "takes"}</>}
+              ) : (
+                <>
+                  {takes.length} {takes.length === 1 ? "take" : "takes"}
+                </>
+              )}
             </span>
           </div>
           {(variationEdited || editInstruction) && (
@@ -309,7 +322,10 @@ export function BibleAssetEntry({
                 size="sm"
                 variant="outline"
                 className="text-xs"
-                disabled={busy || (usesReferenceImages && !imageCapabilities.composition)}
+                disabled={
+                  busy ||
+                  (usesReferenceImages && !imageCapabilities.composition)
+                }
                 title={
                   !imageCapabilities.composition && usesReferenceImages
                     ? "Choose a model that accepts reference images."
@@ -402,121 +418,121 @@ export function BibleAssetEntry({
             </div>
 
             <div id={`variation-${asset.id}`} hidden={mode !== "variation"}>
-            {mode === "variation" && (
-              <div className="flex flex-wrap items-end gap-2">
-                <Textarea
-                  autoFocus
-                  className="min-h-[40px] flex-1 text-xs resize-none"
-                  disabled={busy}
-                  aria-label={`Variation prompt for ${asset.name}`}
-                  placeholder="Tweak the prompt for a variation..."
-                  value={variation}
-                  onChange={(e) => {
-                    setVariation(e.target.value);
-                    setVariationEdited(e.target.value !== basePrompt);
-                  }}
-                />
-                <Button
-                  size="sm"
-                  className="text-xs"
-                  disabled={
-                    busy ||
-                    !variation.trim() ||
-                    (usesReferenceImages && !imageCapabilities.composition)
-                  }
-                  onClick={() =>
-                    run("variation", async () => {
-                      const result = await onRetake(asset, variation);
-                      if (result.ok) {
-                        setVariationEdited(false);
-                        setMode(null);
-                      }
-                    })
-                  }
-                >
-                  {pending === "variation" ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3 w-3 mr-1" />
-                  )}
-                  Generate variation
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy}
-                  aria-label={`Cancel variation for ${asset.name}`}
-                  onClick={() => {
-                    setVariation(basePrompt);
-                    setVariationEdited(false);
-                    setMode(null);
-                    variationAction.current?.focus();
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
+              {mode === "variation" && (
+                <div className="flex flex-wrap items-end gap-2">
+                  <Textarea
+                    autoFocus
+                    className="min-h-[40px] flex-1 text-xs resize-none"
+                    disabled={busy}
+                    aria-label={`Variation prompt for ${asset.name}`}
+                    placeholder="Tweak the prompt for a variation..."
+                    value={variation}
+                    onChange={(e) => {
+                      setVariation(e.target.value);
+                      setVariationEdited(e.target.value !== basePrompt);
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    className="text-xs"
+                    disabled={
+                      busy ||
+                      !variation.trim() ||
+                      (usesReferenceImages && !imageCapabilities.composition)
+                    }
+                    onClick={() =>
+                      run("variation", async () => {
+                        const result = await onRetake(asset, variation);
+                        if (result.ok) {
+                          setVariationEdited(false);
+                          setMode(null);
+                        }
+                      })
+                    }
+                  >
+                    {pending === "variation" ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3 mr-1" />
+                    )}
+                    Generate variation
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    aria-label={`Cancel variation for ${asset.name}`}
+                    onClick={() => {
+                      setVariation(basePrompt);
+                      setVariationEdited(false);
+                      setMode(null);
+                      variationAction.current?.focus();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div id={`edit-${asset.id}`} hidden={mode !== "edit" || !primary}>
-            {mode === "edit" && primary && (
-              <div className="flex flex-wrap items-end gap-2">
-                <Textarea
-                  autoFocus
-                  className="min-h-[40px] flex-1 text-xs resize-none"
-                  disabled={busy}
-                  aria-label={`Edit instruction for ${asset.name}`}
-                  placeholder="Edit the current picture (e.g. make it night, add rain)..."
-                  value={editInstruction}
-                  onChange={(e) => setEditInstruction(e.target.value)}
-                />
-                <Button
-                  size="sm"
-                  className="text-xs"
-                  disabled={
-                    busy ||
-                    !editInstruction.trim() ||
-                    !imageCapabilities.editing
-                  }
-                  onClick={() =>
-                    run("edit", async () => {
-                      const result = await onEdit(
-                        asset,
-                        primary,
-                        editInstruction,
-                      );
-                      if (result.ok) {
-                        setEditInstruction("");
-                        setMode(null);
-                      }
-                    })
-                  }
-                >
-                  {pending === "edit" ? (
-                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                  ) : (
-                    <Wand2 className="h-3 w-3 mr-1" />
-                  )}
-                  Generate edit
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy}
-                  aria-label={`Cancel edit for ${asset.name}`}
-                  onClick={() => {
-                    setEditInstruction("");
-                    setMode(null);
-                    editAction.current?.focus();
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
+              {mode === "edit" && primary && (
+                <div className="flex flex-wrap items-end gap-2">
+                  <Textarea
+                    autoFocus
+                    className="min-h-[40px] flex-1 text-xs resize-none"
+                    disabled={busy}
+                    aria-label={`Edit instruction for ${asset.name}`}
+                    placeholder="Edit the current picture (e.g. make it night, add rain)..."
+                    value={editInstruction}
+                    onChange={(e) => setEditInstruction(e.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    className="text-xs"
+                    disabled={
+                      busy ||
+                      !editInstruction.trim() ||
+                      !imageCapabilities.editing
+                    }
+                    onClick={() =>
+                      run("edit", async () => {
+                        const result = await onEdit(
+                          asset,
+                          primary,
+                          editInstruction,
+                        );
+                        if (result.ok) {
+                          setEditInstruction("");
+                          setMode(null);
+                        }
+                      })
+                    }
+                  >
+                    {pending === "edit" ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Wand2 className="h-3 w-3 mr-1" />
+                    )}
+                    Generate edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    aria-label={`Cancel edit for ${asset.name}`}
+                    onClick={() => {
+                      setEditInstruction("");
+                      setMode(null);
+                      editAction.current?.focus();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </div>
 
             <Button
