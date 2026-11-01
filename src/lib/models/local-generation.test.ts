@@ -109,3 +109,8 @@ it("does not forward an end frame that the local model profile does not advertis
   await generateLocalVideo(config, { mode: "image-to-video", prompt: "Morning", startImage: "start", endImage: "stale-end-frame", settings: { duration: "8s" } }, "");
   expect(JSON.parse(http.fetch.mock.calls[0][1].body)).not.toHaveProperty("end_image");
 });
+
+it.each([new Response("<html>proxy error</html>", { headers: { "content-type": "text/html" } }), new Response("", { headers: { "content-type": "video/mp4" } })])("rejects empty or non-video downloads instead of saving them as a successful clip", async (download) => {
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: "fixture-job", data: [{ url: "/generated-videos/fixture.mp4" }] }))).mockResolvedValueOnce(download);
+  expect(await generateLocalVideo(config, { mode: "text-to-video", prompt: "Morning", settings: { duration: "8s" } }, "")).toMatchObject({ ok: false, receipt: { provider_request_id: "fixture-job" } });
+});
