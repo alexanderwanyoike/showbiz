@@ -7,6 +7,7 @@ import type { GenerationBillingSync } from "../../shared/generation-billing";
 
 const argsSchema = z.strictObject({
   project_id: z.string().min(1).max(256),
+  force: z.boolean().optional(),
   request_ids: z.array(z.string().min(1).max(256)).min(1).max(50).optional(),
 });
 interface PendingCharge {
