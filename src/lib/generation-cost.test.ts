@@ -130,3 +130,8 @@ it.each(["manual", "published"] as const)(
     });
   },
 );
+it("treats a zero FAL historical quote as unknown while preserving an explicit manual zero", () => {
+  const price = { provider: "fal", model_id: "model", currency: "USD" as const, source_kind: "provider" as const, source_url: "https://api.fal.ai/v1/models/pricing/estimate", checked_at: new Date().toISOString(), estimate_basis: "historical_request" as const, rates: [{ unit: "request" as const, microusd: 0 }] };
+  expect(estimateGenerationCost(price, { kind: "image" })).toMatchObject({ kind: "unavailable", reason: expect.stringMatching(/zero historical estimate/i) });
+  expect(estimateGenerationCost({ ...price, source_kind: "manual" }, { kind: "image" })).toMatchObject({ kind: "estimate", min_microusd: 0 });
+});
