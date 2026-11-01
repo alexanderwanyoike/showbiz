@@ -111,3 +111,15 @@ it("reserves the actual overlay geometry only while native controls are visible"
     });
   }
 });
+it("keeps space for macOS traffic lights with an incomplete overlay rect and releases it in fullscreen", () => {
+  const overlay = Object.assign(new EventTarget(), { visible: true, getTitlebarAreaRect: () => ({ x: 0, right: window.innerWidth }) });
+  Object.defineProperty(navigator, "windowControlsOverlay", { configurable: true, value: overlay });
+  Object.defineProperty(window, "showbiz", { configurable: true, value: { desktop: { platform: "darwin", customTitlebar: true, titleBarHeight: 48 } } });
+  try {
+    render(createElement(Header));
+    const header = screen.getByRole("banner");
+    expect(header.style.paddingLeft).toBe("88px");
+    act(() => { overlay.visible = false; overlay.dispatchEvent(new Event("geometrychange")); });
+    expect(header.style.paddingLeft).toBe("12px");
+  } finally { Object.defineProperty(navigator, "windowControlsOverlay", { configurable: true, value: undefined }); }
+});

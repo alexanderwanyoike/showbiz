@@ -32,17 +32,6 @@
 .app-menu-content {
   -webkit-app-region: no-drag;
 }
-.integrated-titlebar[data-native-titlebar="true"][data-desktop-platform="win32"],
-.integrated-titlebar[data-native-titlebar="true"][data-desktop-platform="linux"] {
-  padding-left: max(12px, calc(env(titlebar-area-x, 0px) + 12px));
-  padding-right: calc(
-    100vw - env(titlebar-area-x, 0px) -
-      env(titlebar-area-width, calc(100vw - 138px)) + 8px
-  );
-}
-.integrated-titlebar[data-native-titlebar="true"][data-desktop-platform="darwin"] {
-  padding-left: max(88px, calc(env(titlebar-area-x, 0px) + 12px));
-}
 .app-menubar {
   display: flex;
   flex-shrink: 0;

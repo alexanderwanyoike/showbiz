@@ -95,7 +95,7 @@ export function projectApplicationMenu(
       submenu: [
         { role: "about" },
         separator,
-        { ...appAction("Settings…", "settings"), accelerator: "Command+," },
+        { ...appAction("Settings…", "settings"), accelerator: menuAccelerator("settings", platform) },
         separator,
         { role: "services" },
         separator,

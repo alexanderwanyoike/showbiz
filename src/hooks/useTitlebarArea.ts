@@ -12,7 +12,7 @@ export function useTitlebarArea(): CSSProperties | undefined {
     if (!overlay.visible) return { paddingLeft: 12, paddingRight: 12 };
     const area = overlay.getTitlebarAreaRect();
     return {
-      paddingLeft: Math.max(12, area.x + 12),
+      paddingLeft: Math.max(window.showbiz.desktop.platform === "darwin" ? 88 : 12, area.x + 12),
       paddingRight: Math.max(12, window.innerWidth - area.right + 8),
     };
   };

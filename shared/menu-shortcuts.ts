@@ -1,10 +1,11 @@
 import type { DesktopMenuCommand, DesktopPlatform } from "./desktop-shell";
 export type DocumentMenuAction = "new" | "open" | "save" | "save_as" | "close";
-export type MenuShortcut = DesktopMenuCommand | DocumentMenuAction;
+export type MenuShortcut = DesktopMenuCommand | DocumentMenuAction | "settings";
 const accelerators: Record<
   Exclude<MenuShortcut, "redo" | "toggle_fullscreen" | "quit">,
   string
 > = {
+  settings: "CmdOrCtrl+,",
   new: "CmdOrCtrl+N",
   open: "CmdOrCtrl+O",
   save: "CmdOrCtrl+S",

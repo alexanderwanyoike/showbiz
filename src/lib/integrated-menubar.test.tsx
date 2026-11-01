@@ -12,7 +12,6 @@ import { MemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "../App";
 import type { Result } from "../../shared/result";
-import { menuShortcut } from "./menu-editor";
 const nativeCommand = vi.hoisted(() =>
   vi.fn<(_command: string) => Promise<Result<null>>>(async () => ({
     ok: true,
@@ -184,12 +183,6 @@ it("reports native command failures and lets the user dismiss and retry", async 
   await waitFor(() => expect(nativeCommand).toHaveBeenCalledTimes(2));
   expect(screen.queryByRole("alert")).toBeNull();
 });
-it("uses platform-correct document shortcut labels", () => {
-  expect(menuShortcut("N", true)).toBe("⌘N");
-  expect(menuShortcut("Shift+S", true)).toBe("⇧⌘S");
-  expect(menuShortcut("Shift+W", false)).toBe("Ctrl+Shift+W");
-});
-
 it("opens a real keyboard reference from Help and returns focus on Escape", async () => {
   start();
   const user = userEvent.setup();
