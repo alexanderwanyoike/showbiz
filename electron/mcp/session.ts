@@ -128,6 +128,13 @@ export function createMcpSession(
         );
       activeRequest = { id: requestId, fingerprint };
     }
+    const remember = (result: McpResult): McpResult => {
+      if (requestId) {
+        cache.set(requestId, {fingerprint,result});
+        if (cache.size > 128) cache.delete(cache.keys().next().value!);
+      }
+      return result;
+    };
     try {
       let data: unknown;
       const nativeArgs = definition.args(args);
@@ -178,10 +185,10 @@ export function createMcpSession(
         })
         .safeParse(data);
       if (nativeFailure.success)
-        return failure(
+        return remember(failure(
           nativeFailure.data.error.code,
           nativeFailure.data.error.message,
-        );
+        ));
       if (Array.isArray(data))
         data = {
           items: data.slice(
@@ -192,8 +199,7 @@ export function createMcpSession(
         };
       const result: McpResult = { ok: true, value: { revision, data } };
       if (requestId) {
-        cache.set(requestId, { fingerprint, result });
-        if (cache.size > 128) cache.delete(cache.keys().next().value!);
+        remember(result);
         try {
           changed();
         } catch (cause) {
@@ -205,10 +211,10 @@ export function createMcpSession(
       }
       return result;
     } catch (cause) {
-      return failure(
+      return remember(failure(
         "OPERATION_FAILED",
         cause instanceof Error ? cause.message : String(cause),
-      );
+      ));
     } finally {
       if (activeRequest?.id === requestId) activeRequest = undefined;
     }
