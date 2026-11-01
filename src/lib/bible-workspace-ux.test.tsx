@@ -7,6 +7,9 @@ import ProjectBibleView from "../components/ProjectBibleView";
 import { generateImageAction } from "../actions/generation-actions";
 import {
   createBibleAsset,
+  createBibleAssetVariant,
+  getBibleAssetVariants,
+  type BibleAssetVariant,
   getBibles,
   getBibleAssets,
   updateBibleAsset,
@@ -16,7 +19,9 @@ vi.mock("./backend-api", async (original) => ({
   ...(await original<typeof import("./backend-api")>()),
   getBibles: vi.fn(async () => [{ id: "bible" }]),
   getBibleAssets: vi.fn(async () => []),
-  getBibleAssetVariants: async () => [],
+  getBibleAssetVariants: vi.fn(async () => []),
+  createBibleAssetVariant: vi.fn(),
+  updateBibleAssetVariantStatus: vi.fn(),
   updateBibleAsset: vi.fn(
     async (id: string, values: Record<string, unknown>) => ({ ...values, id }),
   ),
@@ -36,6 +41,7 @@ vi.mock("../actions/generation-actions", async (original) => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 it("opens a linked Bible section and preserves independent drafts when switching sections with the keyboard", async () => {
   render(
@@ -387,3 +393,49 @@ it("recovers an incomplete entry through its library details after a deliberate 
     created.id,
   );
 });
+
+
+it.each(["characters", "locations", "frames"] as const)(
+  "preserves a recovered %s entry when starting the next creation",
+  async (tab) => {
+    vi.stubGlobal("Image", class {
+      width = 1;
+      height = 1;
+      onload: (() => void) | null = null;
+      set src(_value: string) { queueMicrotask(() => this.onload?.()); }
+    });
+    const recovered = new Map<string, BibleAssetVariant[]>();
+    vi.mocked(getBibleAssetVariants).mockImplementation(async (id) => recovered.get(id) ?? []);
+    vi.mocked(createBibleAssetVariant).mockImplementation(async (id, values) => {
+      const take = { ...values, id: "recovered-take", asset_id: id, media_url: "/portrait.png" } as BibleAssetVariant;
+      recovered.set(id, [take]);
+      return take;
+    });
+    render(createElement(ProjectBibleView, { projectId: "film", initialTab: tab }));
+    const user = userEvent.setup();
+    const kind = tab === "frames" ? "Frame" : tab === "locations" ? "Location" : "Character";
+    if (kind !== "Frame") await user.type(await screen.findByRole("textbox", { name: `${kind} name` }), "Mara");
+    await user.type(await screen.findByRole("textbox", { name: `${kind} prompt` }), "Mara portrait");
+    await user.click(screen.getByRole("button", { name: `Generate ${kind.toLowerCase()}` }));
+    await screen.findByText("Provider unavailable");
+    const firstName = kind === "Frame" ? "Mara portrait" : "Mara";
+    await user.click(screen.getByRole("button", { name: `Open ${firstName} details` }));
+    await user.click(screen.getByRole("button", { name: `Variation for ${firstName}` }));
+    await user.type(screen.getByRole("textbox", { name: `Variation prompt for ${firstName}` }), "Recovered picture");
+    vi.mocked(generateImageAction).mockResolvedValueOnce("data:image/png;base64,eA==");
+    await user.click(screen.getByRole("button", { name: "Generate variation" }));
+    await screen.findByRole("button", { name: `Use take 1 for ${firstName}` });
+    await user.click(screen.getByRole("button", { name: "Back to library" }));
+    if (kind !== "Frame") {
+      await user.clear(screen.getByRole("textbox", { name: `${kind} name` }));
+      await user.type(screen.getByRole("textbox", { name: `${kind} name` }), "Bob");
+    }
+    await user.clear(screen.getByRole("textbox", { name: `${kind} prompt` }));
+    await user.type(screen.getByRole("textbox", { name: `${kind} prompt` }), "Bob portrait");
+    await user.click(screen.getByRole("button", { name: `Generate ${kind.toLowerCase()}` }));
+    await screen.findByText("Provider unavailable");
+    expect(createBibleAsset).toHaveBeenCalledTimes(2);
+    expect(updateBibleAsset).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: `Open ${firstName} details` })).toBeTruthy();
+  },
+);
