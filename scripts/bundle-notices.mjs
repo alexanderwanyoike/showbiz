@@ -4,19 +4,9 @@ import path from "node:path";
 export async function collectBundleNotices(metafile, root = process.cwd()) {
 const packages = new Set(
   Object.keys(metafile.inputs).flatMap((input) => {
-    const parts = input
-      .split("/node_modules/")
-      .pop()
-      .replace(/^node_modules\//, "")
-      .split("/");
-    return input.includes("node_modules/")
-      ? [
-          path.join(
-            root, "node_modules",
-            parts[0].startsWith("@") ? `${parts[0]}/${parts[1]}` : parts[0],
-          ),
-        ]
-      : [];
+    const resolved = path.resolve(root, input).split(path.sep).join("/");
+    const match = resolved.match(/^(.*\/node_modules\/)(@[^/]+\/[^/]+|[^/]+)/);
+    return match ? [path.resolve(`${match[1]}${match[2]}`)] : [];
   }),
 );
 const notices = [];
