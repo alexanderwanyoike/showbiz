@@ -91,7 +91,10 @@ export function processOwnerStatus(
       : "unknown";
   }
   if (owner.identity === null) return "unknown";
-  const current = owner.pid === process.pid ? currentProcessIdentity() : processIdentity(owner.pid);
+  const current =
+    owner.pid === process.pid
+      ? currentProcessIdentity()
+      : processIdentity(owner.pid);
   return current.ok
     ? current.value === owner.identity
       ? "live"
