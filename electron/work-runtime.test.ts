@@ -23,7 +23,7 @@ describe("application work runtime", () => {
     const { runtime, confirm } = setup();
     confirm.mockResolvedValue({ response: 0 });
     let reject!: (e: Error) => void;
-    const running = runtime.invoke(7, "export_timeline_video", {}, () => new Promise((_, r) => { reject = r; }));
+    const running = runtime.invoke(7, "export_storyboard_package", {}, () => new Promise((_, r) => { reject = r; }));
     expect(runtime.work.getStatus().active).toEqual(["export"]);
     await expect(runtime.requestQuit()).resolves.toBe(false);
     reject(new Error("ffmpeg failed"));
@@ -136,7 +136,7 @@ it.each(["get_projects", "get_shots", "get_api_key_status", "http_request", "sho
   finish(); await pending;
 });
 
-it.each(["save_api_key", "update_shot", "copy_image_from_shot", "switch_to_version", "ensure_default_tracks"])("protects %s until persistence finishes", async (cmd) => {
+it.each(["save_api_key", "update_shot", "copy_image_from_shot", "switch_to_version", "update_storyboard"])("protects %s until persistence finishes", async (cmd) => {
   const { runtime } = setup();
   let finish!: () => void;
   const pending = runtime.invoke(7, cmd, {}, () => new Promise<void>((r) => { finish = r; }));

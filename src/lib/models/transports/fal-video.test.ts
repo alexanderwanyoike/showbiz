@@ -188,3 +188,10 @@ describe("falVideoTransport.generateVideoRequest", () => {
     });
   });
 });
+it("records the queued video identity before polling fails", async () => {
+  const { pollFalResult } = await import("../fal-shared");
+  vi.mocked(pollFalResult).mockRejectedValueOnce(new Error("Poll unavailable"));
+  const receipt = vi.fn();
+  await expect(falVideoTransport.generateVideoRequest!(seedanceConfig, { mode: "text-to-video", prompt: "morning", settings: { duration: "8", audio: true } }, "key", { receipt })).rejects.toThrow("Poll unavailable");
+  expect(receipt).toHaveBeenCalledWith({ provider_request_id: "req-1", reported_microusd: null });
+});
