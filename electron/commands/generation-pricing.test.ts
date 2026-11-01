@@ -166,3 +166,15 @@ it("removes only the selected custom setting and retains other saved facets", ()
     db.close();
   }
 });
+
+it("retains distinct cached prices for different endpoints of the same model and generation kind", () => {
+  const db = openTestDb();
+  try {
+    const commands = createGenerationPricingCommands(db);
+    const base = { provider: "fal", model_id: "veo-3.1-fal", currency: "USD", source_kind: "provider", source_url: "https://api.fal.ai/v1/models/pricing/estimate", checked_at: new Date().toISOString(), estimate_basis: "historical_request" };
+    commands.save_generation_price({ kind: "video", price: { ...base, endpoint_id: "fal-ai/veo3.1/text-to-video", rates: [{ unit: "request", microusd: 1000000 }] } });
+    commands.save_generation_price({ kind: "video", price: { ...base, endpoint_id: "fal-ai/veo3.1/image-to-video", rates: [{ unit: "request", microusd: 2000000 }] } });
+    expect(commands.get_generation_price({ kind: "video", model_id: base.model_id, endpoint_id: "fal-ai/veo3.1/text-to-video" })).toMatchObject({ ok: true, value: { endpoint_id: "fal-ai/veo3.1/text-to-video", rates: [{ microusd: 1000000 }] } });
+    expect(commands.get_generation_price({ kind: "video", model_id: base.model_id, endpoint_id: "fal-ai/veo3.1/image-to-video" })).toMatchObject({ ok: true, value: { endpoint_id: "fal-ai/veo3.1/image-to-video", rates: [{ microusd: 2000000 }] } });
+  } finally { db.close(); }
+});
