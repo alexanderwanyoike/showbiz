@@ -415,6 +415,9 @@ it("does not describe a provider's zero historical estimate as a free new reques
       request: { kind: "video", duration: "8s" },
     }),
   );
+  const headline = await screen.findByLabelText("Estimated generation cost");
+  expect(headline.textContent).toContain("Estimate unavailable");
+  expect(headline.textContent).not.toContain("$0");
   await userEvent.setup().click(await screen.findByText("Rate details"));
   expect(
     screen.getByText(
