@@ -81,3 +81,24 @@ it("downloads a local video URL as binary media instead of nesting base64 JSON",
   expect(http.fetch.mock.calls[1][0]).toBe("http://127.0.0.1:8080/generated-videos/fixture.mp4");
   expect(http.fetch.mock.calls[1][1].headers).toHaveProperty("Authorization", "Bearer fixture-local-key");
 });
+
+it("does not forward a local server key to a different media origin", async () => {
+  http.fetch.mockClear();
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: "fixture-job", data: [{ url: "https://media.example.invalid/fixture.mp4" }] })))
+    .mockResolvedValueOnce(new Response("fixture-video", { headers: { "content-type": "video/mp4" } }));
+  expect(await generateLocalVideo(config, { mode: "text-to-video", prompt: "Morning", settings: { duration: "8s" } }, "fixture-secret")).toMatchObject({ ok: true });
+  expect(http.fetch.mock.calls[1][1].headers).not.toHaveProperty("Authorization");
+});
+
+it.each(["file:///tmp/fixture.mp4", "https://user:password@media.example.invalid/fixture.mp4"])("rejects an unsupported returned media URL %s", async (url) => {
+  http.fetch.mockClear();
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: "fixture-job", data: [{ url }] })));
+  expect(await generateLocalVideo(config, { mode: "text-to-video", prompt: "Morning", settings: { duration: "8s" } }, "fixture-secret")).toMatchObject({ ok: false, receipt: { provider_request_id: "fixture-job", reported_microusd: null } });
+  expect(http.fetch).toHaveBeenCalledTimes(1);
+});
+
+it("keeps the local request identity if its generated media cannot be downloaded", async () => {
+  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: "fixture-job", data: [{ url: "/generated-videos/missing.mp4" }] })))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ error: "Generated media expired." }), { status: 404 }));
+  expect(await generateLocalVideo(config, { mode: "text-to-video", prompt: "Morning", settings: { duration: "8s" } }, "")).toMatchObject({ ok: false, error: { message: expect.stringContaining("Generated media expired.") }, receipt: { provider_request_id: "fixture-job" } });
+});
