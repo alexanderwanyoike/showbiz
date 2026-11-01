@@ -18,3 +18,9 @@ it("inherits storyboard defaults and resolves each shot override independently",
     ),
   ).toEqual({ image_model: "gpt-image-1", video_model: "veo3" });
 });
+
+it("resolves loaded and saved storyboard defaults with the same supported video fallback", async () => {
+  const { resolveStoryboardModels } = await import("./shot-models");
+  expect(resolveStoryboardModels({ image_model: "nano-banana", video_model: "retired-video" }, [{ id: "seedance-2-fal" }])).toEqual({ image_model: "nano-banana", video_model: "seedance-2-fal" });
+  expect(resolveStoryboardModels({ image_model: "nano-banana", video_model: "veo-3.1-fal" }, [{ id: "veo-3.1-fal" }])).toEqual({ image_model: "nano-banana", video_model: "veo-3.1-fal" });
+});
