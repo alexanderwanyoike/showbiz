@@ -37,7 +37,12 @@ export const generationPriceSchema = z
       .array(
         generationRateScopeSchema.extend({
           microusd: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-          max_microusd: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
+          max_microusd: z
+            .number()
+            .int()
+            .nonnegative()
+            .max(Number.MAX_SAFE_INTEGER)
+            .optional(),
         }),
       )
       .min(1)

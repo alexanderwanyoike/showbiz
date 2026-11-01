@@ -114,15 +114,55 @@ it("retains manual rates for other output settings when one setting is updated",
   }
 });
 
-
 it("removes only the selected custom setting and retains other saved facets", () => {
   const db = openTestDb();
   try {
     const commands = createGenerationPricingCommands(db);
-    const first = { unit: "second", kind: "video", microusd: 100000, resolution: "720p", audio: false };
-    const second = { unit: "second", kind: "video", microusd: 200000, resolution: "1080p", audio: true };
-    commands.save_generation_price({ kind: "video", price: { provider: "fal", model_id: "video", currency: "USD", source_kind: "manual", source_url: "", checked_at: "2026-11-01T12:00:00Z", rates: [first, second] } });
-    expect(commands.clear_generation_price({ model_id: "video", kind: "video", rate_scope: { unit: "second", kind: "video", resolution: "720p", audio: false } })).toMatchObject({ ok: true });
-    expect(commands.get_generation_price({ model_id: "video", kind: "video" })).toMatchObject({ ok: true, value: { source_kind: "manual", rates: [second] } });
-  } finally { db.close(); }
+    const first = {
+      unit: "second",
+      kind: "video",
+      microusd: 100000,
+      resolution: "720p",
+      audio: false,
+    };
+    const second = {
+      unit: "second",
+      kind: "video",
+      microusd: 200000,
+      resolution: "1080p",
+      audio: true,
+    };
+    commands.save_generation_price({
+      kind: "video",
+      price: {
+        provider: "fal",
+        model_id: "video",
+        currency: "USD",
+        source_kind: "manual",
+        source_url: "",
+        checked_at: "2026-11-01T12:00:00Z",
+        rates: [first, second],
+      },
+    });
+    expect(
+      commands.clear_generation_price({
+        model_id: "video",
+        kind: "video",
+        rate_scope: {
+          unit: "second",
+          kind: "video",
+          resolution: "720p",
+          audio: false,
+        },
+      }),
+    ).toMatchObject({ ok: true });
+    expect(
+      commands.get_generation_price({ model_id: "video", kind: "video" }),
+    ).toMatchObject({
+      ok: true,
+      value: { source_kind: "manual", rates: [second] },
+    });
+  } finally {
+    db.close();
+  }
 });
