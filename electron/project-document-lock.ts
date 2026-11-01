@@ -7,6 +7,13 @@ import {
 
 export function lockProjectDocument(file: string): () => void {
   const lock = `${file}.lock`;
+  const guard = `${lock}.guard`;
+  try {
+    fs.mkdirSync(guard, {mode: 0o700});
+  } catch (cause) {
+    throw new Error(`Could not acquire project lock guard at ${guard}. Retry after other Showbiz instances finish opening this project. If a crash left this guard, close all instances before removing it.`, {cause});
+  }
+  try {
   if (fs.existsSync(lock)) {
     const raw = fs.readFileSync(lock, "utf8");
     let value: unknown;
@@ -36,4 +43,5 @@ export function lockProjectDocument(file: string): () => void {
       throw new Error(`Project lock ownership changed at ${lock}.`);
     fs.unlinkSync(lock);
   };
+  } finally { fs.rmdirSync(guard); }
 }
