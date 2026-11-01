@@ -61,6 +61,12 @@ it("explains a malformed Flux Kontext error through the image transport", async 
   ).rejects.toThrow("Insufficient kie.ai credits");
 });
 it("preserves an HTTP-success provider error even when no API code is supplied", async () => {
-  http.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "Account temporarily disabled" } })));
-  await expect(createKieTask("test-model", {}, "key")).rejects.toThrow("Account temporarily disabled");
+  http.fetch.mockResolvedValueOnce(
+    new Response(
+      JSON.stringify({ error: { message: "Account temporarily disabled" } }),
+    ),
+  );
+  await expect(createKieTask("test-model", {}, "key")).rejects.toThrow(
+    "Account temporarily disabled",
+  );
 });

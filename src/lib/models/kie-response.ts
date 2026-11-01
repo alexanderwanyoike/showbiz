@@ -56,7 +56,11 @@ export async function readKieResponse(
     envelope.success && envelope.data.code !== undefined
       ? Number(envelope.data.code)
       : undefined;
-  if (!response.ok || (code !== undefined && code !== 200) || (envelope.success && envelope.data.error != null)) {
+  if (
+    !response.ok ||
+    (code !== undefined && code !== 200) ||
+    (envelope.success && envelope.data.error != null)
+  ) {
     const status = !response.ok ? response.status : (code ?? response.status);
     const message =
       providerErrorMessage(body) ??
