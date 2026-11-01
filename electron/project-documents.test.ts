@@ -8,6 +8,7 @@ import { loadMigrations } from "./db";
 import { createProjectCommands } from "./commands/projects";
 import { createShotCommands } from "./commands/shots";
 import { createProjectDocuments } from "./project-documents";
+import { createImageVersionCommands } from "./commands/image-versions";
 
 const directories: string[] = [];
 afterEach(() =>
@@ -31,9 +32,22 @@ function setup(legacy?: {
       ...createProjectCommands(db, media),
       ...createShotCommands(db, media),
       ...createSettingsCommands(db),
+      ...createImageVersionCommands(db, media),
     }),
   });
   return { directory, documents };
+}
+async function createFixtureShot(
+  documents: ReturnType<typeof createProjectDocuments>,
+  projectId: string,
+) {
+  const board = (await documents.invoke("create_storyboard", {
+    projectId,
+    name: "Opening",
+  })) as { id: string };
+  return (await documents.invoke("create_shot", {
+    storyboardId: board.id,
+  })) as { id: string };
 }
 it("creates a project file and reopens its saved storyboard independently of the app library", async () => {
   const { directory, documents } = setup();
@@ -114,13 +128,17 @@ it("saves a separate working copy with its media and keeps the original unchange
   try {
     const created = await documents.create(source);
     if (!created.ok) throw new Error(created.error.message);
-    const media = documents.mediaDirectory()!;
-    fs.writeFileSync(path.join(media, "images", "frame.png"), "fixture");
+    const shot = await createFixtureShot(documents, created.value.project_id);
+    await documents.invoke("save_shot_image", {
+      id: shot.id,
+      base64DataUrl: "data:image/png;base64,Zml4dHVyZQ==",
+      prompt: "Frame",
+    });
     expect((await documents.saveAs(copy)).ok).toBe(true);
     expect(documents.current()?.file_path).toBe(copy);
     expect(
       fs.readFileSync(
-        path.join(documents.mediaDirectory()!, "images", "frame.png"),
+        path.join(documents.mediaDirectory()!, "images", `${shot.id}.png`),
         "utf8",
       ),
     ).toBe("fixture");
@@ -388,13 +406,18 @@ it("reopens embedded media larger than one chunk without an external media folde
   try {
     const file = path.join(first.directory, "Large.showbiz");
     const copy = path.join(second.directory, "Large.showbiz");
-    await first.documents.create(file);
+    const created = await first.documents.create(file);
+    if (!created.ok) throw new Error(created.error.message);
+    const shot = await createFixtureShot(
+      first.documents,
+      created.value.project_id,
+    );
     const bytes = Buffer.alloc(9 * 1024 * 1024, 37);
     bytes[bytes.length - 1] = 91;
-    fs.writeFileSync(
-      path.join(first.documents.mediaDirectory()!, "videos", "large.mp4"),
-      bytes,
-    );
+    await first.documents.invoke("save_shot_video", {
+      id: shot.id,
+      base64DataUrl: `data:video/mp4;base64,${bytes.toString("base64")}`,
+    });
     expect((await first.documents.save()).ok).toBe(true);
     await first.documents.close();
     fs.copyFileSync(file, copy);
@@ -403,12 +426,55 @@ it("reopens embedded media larger than one chunk without an external media folde
     expect(
       fs
         .readFileSync(
-          path.join(second.documents.mediaDirectory()!, "videos", "large.mp4"),
+          path.join(
+            second.documents.mediaDirectory()!,
+            "videos",
+            `${shot.id}.mp4`,
+          ),
         )
         .equals(bytes),
     ).toBe(true);
   } finally {
     await first.documents.close();
     await second.documents.close();
+  }
+});
+
+it("excludes deleted take bytes and unrelated cache files from a saved project copy", async () => {
+  const { directory, documents } = setup();
+  const source = path.join(directory, "Original.showbiz");
+  const copy = path.join(directory, "Shared.showbiz");
+  const removedBytes = Buffer.from("private-deleted-take-4d45fc27");
+  try {
+    const created = await documents.create(source);
+    if (!created.ok) throw new Error(created.error.message);
+    const shot = await createFixtureShot(documents, created.value.project_id);
+    const removed = (await documents.invoke("create_generation_version", {
+      shotId: shot.id,
+      prompt: "First take",
+      imageBase64: `data:image/png;base64,${removedBytes.toString("base64")}`,
+    })) as { id: string; image_path: string };
+    await documents.invoke("create_generation_version", {
+      shotId: shot.id,
+      prompt: "Current take",
+      imageBase64: `data:image/png;base64,${Buffer.from("retained-take").toString("base64")}`,
+    });
+    await documents.invoke("delete_version", { versionId: removed.id });
+    fs.writeFileSync(
+      path.join(documents.mediaDirectory()!, "images", "unrelated.png"),
+      removedBytes,
+    );
+    expect((await documents.saveAs(copy)).ok).toBe(true);
+    expect(fs.readFileSync(copy).includes(removedBytes)).toBe(false);
+    expect(
+      fs.existsSync(path.join(documents.mediaDirectory()!, removed.image_path)),
+    ).toBe(false);
+    expect(
+      await documents.invoke("get_shot_image_base64", { shotId: shot.id }),
+    ).toBe(
+      `data:image/png;base64,${Buffer.from("retained-take").toString("base64")}`,
+    );
+  } finally {
+    await documents.close();
   }
 });
