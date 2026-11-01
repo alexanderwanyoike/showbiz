@@ -347,3 +347,15 @@ it("does not replace a newer request's cost warning with an older background che
   });
   expect(screen.queryByText("Old request billing is pending.")).toBeNull();
 });
+
+it.each([
+  ["live", "Live provider API pricing"],
+  ["cached", "Cached provider API pricing"],
+  ["stale", "Cached provider API pricing (refresh unavailable)"],
+])("labels %s provider pricing according to the actual lookup outcome", async (freshness, label) => {
+  const { default: userEvent } = await import("@testing-library/user-event");
+  mocks.estimate.mockResolvedValue({ kind: "estimate", min_microusd: 40000, max_microusd: 40000, stale: freshness === "stale", price_freshness: freshness, excludes_input_cost: false, price: { provider: "openrouter", model_id: "seedream-4.5-openrouter", currency: "USD", source_kind: "provider", source_url: "https://openrouter.ai/api/v1/images/models/bytedance-seed/seedream-4.5/endpoints", checked_at: new Date().toISOString(), rates: [{ unit: "image", microusd: 40000 }] } });
+  render(createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" } }));
+  await userEvent.setup().click(await screen.findByText("Rate details"));
+  expect(screen.getByText(new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))).toBeTruthy();
+});
