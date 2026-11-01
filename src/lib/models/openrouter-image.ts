@@ -1,3 +1,4 @@
+import { openRouterUsageSchema } from "../../../shared/openrouter-usage";
 import { z } from "zod";
 import { fetch } from "./http";
 import { openRouterReceipt } from "./openrouter-receipt";
@@ -15,9 +16,7 @@ const responseSchema = z.object({
       }),
     )
     .min(1),
-  usage: z
-    .object({ cost: z.number().nonnegative().nullable().optional() })
-    .optional(),
+  usage: openRouterUsageSchema.optional(),
 });
 export async function generateOpenRouterImage(
   request: { model: string; prompt: string; references?: string[] },

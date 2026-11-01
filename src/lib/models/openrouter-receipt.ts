@@ -1,3 +1,4 @@
+import { openRouterUsageSchema } from "../../../shared/openrouter-usage";
 import { z } from "zod";
 import type { GenerationReceipt } from "../../../shared/generation-output";
 
@@ -5,9 +6,7 @@ export function openRouterReceipt(input: unknown): GenerationReceipt {
   const parsed = z
     .object({
       id: z.string().optional(),
-      usage: z
-        .object({ cost: z.number().nonnegative().nullable().optional() })
-        .optional(),
+      usage: openRouterUsageSchema.optional(),
     })
     .safeParse(input);
   const value = parsed.success ? parsed.data : {};

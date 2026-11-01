@@ -1,3 +1,4 @@
+import { openRouterUsageSchema } from "../../../shared/openrouter-usage";
 import { z } from "zod";
 import { fetch } from "./http";
 import { pollUntilDone } from "./poll";
@@ -12,9 +13,7 @@ import type {
 const jobSchema = z.object({
   id: z.string().min(1).max(256),
   status: z.enum(["pending", "in_progress", "completed", "failed"]),
-  usage: z
-    .object({ cost: z.number().nonnegative().nullable().optional() })
-    .optional(),
+  usage: openRouterUsageSchema.optional(),
 });
 const failure = (
   message: string,
