@@ -36,8 +36,9 @@ interface FetchResponseLike {
 
 type FetchFn = (url: string, init?: Record<string, unknown>) => Promise<FetchResponseLike>;
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+function messageOf(error: unknown, depth = 0): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return error instanceof Error && error.cause && depth < 3 ? `${message}: ${messageOf(error.cause, depth + 1)}` : message;
 }
 
 /**
