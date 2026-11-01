@@ -53,13 +53,19 @@ export function createGenerationPricingCommands(db: DatabaseSync) {
         )
           return invalid();
         const suffix = `${args.kind}:${args.model_id}`;
+        if (args.endpoint_id !== undefined && !idValid(args.endpoint_id)) return invalid();
+        const legacyCache = () => {
+          const previous = read(`generation_price_cache:${suffix}`);
+          return !args.endpoint_id || previous?.endpoint_id === args.endpoint_id ? previous : null;
+        };
+        const cached = args.endpoint_id ? read(`generation_price_cache:${suffix}:${encodeURIComponent(String(args.endpoint_id))}`) ?? legacyCache() : legacyCache();
         return {
           ok: true,
           value:
             (args.include_manual === false
               ? null
               : read(`generation_price:${suffix}`)) ??
-            read(`generation_price_cache:${suffix}`) ??
+            cached ??
             providerPrices.find((price) => price.model_id === args.model_id) ??
             null,
         };
@@ -93,7 +99,7 @@ export function createGenerationPricingCommands(db: DatabaseSync) {
         db.prepare(
           "INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP",
         ).run(
-          `${prefix}:${args.kind}:${price.model_id}`,
+          `${prefix}:${args.kind}:${price.model_id}${prefix === "generation_price_cache" && price.endpoint_id ? `:${encodeURIComponent(price.endpoint_id)}` : ""}`,
           JSON.stringify(price),
         );
         return { ok: true, value: price };
