@@ -150,7 +150,11 @@ export function BibleAssetEntry({
           <div>
             <strong>{asset.name}</strong>
             <span>
-              {takes.length} {takes.length === 1 ? "take" : "takes"}
+              {pending ? (
+                <span role="status" aria-label={`Generating picture for ${asset.name}`}>
+                  Generating…
+                </span>
+              ) : <>{takes.length} {takes.length === 1 ? "take" : "takes"}</>}
             </span>
           </div>
           {(variationEdited || editInstruction) && (
