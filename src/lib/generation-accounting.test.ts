@@ -119,3 +119,17 @@ it("returns generated media with an explicit warning when saving its receipt fai
     expect(commands.get_generation_usage({ project_id: "film" })).toMatchObject({ ok: true, value: { items: [{ status: "completed", reported_microusd: null }] } });
   } finally { db.close(); }
 });
+
+it.each(["result", "exception"])("keeps successful media when finishing usage fails through a %s", async (failureMode) => {
+  const db = openTestDb();
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> = createGenerationUsageCommands(db);
+    native.invoke.mockImplementation(async (command: string, args?: Record<string, unknown>) => {
+      if (command !== "finish_generation_usage") return commands[command](args);
+      if (failureMode === "exception") throw new Error("Usage IPC disconnected.");
+      return { ok: false, error: { code: "IO_ERROR", message: "Usage outcome could not be saved." } };
+    });
+    expect(await runAccountedGeneration({ project_id: "film", provider: "local", model_id: "local-image", kind: "image", settings: {} }, { kind: "unavailable", reason: "Unknown compute cost" }, async () => "generated-picture")).toMatchObject({ ok: true, value: "generated-picture", warnings: [expect.stringContaining("usage outcome")] });
+  } finally { db.close(); }
+});
