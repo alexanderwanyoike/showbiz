@@ -34,3 +34,9 @@ it("offers storyboard packages without an editor or movie assembly workspace", a
   expect(screen.queryByRole("tab", { name: "Editor" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Save Movie" })).toBeNull();
 });
+it("uses disclosure semantics for Shot controls", async () => {
+  render(createElement(MemoryRouter, { initialEntries: ["/storyboard/sb"] }, createElement(Routes, null, createElement(Route, { path: "/storyboard/:id", element: createElement(StoryboardPage) }))));
+  const control = await screen.findByRole("button", { name: "Shot controls" });
+  expect(control.hasAttribute("aria-pressed")).toBe(false);
+  expect(control.hasAttribute("aria-expanded")).toBe(true);
+});
