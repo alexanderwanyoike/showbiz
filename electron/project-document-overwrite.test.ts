@@ -30,8 +30,9 @@ async function fixture() {
     fs.rmSync(directory, { recursive: true, force: true });
   });
   const original = path.join(directory, "Source.showbiz");
-  expect((await documents.create(original)).ok).toBe(true);
-  return { directory, documents, project, original };
+  const created = await documents.create(original);
+  if (!created.ok) throw new Error(created.error.message);
+  return { directory, documents, project, original, originalProjectId: created.value.project_id };
 }
 
 it.each(["create", "saveAs", "importLegacy"] as const)(
@@ -44,6 +45,10 @@ it.each(["create", "saveAs", "importLegacy"] as const)(
       ? await source.documents.importLegacy(source.project.id, previous.original)
       : await source.documents[operation](previous.original);
     expect(result).toMatchObject({ ok: true });
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.value.project_id).not.toBe(previous.originalProjectId);
+    if (operation !== "create")
+      expect(result.value.project_id).toBe(operation === "importLegacy" ? source.project.id : source.originalProjectId);
     expect(source.documents.current()?.file_path).toBe(previous.original);
     expect(source.documents.current()?.name).toBe(operation === "importLegacy" ? "Legacy film" : "Source");
     expect((await source.documents.close()).ok).toBe(true);
