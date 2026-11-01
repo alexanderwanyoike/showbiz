@@ -131,10 +131,10 @@ it("replaces a deleted selected location view with the surviving primary picture
   );
   const user = userEvent.setup();
   await user.click(await screen.findByRole("button", { name: "Kitchen" }));
-  await user.click(screen.getByRole("button", { name: "View 2", exact: true }));
+  await user.click(screen.getByRole("button", { name: "View 2" }));
   expect(
     screen
-      .getByRole("button", { name: "View 2", exact: true })
+      .getByRole("button", { name: "View 2" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
   state.deletedView = true;
@@ -143,17 +143,17 @@ it("replaces a deleted selected location view with the surviving primary picture
   });
   await waitFor(() =>
     expect(
-      screen.queryByRole("button", { name: "View 3", exact: true }),
+      screen.queryByRole("button", { name: "View 3" }),
     ).toBeNull(),
   );
   expect(
     screen
-      .getByRole("button", { name: "Kitchen", exact: true })
+      .getByRole("button", { name: "Kitchen" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
   expect(
     screen
-      .getByRole("button", { name: "View 1", exact: true })
+      .getByRole("button", { name: "View 1" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
 });
