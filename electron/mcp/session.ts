@@ -56,7 +56,7 @@ export function createMcpSession(
   canEdit: () => boolean = () => true,
 ) {
   let revision = 0;
-  let tail = Promise.resolve();
+  let activeRequest: { id: string; fingerprint: string } | undefined;
   const cache = new Map<string, { fingerprint: string; result: McpResult }>();
   const invoke: Invoke = async (command, args) => {
     const result = await dispatch(command, args);
@@ -101,6 +101,21 @@ export function createMcpSession(
               "INVALID_INPUT",
               "The request ID was already used with different input",
             );
+      if (activeRequest) {
+        if (activeRequest.id === requestId)
+          return failure(
+            activeRequest.fingerprint === fingerprint
+              ? "PENDING"
+              : "INVALID_INPUT",
+            activeRequest.fingerprint === fingerprint
+              ? "Showbiz is still processing this request. Retry with the same request ID and arguments to check its result."
+              : "The request ID was already used with different input",
+          );
+        return failure(
+          "BUSY",
+          "Showbiz is still processing another edit or export. Read context or wait for that request to finish before changing project data.",
+        );
+      }
       if (!canEdit())
         return failure(
           "BUSY",
@@ -111,6 +126,7 @@ export function createMcpSession(
           "CONFLICT",
           "Showbiz changed. Read context and reconsider the edit.",
         );
+      activeRequest = { id: requestId, fingerprint };
     }
     try {
       let data: unknown;
@@ -193,14 +209,12 @@ export function createMcpSession(
         "OPERATION_FAILED",
         cause instanceof Error ? cause.message : String(cause),
       );
+    } finally {
+      if (activeRequest?.id === requestId) activeRequest = undefined;
     }
   }
   return {
     invoke,
-    call(input: unknown): Promise<McpResult> {
-      const operation = tail.then(() => execute(input));
-      tail = operation.then(() => {});
-      return operation;
-    },
+    call: execute,
   };
 }

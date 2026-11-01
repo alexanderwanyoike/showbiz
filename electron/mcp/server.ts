@@ -74,10 +74,17 @@ export function createMcpServer(directory = sessionDirectory()) {
           destructiveHint: false,
         },
       },
-      async (args) =>
+      async (args, context) =>
         toolResult(
           selected
-            ? await callBridge(selected, { tool: definition.name, args })
+            ? await callBridge(
+                selected,
+                { tool: definition.name, args },
+                {
+                  timeoutMs: definition.requestTimeoutMs,
+                  signal: context.mcpReq.signal,
+                },
+              )
             : {
                 ok: false,
                 error: {
