@@ -52,14 +52,6 @@ vi.mock("../actions/generation-actions", async (original) => ({
     throw new Error("Provider unavailable");
   }),
 }));
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
 afterEach(cleanup);
 it("opens a named picture dialog, returns keyboard focus on Escape, and exposes which take is selected", async () => {
   render(createElement(ProjectBibleView, { projectId: "film" }));

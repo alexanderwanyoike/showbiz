@@ -28,6 +28,7 @@
   outline-offset: -3px;
 }
 .bible-asset-card-caption {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;

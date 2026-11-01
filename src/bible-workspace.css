@@ -222,11 +222,6 @@
 .bible-entry-info > :first-child > span {
   font-size: 12px;
 }
-.bible-more-action {
-  position: relative;
-  height: 26px;
-  width: 26px;
-}
 .bible-draft-dot {
   position: absolute;
   top: 3px;

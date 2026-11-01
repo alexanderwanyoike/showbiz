@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router";
+import { DEFAULT_BIBLE_IMAGE_MODEL } from "../lib/bible-assets";
 import { invoke } from "../lib/bridge";
 import { applicationWork } from "../lib/application-work";
 import { electronMediaUrlResolver } from "../lib/electron-media-url";
@@ -27,7 +28,7 @@ const commands: Record<DocumentAction, string> = {
 };
 function useDocumentController() {
   const [state, setState] = useState(empty);
-  const [bibleGenerationModel, setBibleGenerationModel] = useState("nano-banana");
+  const [bibleGenerationModel, setBibleGenerationModel] = useState<string>(DEFAULT_BIBLE_IMAGE_MODEL);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +41,7 @@ function useDocumentController() {
       file.current = next.current?.file_path ?? null;
       setState(next);
       if (changed) {
-        setBibleGenerationModel("nano-banana");
+        setBibleGenerationModel(DEFAULT_BIBLE_IMAGE_MODEL);
         electronMediaUrlResolver.invalidateAll();
         navigate(next.current ? `/project/${next.current.project_id}` : "/", {
           replace: true,

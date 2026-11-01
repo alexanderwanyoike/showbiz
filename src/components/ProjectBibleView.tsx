@@ -1,5 +1,6 @@
 import "../bible-workspace.css";
 import "../bible-asset-workspace.css";
+import { DEFAULT_BIBLE_IMAGE_MODEL } from "../lib/bible-assets";
 import { BibleAssetEntry, type BibleDetailFocusTargets } from "./BibleAssetEntry";
 import { modelProviderName } from "../lib/model-provider";
 import { ConfirmDeletion } from "./ConfirmDeletion";
@@ -152,7 +153,7 @@ export default function ProjectBibleView({
   );
   const [tab, setTab] = useState<Tab>(initialTab);
   const [localImageModel, setLocalImageModel] =
-    useState<ImageModelId>("nano-banana");
+    useState<ImageModelId>(DEFAULT_BIBLE_IMAGE_MODEL);
   const imageModel = generationModel?.value ?? localImageModel;
   const setImageModel = generationModel?.onChange ?? setLocalImageModel;
   const [error, setError] = useState<string | null>(null);

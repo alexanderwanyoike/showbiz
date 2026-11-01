@@ -33,14 +33,6 @@ vi.mock("./backend-api", async (original) => ({
     },
   ],
 }));
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
 Element.prototype.scrollIntoView = vi.fn();
 Element.prototype.hasPointerCapture = () => false;
 Element.prototype.setPointerCapture = vi.fn();
