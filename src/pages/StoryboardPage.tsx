@@ -1027,9 +1027,7 @@ export default function StoryboardPage() {
                 return s ? {
                   id: s.id,
                   order: s.order,
-                  image_model: s.image_model ?? null,
-    video_model: s.video_model ?? null,
-    image_prompt: s.image_prompt,
+                  image_prompt: s.image_prompt,
                   image_url: s.image_url,
                   end_frame_url: s.end_frame_url,
                   video_prompt: s.video_prompt,
