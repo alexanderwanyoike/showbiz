@@ -39,3 +39,7 @@ The request identity and receipt workflow follows the providers' documented APIs
 - [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) and [usage metadata](https://ai.google.dev/api/generate-content#UsageMetadata)
 
 Read-only live verification used the configured FAL generation key: pricing and historical estimates returned HTTP 200; billing events returned HTTP 403 and stayed unconfirmed. The production pricing helpers parsed live OpenRouter image rates for Seedream 4.5 and Nano Banana 2 and video rates for Veo 3.1. Video catalog validation is scoped to the selected model so unrelated editing or upscaling entries with no resolution list cannot disable valid pricing. No paid generation was submitted. Discounted receipts, delayed receipts, denied access, missing data, malformed responses, partial pagination, actual zero, request scoping and document reopen are verified through isolated API-contract tests. Authenticated OpenRouter receipt lookup and a successful FAL billing read require suitable credentials and were not claimed as live-verified.
+
+## Accounting failures after generation
+
+Receipt or outcome storage errors do not turn successful media delivery into a failed generation. The generated result is returned with explicit accounting warnings, also shown beside the affected subject's generation costs. No receipt amount is invented when storage fails. A failure to begin the usage record still stops the operation before submitting a generation request.
