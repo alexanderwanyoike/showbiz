@@ -323,3 +323,13 @@ it("recovers an accounting warning after the cost panel was absent during genera
   render(createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" }, subject: { project_id: "warning-recovery", subject_id: "shot" } }));
   expect(await screen.findByText(/Receipt IPC disconnected/)).toBeTruthy();
 });
+it("shows a history read failure alongside a retained accounting warning", async () => {
+  const { runAccountedGeneration } = await import("./generation-accounting");
+  mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
+  mocks.invoke.mockImplementation(async (command: string) => command === "record_generation_receipt" ? { ok: false, error: { code: "IO_ERROR", message: "Receipt storage unavailable." } } : { ok: true, value: { items: [] } });
+  await runAccountedGeneration({ project_id: "warning-and-history", subject_id: "shot", provider: "openrouter", model_id: "image", kind: "image", settings: {} }, { kind: "unavailable", reason: "No quote" }, async observer => { await observer.receipt({ reported_microusd: 1, provider_request_id: "job" }); return "picture"; });
+  mocks.invoke.mockResolvedValue({ ok: false, error: { code: "IO_ERROR", message: "Usage history unavailable." } });
+  render(createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" }, subject: { project_id: "warning-and-history", subject_id: "shot" } }));
+  expect(await screen.findByText(/Usage history unavailable/)).toBeTruthy();
+  expect(screen.getByText(/Receipt storage unavailable/)).toBeTruthy();
+});
