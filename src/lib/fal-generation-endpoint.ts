@@ -5,7 +5,7 @@ export function falGenerationEndpoint(config: ImageModelConfig | VideoModelConfi
       const options = config.transportOptions ?? {};
       let endpoint: string | undefined;
       if (request.kind === "video" && "imageToVideo" in config.models) {
-        const video = config;
+        const video = "capabilities" in config ? config : undefined;
         endpoint =
           request.mode === "text-to-video"
             ? (video?.generationModes?.textToVideo?.endpoint ??
