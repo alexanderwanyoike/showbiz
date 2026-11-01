@@ -245,6 +245,7 @@ export default function StoryboardPage() {
   const [generatingPromptShots, setGeneratingPromptShots] = useState<Set<string>>(new Set());
   const [enhancingPromptShots, setEnhancingPromptShots] = useState<Set<string>>(new Set());
   const videoGenerationRuns = useRef<GenerationRunMap>({});
+  const previousVideoStatus = useRef<Record<string, Shot["status"]>>({});
   const inFlightVideoShots = useRef(new Set<string>());
   const [pendingVideoShots, setPendingVideoShots] = useState<Set<string>>(new Set());
 
@@ -756,6 +757,7 @@ export default function StoryboardPage() {
       return;
     }
 
+    previousVideoStatus.current[shotId] = shot.status;
     inFlightVideoShots.current.add(shotId);
     setPendingVideoShots((previous)=>new Set(previous).add(shotId));
 
@@ -825,27 +827,16 @@ export default function StoryboardPage() {
       inFlightVideoShots.current.delete(shotId);
       setPendingVideoShots((previous)=>{const next=new Set(previous);next.delete(shotId);return next;});
       if (!isCurrentGenerationRun(videoGenerationRuns.current,shotId,runId)) {
-        try {await refreshVersionData(shotId);}
-        catch (error) {console.warn("Could not refresh the completed shot takes:",error);}
+        await loadData();
       }
     }
   }
 
-  async function handleCancelVideoGeneration(shotId: string) {
+  function handleCancelVideoGeneration(shotId: string) {
     invalidateGenerationRun(videoGenerationRuns.current, shotId);
+    const status = previousVideoStatus.current[shotId] ?? (shots.find((shot) => shot.id === shotId)?.video_url ? "complete" : "pending");
     const errorMessage = "Stopped waiting locally. The provider may still finish and charge for this request. New takes appear when it finishes.";
-    setShots((prev) =>
-      prev.map((s) =>
-        s.id === shotId
-          ? { ...s, status: "failed" as const, error_message: errorMessage }
-          : s
-      )
-    );
-    try {
-      await updateShot(shotId, { status: "failed" });
-    } catch (error) {
-      console.error("Failed to persist cancelled generation status:", error);
-    }
+    setShots((previous) => previous.map((shot) => shot.id === shotId ? { ...shot, status, error_message: errorMessage } : shot));
   }
 
   // --- Prompt Generation ---
