@@ -53,6 +53,7 @@ it("generates local video with JSON conditioning and base64 media output", async
   });
   const [url, options] = http.fetch.mock.calls.at(-1)!;
   expect(url).toBe("http://127.0.0.1:8080/video");
+  expect(options.timeout_ms).toBe(3600000);
   expect(JSON.parse(options.body)).toMatchObject({
     model: "my-wan",
     start_image: "data:image/png;base64,aA==",
