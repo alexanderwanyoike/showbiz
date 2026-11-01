@@ -1,6 +1,9 @@
 const documentSwitches = new Set([
-  "create_project_document", "open_project_document", "close_project_document",
-  "save_project_document_as", "import_legacy_project",
+  "create_project_document",
+  "open_project_document",
+  "close_project_document",
+  "save_project_document_as",
+  "import_legacy_project",
 ]);
 
 const savingMutations = new Set([
@@ -51,7 +54,9 @@ const savingMutations = new Set([
   "update_storyboard_settings",
 ]);
 
-export function commandWorkKind(command: string): "saving" | "export" | undefined {
+export function commandWorkKind(
+  command: string,
+): "saving" | "export" | undefined {
   if (command === "export_storyboard_package") return "export";
   return savingMutations.has(command) ? "saving" : undefined;
 }
@@ -61,11 +66,18 @@ export function commandSwitchesDocument(command: string): boolean {
 }
 
 export function commandChangesData(command: string, result: unknown): boolean {
-  if (!savingMutations.has(command) && !documentSwitches.has(command)) return false;
+  if (!savingMutations.has(command) && !documentSwitches.has(command))
+    return false;
   if (result === false) return false;
   if (typeof result === "object" && result !== null && "ok" in result) {
     if (result.ok === false) return false;
-    if (documentSwitches.has(command) && command !== "close_project_document" && "value" in result && result.value === null) return false;
+    if (
+      documentSwitches.has(command) &&
+      command !== "close_project_document" &&
+      "value" in result &&
+      result.value === null
+    )
+      return false;
   }
   return true;
 }

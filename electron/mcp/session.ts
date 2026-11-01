@@ -1,4 +1,7 @@
-import { commandChangesData, commandSwitchesDocument } from "../../shared/command-effects";
+import {
+  commandChangesData,
+  commandSwitchesDocument,
+} from "../../shared/command-effects";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { mcpTools } from "./tools";
