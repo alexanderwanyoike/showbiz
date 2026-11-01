@@ -1,6 +1,7 @@
 import { invoke } from "./bridge";
 import type { GenerationCostEstimate } from "../../shared/generation-cost";
 import type { GenerationObserver } from "../../shared/generation-output";
+import type { GenerationBillingSync } from "../../shared/generation-billing";
 import type { GenerationUsage } from "../../shared/generation-usage";
 import type { Result } from "../../shared/result";
 
@@ -18,8 +19,15 @@ export interface GenerationUsageChangedDetail {
   project_id: string;
   subject_id?: string;
   warnings: string[];
+  request_id: string;
+  started: boolean;
 }
-function notify(request: GenerationAccountingRequest, warnings: string[] = []) {
+function notify(
+  request: GenerationAccountingRequest,
+  requestId: string,
+  warnings: string[] = [],
+  started = false,
+) {
   if (typeof window !== "undefined")
     window.dispatchEvent(
       new CustomEvent<GenerationUsageChangedDetail>("showbiz:usage-changed", {
@@ -27,6 +35,8 @@ function notify(request: GenerationAccountingRequest, warnings: string[] = []) {
           project_id: request.project_id,
           subject_id: request.subject_id,
           warnings: [...warnings],
+          request_id: requestId,
+          started,
         },
       }),
     );
@@ -55,7 +65,7 @@ export async function runAccountedGeneration<T>(
       },
     );
     if (!begun.ok) return begun;
-    notify(request);
+    notify(request, request_id, [], true);
     const warnings: string[] = [];
     let result: Result<T>;
     let pendingReceipt = false;
@@ -84,7 +94,7 @@ export async function runAccountedGeneration<T>(
               `Could not save the provider receipt: ${cause instanceof Error ? cause.message : String(cause)}`,
             );
           }
-          notify(request, warnings);
+          notify(request, request_id, warnings);
         },
       });
       result = { ok: true, value };
@@ -112,23 +122,24 @@ export async function runAccountedGeneration<T>(
       pendingReceipt &&
       ["fal", "openrouter"].includes(request.provider)
     ) {
-      try {
-        const reconciled = await invoke<Result<unknown>>(
-          "sync_generation_charges",
-          { project_id: request.project_id, request_ids: [request_id] },
-        );
-        if (!reconciled.ok)
-          console.warn(
-            "Provider billing remains unconfirmed:",
-            reconciled.error.message,
-          );
-      } catch {
-        console.warn(
-          "Provider billing could not be checked. The charge remains unconfirmed.",
-        );
-      }
+      void invoke<Result<GenerationBillingSync>>("sync_generation_charges", {
+        project_id: request.project_id,
+        request_ids: [request_id],
+      })
+        .then((reconciled) => {
+          const messages = reconciled.ok
+            ? reconciled.value.notes.map((note) => note.message)
+            : [reconciled.error.message];
+          notify(request, request_id, [...warnings, ...messages]);
+        })
+        .catch(() => {
+          notify(request, request_id, [
+            ...warnings,
+            "Provider billing could not be checked. The charge remains unconfirmed.",
+          ]);
+        });
     }
-    notify(request, warnings);
+    notify(request, request_id, warnings);
     return warnings.length ? { ...result, warnings } : result;
   } catch (cause) {
     return failed(

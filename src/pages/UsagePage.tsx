@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { ListChecks, RefreshCw } from "lucide-react";
 import { WorkspaceToolbar } from "../components/WorkspaceToolbar";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import {
   loadUsageWithBilling,
+  refreshUsageCharges,
   type UsageWithBilling,
 } from "../lib/generation-billing";
 import {
@@ -29,22 +30,55 @@ export default function UsagePage() {
   const [refresh, setRefresh] = useState(0);
   const [data, setData] = useState<UsageWithBilling | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const forceRefresh = useRef(false);
+  const loadedScope = useRef<string | null>(null);
+  function refreshCharges() {
+    forceRefresh.current = true;
+    setRefresh((value) => value + 1);
+  }
   useAgentChanges(() => setRefresh((value) => value + 1));
   useEffect(() => {
     let stopped = false;
-    setData(null);
+    const scope = `${id}:${offset}`;
+    if (loadedScope.current !== scope) setData(null);
+    loadedScope.current = scope;
+    const force = forceRefresh.current;
+    forceRefresh.current = false;
+    setChecking(true);
     setError(null);
     if (id)
       loadUsageWithBilling(id, offset)
-        .then((result) => {
+        .then(async (result) => {
           if (stopped) return;
-          if (!result.ok) setError(result.error.message);
-          else setData(result.value);
+          if (!result.ok) {
+            setChecking(false);
+            setError(result.error.message);
+            return;
+          }
+          setData(result.value);
+          setChecking(true);
+          const reconciled = await refreshUsageCharges(
+            id,
+            offset,
+            result.value,
+            force,
+          );
+          if (stopped) return;
+          setChecking(false);
+          if (reconciled?.ok) setData(reconciled.value);
+          else if (reconciled) setError(reconciled.error.message);
         })
         .catch((cause: unknown) => {
-          if (!stopped) setError(String(cause));
+          if (!stopped) {
+            setChecking(false);
+            setError(String(cause));
+          }
         });
-    else setError("Open a project to view its usage.");
+    else {
+      setChecking(false);
+      setError("Open a project to view its usage.");
+    }
     return () => {
       stopped = true;
     };
@@ -58,14 +92,14 @@ export default function UsagePage() {
         <Button
           variant="ghost"
           size="sm"
-          disabled={loading}
-          onClick={() => setRefresh((value) => value + 1)}
+          disabled={loading || checking}
+          onClick={refreshCharges}
         >
           <RefreshCw
             size={15}
-            className={loading ? "usage-refreshing" : undefined}
+            className={loading || checking ? "usage-refreshing" : undefined}
           />
-          {loading ? "Checking charges…" : "Refresh charges"}
+          {loading || checking ? "Checking charges…" : "Refresh charges"}
         </Button>
       </WorkspaceToolbar>
       <div className="usage-content">
@@ -99,19 +133,20 @@ export default function UsagePage() {
               </div>
             </dl>
           )}
+          {error && data && (
+            <p role="alert" className="usage-refresh-error">
+              {error}
+            </p>
+          )}
           <div
             className="usage-table-scroll"
             aria-label="Generation request ledger"
             tabIndex={0}
           >
-            {error && (
+            {error && !data && (
               <div className="usage-state">
                 <p role="alert">{error}</p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setRefresh((value) => value + 1)}
-                >
+                <Button variant="secondary" size="sm" onClick={refreshCharges}>
                   Retry usage
                 </Button>
               </div>

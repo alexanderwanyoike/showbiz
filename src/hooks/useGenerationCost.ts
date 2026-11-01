@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getGenerationEstimate } from "../lib/generation-pricing";
 import { invoke } from "../lib/bridge";
 import type {
@@ -23,9 +23,11 @@ export function useGenerationCost(
   const [accountingWarning, setAccountingWarning] = useState<string | null>(
     null,
   );
+  const activeAccountingRequest = useRef<string | null>(null);
   const requestKey = JSON.stringify(request);
   useEffect(() => {
     setAccountingWarning(null);
+    activeAccountingRequest.current = null;
     const usageChanged = (event: Event) => {
       const detail = (event as CustomEvent<GenerationUsageChangedDetail>)
         .detail;
@@ -33,9 +35,15 @@ export function useGenerationCost(
         detail?.project_id === subject?.project_id &&
         (!subject?.subject_id || detail?.subject_id === subject.subject_id)
       ) {
-        setAccountingWarning(
-          detail.warnings?.length ? detail.warnings.join(" ") : null,
-        );
+        if (detail.started) activeAccountingRequest.current = detail.request_id;
+        if (
+          !activeAccountingRequest.current ||
+          activeAccountingRequest.current === detail.request_id
+        ) {
+          setAccountingWarning(
+            detail.warnings?.length ? detail.warnings.join(" ") : null,
+          );
+        }
       }
       setHistoryRefresh((value) => value + 1);
       setPriceRefresh((value) => value + 1);

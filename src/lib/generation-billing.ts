@@ -21,38 +21,13 @@ export async function loadUsageWithBilling(
   offset: number,
 ): Promise<Result<UsageWithBilling>> {
   try {
-    let page = await getGenerationUsage(projectId, offset);
+    const page = await getGenerationUsage(projectId, offset);
     if (!page.ok) return page;
-    const pending = page.value.items.filter(
-      (item) =>
-        item.reported_microusd === null &&
-        item.provider_request_id &&
-        ["fal", "openrouter"].includes(item.provider) &&
-        item.status !== "running",
-    );
-    let notes: GenerationBillingSync["notes"] = [];
-    if (pending.length) {
-      const synced = await invoke<Result<GenerationBillingSync>>(
-        "sync_generation_charges",
-        {
-          project_id: projectId,
-          request_ids: pending.map((item) => item.request_id),
-        },
-      );
-      notes = synced.ok
-        ? synced.value.notes
-        : pending.map((item) => ({
-            request_id: item.request_id,
-            message: synced.error.message,
-          }));
-      page = await getGenerationUsage(projectId, offset);
-      if (!page.ok) return page;
-    }
     const summary = await getGenerationCostSummary(projectId);
     if (!summary.ok) return summary;
     return {
       ok: true,
-      value: { ...page.value, summary: summary.value, billing_notes: notes },
+      value: { ...page.value, summary: summary.value, billing_notes: [] },
     };
   } catch {
     return {
@@ -60,8 +35,50 @@ export async function loadUsageWithBilling(
       error: {
         code: "IO_ERROR",
         message:
-          "Could not refresh usage and provider charges. Recorded estimates and receipts were preserved.",
+          "Could not read recorded project usage. Existing estimates and receipts were preserved.",
       },
     };
   }
+}
+export async function refreshUsageCharges(
+  projectId: string,
+  offset: number,
+  snapshot: UsageWithBilling,
+  force = false,
+): Promise<Result<UsageWithBilling> | null> {
+  const pending = snapshot.items.filter(
+    (item) =>
+      item.reported_microusd === null &&
+      item.provider_request_id &&
+      ["fal", "openrouter"].includes(item.provider) &&
+      item.status !== "running",
+  );
+  if (!pending.length) return null;
+  let notes: GenerationBillingSync["notes"];
+  try {
+    const synced = await invoke<Result<GenerationBillingSync>>(
+      "sync_generation_charges",
+      {
+        project_id: projectId,
+        request_ids: pending.map((item) => item.request_id),
+        ...(force ? { force: true } : {}),
+      },
+    );
+    notes = synced.ok
+      ? synced.value.notes
+      : pending.map((item) => ({
+          request_id: item.request_id,
+          message: synced.error.message,
+        }));
+  } catch {
+    notes = pending.map((item) => ({
+      request_id: item.request_id,
+      message:
+        "Provider billing could not be checked. This charge remains unconfirmed.",
+    }));
+  }
+  const updated = await loadUsageWithBilling(projectId, offset);
+  return updated.ok
+    ? { ok: true, value: { ...updated.value, billing_notes: notes } }
+    : updated;
 }

@@ -7,7 +7,10 @@ import UsagePage from "../pages/UsagePage";
 import type { GenerationUsage } from "../../shared/generation-usage";
 import type { UsageWithBilling } from "./generation-billing";
 
-const billing = vi.hoisted(() => ({ loadUsageWithBilling: vi.fn() }));
+const billing = vi.hoisted(() => ({
+  loadUsageWithBilling: vi.fn(),
+  refreshUsageCharges: async () => null,
+}));
 vi.mock("./generation-billing", () => billing);
 vi.mock("../hooks/useAgentChanges", () => ({ useAgentChanges: () => {} }));
 afterEach(() => {

@@ -277,3 +277,170 @@ it("does not fetch charges for a different project's request", async () => {
     db.close();
   }
 });
+
+it("counts only charges actually written when another receipt arrives during lookup", async () => {
+  const db = openTestDb();
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const usage = createGenerationUsageCommands(db);
+    usage.begin_generation_usage({
+      request_id: "ours",
+      project_id: "film",
+      provider: "fal",
+      model_id: "flux-dev-fal",
+      kind: "image",
+    });
+    usage.record_generation_receipt({
+      request_id: "ours",
+      provider_request_id: "fixture-job",
+      reported_microusd: null,
+    });
+    usage.finish_generation_usage({ request_id: "ours", status: "completed" });
+    const http = vi.fn<typeof fetch>().mockImplementation(async () => {
+      usage.record_generation_receipt({
+        request_id: "ours",
+        provider_request_id: "fixture-job",
+        reported_microusd: 17000,
+      });
+      return new Response(
+        JSON.stringify({
+          billing_events: [{ request_id: "fixture-job", cost_total: 0.02 }],
+          has_more: false,
+          next_cursor: null,
+        }),
+      );
+    });
+    const commands = createGenerationBillingCommands(
+      db,
+      () => "fixture-key",
+      http,
+    );
+    expect(
+      await commands.sync_generation_charges({ project_id: "film" }),
+    ).toMatchObject({ ok: true, value: { checked: 1, reported: 0 } });
+    expect(usage.get_generation_usage({ project_id: "film" })).toMatchObject({
+      ok: true,
+      value: { items: [{ reported_microusd: 17000 }] },
+    });
+  } finally {
+    db.close();
+  }
+});
+
+it("backs off unconfirmed checks, preserves their reason, and retries on explicit refresh or credential changes", async () => {
+  const db = openTestDb();
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date("2026-11-01T12:00:00Z"));
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const usage = createGenerationUsageCommands(db);
+    usage.begin_generation_usage({
+      request_id: "ours",
+      project_id: "film",
+      provider: "fal",
+      model_id: "flux-dev-fal",
+      kind: "image",
+    });
+    usage.record_generation_receipt({
+      request_id: "ours",
+      provider_request_id: "fixture-job",
+      reported_microusd: null,
+    });
+    usage.finish_generation_usage({ request_id: "ours", status: "completed" });
+    let key = "fixture-key-a";
+    const http = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => new Response("denied", { status: 403 }));
+    const commands = createGenerationBillingCommands(db, () => key, http);
+    const first = await commands.sync_generation_charges({
+      project_id: "film",
+    });
+    expect(first).toMatchObject({ ok: true, value: { checked: 1 } });
+    const cached = await commands.sync_generation_charges({
+      project_id: "film",
+    });
+    expect(cached).toMatchObject({
+      ok: true,
+      value: {
+        checked: 0,
+        reported: 0,
+        notes: [
+          {
+            request_id: "ours",
+            message: expect.stringContaining("access denied"),
+          },
+        ],
+      },
+    });
+    expect(http).toHaveBeenCalledTimes(1);
+    await commands.sync_generation_charges({ project_id: "film", force: true });
+    expect(http).toHaveBeenCalledTimes(2);
+    key = "fixture-key-b";
+    await commands.sync_generation_charges({ project_id: "film" });
+    expect(http).toHaveBeenCalledTimes(3);
+    vi.advanceTimersByTime(60001);
+    await commands.sync_generation_charges({ project_id: "film" });
+    expect(http).toHaveBeenCalledTimes(4);
+  } finally {
+    vi.useRealTimers();
+    db.close();
+  }
+});
+
+it("shares an in-flight check for the same project request selection", async () => {
+  const db = openTestDb();
+  const replies: ((value: Response) => void)[] = [];
+  let checks: Promise<unknown>[] = [];
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const usage = createGenerationUsageCommands(db);
+    usage.begin_generation_usage({
+      request_id: "ours",
+      project_id: "film",
+      provider: "fal",
+      model_id: "flux-dev-fal",
+      kind: "image",
+    });
+    usage.record_generation_receipt({
+      request_id: "ours",
+      provider_request_id: "fixture-job",
+      reported_microusd: null,
+    });
+    usage.finish_generation_usage({ request_id: "ours", status: "completed" });
+    const http = vi
+      .fn<typeof fetch>()
+      .mockImplementation(
+        () => new Promise<Response>((resolve) => replies.push(resolve)),
+      );
+    const commands = createGenerationBillingCommands(
+      db,
+      () => "fixture-key",
+      http,
+    );
+    checks = [
+      commands.sync_generation_charges({
+        project_id: "film",
+        request_ids: ["ours"],
+      }),
+      commands.sync_generation_charges({
+        project_id: "film",
+        request_ids: ["ours"],
+        force: true,
+      }),
+    ];
+    expect(http).toHaveBeenCalledTimes(1);
+  } finally {
+    for (const reply of replies)
+      reply(
+        new Response(
+          JSON.stringify({
+            billing_events: [],
+            has_more: false,
+            next_cursor: null,
+          }),
+        ),
+      );
+    await Promise.all(checks);
+    db.close();
+  }
+});
