@@ -1,0 +1,49 @@
+{
+  "id": "veo-3.1-openrouter",
+  "name": "Veo 3.1",
+  "description": "Text and first/last-frame video through OpenRouter.",
+  "transport": "openrouter-video",
+  "enabled": true,
+  "apiKeyProvider": "openrouter",
+  "provider": "OpenRouter",
+  "modelFamily": "veo",
+  "models": {
+    "textToVideo": "google/veo-3.1",
+    "imageToVideo": "google/veo-3.1"
+  },
+  "generationModes": {
+    "textToVideo": {
+      "endpoint": "google/veo-3.1"
+    },
+    "imageToVideo": {
+      "endpoint": "google/veo-3.1",
+      "inputs": {
+        "startImage": true,
+        "endImage": true
+      }
+    }
+  },
+  "capabilities": {
+    "durations": [
+      "4s",
+      "6s",
+      "8s"
+    ],
+    "resolutions": [
+      "720p",
+      "1080p",
+      "4K"
+    ],
+    "aspectRatios": [
+      "16:9",
+      "9:16"
+    ],
+    "hasAudio": true
+  },
+  "defaults": {
+    "duration": "8s",
+    "resolution": "720p",
+    "aspectRatio": "16:9",
+    "audio": true
+  }
+}

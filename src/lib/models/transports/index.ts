@@ -1,3 +1,5 @@
+import { localImageTransport, localVideoTransport } from "./local";
+import { openRouterImageTransport, openRouterVideoTransport } from "./openrouter";
 import type { VideoTransport, ImageTransport } from "./types";
 import { kieVideoTransport } from "./kie-video";
 import { kieImageTransport } from "./kie-image";
@@ -12,6 +14,8 @@ import { openaiImageTransport } from "./openai-image";
 import { googleInteractionsImageTransport } from "./google-interactions-image";
 
 const videoTransports: Record<string, VideoTransport> = {
+  "local-video": localVideoTransport,
+  "openrouter-video": openRouterVideoTransport,
   "kie-video": kieVideoTransport,
   "google-video": googleVideoTransport,
   "ltx": ltxTransport,
@@ -20,6 +24,8 @@ const videoTransports: Record<string, VideoTransport> = {
 };
 
 const imageTransports: Record<string, ImageTransport> = {
+  "local-image": localImageTransport,
+  "openrouter-image": openRouterImageTransport,
   "kie-image": kieImageTransport,
   "google-image": googleImageTransport,
   "fal-image": falImageTransport,

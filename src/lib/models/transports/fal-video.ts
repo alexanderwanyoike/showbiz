@@ -1,3 +1,4 @@
+import type { GenerationObserver } from "../../../../shared/generation-output";
 import type { VideoTransport } from "./types";
 import type { VideoModelConfig } from "../config-schema";
 import type { VideoGenerationSettings } from "../types";
@@ -24,9 +25,11 @@ function mapSettings(
 async function submitAndDownload(
   endpointId: string,
   input: Record<string, unknown>,
-  apiKey: string
+  apiKey: string,
+  observer?: GenerationObserver
 ): Promise<Blob> {
   const queueRequest = await submitFalQueueRequest(endpointId, input, apiKey);
+  await observer?.receipt({ provider_request_id: queueRequest.requestId, reported_microusd: null });
   const result = await pollFalResult<{ video: { url: string } }>(
     endpointId,
     queueRequest.requestId,
@@ -48,7 +51,8 @@ export const falVideoTransport: VideoTransport = {
     prompt: string,
     imageBase64: string | null,
     apiKey: string,
-    settings: VideoGenerationSettings
+    settings: VideoGenerationSettings,
+    observer?: GenerationObserver
   ): Promise<Blob> {
     const opts = (config.transportOptions ?? {}) as Record<string, string>;
     const mapping = config.paramMapping ?? {};
@@ -74,13 +78,14 @@ export const falVideoTransport: VideoTransport = {
       input[imageKey] = imageUrl;
     }
 
-    return submitAndDownload(endpointId, input, apiKey);
+    return submitAndDownload(endpointId, input, apiKey, observer);
   },
 
   async generateVideoRequest(
     config: VideoModelConfig,
     request: VideoGenerationRequest,
-    apiKey: string
+    apiKey: string,
+    observer?: GenerationObserver
   ): Promise<Blob> {
     const input: Record<string, unknown> = {
       prompt: request.prompt,
@@ -107,13 +112,13 @@ export const falVideoTransport: VideoTransport = {
           endFrame?.endImageInput ?? config.paramMapping?.endImageInput ?? "end_image_url";
         input[endKey] = uploadImageToFal(request.endImage);
       }
-      return submitAndDownload(endpoint, input, apiKey);
+      return submitAndDownload(endpoint, input, apiKey, observer);
     }
 
     const mode = config.generationModes?.textToVideo;
     const opts = (config.transportOptions ?? {}) as Record<string, string>;
     const endpoint = mode?.endpoint ?? opts.textToVideoEndpoint ?? config.models.textToVideo;
     if (!endpoint) throw new Error(`${config.name} does not support text-to-video`);
-    return submitAndDownload(endpoint, input, apiKey);
+    return submitAndDownload(endpoint, input, apiKey, observer);
   },
 };
