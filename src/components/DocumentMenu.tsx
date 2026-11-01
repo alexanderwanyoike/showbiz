@@ -5,7 +5,8 @@ import {
   type DocumentAction,
 } from "../contexts/ProjectDocumentContext";
 import { useApplicationWork } from "../hooks/useApplicationWork";
-import { menuShortcut } from "../lib/menu-editor";
+import { desktopPlatform } from "../lib/menu-editor";
+import { menuShortcutLabel } from "../../shared/menu-shortcuts";
 export function DocumentMenu({
   mac,
   onQuit,
@@ -21,12 +22,7 @@ export function DocumentMenu({
 }) {
   const document = useProjectDocument();
   const work = useApplicationWork();
-  const disabled =
-    document.busy ||
-    document.loading ||
-    work.active.length > 0 ||
-    work.unsaved.length > 0 ||
-    work.closing;
+  const disabled = document.busy || document.loading || work.closing;
   useEffect(() => {
     if (window.showbiz?.onDocumentAction) return;
     const shortcut = (event: KeyboardEvent) => {
@@ -63,7 +59,6 @@ export function DocumentMenu({
   const item = (
     label: string,
     action: DocumentAction,
-    shortcut: string,
     requiresProject = false,
   ) => (
     <Menubar.Item
@@ -76,7 +71,7 @@ export function DocumentMenu({
     >
       {label}
       <span className="app-menu-shortcut" aria-hidden="true">
-        {menuShortcut(shortcut, mac)}
+        {menuShortcutLabel(action, desktopPlatform())}
       </span>
     </Menubar.Item>
   );
@@ -93,13 +88,13 @@ export function DocumentMenu({
           collisionPadding={8}
           onCloseAutoFocus={onCloseAutoFocus}
         >
-          {item("New Project…", "new", "N")}
-          {item("Open Project…", "open", "O")}
+          {item("New Project…", "new")}
+          {item("Open Project…", "open")}
           <Menubar.Separator className="app-menu-separator" />
-          {item("Save", "save", "S", true)}
-          {item("Save As…", "save_as", "Shift+S", true)}
+          {item("Save", "save", true)}
+          {item("Save As…", "save_as", true)}
           <Menubar.Separator className="app-menu-separator" />
-          {item("Close Project", "close", "Shift+W", true)}
+          {item("Close Project", "close", true)}
           <Menubar.Separator className="app-menu-separator" />
           <Menubar.Item className="app-menu-item" onSelect={onSettings}>
             Settings…
@@ -112,7 +107,7 @@ export function DocumentMenu({
             Quit Showbiz
             {canQuit && window.showbiz?.desktop?.platform !== "win32" && (
               <span className="app-menu-shortcut" aria-hidden="true">
-                {menuShortcut("Q", mac)}
+                {menuShortcutLabel("quit", desktopPlatform())}
               </span>
             )}
           </Menubar.Item>

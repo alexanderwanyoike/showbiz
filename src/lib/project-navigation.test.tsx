@@ -122,3 +122,9 @@ it("keeps project naming in project settings and saves only on an explicit actio
   expect(updateProject).toHaveBeenCalledWith("film", "Evening");
   expect(screen.queryByRole("dialog", { name: "Project settings" })).toBeNull();
 });
+it("represents the navigator as one disclosure rather than a second toggle state", async () => {
+  render(createElement(MemoryRouter, null, createElement(App)));
+  const toggle = await screen.findByRole("button", { name: "Project navigator" });
+  expect(toggle.hasAttribute("aria-expanded")).toBe(true);
+  expect(toggle.hasAttribute("aria-pressed")).toBe(false);
+});
