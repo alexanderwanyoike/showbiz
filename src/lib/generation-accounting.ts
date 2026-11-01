@@ -67,15 +67,22 @@ export async function runAccountedGeneration<T>(
             receipt.provider_request_id === null
           )
             return;
-          pendingReceipt = receipt.provider_request_id !== null && receipt.reported_microusd === null;
+          pendingReceipt =
+            receipt.provider_request_id !== null &&
+            receipt.reported_microusd === null;
           try {
             const recorded = await invoke<Result<null>>(
               "record_generation_receipt",
               { request_id, ...receipt },
             );
-            if (!recorded.ok) warnings.push(`Could not save the provider receipt: ${recorded.error.message}`);
+            if (!recorded.ok)
+              warnings.push(
+                `Could not save the provider receipt: ${recorded.error.message}`,
+              );
           } catch (cause) {
-            warnings.push(`Could not save the provider receipt: ${cause instanceof Error ? cause.message : String(cause)}`);
+            warnings.push(
+              `Could not save the provider receipt: ${cause instanceof Error ? cause.message : String(cause)}`,
+            );
           }
           notify(request, warnings);
         },
@@ -91,15 +98,35 @@ export async function runAccountedGeneration<T>(
         status: result.ok ? "completed" : "failed",
       });
       finishSucceeded = finished.ok;
-      if (!finished.ok) warnings.push(`The usage outcome could not be saved: ${finished.error.message}`);
+      if (!finished.ok)
+        warnings.push(
+          `The usage outcome could not be saved: ${finished.error.message}`,
+        );
     } catch (cause) {
-      warnings.push(`The usage outcome could not be saved: ${cause instanceof Error ? cause.message : String(cause)}`);
+      warnings.push(
+        `The usage outcome could not be saved: ${cause instanceof Error ? cause.message : String(cause)}`,
+      );
     }
-    if (finishSucceeded && pendingReceipt && ["fal", "openrouter"].includes(request.provider)) {
+    if (
+      finishSucceeded &&
+      pendingReceipt &&
+      ["fal", "openrouter"].includes(request.provider)
+    ) {
       try {
-        const reconciled = await invoke<Result<unknown>>("sync_generation_charges", { project_id: request.project_id, request_ids: [request_id] });
-        if (!reconciled.ok) console.warn("Provider billing remains unconfirmed:", reconciled.error.message);
-      } catch { console.warn("Provider billing could not be checked. The charge remains unconfirmed."); }
+        const reconciled = await invoke<Result<unknown>>(
+          "sync_generation_charges",
+          { project_id: request.project_id, request_ids: [request_id] },
+        );
+        if (!reconciled.ok)
+          console.warn(
+            "Provider billing remains unconfirmed:",
+            reconciled.error.message,
+          );
+      } catch {
+        console.warn(
+          "Provider billing could not be checked. The charge remains unconfirmed.",
+        );
+      }
     }
     notify(request, warnings);
     return warnings.length ? { ...result, warnings } : result;

@@ -20,14 +20,22 @@ export function useGenerationCost(
   const [estimate, setEstimate] = useState<GenerationCostEstimate | null>(null);
   const [last, setLast] = useState<GenerationUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [accountingWarning, setAccountingWarning] = useState<string | null>(null);
+  const [accountingWarning, setAccountingWarning] = useState<string | null>(
+    null,
+  );
   const requestKey = JSON.stringify(request);
   useEffect(() => {
     setAccountingWarning(null);
     const usageChanged = (event: Event) => {
-      const detail = (event as CustomEvent<GenerationUsageChangedDetail>).detail;
-      if (detail?.project_id === subject?.project_id && (!subject?.subject_id || detail?.subject_id === subject.subject_id)) {
-        setAccountingWarning(detail.warnings?.length ? detail.warnings.join(" ") : null);
+      const detail = (event as CustomEvent<GenerationUsageChangedDetail>)
+        .detail;
+      if (
+        detail?.project_id === subject?.project_id &&
+        (!subject?.subject_id || detail?.subject_id === subject.subject_id)
+      ) {
+        setAccountingWarning(
+          detail.warnings?.length ? detail.warnings.join(" ") : null,
+        );
       }
       setHistoryRefresh((value) => value + 1);
       setPriceRefresh((value) => value + 1);

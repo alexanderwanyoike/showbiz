@@ -88,22 +88,58 @@ it("keeps a newly generated picture's charge visible before a reference retake",
 });
 it("distinguishes a published snapshot from live API pricing and opens device-wide model pricing explicitly", async () => {
   const { default: userEvent } = await import("@testing-library/user-event");
-  mocks.estimate.mockResolvedValue({ kind: "estimate", min_microusd: 39000, max_microusd: 39000, stale: false, excludes_input_cost: true, price: { provider: "gemini", model_id: "nano-banana", currency: "USD", source_kind: "published", source_url: "https://ai.google.dev/gemini-api/docs/pricing", checked_at: "2026-10-31T12:00:00Z", rates: [{ unit: "image", microusd: 39000 }] } });
-  render(createElement(GenerationCost, { modelId: "nano-banana", request: { kind: "image" } }));
+  mocks.estimate.mockResolvedValue({
+    kind: "estimate",
+    min_microusd: 39000,
+    max_microusd: 39000,
+    stale: false,
+    excludes_input_cost: true,
+    price: {
+      provider: "gemini",
+      model_id: "nano-banana",
+      currency: "USD",
+      source_kind: "published",
+      source_url: "https://ai.google.dev/gemini-api/docs/pricing",
+      checked_at: "2026-10-31T12:00:00Z",
+      rates: [{ unit: "image", microusd: 39000 }],
+    },
+  });
+  render(
+    createElement(GenerationCost, {
+      modelId: "nano-banana",
+      request: { kind: "image" },
+    }),
+  );
   const user = userEvent.setup();
   await user.click(await screen.findByText("Rate details"));
   expect(screen.getByText("Published price snapshot")).toBeTruthy();
   expect(screen.queryByText("Set your rate")).toBeNull();
   await user.click(screen.getByRole("button", { name: "Model pricing…" }));
   expect(screen.getByRole("dialog", { name: "Model pricing" })).toBeTruthy();
-  expect(screen.getByText(/applies to this model on this device across all projects/)).toBeTruthy();
+  expect(
+    screen.getByText(
+      /applies to this model on this device across all projects/,
+    ),
+  ).toBeTruthy();
 });
 it("names the generation type and video settings affected by a device-wide rate", async () => {
   const { default: userEvent } = await import("@testing-library/user-event");
   mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
   mocks.invoke.mockResolvedValue({ ok: true, value: null });
-  render(createElement(GenerationCost, { modelId: "veo-3.1-openrouter", request: { kind: "video", duration: "8s", resolution: "720p", audio: true } }));
-  await userEvent.setup().click(screen.getByRole("button", { name: "Model pricing…" }));
+  render(
+    createElement(GenerationCost, {
+      modelId: "veo-3.1-openrouter",
+      request: {
+        kind: "video",
+        duration: "8s",
+        resolution: "720p",
+        audio: true,
+      },
+    }),
+  );
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Model pricing…" }));
   expect(screen.getByText("Video · 720p · Audio on")).toBeTruthy();
 });
 it("cancels a staged custom rate with Escape without a second confirmation", async () => {
@@ -111,7 +147,12 @@ it("cancels a staged custom rate with Escape without a second confirmation", asy
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
   mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
   mocks.invoke.mockResolvedValue({ ok: true, value: null });
-  render(createElement(GenerationCost, { modelId: "veo-3.1-openrouter", request: { kind: "video", duration: "8s" } }));
+  render(
+    createElement(GenerationCost, {
+      modelId: "veo-3.1-openrouter",
+      request: { kind: "video", duration: "8s" },
+    }),
+  );
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Model pricing…" }));
   await user.type(screen.getByLabelText("USD per second"), "0.13");
@@ -122,12 +163,42 @@ it("cancels a staged custom rate with Escape without a second confirmation", asy
 });
 it("keeps the last subject request visible when a different model is selected for future generation", async () => {
   mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
-  mocks.invoke.mockResolvedValue({ ok: true, value: { items: [{ request_id: "last-request", provider: "openrouter", model_id: "seedream-4.5-openrouter", kind: "image_edit", status: "failed", reported_microusd: 40000 }] } });
+  mocks.invoke.mockResolvedValue({
+    ok: true,
+    value: {
+      items: [
+        {
+          request_id: "last-request",
+          provider: "openrouter",
+          model_id: "seedream-4.5-openrouter",
+          kind: "image_edit",
+          status: "failed",
+          reported_microusd: 40000,
+        },
+      ],
+    },
+  });
   const subject = { project_id: "film", subject_id: "character" };
-  const view = render(createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" }, subject }));
-  expect((await screen.findByLabelText("Last generation cost")).textContent).toContain("$0.04 reported");
-  view.rerender(createElement(GenerationCost, { modelId: "nano-banana-2", request: { kind: "image" }, subject }));
-  expect((await screen.findByLabelText("Last generation cost")).textContent).toContain("Last request:");
+  const view = render(
+    createElement(GenerationCost, {
+      modelId: "seedream-4.5-openrouter",
+      request: { kind: "image" },
+      subject,
+    }),
+  );
+  expect(
+    (await screen.findByLabelText("Last generation cost")).textContent,
+  ).toContain("$0.04 reported");
+  view.rerender(
+    createElement(GenerationCost, {
+      modelId: "nano-banana-2",
+      request: { kind: "image" },
+      subject,
+    }),
+  );
+  expect(
+    (await screen.findByLabelText("Last generation cost")).textContent,
+  ).toContain("Last request:");
   expect(screen.getByText("Seedream 4.5")).toBeTruthy();
   expect(screen.getByText("OpenRouter")).toBeTruthy();
   expect(screen.getByText("Failed")).toBeTruthy();
@@ -136,32 +207,105 @@ it("keeps the last subject request visible when a different model is selected fo
 it("does not hide recorded history while a future pricing change is being calculated", async () => {
   const { act } = await import("@testing-library/react");
   mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
-  mocks.invoke.mockResolvedValue({ ok: true, value: { items: [{ request_id: "last", provider: "openrouter", model_id: "veo-3.1-openrouter", kind: "video", status: "completed", reported_microusd: 3200000 }] } });
-  render(createElement(GenerationCost, { modelId: "veo-3.1-openrouter", request: { kind: "video" }, subject: { project_id: "film", subject_id: "shot" } }));
-  expect((await screen.findByLabelText("Last generation cost")).textContent).toContain("$3.20 reported");
+  mocks.invoke.mockResolvedValue({
+    ok: true,
+    value: {
+      items: [
+        {
+          request_id: "last",
+          provider: "openrouter",
+          model_id: "veo-3.1-openrouter",
+          kind: "video",
+          status: "completed",
+          reported_microusd: 3200000,
+        },
+      ],
+    },
+  });
+  render(
+    createElement(GenerationCost, {
+      modelId: "veo-3.1-openrouter",
+      request: { kind: "video" },
+      subject: { project_id: "film", subject_id: "shot" },
+    }),
+  );
+  expect(
+    (await screen.findByLabelText("Last generation cost")).textContent,
+  ).toContain("$3.20 reported");
   mocks.invoke.mockImplementation(() => new Promise(() => {}));
-  await act(async () => { window.dispatchEvent(new Event("showbiz:pricing-changed")); });
-  expect(screen.getByLabelText("Last generation cost").textContent).toContain("$3.20 reported");
+  await act(async () => {
+    window.dispatchEvent(new Event("showbiz:pricing-changed"));
+  });
+  expect(screen.getByLabelText("Last generation cost").textContent).toContain(
+    "$3.20 reported",
+  );
 });
 
 it("shows accounting warnings beside the affected generation while keeping its media result", async () => {
   const { act, within } = await import("@testing-library/react");
   const { runAccountedGeneration } = await import("./generation-accounting");
   mocks.estimate.mockResolvedValue({ kind: "unavailable", reason: "No quote" });
-  mocks.invoke.mockImplementation(async (command: string) => command === "record_generation_receipt"
-    ? { ok: false, error: { code: "IO_ERROR", message: "Receipt could not be written." } }
-    : { ok: true, value: { items: [] } });
-  render(createElement("div", null,
-    createElement("section", { "aria-label": "Affected shot" }, createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" }, subject: { project_id: "film", subject_id: "shot" } })),
-    createElement("section", { "aria-label": "Other shot" }, createElement(GenerationCost, { modelId: "seedream-4.5-openrouter", request: { kind: "image" }, subject: { project_id: "film", subject_id: "other" } })),
-  ));
+  mocks.invoke.mockImplementation(async (command: string) =>
+    command === "record_generation_receipt"
+      ? {
+          ok: false,
+          error: { code: "IO_ERROR", message: "Receipt could not be written." },
+        }
+      : { ok: true, value: { items: [] } },
+  );
+  render(
+    createElement(
+      "div",
+      null,
+      createElement(
+        "section",
+        { "aria-label": "Affected shot" },
+        createElement(GenerationCost, {
+          modelId: "seedream-4.5-openrouter",
+          request: { kind: "image" },
+          subject: { project_id: "film", subject_id: "shot" },
+        }),
+      ),
+      createElement(
+        "section",
+        { "aria-label": "Other shot" },
+        createElement(GenerationCost, {
+          modelId: "seedream-4.5-openrouter",
+          request: { kind: "image" },
+          subject: { project_id: "film", subject_id: "other" },
+        }),
+      ),
+    ),
+  );
   await act(async () => {
-    const result = await runAccountedGeneration({ project_id: "film", subject_id: "shot", provider: "openrouter", model_id: "image", kind: "image", settings: {} }, { kind: "unavailable", reason: "No quote" }, async (observer) => {
-      await observer.receipt({ reported_microusd: 23000, provider_request_id: "fixture-job" });
-      return "generated-picture";
-    });
+    const result = await runAccountedGeneration(
+      {
+        project_id: "film",
+        subject_id: "shot",
+        provider: "openrouter",
+        model_id: "image",
+        kind: "image",
+        settings: {},
+      },
+      { kind: "unavailable", reason: "No quote" },
+      async (observer) => {
+        await observer.receipt({
+          reported_microusd: 23000,
+          provider_request_id: "fixture-job",
+        });
+        return "generated-picture";
+      },
+    );
     expect(result).toMatchObject({ ok: true, value: "generated-picture" });
   });
-  expect(await within(screen.getByRole("region", { name: "Affected shot" })).findByText(/Receipt could not be written/)).toBeTruthy();
-  expect(within(screen.getByRole("region", { name: "Other shot" })).queryByText(/Receipt could not be written/)).toBeNull();
+  expect(
+    await within(
+      screen.getByRole("region", { name: "Affected shot" }),
+    ).findByText(/Receipt could not be written/),
+  ).toBeTruthy();
+  expect(
+    within(screen.getByRole("region", { name: "Other shot" })).queryByText(
+      /Receipt could not be written/,
+    ),
+  ).toBeNull();
 });
