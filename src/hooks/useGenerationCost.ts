@@ -92,5 +92,5 @@ export function useGenerationCost(
       stopped = true;
     };
   }, [subject?.project_id, subject?.subject_id, family, historyRefresh]);
-  return { estimate, last, error: accountingWarning ?? error };
+  return { estimate, last, error: [accountingWarning, error].filter(Boolean).join(" ") || null };
 }
