@@ -56,4 +56,4 @@ Reads remain available during an agent edit or export. A concurrent write return
 
 The implementation follows a live application owner bridge and the [official MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) stdio server pattern. The SDK owns MCP framing, discovery and tool schema validation. Node's HTTP-over-IPC facilities carry the private application calls. SDK Apache-2.0 and transitive dependency notices are collected into `mcp-LICENSES.txt` during the standalone build.
 
-The app and MCP adapter must share the same temporary directory (`TMPDIR` on POSIX). Discovery rejects sockets outside that directory rather than probing or deleting an untrusted path. Stale-socket cleanup is covered with an actual private `showbiz-mcp-*` directory.
+The app and MCP adapter must share the same temporary directory (`TMPDIR` on POSIX). Discovery rejects sockets outside that directory rather than probing or deleting an untrusted path.
