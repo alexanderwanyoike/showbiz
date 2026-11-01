@@ -3,10 +3,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { invoke } from "../lib/bridge";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
-import type {
-  GenerationCostRequest,
-  GenerationPrice,
-  GenerationPriceRate,
+import { selectGenerationRate, type GenerationCostRequest,
+  type GenerationPrice,
+  type GenerationPriceRate,
 } from "../../shared/generation-cost";
 import type { Result } from "../../shared/result";
 
@@ -34,6 +33,7 @@ export function GenerationRateEditor({
     onBusyChange?.(saving);
   }, [saving, onBusyChange]);
   const unit = request.kind === "video" ? "second" : "image";
+  const customRate = price?.source_kind === "manual" ? selectGenerationRate(price, request) : null;
   useUnsavedWork("draft", !!amount || !!source, `${amount}\0${source}`);
   async function save() {
     const usd = Number(amount);
@@ -95,13 +95,14 @@ export function GenerationRateEditor({
       const result = await invoke<Result<null>>("clear_generation_price", {
         model_id: modelId,
         kind: request.kind,
+        rate_scope: customRate ? { unit: customRate.unit, ...(customRate.kind ? { kind: customRate.kind } : {}), ...(customRate.resolution !== undefined ? { resolution: customRate.resolution } : {}), ...(customRate.audio !== undefined ? { audio: customRate.audio } : {}) } : undefined,
       });
       if (!result.ok) setError(result.error.message);
       else {
         setAmount("");
         setSource("");
         setNotice(
-          "Custom rate removed. Provider pricing will be used if available.",
+          "Custom rate removed for these settings.",
         );
         window.dispatchEvent(new Event("showbiz:pricing-changed"));
       }
@@ -172,14 +173,14 @@ export function GenerationRateEditor({
         >
           Cancel
         </Button>
-        {price?.source_kind === "manual" && (
+        {customRate && (
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => void reset()}
           >
-            Use provider rate
+            Remove custom rate for these settings
           </Button>
         )}
       </div>

@@ -56,6 +56,13 @@ export function generationRateMatchesRequest(rate: GenerationPriceRate, request:
     (rate.audio === undefined || rate.audio === request.audio) &&
     (rate.kind === undefined || rate.kind === request.kind);
 }
+export function selectGenerationRate(price: GenerationPrice, request: GenerationCostRequest): GenerationPriceRate | null {
+  const matching = price.rates.filter((rate) => generationRateMatchesRequest(rate, request));
+  const specificity = (rate: GenerationPriceRate) => Number(rate.resolution !== undefined) + Number(rate.audio !== undefined) + Number(rate.kind !== undefined);
+  const rank = Math.max(...matching.map(specificity));
+  const best = matching.filter((rate) => specificity(rate) === rank);
+  return best.length === 1 ? best[0] : null;
+}
 export function estimateGenerationCost(
   price: GenerationPrice | null,
   request: GenerationCostRequest,
@@ -63,18 +70,8 @@ export function estimateGenerationCost(
 ): GenerationCostEstimate {
   if (!price)
     return unavailable("A provider rate is not available for this model.");
-  const matching = price.rates.filter((rate) => generationRateMatchesRequest(rate, request));
-  const specificity = (rate: GenerationPriceRate) =>
-    Number(rate.resolution !== undefined) +
-    Number(rate.audio !== undefined) +
-    Number(rate.kind !== undefined);
-  const rank = Math.max(...matching.map(specificity));
-  const best = matching.filter((rate) => specificity(rate) === rank);
-  if (best.length !== 1)
-    return unavailable(
-      "A rate is not available for these generation settings.",
-    );
-  const rate = best[0];
+  const rate = selectGenerationRate(price, request);
+  if (!rate) return unavailable("A rate is not available for these generation settings.");
   if (!Number.isSafeInteger(rate.microusd) || rate.microusd < 0)
     return unavailable("The provider rate is invalid.");
   const maximum = rate.max_microusd ?? rate.microusd;
