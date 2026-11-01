@@ -47,6 +47,8 @@ export function NewStoryboardDialog({
     const discard = () => {
       attempt.current++;
       completed.current = null;
+      creating.current = false;
+      setIsCreating(false);
       setNewStoryboardName("");
       onOpenChange(false);
       setCreationError(null);
@@ -113,8 +115,6 @@ export function NewStoryboardDialog({
     const result = await createDraft(name);
     if (currentAttempt !== attempt.current) {
       if (result.ok) window.dispatchEvent(new Event("showbiz:project-changed"));
-      creating.current = false;
-      setIsCreating(false);
       return;
     }
     if (result.ok) {
