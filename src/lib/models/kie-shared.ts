@@ -74,20 +74,32 @@ export async function pollKieTask(
 ): Promise<string> {
   const start = Date.now();
   let interval = POLL_INITIAL_MS;
+  let consecutiveFailures = 0;
+  let lastFailure: string | null = null;
 
   while (Date.now() - start < POLL_TIMEOUT_MS) {
     await new Promise((r) => setTimeout(r, interval));
     interval = Math.min(interval + 1000, POLL_MAX_MS);
 
-    const res = await fetch(
-      `${KIE_API_BASE}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
-      {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      },
-    );
+    let parsedResponse: Awaited<ReturnType<typeof readKieResponse>>;
+    try {
+      const res = await fetch(`${KIE_API_BASE}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, { headers: { Authorization: `Bearer ${apiKey}` } });
+      parsedResponse = await readKieResponse(res);
+    } catch {
+      consecutiveFailures += 1;
+      if (consecutiveFailures < 3) continue;
+      throw new Error(`${lastFailure ?? "Repeated connection failures."} Task: ${taskId}.`);
+    }
 
-    const parsedResponse = await readKieResponse(res);
-    if (!parsedResponse.ok) throw new Error(parsedResponse.error.message);
+    if (!parsedResponse.ok) {
+      lastFailure = parsedResponse.error.message;
+      if (parsedResponse.retryable) {
+        consecutiveFailures += 1;
+        if (consecutiveFailures < 3) continue;
+      }
+      throw new Error(`${parsedResponse.error.message} Task: ${taskId}.`);
+    }
+    consecutiveFailures = 0;
     const json = parsedResponse.value;
 
     const state: string = json?.data?.state ?? "";
@@ -115,7 +127,7 @@ export async function pollKieTask(
     // states: waiting, queuing, generating — keep polling
   }
 
-  throw new Error("kie.ai generation timed out after 10 minutes");
+  throw new Error(`kie.ai task ${taskId} timed out after 10 minutes`);
 }
 
 // Convenience: optionally upload image → createTask → pollKieTask → fetch Blob.
