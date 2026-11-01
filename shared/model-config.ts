@@ -12,11 +12,11 @@ export interface VideoGenerationSettings {
   audio?: boolean;
 }
 
-import { VALID_VIDEO_TRANSPORTS, VALID_IMAGE_TRANSPORTS } from "./model-transports";
 import {
-  isApiKeyProvider,
-  type ApiKeyProvider,
-} from "./provider-catalog";
+  VALID_VIDEO_TRANSPORTS,
+  VALID_IMAGE_TRANSPORTS,
+} from "./model-transports";
+import { isApiKeyProvider, type ApiKeyProvider } from "./provider-catalog";
 
 export interface VideoModelConfig {
   id: string;
@@ -113,10 +113,22 @@ export function validateVideoConfig(raw: unknown): VideoModelConfig {
     throw new Error("Video config must be a JSON object");
   }
 
-  const required = ["id", "name", "description", "transport", "enabled", "apiKeyProvider", "models", "capabilities", "defaults"] as const;
+  const required = [
+    "id",
+    "name",
+    "description",
+    "transport",
+    "enabled",
+    "apiKeyProvider",
+    "models",
+    "capabilities",
+    "defaults",
+  ] as const;
   for (const field of required) {
     if (config[field] === undefined) {
-      throw new Error(`Video config "${config.id ?? "unknown"}": missing required field "${field}"`);
+      throw new Error(
+        `Video config "${config.id ?? "unknown"}": missing required field "${field}"`,
+      );
     }
   }
 
@@ -124,9 +136,11 @@ export function validateVideoConfig(raw: unknown): VideoModelConfig {
     throw new Error(`Video config: "id" must be a non-empty string`);
   }
 
-  if (!VALID_VIDEO_TRANSPORTS.some((transport) => transport === config.transport)) {
+  if (
+    !VALID_VIDEO_TRANSPORTS.some((transport) => transport === config.transport)
+  ) {
     throw new Error(
-      `Video config "${config.id}": unknown transport "${config.transport}". Valid: ${VALID_VIDEO_TRANSPORTS.join(", ")}`
+      `Video config "${config.id}": unknown transport "${config.transport}". Valid: ${VALID_VIDEO_TRANSPORTS.join(", ")}`,
     );
   }
 
@@ -135,33 +149,47 @@ export function validateVideoConfig(raw: unknown): VideoModelConfig {
     !isApiKeyProvider(config.apiKeyProvider)
   ) {
     throw new Error(
-      `Video config "${config.id}": unknown API key provider "${String(config.apiKeyProvider)}"`
+      `Video config "${config.id}": unknown API key provider "${String(config.apiKeyProvider)}"`,
     );
   }
 
   // Validate provider/modelFamily
   if (config.modelFamily && !config.provider) {
-    throw new Error(`Video config "${config.id}": "modelFamily" requires "provider" to be set`);
+    throw new Error(
+      `Video config "${config.id}": "modelFamily" requires "provider" to be set`,
+    );
   }
-  if (config.provider !== undefined && (typeof config.provider !== "string" || !config.provider)) {
-    throw new Error(`Video config "${config.id}": "provider" must be a non-empty string`);
+  if (
+    config.provider !== undefined &&
+    (typeof config.provider !== "string" || !config.provider)
+  ) {
+    throw new Error(
+      `Video config "${config.id}": "provider" must be a non-empty string`,
+    );
   }
 
   const models = config.models as Record<string, unknown>;
   if (!models.textToVideo && !models.imageToVideo) {
     throw new Error(
-      `Video config "${config.id}": must have at least one of models.textToVideo or models.imageToVideo`
+      `Video config "${config.id}": must have at least one of models.textToVideo or models.imageToVideo`,
     );
   }
 
   const capabilities = config.capabilities as Record<string, unknown>;
-  if (!Array.isArray(capabilities.durations) || capabilities.durations.length === 0) {
-    throw new Error(`Video config "${config.id}": capabilities.durations must be a non-empty array`);
+  if (
+    !Array.isArray(capabilities.durations) ||
+    capabilities.durations.length === 0
+  ) {
+    throw new Error(
+      `Video config "${config.id}": capabilities.durations must be a non-empty array`,
+    );
   }
 
   const defaults = config.defaults as Record<string, unknown>;
   if (!defaults.duration) {
-    throw new Error(`Video config "${config.id}": defaults.duration is required`);
+    throw new Error(
+      `Video config "${config.id}": defaults.duration is required`,
+    );
   }
 
   return config as unknown as VideoModelConfig;
@@ -174,10 +202,22 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
     throw new Error("Image config must be a JSON object");
   }
 
-  const required = ["id", "name", "description", "transport", "enabled", "apiKeyProvider", "models", "supportsEditing", "supportsInpainting"] as const;
+  const required = [
+    "id",
+    "name",
+    "description",
+    "transport",
+    "enabled",
+    "apiKeyProvider",
+    "models",
+    "supportsEditing",
+    "supportsInpainting",
+  ] as const;
   for (const field of required) {
     if (config[field] === undefined) {
-      throw new Error(`Image config "${config.id ?? "unknown"}": missing required field "${field}"`);
+      throw new Error(
+        `Image config "${config.id ?? "unknown"}": missing required field "${field}"`,
+      );
     }
   }
 
@@ -185,9 +225,11 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
     throw new Error(`Image config: "id" must be a non-empty string`);
   }
 
-  if (!VALID_IMAGE_TRANSPORTS.some((transport) => transport === config.transport)) {
+  if (
+    !VALID_IMAGE_TRANSPORTS.some((transport) => transport === config.transport)
+  ) {
     throw new Error(
-      `Image config "${config.id}": unknown transport "${config.transport}". Valid: ${VALID_IMAGE_TRANSPORTS.join(", ")}`
+      `Image config "${config.id}": unknown transport "${config.transport}". Valid: ${VALID_IMAGE_TRANSPORTS.join(", ")}`,
     );
   }
 
@@ -196,16 +238,23 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
     !isApiKeyProvider(config.apiKeyProvider)
   ) {
     throw new Error(
-      `Image config "${config.id}": unknown API key provider "${String(config.apiKeyProvider)}"`
+      `Image config "${config.id}": unknown API key provider "${String(config.apiKeyProvider)}"`,
     );
   }
 
   // Validate provider/modelFamily
   if (config.modelFamily && !config.provider) {
-    throw new Error(`Image config "${config.id}": "modelFamily" requires "provider" to be set`);
+    throw new Error(
+      `Image config "${config.id}": "modelFamily" requires "provider" to be set`,
+    );
   }
-  if (config.provider !== undefined && (typeof config.provider !== "string" || !config.provider)) {
-    throw new Error(`Image config "${config.id}": "provider" must be a non-empty string`);
+  if (
+    config.provider !== undefined &&
+    (typeof config.provider !== "string" || !config.provider)
+  ) {
+    throw new Error(
+      `Image config "${config.id}": "provider" must be a non-empty string`,
+    );
   }
 
   const models = config.models as Record<string, unknown>;
@@ -218,7 +267,9 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
     for (const [modeName, mode] of Object.entries(modes)) {
       const modeConfig = mode as Record<string, unknown>;
       if (typeof modeConfig.enabled !== "boolean") {
-        throw new Error(`Image config "${config.id}": ${modeName}.enabled must be boolean`);
+        throw new Error(
+          `Image config "${config.id}": ${modeName}.enabled must be boolean`,
+        );
       }
     }
   }

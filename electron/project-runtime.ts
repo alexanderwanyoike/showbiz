@@ -30,7 +30,11 @@ export function createProjectRuntime(options: {
       media: path.join(options.appDirectory, "media"),
     },
     bind: (db, media) =>
-      createDataCommands(db, media, { exports: options.exports(db, media), readBillingKey: (provider) => deviceSettings.get_api_key({ provider }), readGenerationModels: catalog.get_generation_models }),
+      createDataCommands(db, media, {
+        exports: options.exports(db, media),
+        readBillingKey: (provider) => deviceSettings.get_api_key({ provider }),
+        readGenerationModels: catalog.get_generation_models,
+      }),
   });
   const globals: CommandMap = {
     ...catalog,
