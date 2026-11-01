@@ -109,8 +109,11 @@ export function createProjectDocuments(options: {
     const value = info(document);
     const remembered = remember(value);
     if (!remembered.ok) {
-      recent = recent.map((entry) => entry.file_path === value.file_path
-        ? { ...entry, name: value.name } : entry);
+      recent = recent.map((entry) =>
+        entry.file_path === value.file_path
+          ? { ...entry, name: value.name }
+          : entry,
+      );
       recentWarning = `The project was saved, but Recent Projects could not be updated. Use File > Save to retry. ${remembered.error.message}`;
     }
   }
