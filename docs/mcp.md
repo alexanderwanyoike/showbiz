@@ -48,9 +48,9 @@ This initial MCP boundary does not expose credentials, arbitrary HTTP requests, 
 
 ## Agent budget
 
-Paid generation by an agent needs a budget that you grant in Showbiz. Open Usage & billing and choose Agent budget. Enter the amount in USD, optionally a lower per-request limit, how long it lasts (1 hour, 1 day or 1 week), and optionally the only models the agent may use. Granting again replaces the earlier budget. While a budget is active, a banner across the project workspace shows what is left and when it ends, with Revoke.
+You can grant an agent a spending budget in Showbiz. Open Usage & billing and choose Agent budget. Enter the amount in USD, optionally a lower per-request limit, how long it lasts (1 hour, 1 day or 1 week), and optionally the only models the agent may use. Granting again replaces the earlier budget. While a budget is active, a banner across the project workspace shows what is left and when it ends, with Revoke.
 
-The budget belongs to this device, not to a project file. It covers whichever project is open, is never written into a `.showbiz` document or export, and a copied project carries no spending rights. `get_agent_budget` is the only budget tool. It reads the remaining amount, per-request cap, expiry and allowed models, and returns `NO_BUDGET` when nothing is granted, the budget expired or you revoked it. No MCP tool creates, raises, extends or revokes a budget.
+The budget belongs to this device, not to a project file. It covers whichever project is open, is never written into a `.showbiz` document or export, and a copied project carries no spending rights. `get_agent_budget` is the only budget tool. It reads the remaining amount, per-request cap, expiry and allowed models, and returns `NO_BUDGET` when nothing is granted, the budget expired or you revoked it. No MCP tool creates, raises, extends or revokes a budget. Agents can read the budget but cannot spend it yet; the paid generation tools that work within it are not available in this release.
 
 ## Local connection
 
