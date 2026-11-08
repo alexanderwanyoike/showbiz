@@ -14,7 +14,6 @@ export const AGENT_BUDGET_DURATIONS = [
   { label: "1 week", minutes: 60 * 24 * 7 },
 ] as const;
 
-
 export function usdToMicrousd(text: string): number | null {
   const match = /^(\d+)(?:\.(\d{1,6}))?$/.exec(text.trim());
   if (!match) return null;

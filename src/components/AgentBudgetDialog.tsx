@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAgentBudget } from "../hooks/useAgentBudget";
+import type { AgentBudgetResult } from "../../shared/agent-budget";
 import {
   AGENT_BUDGET_DURATIONS,
   formatBudgetExpiry,
@@ -33,7 +34,7 @@ const budgetModels = [...imageConfigs, ...videoConfigs]
 
 export function AgentBudgetDialog() {
   const ids = useId();
-  const { budget, error: loadError } = useAgentBudget();
+  const { budget, error: loadError, refresh } = useAgentBudget();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [cap, setCap] = useState("");
@@ -43,12 +44,15 @@ export function AgentBudgetDialog() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  async function run(action: () => Promise<{ ok: boolean; error?: { message: string } }>) {
+  async function run(action: () => Promise<AgentBudgetResult<unknown>>) {
     setSaving(true);
     setError(null);
     try {
       const result = await action();
-      if (!result.ok) setError(result.error?.message ?? "The budget was not saved.");
+      if (!result.ok) {
+        if (result.error.code !== "NO_BUDGET") setError(result.error.message);
+        await refresh();
+      }
       return result.ok;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -61,7 +65,8 @@ export function AgentBudgetDialog() {
   async function grant(event: FormEvent) {
     event.preventDefault();
     const max = usdToMicrousd(amount);
-    if (max === null) return setError("Enter a budget above zero.");
+    if (max === null)
+      return setError("Enter a budget above zero, with at most six decimal places.");
     const perRequest = cap.trim() ? usdToMicrousd(cap) : undefined;
     if (perRequest === null) return setError("Enter a per-request limit above zero, or leave it empty.");
     if (limitModels && models.length === 0) return setError("Choose at least one model, or allow any model.");

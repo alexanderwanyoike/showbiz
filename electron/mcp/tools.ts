@@ -150,7 +150,7 @@ export const mcpTools: ToolDefinition[] = [
   define(
     "get_agent_budget",
     {},
-    "Read the spending budget the user granted in Showbiz: remaining amount, per-request cap, expiry and allowed models. Agents cannot create, raise, extend or revoke it. NO_BUDGET means paid generation is unavailable.",
+    "Read the spending budget the user granted in Showbiz: remaining amount, per-request cap, expiry and allowed models. Agents cannot create, raise, extend or revoke it. NO_BUDGET means nothing is granted.",
   ),
   define(
     "read_context",
