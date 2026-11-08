@@ -90,3 +90,18 @@ it("freezes the end frame's content when the model uses it", async () => {
     },
   });
 });
+
+it("refuses a quote when the end frame the model would use cannot be read", async () => {
+  const { commands, shot, withStartFrame } = storyboard();
+  withStartFrame();
+  commands.set_shot_models({ shot_id: shot.id, video_model: "wan-flf2v-fal" });
+  commands.save_shot_end_frame({ id: shot.id, base64DataUrl: PNG });
+  const real = native.invoke.getMockImplementation();
+  native.invoke.mockImplementation(async (command: string, args) =>
+    command === "get_shot_end_frame_base64" ? null : real?.(command, args),
+  );
+  expect(await resolveAgentTarget({ target: "shot_video", operation: "generate", shot_id: shot.id })).toMatchObject({
+    ok: false,
+    error: { code: "NOT_FOUND" },
+  });
+});
