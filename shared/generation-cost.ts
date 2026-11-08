@@ -34,6 +34,11 @@ export interface GenerationCostRequest {
   mode?: string;
   has_end_frame?: boolean;
 }
+/** What one prompt-to-image generation is priced as, in the Bible, the storyboard and agent quotes alike. */
+export const IMAGE_GENERATION_REQUEST: GenerationCostRequest = {
+  kind: "image",
+  count: 1,
+};
 export type GenerationCostEstimate =
   | { kind: "unavailable"; reason: string }
   | {
