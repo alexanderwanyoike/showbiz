@@ -2,6 +2,7 @@ import { invoke } from "./bridge";
 import type {
   AgentBudget,
   AgentBudgetGrant,
+  AgentBudgetGrantInput,
   AgentBudgetResult,
 } from "../../shared/agent-budget";
 
@@ -13,12 +14,6 @@ export const AGENT_BUDGET_DURATIONS = [
   { label: "1 week", minutes: 60 * 24 * 7 },
 ] as const;
 
-export interface AgentBudgetRequest {
-  max_microusd: number;
-  per_request_cap_microusd?: number;
-  duration_minutes: number;
-  allowed_models?: string[];
-}
 
 export function usdToMicrousd(text: string): number | null {
   const match = /^(\d+)(?:\.(\d{1,6}))?$/.exec(text.trim());
@@ -45,7 +40,7 @@ function announce<T>(result: AgentBudgetResult<T>) {
   return result;
 }
 
-export const grantAgentBudget = async (request: AgentBudgetRequest) =>
+export const grantAgentBudget = async (request: AgentBudgetGrantInput) =>
   announce(
     await invoke<AgentBudgetResult<AgentBudgetGrant>>("grant_agent_budget", {
       ...request,

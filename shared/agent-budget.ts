@@ -25,6 +25,29 @@ export type AgentBudgetResult<T> =
 export const AGENT_BUDGET_MAX_DURATION_MINUTES = 60 * 24 * 30;
 
 const microusd = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+const positiveMicrousd = microusd.positive();
+export const agentBudgetGrantInputSchema = z
+  .strictObject({
+    max_microusd: positiveMicrousd,
+    per_request_cap_microusd: positiveMicrousd.optional(),
+    duration_minutes: z
+      .number()
+      .int()
+      .positive()
+      .max(AGENT_BUDGET_MAX_DURATION_MINUTES),
+    allowed_models: z
+      .array(z.string().min(1).max(200))
+      .min(1)
+      .max(200)
+      .optional(),
+  })
+  .refine(
+    (input) =>
+      input.per_request_cap_microusd === undefined ||
+      input.per_request_cap_microusd <= input.max_microusd,
+    { message: "The per-request cap cannot exceed the budget." },
+  );
+export type AgentBudgetGrantInput = z.infer<typeof agentBudgetGrantInputSchema>;
 export const agentBudgetGrantSchema = z.strictObject({
   id: z.string().min(1),
   max_microusd: microusd,

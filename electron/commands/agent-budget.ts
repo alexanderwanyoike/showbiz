@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { z } from "zod";
 import type { ReadGenerationModels } from "./generation-models";
 import {
-  AGENT_BUDGET_MAX_DURATION_MINUTES,
+  agentBudgetGrantInputSchema,
   agentBudgetGrantSchema,
   type AgentBudget,
   type AgentBudgetGrant,
@@ -11,28 +10,7 @@ import {
 } from "../../shared/agent-budget";
 
 const GRANT_KEY = "agent_budget_grant";
-const microusd = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
-const grantInput = z
-  .strictObject({
-    max_microusd: microusd,
-    per_request_cap_microusd: microusd.optional(),
-    duration_minutes: z
-      .number()
-      .int()
-      .positive()
-      .max(AGENT_BUDGET_MAX_DURATION_MINUTES),
-    allowed_models: z
-      .array(z.string().min(1).max(200))
-      .min(1)
-      .max(200)
-      .optional(),
-  })
-  .refine(
-    (input) =>
-      input.per_request_cap_microusd === undefined ||
-      input.per_request_cap_microusd <= input.max_microusd,
-    { message: "The per-request cap cannot exceed the budget." },
-  );
+
 const noBudget = (): AgentBudgetResult<never> => ({
   ok: false,
   error: {
@@ -117,7 +95,7 @@ export function createAgentBudgetCommands(
       args?: Record<string, unknown>,
     ): AgentBudgetResult<AgentBudgetGrant> {
       return guarded(() => {
-        const input = grantInput.safeParse(args ?? {});
+        const input = agentBudgetGrantInputSchema.safeParse(args ?? {});
         if (!input.success)
           return {
             ok: false,
