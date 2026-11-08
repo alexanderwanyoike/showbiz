@@ -53,3 +53,14 @@ it("refuses unknown media and ambiguous requests", async () => {
     error: { code: "INVALID_INPUT" },
   });
 });
+
+it("never passes file system details from a failed read to the agent", async () => {
+  native.invoke.mockRejectedValue(
+    new Error("Failed to read file: EACCES /home/someone/.cache/showbiz/media/secret.png"),
+  );
+  const result = await previewMedia({ bible_variant_id: "v1" }, shrink);
+  expect(result).toEqual({
+    ok: false,
+    error: { code: "IO_ERROR", message: "That picture could not be read." },
+  });
+});

@@ -37,3 +37,10 @@ it("exposes a read-only preview tool", () => {
     command: "get_media_preview",
   });
 });
+
+it("refuses empty or ambiguous preview requests before asking the app", () => {
+  const tool = mcpTools.find((entry) => entry.name === "get_media_preview");
+  expect(tool?.schema.safeParse({}).success).toBe(false);
+  expect(tool?.schema.safeParse({ bible_variant_id: "a", image_take_id: "b" }).success).toBe(false);
+  expect(tool?.schema.safeParse({ image_take_id: "b" }).success).toBe(true);
+});

@@ -110,7 +110,8 @@ export interface VideoVersionNode {
 }
 
 export type BibleAssetType = "character" | "location" | "prop" | "style" | "reference" | "note" | "scene";
-export type BibleAssetVariantStatus = "candidate" | "approved" | "rejected";
+export type { BibleAssetVariantStatus } from "../../shared/bible-variant-status";
+import type { BibleAssetVariantStatus } from "../../shared/bible-variant-status";
 
 export interface Bible {
   id: string;

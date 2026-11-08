@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mediaPreviewRequestSchema } from "../../shared/agent-generation";
 
 const id = z.string().min(1).max(200);
 const name = z.string().trim().min(1).max(1000);
@@ -330,10 +331,7 @@ export const mcpTools: ToolDefinition[] = [
       {},
       "See a Bible take or a shot image take as a small JPEG (at most 512 px) before choosing it. Pass exactly one of bible_variant_id or image_take_id.",
     ),
-    schema: z.strictObject({
-      bible_variant_id: id.optional(),
-      image_take_id: id.optional(),
-    }),
+    schema: mediaPreviewRequestSchema,
     requestTimeoutMs: 30000,
     args: (input: Record<string, unknown>) => ({ ...input }),
   },

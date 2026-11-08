@@ -168,3 +168,23 @@ it("answers preview requests", async () => {
   );
   expect(previews.previewMedia).toHaveBeenCalledWith({ bible_variant_id: "v1" });
 });
+
+it("retries a progress report that fails to reach the main process", async () => {
+  vi.useFakeTimers();
+  try {
+    const native = app();
+    native.reportAgentJob
+      .mockRejectedValueOnce(new Error("busy"))
+      .mockResolvedValueOnce(undefined);
+    runner.runAgentJob.mockImplementation(
+      async (_job, report: (update: unknown) => Promise<void>) =>
+        report({ job_id: "job-1", status: "failed", error: "x" }),
+    );
+    connectAgentService();
+    native.send({ request_id: "r9", operation: "start_job", input: jobInput });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(native.reportAgentJob).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.useRealTimers();
+  }
+});

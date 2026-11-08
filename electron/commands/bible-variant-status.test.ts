@@ -43,3 +43,10 @@ it("never rejects the entry's current picture or makes a rejected take current",
     commands.update_bible_asset_variant_status({ id: other.id, status: "rejected", isPrimary: false }),
   ).toMatchObject({ status: "rejected", is_primary: false });
 });
+
+it("approving the current picture without making it current keeps it current", () => {
+  const { commands, primary } = entryWithTwoTakes();
+  expect(
+    commands.update_bible_asset_variant_status({ id: primary.id, status: "approved", isPrimary: false }),
+  ).toMatchObject({ status: "approved", is_primary: true });
+});
