@@ -68,7 +68,7 @@ Quotes are refused with these codes:
 
 - `PRICE_UNKNOWN`: no rate is available, the rate does not match the settings, or a provider's historical estimate is zero. An unknown price is never treated as free. Local models need a custom rate saved in the app, and an explicit rate of zero is accepted.
 - `NO_BUDGET`, `MODEL_NOT_ALLOWED`, `OVER_REQUEST_CAP`, `OVER_BUDGET`: the request falls outside the budget you granted.
-- `NOT_FOUND`, `INVALID_INPUT`: the Bible entry or source picture is not in the open project, `generate` was asked for a frame, the model is not an installed image model or cannot edit or compose as needed, or a retake has no prompt.
+- `NOT_FOUND`, `INVALID_INPUT`: the Bible entry or source picture is not in the open project, `generate` was asked for a frame, the model is not an installed image model or cannot edit or compose as needed, a retake has no prompt, a frame's character or location has no picture, or a composition would need more than 10 pictures.
 - `IO_ERROR`: the window returned a price plan that does not match the request.
 - `UNAVAILABLE`: no Showbiz window or project is open, or the window did not answer.
 

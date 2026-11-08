@@ -15,7 +15,7 @@ export const AGENT_REQUEST_CHANNEL = "showbiz:agent_request";
 export const AGENT_RESPONSE_CHANNEL = "showbiz:agent_response";
 
 const id = z.string().min(1).max(200);
-/** Most pictures one composition may use; frames record at most this many characters plus a location view. */
+/** Most pictures one composition may use; a frame records at most one fewer character so its location view still fits. */
 export const MAX_REFERENCE_PICTURES = 10;
 const prompt = z.string().trim().min(1).max(50000);
 
