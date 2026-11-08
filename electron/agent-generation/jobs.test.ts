@@ -73,8 +73,8 @@ function setup(options: { cap?: number; max?: number; canEdit?: boolean | (() =>
     canEdit: () =>
       typeof options.canEdit === "function" ? options.canEdit() : (options.canEdit ?? true),
   });
-  const quote = async () => {
-    const quoted = await quotes.quote_generation(quoteRequest);
+  const quote = async (request: Record<string, unknown> = quoteRequest) => {
+    const quoted = await quotes.quote_generation(request);
     if (!quoted.ok) throw new Error(quoted.error.message);
     return quoted.value.quote_id;
   };
@@ -166,6 +166,21 @@ describe("agent jobs", () => {
     expect(
       await jobs.submit_generation({ quote_id: "nope", request_id: "r2" }),
     ).toMatchObject({ ok: false, error: { code: "QUOTE_NOT_FOUND" } });
+  });
+
+  it("refuses a retake when the prompt it resolved to has changed", async () => {
+    const { jobs, quote, resolve, start } = setup();
+    const retake = { target: "bible_asset", operation: "retake", asset_id: "asset-1", model_id: "flux-dev-fal" };
+    resolve.mockResolvedValueOnce({ ok: true, value: plan });
+    const quoteId = await quote(retake);
+    resolve.mockResolvedValueOnce({
+      ok: true,
+      value: { ...plan, inputs: { ...plan.inputs, prompt: "A newer picture's prompt" } },
+    });
+    expect(
+      await jobs.submit_generation({ quote_id: quoteId, request_id: "r1" }),
+    ).toMatchObject({ ok: false, error: { code: "QUOTE_STALE" } });
+    expect(start).not.toHaveBeenCalled();
   });
 
   it("refuses when what was quoted has changed", async () => {
@@ -469,17 +484,4 @@ describe("agent job progress and edits", () => {
       value: [{ reported_microusd: 20_000, charge_status: "confirmed" }],
     });
   });
-});
-
-it("refuses a submit when the quoted reference pictures changed", async () => {
-  const { jobs, quote, resolve, start } = setup();
-  const quoteId = await quote();
-  resolve.mockResolvedValueOnce({
-    ok: true,
-    value: { ...plan, inputs: { ...plan.inputs, prompt: "A different prompt" } },
-  });
-  expect(
-    await jobs.submit_generation({ quote_id: quoteId, request_id: "r1" }),
-  ).toMatchObject({ ok: false, error: { code: expect.stringMatching(/QUOTE_STALE|IO_ERROR/) as string } });
-  expect(start).not.toHaveBeenCalled();
 });

@@ -208,3 +208,27 @@ it("fails a retake job instead of composing from fewer pictures than were quoted
   expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ status: "failed" }));
   expect(commands.get_bible_asset_variants({ assetId: asset.id })).toEqual([]);
 });
+
+it("edits the source picture frozen in the quote", async () => {
+  const { commands, asset, job } = project("fixture-key");
+  const take = (prompt: string) =>
+    commands.create_bible_asset_variant({
+      assetId: asset.id,
+      input: { name: prompt, image_base64: `data:image/png;base64,${PNG}`, source_kind: "generated", status: "approved", prompt, is_primary: true },
+    }) as { id: string };
+  const frozen = take("frozen");
+  const report = vi.fn(async () => undefined);
+  await runAgentJob(
+    {
+      ...job,
+      request: { target: "bible_asset", operation: "edit", asset_id: asset.id, source_variant_id: "not-the-frozen-one", prompt: "Add a hat", model_id: "seedream-4.5-openrouter" },
+      plan: {
+        ...job.plan,
+        cost_request: { kind: "image_edit", count: 1 },
+        inputs: { prompt: "Add a hat", reference_variant_ids: [], source_variant_id: frozen.id },
+      },
+    },
+    report,
+  );
+  expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ status: "completed" }));
+});

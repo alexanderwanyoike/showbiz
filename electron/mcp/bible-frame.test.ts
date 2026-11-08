@@ -95,6 +95,20 @@ it("keeps frames within the reference limit and ignores repeated characters", as
       },
     }),
   ).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
+  expect(
+    await session.call({
+      tool: "create_bible_frame",
+      args: {
+        bible_id: bibleId,
+        prompt: "Echo",
+        character_ids: Array.from({ length: 10 }, () => sock.id),
+        location_id: null,
+        location_variant_id: null,
+        expected_revision: 0,
+        request_id: "echo",
+      },
+    }),
+  ).toMatchObject({ ok: true });
   await session.call({
     tool: "create_bible_frame",
     args: {
