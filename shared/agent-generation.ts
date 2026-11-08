@@ -29,11 +29,14 @@ export const agentQuoteRequestSchema = z.discriminatedUnion("target", [
 export type AgentQuoteRequest = z.infer<typeof agentQuoteRequestSchema>;
 
 
-export const agentQuotePlanSchema = z.strictObject({
+export const agentQuoteTargetSchema = z.strictObject({
   model_id: id,
   provider: id,
   cost_request: generationCostRequestSchema,
   subject: z.strictObject({ project_id: id, subject_id: id }),
+});
+export type AgentQuoteTarget = z.infer<typeof agentQuoteTargetSchema>;
+export const agentQuotePlanSchema = agentQuoteTargetSchema.extend({
   estimate: z.discriminatedUnion("kind", [
     z.strictObject({ kind: z.literal("unavailable"), reason: z.string() }),
     z
@@ -86,6 +89,7 @@ export const agentGenerationErrorCodes = [
   "QUOTE_STALE",
   "BUSY",
   "JOB_LIMIT",
+  "NO_ANSWER",
 ] as const;
 export type AgentGenerationErrorCode = (typeof agentGenerationErrorCodes)[number];
 
@@ -126,6 +130,8 @@ export interface AgentJob {
   /** null until the app knows whether a provider request was sent. */
   provider_called: boolean | null;
   status: AgentJobStatus;
+  /** confirmed once the provider reports a charge; released only if the provider was never called. */
+  charge_status: "confirmed" | "estimated" | "released";
   result: { variant_id?: string } | null;
   error: string | null;
   warnings: string[];
@@ -139,12 +145,7 @@ export const agentJobStartSchema = z.strictObject({
   request: agentQuoteRequestSchema,
   plan: agentQuotePlanSchema,
 });
-export interface AgentJobStart {
-  job_id: string;
-  usage_request_id: string;
-  request: AgentQuoteRequest;
-  plan: AgentQuotePlan;
-}
+export type AgentJobStart = z.infer<typeof agentJobStartSchema>;
 
 export type AgentJobReport =
   | { job_id: string; status: "running" }

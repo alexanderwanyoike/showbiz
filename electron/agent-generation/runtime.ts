@@ -16,14 +16,19 @@ export function createAgentGenerationRuntime(options: {
 }) {
   const channel = createRendererChannel({ target: options.window });
   const plan = (request: AgentQuoteRequest) => channel.request("plan_quote", request);
-  const quotes = createAgentQuotes({ plan, budget: options.budget });
+  // Charges confirmed after a job finished must count before any budget decision.
+  const budget = async () => {
+    await jobs.settle();
+    return options.budget();
+  };
+  const quotes = createAgentQuotes({ plan, budget });
   const ledger = createAgentJobLedger(options.deviceDb);
   ledger.recoverInterrupted();
   const jobs = createAgentJobs({
     ledger,
     quotes,
     budget: options.budget,
-    resolve: plan,
+    resolve: (request) => channel.request("resolve_target", request),
     start: (job: AgentJobStart) => channel.request("start_job", job),
     usage: (job) => findAgentJobUsage(options.invoke, job),
     canEdit: options.canEdit,
@@ -33,8 +38,12 @@ export function createAgentGenerationRuntime(options: {
     report(sender: number, update: unknown): Promise<void> {
       return sender === options.window()?.id ? jobs.report(update) : Promise.resolve();
     },
-    abandon: channel.abandon,
+    abandon(windowId: number): void {
+      channel.abandon(windowId);
+      jobs.interruptUnfinished();
+    },
     commands: {
+      get_agent_budget: () => budget(),
       quote_generation: (args?: Record<string, unknown>) => quotes.quote_generation(args),
       submit_generation: (args?: Record<string, unknown>) => jobs.submit_generation(args),
       get_generation_job: (args?: Record<string, unknown>) => jobs.get_generation_job(args),

@@ -1,5 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
+import { z } from "zod";
 import type { AgentJob } from "../../shared/agent-generation";
+
+const resultSchema = z.strictObject({ variant_id: z.string().optional() }).nullable();
+const warningsSchema = z.array(z.string());
 
 export type NewAgentJob = Pick<
   AgentJob,
@@ -25,18 +29,25 @@ export type AgentJobUpdate = Partial<
     | "warnings"
   >
 >;
-type Row = Omit<AgentJob, "provider_called" | "result" | "warnings"> & {
+type Row = Omit<AgentJob, "provider_called" | "result" | "warnings" | "charge_status"> & {
   provider_called: number | null;
   result_json: string | null;
   warnings_json: string;
 };
 
 function fromRow({ provider_called, result_json, warnings_json, ...row }: Row): AgentJob {
+  const called = provider_called === null ? null : provider_called === 1;
   return {
     ...row,
-    provider_called: provider_called === null ? null : provider_called === 1,
-    result: result_json ? (JSON.parse(result_json) as AgentJob["result"]) : null,
-    warnings: JSON.parse(warnings_json) as string[],
+    provider_called: called,
+    charge_status:
+      row.reported_microusd !== null
+        ? "confirmed"
+        : called === false
+          ? "released"
+          : "estimated",
+    result: resultSchema.parse(result_json ? JSON.parse(result_json) : null),
+    warnings: warningsSchema.parse(JSON.parse(warnings_json)),
   };
 }
 
@@ -113,6 +124,16 @@ export function createAgentJobLedger(db: DatabaseSync, now: () => number = Date.
           )
           .get() as { count: number }
       ).count;
+    },
+    /** Finished or abandoned jobs whose charge may still be confirmed by the provider. */
+    unsettled(): AgentJob[] {
+      return (
+        db
+          .prepare(
+            "SELECT * FROM agent_generation_jobs WHERE reported_microusd IS NULL AND (provider_called IS NULL OR provider_called = 1)",
+          )
+          .all() as Row[]
+      ).map(fromRow);
     },
     recoverInterrupted(): void {
       db.prepare(

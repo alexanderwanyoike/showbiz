@@ -45,7 +45,7 @@ describe("renderer agent channel", () => {
     const channel = createRendererChannel({ target: () => app.target, timeoutMs: 50 });
     const answer = channel.request("plan_quote", {});
     channel.respond(8, app.sent[0].payload.request_id, { ok: true, value: "forged" });
-    expect(await answer).toMatchObject({ ok: false, error: { code: "UNAVAILABLE" } });
+    expect(await answer).toMatchObject({ ok: false, error: { code: "NO_ANSWER" } });
   });
 
   it("gives up when the window does not answer in time", async () => {

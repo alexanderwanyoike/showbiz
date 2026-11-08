@@ -6,7 +6,7 @@ import {
   type AgentRequest,
   type AgentResult,
 } from "../../../shared/agent-generation";
-import { planAgentQuote } from "./plan-quote";
+import { planAgentQuote, resolveAgentTarget } from "./plan-quote";
 import { runAgentJob } from "./run-job";
 
 const invalid = (issue: { message: string } | undefined) =>
@@ -16,9 +16,12 @@ async function handle(
   request: AgentRequest,
   report: (update: AgentJobReport) => Promise<void>,
 ): Promise<AgentResult<unknown>> {
-  if (request.operation === "plan_quote") {
+  if (request.operation === "plan_quote" || request.operation === "resolve_target") {
     const input = agentQuoteRequestSchema.safeParse(request.input);
-    return input.success ? planAgentQuote(input.data) : invalid(input.error.issues[0]);
+    if (!input.success) return invalid(input.error.issues[0]);
+    return request.operation === "plan_quote"
+      ? planAgentQuote(input.data)
+      : resolveAgentTarget(input.data);
   }
   if (request.operation === "start_job") {
     const input = agentJobStartSchema.safeParse(request.input);

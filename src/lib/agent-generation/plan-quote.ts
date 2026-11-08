@@ -6,6 +6,7 @@ import {
   agentFailure,
   type AgentQuotePlan,
   type AgentQuoteRequest,
+  type AgentQuoteTarget,
   type AgentResult,
 } from "../../../shared/agent-generation";
 import { IMAGE_GENERATION_REQUEST } from "../../../shared/generation-cost";
@@ -35,10 +36,10 @@ async function findProjectAsset(projectId: string, assetId: string) {
   return null;
 }
 
-/** Resolves a quote request to the model, cost request and estimate the app's own controls would use. */
-export async function planAgentQuote(
+/** Resolves what a request targets: the model and cost request the app's own controls would use. */
+export async function resolveAgentTarget(
   request: AgentQuoteRequest,
-): Promise<AgentResult<AgentQuotePlan>> {
+): Promise<AgentResult<AgentQuoteTarget>> {
   const project = await openProjectId();
   if (!project.ok) return project;
   const model = imageConfigs.find(
@@ -58,15 +59,30 @@ export async function planAgentQuote(
       "INVALID_INPUT",
       "Frames are composed from Bible references rather than generated from a prompt.",
     );
-  const cost_request = IMAGE_GENERATION_REQUEST;
   return {
     ok: true,
     value: {
       model_id: model.id,
       provider: model.apiKeyProvider,
-      cost_request,
+      cost_request: IMAGE_GENERATION_REQUEST,
       subject: { project_id: project.value, subject_id: request.asset_id },
-      estimate: await getGenerationEstimate(model.id, cost_request),
+    },
+  };
+}
+
+export async function planAgentQuote(
+  request: AgentQuoteRequest,
+): Promise<AgentResult<AgentQuotePlan>> {
+  const target = await resolveAgentTarget(request);
+  if (!target.ok) return target;
+  return {
+    ok: true,
+    value: {
+      ...target.value,
+      estimate: await getGenerationEstimate(
+        target.value.model_id,
+        target.value.cost_request,
+      ),
     },
   };
 }

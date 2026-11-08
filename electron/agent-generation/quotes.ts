@@ -1,12 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
+import { z } from "zod";
 import type { AgentBudget, AgentBudgetResult } from "../../shared/agent-budget";
 import {
   agentFailure,
   agentQuotePlanSchema,
   agentQuoteRequestSchema,
+  agentQuoteTargetSchema,
   type AgentQuote,
   type AgentQuotePlan,
   type AgentQuoteRequest,
+  type AgentQuoteTarget,
   type AgentResult,
 } from "../../shared/agent-generation";
 import { formatMicrousd } from "../../shared/money";
@@ -26,13 +29,30 @@ export interface StoredQuote {
 /** Fingerprints what a quote priced, so a later submit can detect drift. */
 export function quoteFingerprint(
   request: AgentQuoteRequest,
-  plan: Pick<AgentQuotePlan, "model_id" | "cost_request" | "subject">,
+  plan: Pick<AgentQuoteTarget, "model_id" | "cost_request" | "subject">,
 ): string {
   return createHash("sha256")
     .update(
       JSON.stringify([request, plan.model_id, plan.cost_request, plan.subject]),
     )
     .digest("hex");
+}
+
+const inconsistent = () =>
+  agentFailure("IO_ERROR", "Showbiz returned an inconsistent price plan.");
+const matchesRequest = (request: AgentQuoteRequest, target: AgentQuoteTarget) =>
+  target.model_id === request.model_id &&
+  target.cost_request.kind === "image" &&
+  target.subject.subject_id === request.asset_id;
+
+export function readTarget(
+  request: AgentQuoteRequest,
+  answer: unknown,
+): AgentResult<AgentQuoteTarget> {
+  const parsed = z.object(agentQuoteTargetSchema.shape).safeParse(answer);
+  return parsed.success && matchesRequest(request, parsed.data)
+    ? { ok: true, value: parsed.data }
+    : inconsistent();
 }
 
 export function readPlan(
@@ -42,14 +62,12 @@ export function readPlan(
   const parsed = agentQuotePlanSchema.safeParse(answer);
   if (
     !parsed.success ||
-    parsed.data.model_id !== request.model_id ||
-    parsed.data.cost_request.kind !== "image" ||
-    parsed.data.subject.subject_id !== request.asset_id ||
+    !matchesRequest(request, parsed.data) ||
     (parsed.data.estimate.kind === "estimate" &&
       (parsed.data.estimate.price.model_id !== parsed.data.model_id ||
         parsed.data.estimate.price.provider !== parsed.data.provider))
   )
-    return agentFailure("IO_ERROR", "Showbiz returned an inconsistent price plan.");
+    return inconsistent();
   return { ok: true, value: parsed.data };
 }
 
