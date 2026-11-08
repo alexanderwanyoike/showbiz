@@ -24,6 +24,7 @@ import {
 } from "../../../shared/agent-generation";
 import {
   imageCostRequest,
+  imageGenerationKind,
   type ImageGenerationKind,
 } from "../../../shared/generation-cost";
 import type {
@@ -139,7 +140,7 @@ export async function resolveAgentTarget(
       "INVALID_INPUT",
       `${model.name} cannot compose from reference pictures.`,
     );
-  return target(references.length > 0 ? "image_compose" : "image", {
+  return target(imageGenerationKind({ edit: false, composes: references.length > 0 }), {
     prompt,
     reference_variant_ids: references,
   });

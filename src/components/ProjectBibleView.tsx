@@ -20,6 +20,7 @@ import {
 import {
   IMAGE_GENERATION_REQUEST,
   imageCostRequest,
+  imageGenerationKind,
 } from "../../shared/generation-cost";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Loader2, Upload, Sparkles, Plus, X, ImageIcon } from "lucide-react";
@@ -1360,7 +1361,10 @@ function FramesTab({
             <GenerationCost
               modelId={generationContext.modelId}
               request={imageCostRequest(
-                selectedChars.size > 0 || locationId ? "image_compose" : "image",
+                imageGenerationKind({
+                  edit: false,
+                  composes: selectedChars.size > 0 || !!locationId,
+                }),
               )}
               subject={{ project_id: generationContext.projectId }}
             />

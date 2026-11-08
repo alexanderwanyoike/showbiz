@@ -13,6 +13,7 @@ import {
   type AgentResult,
 } from "../../shared/agent-generation";
 import { formatMicrousd } from "../../shared/money";
+import { imageGenerationKind } from "../../shared/generation-cost";
 
 const QUOTE_TTL_MS = 10 * 60 * 1000;
 
@@ -50,14 +51,11 @@ function matchesRequest(request: AgentQuoteRequest, target: AgentQuoteTarget) {
   const { kind } = target.cost_request;
   const { inputs } = target;
   const composes = inputs.reference_variant_ids.length > 0;
+  const edit = request.operation === "edit";
   const operationFits =
-    request.operation === "generate"
-      ? kind === "image" && !composes
-      : request.operation === "retake"
-        ? kind === (composes ? "image_compose" : "image")
-        : kind === "image_edit" &&
-          !composes &&
-          inputs.source_variant_id === request.source_variant_id;
+    kind === imageGenerationKind({ edit, composes }) &&
+    (request.operation !== "generate" || !composes) &&
+    (!edit || (!composes && inputs.source_variant_id === request.source_variant_id));
   return (
     operationFits &&
     target.model_id === request.model_id &&

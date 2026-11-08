@@ -40,6 +40,14 @@ export function imageCostRequest(kind: ImageGenerationKind): GenerationCostReque
   return { kind, count: 1 };
 }
 export const IMAGE_GENERATION_REQUEST = imageCostRequest("image");
+/** Which kind a Bible picture action is priced as: an edit, a composition from references, or a prompt alone. */
+export function imageGenerationKind(action: {
+  edit: boolean;
+  composes: boolean;
+}): ImageGenerationKind {
+  if (action.edit) return "image_edit";
+  return action.composes ? "image_compose" : "image";
+}
 export type GenerationCostEstimate =
   | { kind: "unavailable"; reason: string }
   | {
