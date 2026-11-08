@@ -81,7 +81,7 @@ async function videoPreview(
   shrink: Shrink,
   frames: ExtractFrames,
 ): Promise<AgentResult<MediaPreview>> {
-  const mediaPath = await invoke<string | null>("get_video_version_path", { versionId: takeId });
+  const mediaPath = await invoke<string | null>("get_video_version_url", { versionId: takeId });
   if (!mediaPath)
     return agentFailure("NOT_FOUND", "No video take with that ID is in the open project.");
   const images = [];

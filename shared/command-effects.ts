@@ -97,7 +97,7 @@ const nonSavingCommands = new Set([
   "get_version_image_base64",
   "get_video_versions",
   "get_current_video_version",
-  "get_video_version_path",
+  "get_video_version_url",
   "get_video_version_count",
   "get_media_path",
   "get_api_key",
