@@ -213,3 +213,19 @@ it("explains that unconfirmed estimates include unsuccessful requests without cl
     within(help).getByText(/a failed request may still incur a charge/i),
   ).toBeTruthy();
 });
+
+it("marks requests that an agent submitted from its budget", async () => {
+  billing.loadUsageWithBilling.mockResolvedValue({
+    ok: true,
+    value: page([
+      request,
+      { ...request, request_id: "agent-request", agent_job_id: "job-1" },
+    ]),
+  });
+  renderUsage();
+  const rows = (await screen.findAllByRole("cell", { name: "Flux Dev" })).map(
+    (cell) => cell.closest("tr")!,
+  );
+  expect(within(rows[0]).queryByText("Agent")).toBeNull();
+  expect(within(rows[1]).getByText("Agent")).toBeTruthy();
+});
