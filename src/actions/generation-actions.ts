@@ -19,6 +19,7 @@ import {
 } from "../lib/models";
 import { generateText } from "../lib/models/gemini-text";
 import type { VideoGenerationRequest } from "../lib/generation/types";
+import { IMAGE_GENERATION_REQUEST } from "../../shared/generation-cost";
 
 export async function generateImageAction(
   prompt: string,
@@ -33,7 +34,7 @@ export async function generateImageAction(
   try {
     const result = await accountModelGeneration(
       modelId,
-      { kind: "image", count: 1 },
+      IMAGE_GENERATION_REQUEST,
       subject,
       (observer) => model.generateImage(prompt, apiKey, observer),
       agent,

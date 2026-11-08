@@ -15,6 +15,7 @@ import {
   addPrimaryBibleTake,
   prepareBibleImageDataUrl,
 } from "../lib/bible-takes";
+import { IMAGE_GENERATION_REQUEST } from "../../shared/generation-cost";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Loader2, Upload, Sparkles, Plus, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -993,7 +994,7 @@ function AssetTab({
           <div className="bible-cost">
             <GenerationCost
               modelId={generationContext.modelId}
-              request={{ kind: "image" }}
+              request={IMAGE_GENERATION_REQUEST}
               subject={{ project_id: generationContext.projectId }}
             />
           </div>

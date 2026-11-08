@@ -63,6 +63,12 @@ export function createRendererChannel(options: {
         }
       });
     },
+    /** Fails a window's pending work at once when the window reloads or closes. */
+    abandon(owner: number): void {
+      for (const entry of [...pending.values()])
+        if (entry.owner === owner)
+          entry.settle(unavailable("The Showbiz window reloaded or closed. Try again."));
+    },
     respond(sender: number, requestId: string, answer: unknown): void {
       const entry = pending.get(requestId);
       if (!entry || entry.owner !== sender) return;

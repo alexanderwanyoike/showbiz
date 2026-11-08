@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { generationPriceSchema } from "./generation-price-schema";
+import {
+  generationCostRequestSchema,
+  generationPriceSchema,
+  microusdSchema as microusd,
+  priceFreshnessSchema,
+} from "./generation-price-schema";
 import type {
   GenerationCostEstimate,
   GenerationCostRequest,
@@ -23,24 +28,11 @@ export const agentQuoteRequestSchema = z.discriminatedUnion("target", [
 ]);
 export type AgentQuoteRequest = z.infer<typeof agentQuoteRequestSchema>;
 
-/** What the renderer resolves for a request: the same model, settings and estimate the app would use. */
-export interface AgentQuotePlan {
-  model_id: string;
-  provider: string;
-  cost_request: GenerationCostRequest;
-  subject: { project_id: string; subject_id: string };
-  estimate: GenerationCostEstimate;
-}
 
-const microusd = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 export const agentQuotePlanSchema = z.strictObject({
   model_id: id,
   provider: id,
-  cost_request: z
-    .object({
-      kind: z.enum(["image", "image_edit", "image_compose", "video"]),
-    })
-    .passthrough(),
+  cost_request: generationCostRequestSchema,
   subject: z.strictObject({ project_id: id, subject_id: id }),
   estimate: z.discriminatedUnion("kind", [
     z.strictObject({ kind: z.literal("unavailable"), reason: z.string() }),
@@ -51,12 +43,15 @@ export const agentQuotePlanSchema = z.strictObject({
         max_microusd: microusd,
         price: generationPriceSchema,
         stale: z.boolean(),
-        price_freshness: z.enum(["live", "cached", "stale"]).optional(),
+        price_freshness: priceFreshnessSchema.optional(),
         excludes_input_cost: z.boolean(),
       })
       .refine((estimate) => estimate.min_microusd <= estimate.max_microusd),
   ]),
 });
+
+/** What the renderer resolves for a request: the same model, settings and estimate the app would use. */
+export type AgentQuotePlan = z.infer<typeof agentQuotePlanSchema>;
 
 export interface AgentQuote {
   quote_id: string;
@@ -68,7 +63,7 @@ export interface AgentQuote {
   max_microusd: number;
   price_source: string;
   price_checked_at: string;
-  price_freshness: "live" | "cached" | "stale" | null;
+  price_freshness: z.infer<typeof priceFreshnessSchema> | null;
   price_stale: boolean;
   price_basis: GenerationPrice;
   excludes_input_cost: boolean;

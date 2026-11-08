@@ -44,7 +44,10 @@ export function readPlan(
     !parsed.success ||
     parsed.data.model_id !== request.model_id ||
     parsed.data.cost_request.kind !== "image" ||
-    parsed.data.subject.subject_id !== request.asset_id
+    parsed.data.subject.subject_id !== request.asset_id ||
+    (parsed.data.estimate.kind === "estimate" &&
+      (parsed.data.estimate.price.model_id !== parsed.data.model_id ||
+        parsed.data.estimate.price.provider !== parsed.data.provider))
   )
     return agentFailure("IO_ERROR", "Showbiz returned an inconsistent price plan.");
   return { ok: true, value: parsed.data };

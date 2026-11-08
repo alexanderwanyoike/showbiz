@@ -33,6 +33,7 @@ export function createAgentGenerationRuntime(options: {
     report(sender: number, update: unknown): Promise<void> {
       return sender === options.window()?.id ? jobs.report(update) : Promise.resolve();
     },
+    abandon: channel.abandon,
     commands: {
       quote_generation: (args?: Record<string, unknown>) => quotes.quote_generation(args),
       submit_generation: (args?: Record<string, unknown>) => jobs.submit_generation(args),

@@ -8,7 +8,7 @@ import {
   type AgentQuoteRequest,
   type AgentResult,
 } from "../../../shared/agent-generation";
-import type { GenerationCostRequest } from "../../../shared/generation-cost";
+import { IMAGE_GENERATION_REQUEST } from "../../../shared/generation-cost";
 import type {
   DocumentResult,
   ProjectDocumentState,
@@ -58,7 +58,7 @@ export async function planAgentQuote(
       "INVALID_INPUT",
       "Frames are composed from Bible references rather than generated from a prompt.",
     );
-  const cost_request: GenerationCostRequest = { kind: "image", count: 1 };
+  const cost_request = IMAGE_GENERATION_REQUEST;
   return {
     ok: true,
     value: {
