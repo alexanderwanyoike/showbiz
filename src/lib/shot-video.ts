@@ -27,12 +27,10 @@ export function videoCostRequest(
   };
 }
 
-/** Chooses the mode and frames for a shot video as the storyboard does, throwing when the model cannot make it. */
-export function planShotVideo(
+/** Chooses the mode and whether the end frame is used, as the storyboard does, without validating. */
+export function chooseShotVideoFrames(
   model: Pick<VideoModelInfo, "modeCapabilities">,
   frames: { hasStartFrame: boolean; hasEndFrame: boolean },
-  settings: VideoGenerationSettings,
-  prompt: string,
 ) {
   const mode = chooseVideoGenerationMode(model.modeCapabilities, {
     hasStartImage: frames.hasStartFrame,
@@ -41,14 +39,32 @@ export function planShotVideo(
     mode === "image-to-video" &&
     model.modeCapabilities.imageToVideo?.supportsEndImage === true &&
     frames.hasEndFrame;
+  return { mode, usesEndFrame };
+}
+
+/** Chooses the mode and frames for a shot video, throwing when the model cannot make it. */
+export function planShotVideo(
+  model: Pick<VideoModelInfo, "modeCapabilities">,
+  frames: { hasStartFrame: boolean; hasEndFrame: boolean },
+  settings: VideoGenerationSettings,
+  prompt: string,
+) {
+  const plan = chooseShotVideoFrames(model, frames);
   validateVideoGenerationRequest(model.modeCapabilities, {
-    mode,
+    mode: plan.mode,
     prompt,
     settings,
     startImage: frames.hasStartFrame ? "start frame" : null,
-    endImage: usesEndFrame ? "end frame" : null,
+    endImage: plan.usesEndFrame ? "end frame" : null,
   });
-  return { mode, usesEndFrame };
+  return plan;
+}
+
+/** A content digest that tells whether a frame changed, since end frames are overwritten in place. */
+export async function digestOf(dataUrl: string): Promise<string> {
+  const bytes = new TextEncoder().encode(dataUrl);
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 /** Builds the storyboard's video request for a shot, loading the frames it uses. */
@@ -66,11 +82,13 @@ export async function buildShotVideoRequest(
     settings,
     prompt,
   );
-  return {
+  const request = {
     mode,
     prompt,
     settings,
     startImage,
     endImage: usesEndFrame ? await getShotEndFrameBase64(shotId) : null,
   };
+  validateVideoGenerationRequest(model.modeCapabilities, request);
+  return request;
 }

@@ -84,13 +84,12 @@ import {
   getAvailableVideoModels,
 } from "../lib/models";
 import { blobToBase64, type VideoGenerationSettings } from "../lib/models/types";
-import { chooseVideoGenerationMode } from "../lib/generation/video-modes";
 import type { FrameOption } from "../components/ShotInspector";
 import type { ShotFrameRole } from "../../shared/shot-frames";
 import { buildFrameOptions } from "../lib/bible-compose";
 import { imageCostRequest } from "../../shared/generation-cost";
 import { editShotStartFrame, generateShotStartFrame, saveShotFrame } from "../lib/shot-frames";
-import { buildShotVideoRequest, videoCostRequest } from "../lib/shot-video";
+import { buildShotVideoRequest, chooseShotVideoFrames, videoCostRequest } from "../lib/shot-video";
 import { versionsForShot, valueForShot } from "../lib/shot-versions";
 import {
   invalidateGenerationRun,
@@ -196,10 +195,13 @@ export default function StoryboardPage() {
   const videoSettings: VideoGenerationSettings = selectedVideoDraft?.settings ?? storedVideoSettings.settings;
   const inactiveVideoDraft = Object.keys(videoSettingsDrafts).find((shotId) => shotId !== selectedShotId);
 
+  const selectedVideoFrames = currentVideoModel
+    ? chooseShotVideoFrames(currentVideoModel, { hasStartFrame: !!selectedShot?.image_url, hasEndFrame: !!selectedShot?.end_frame_url })
+    : null;
   const selectedVideoCost = videoCostRequest(
     videoSettings,
-    currentVideoModel ? chooseVideoGenerationMode(currentVideoModel.modeCapabilities, { hasStartImage: !!selectedShot?.image_url }) : undefined,
-    !!(selectedShot?.end_frame_url && currentVideoModel?.modeCapabilities.imageToVideo?.supportsEndImage),
+    selectedVideoFrames?.mode,
+    selectedVideoFrames?.usesEndFrame ?? false,
   );
 
 
