@@ -68,6 +68,7 @@ function setup(options: {
   });
   const quotes = createAgentQuotes({
     plan: planner,
+    resolve: async () => options.planned ?? { ok: true as const, value: plan() },
     budget: async () => {
       const current =
         planned && options.afterPlanning !== undefined
