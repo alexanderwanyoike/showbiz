@@ -200,7 +200,17 @@ export default function UsagePage() {
                               </span>
                             </time>
                           </td>
-                          <td>{usageKindName[item.kind]}</td>
+                          <td>
+                            {usageKindName[item.kind]}
+                            {item.agent_job_id && (
+                              <span
+                                className="usage-agent"
+                                title="Submitted by an agent from its budget"
+                              >
+                                Agent
+                              </span>
+                            )}
+                          </td>
                           <td>{identity.provider}</td>
                           <td>{identity.model}</td>
                           <td>

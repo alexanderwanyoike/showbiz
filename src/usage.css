@@ -154,6 +154,14 @@
   margin-top: 2px;
   font-size: 10px;
 }
+.usage-agent {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
 .usage-outcome {
   color: var(--muted-foreground);
 }
