@@ -46,6 +46,12 @@ Tools cover project naming, storyboard creation/naming, bible guidance, characte
 
 This initial MCP boundary does not expose credentials, arbitrary HTTP requests, filesystem access, shell commands or destructive delete operations. Generation continues through the app controls; agent tools do not submit paid requests or write receipts. Agents can read usage and saved pricing.
 
+## Agent budget
+
+You can grant an agent a spending budget in Showbiz. Open Usage & billing and choose Agent budget. Enter the amount in USD, optionally a lower per-request limit, how long it lasts (1 hour, 1 day or 1 week), and optionally the only models the agent may use. Granting again replaces the earlier budget. While a budget is active, a banner across the project workspace shows what is left and when it ends, with Revoke.
+
+The budget belongs to this device, not to a project file. It covers whichever project is open, is never written into a `.showbiz` document or export, and a copied project carries no spending rights. `get_agent_budget` is the only budget tool. It reads the remaining amount, per-request cap, expiry and allowed models, and returns `NO_BUDGET` when nothing is granted, the budget expired or you revoked it. No MCP tool creates, raises, extends or revokes a budget. Agents can read the budget but cannot spend it yet; the paid generation tools that work within it are not available in this release.
+
 ## Local connection
 
 Each running app publishes a descriptor under `$XDG_CONFIG_HOME/showbiz/mcp-sessions` (normally `~/.config/showbiz/mcp-sessions`). `SHOWBIZ_MCP_DIR` can select a different directory for isolated verification. On POSIX, the descriptor directory is owner-only and descriptor files are mode 0600. The application bridge uses a private Unix socket or Windows pipe and a random per-instance secret. Discovery omits credentials; failed attachment clears any previous target. Messages are bounded to 1 MiB. Normal local requests have a five-second inactivity timeout; native exports allow five minutes for the save dialog and media writing. A timeout or cancelled client wait does not cancel work already running in Showbiz. For edits and exports, retry using the same request ID and arguments to retrieve the eventual success or failure without repeating the operation. Reads have no request ID and can be repeated.
