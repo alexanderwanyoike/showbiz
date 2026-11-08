@@ -58,7 +58,7 @@ async function variantsOf(assets: BibleAsset[]) {
   return variants;
 }
 
-/** Frame characters and locations the app would silently leave out of a composition for lack of a picture. */
+/** Existing frame characters and locations the app would silently leave out of a composition for lack of a picture. Deleted entries are skipped, as the app skips them. */
 function unpicturedReferences(
   asset: BibleAsset,
   assets: BibleAsset[],
@@ -67,8 +67,8 @@ function unpicturedReferences(
   if (asset.asset_type !== "reference") return [];
   const recipe = parseRecipe(asset.rules_json);
   return [...recipe.characters, ...(recipe.location ? [recipe.location] : [])]
-    .filter((id) => !primaryPicture(variants[id] ?? []))
-    .map((id) => assets.find((entry) => entry.id === id)?.name ?? "A referenced entry");
+    .filter((id) => assets.some((entry) => entry.id === id) && !primaryPicture(variants[id] ?? []))
+    .map((id) => assets.find((entry) => entry.id === id)?.name ?? id);
 }
 
 /** Resolves what a request targets: the model, cost request, prompt and pictures the app's own controls would use. */
