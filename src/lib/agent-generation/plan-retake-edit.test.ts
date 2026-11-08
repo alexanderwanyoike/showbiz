@@ -117,6 +117,16 @@ it("refuses composition with a model that cannot compose", async () => {
   ).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
 });
 
+it("refuses a frame for a model that cannot make 16:9 pictures, but not a character", async () => {
+  const { frame, bare } = bible();
+  expect(
+    await resolveAgentTarget(ask({ operation: "retake", asset_id: frame.id, prompt: "Sock at the desk", model_id: "local-image" })),
+  ).toMatchObject({ ok: false, error: { code: "INVALID_INPUT", message: expect.stringContaining("16:9") } });
+  expect(
+    await resolveAgentTarget(ask({ operation: "generate", asset_id: bare.id, prompt: "A bowler hat", model_id: "local-image" })),
+  ).toMatchObject({ ok: true, value: { inputs: { prompt: "A bowler hat", reference_variant_ids: [] } } });
+});
+
 it("edits one of the entry's own pictures with a model that can edit", async () => {
   const { film, sock, sockPicture, officePicture } = bible();
   expect(
