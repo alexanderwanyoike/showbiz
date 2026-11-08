@@ -4,7 +4,7 @@ import type { AgentBudget, AgentBudgetResult } from "../../shared/agent-budget";
 import {
   agentFailure,
   type AgentJob,
-  type AgentQuotePlan,
+  type AgentJobStart,
   type AgentQuoteRequest,
   type AgentResult,
 } from "../../shared/agent-generation";
@@ -32,13 +32,6 @@ const reportSchema = z.strictObject({
   error: z.string().max(2000).optional(),
   warnings: z.array(z.string().max(2000)).max(20).optional(),
 });
-
-export interface AgentJobStart {
-  job_id: string;
-  usage_request_id: string;
-  request: AgentQuoteRequest;
-  plan: AgentQuotePlan;
-}
 
 type Usage = { reported_microusd: number | null } | null;
 

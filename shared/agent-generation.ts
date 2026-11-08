@@ -137,3 +137,28 @@ export interface AgentJob {
   created_at: string;
   updated_at: string;
 }
+
+export const agentJobStartSchema = z.strictObject({
+  job_id: id,
+  usage_request_id: id,
+  request: agentQuoteRequestSchema,
+  plan: agentQuotePlanSchema,
+});
+export interface AgentJobStart {
+  job_id: string;
+  usage_request_id: string;
+  request: AgentQuoteRequest;
+  plan: AgentQuotePlan;
+}
+
+export type AgentJobReport =
+  | { job_id: string; status: "running" }
+  | {
+      job_id: string;
+      status: "completed";
+      result: { variant_id?: string };
+      warnings: string[];
+    }
+  | { job_id: string; status: "failed"; error: string };
+
+export const AGENT_JOB_REPORT_CHANNEL = "showbiz:agent_job_report";

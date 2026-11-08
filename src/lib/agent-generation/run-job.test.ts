@@ -11,6 +11,9 @@ import { runAgentJob } from "./run-job";
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn() }));
 vi.mock("../bridge", () => ({ invoke: mocks.invoke }));
 vi.mock("../models/http", () => ({ fetch: mocks.fetch }));
+vi.mock("../electron-media-url", () => ({
+  electronMediaUrlResolver: { resolve: async () => "blob:fixture", invalidate: () => {} },
+}));
 vi.mock("../bible-takes", async (original) => ({
   ...(await original<typeof import("../bible-takes")>()),
   prepareBibleImageDataUrl: async (dataUrl: string) => dataUrl,
