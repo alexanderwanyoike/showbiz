@@ -271,6 +271,28 @@ describe("agent generation quotes", () => {
       }).quotes.quote_generation(edit),
     ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
   });
+
+  it("quotes a shot start frame with the model the shot resolves to", async () => {
+    const shotRequest = { target: "shot_start_frame", operation: "generate", shot_id: "shot-1", prompt: "Sock enters" };
+    const shotPlan = plan({
+      subject: { project_id: "film", subject_id: "shot-1" },
+      inputs: { prompt: "Sock enters", reference_variant_ids: [] },
+    });
+    expect(
+      await setup({ planned: { ok: true, value: shotPlan } }).quotes.quote_generation(shotRequest),
+    ).toMatchObject({ ok: true, value: { model_id: "flux-dev-fal" } });
+    expect(
+      await setup({
+        planned: { ok: true, value: shotPlan },
+        granted: budget({ allowed_models: ["nano-banana-2"] }),
+      }).quotes.quote_generation(shotRequest),
+    ).toMatchObject({ ok: false, error: { code: "MODEL_NOT_ALLOWED" } });
+    expect(
+      await setup({
+        planned: { ok: true, value: { ...shotPlan, inputs: { prompt: "Sock enters", reference_variant_ids: [], source_take_id: "t1" } } },
+      }).quotes.quote_generation({ ...shotRequest, operation: "edit", source_take_id: "t2" }),
+    ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+  });
 });
 
 function estimateOf(value: AgentQuotePlan) {

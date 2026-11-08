@@ -208,3 +208,40 @@ it("fails a retake job instead of composing from fewer pictures than were quoted
   expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ status: "failed" }));
   expect(commands.get_bible_asset_variants({ assetId: asset.id })).toEqual([]);
 });
+
+it.each(["generate", "edit"] as const)("runs a shot start frame %s job as a new current take", async (operation) => {
+  const { commands, film, job } = project("fixture-key");
+  const board = commands.create_storyboard({ projectId: film.id, name: "Opening" }) as { id: string };
+  const shot = commands.create_shot({ storyboardId: board.id }) as { id: string };
+  const first = commands.create_generation_version({ shotId: shot.id, prompt: "First", imageBase64: `data:image/png;base64,${PNG}`, parentVersionId: null }) as { id: string };
+  const report = vi.fn(async () => undefined);
+  await runAgentJob(
+    {
+      ...job,
+      request:
+        operation === "edit"
+          ? { target: "shot_start_frame", operation, shot_id: shot.id, source_take_id: first.id, prompt: "Darker" }
+          : { target: "shot_start_frame", operation, shot_id: shot.id, prompt: "Sock enters" },
+      plan: {
+        ...job.plan,
+        cost_request: { kind: operation === "edit" ? "image_edit" : "image", count: 1 },
+        subject: { project_id: film.id, subject_id: shot.id },
+        inputs:
+          operation === "edit"
+            ? { prompt: "Darker", reference_variant_ids: [], source_take_id: first.id }
+            : { prompt: "Sock enters", reference_variant_ids: [] },
+      },
+    },
+    report,
+  );
+  const versions = commands.get_image_versions({ shotId: shot.id }) as { version: { id: string; is_current: boolean; parent_version_id: string | null } ; children: { version: { id: string; is_current: boolean; parent_version_id: string | null } }[] }[];
+  const all = versions.flatMap((node) => [node.version, ...node.children.map((child) => child.version)]);
+  const current = all.find((version) => version.is_current);
+  expect(current).toMatchObject({ parent_version_id: first.id });
+  expect(report).toHaveBeenLastCalledWith({
+    job_id: "job-1",
+    status: "completed",
+    result: { take_id: current?.id },
+    warnings: [],
+  });
+});
