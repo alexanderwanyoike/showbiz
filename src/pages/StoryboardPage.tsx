@@ -89,6 +89,7 @@ import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../li
 import type { VideoGenerationRequest } from "../lib/generation/types";
 import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
 import { buildFrameOptions } from "../lib/bible-compose";
+import { imageCostRequest } from "../../shared/generation-cost";
 import { editShotStartFrame, generateShotStartFrame, saveShotFrame } from "../lib/shot-frames";
 import { versionsForShot, valueForShot } from "../lib/shot-versions";
 import {
@@ -1068,7 +1069,7 @@ export default function StoryboardPage() {
           </div>
           {refreshFeedback(imagePromptInput.current)}
           {imageGenerationError && <p role="alert" className="text-sm text-destructive">{imageGenerationError}</p>}
-          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model} request={{kind: "image"}} subject={{project_id: storyboard?.project_id, subject_id: activeShotId ?? undefined}} />
+          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model} request={imageCostRequest("image")} subject={{project_id: storyboard?.project_id, subject_id: activeShotId ?? undefined}} />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
               Cancel
@@ -1145,7 +1146,7 @@ export default function StoryboardPage() {
           </div>
           {refreshFeedback(editPromptInput.current)}
           {imageEditError && <p role="alert" className="text-sm text-destructive">{imageEditError}</p>}
-          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model} request={{kind: "image_edit"}} subject={{project_id: storyboard?.project_id, subject_id: editModalState.shotId ?? undefined}} />
+          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model} request={imageCostRequest("image_edit")} subject={{project_id: storyboard?.project_id, subject_id: editModalState.shotId ?? undefined}} />
           <DialogFooter>
             <Button
               variant="ghost"
