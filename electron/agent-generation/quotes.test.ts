@@ -323,7 +323,7 @@ describe("agent generation quotes", () => {
     const videoPlan = plan({
       cost_request: { kind: "video", duration: "8", resolution: "720p", mode: "image-to-video", has_end_frame: false },
       subject: { project_id: "film", subject_id: "shot-1" },
-      inputs: { prompt: "", reference_variant_ids: [], video: { mode: "image-to-video", settings, uses_end_frame: false, shot_updated_at: "t" } },
+      inputs: { prompt: "", reference_variant_ids: [], video: { mode: "image-to-video", settings, uses_end_frame: false, start_take_id: "t" } },
     });
     expect(
       await setup({ planned: { ok: true, value: videoPlan } }).quotes.quote_generation(videoRequest),

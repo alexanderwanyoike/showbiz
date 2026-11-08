@@ -73,7 +73,9 @@ export const agentQuoteTargetSchema = z.strictObject({
           audio: z.boolean().optional(),
         }),
         uses_end_frame: z.boolean(),
-        shot_updated_at: z.string().max(64),
+        /** The start frame take and end frame content the video was quoted with. */
+        start_take_id: id.optional(),
+        end_frame_digest: z.string().regex(/^[0-9a-f]{64}$/).optional(),
       })
       .optional(),
   }),

@@ -3,9 +3,12 @@ import { findProjectAsset, findProjectShot, openProjectId, versionIds } from "./
 import { getAvailableVideoModels } from "../models";
 import { resolveShotModels, resolveStoryboardModels } from "../shot-models";
 import { resolveShotVideoSettings } from "../shot-video-settings";
-import { planShotVideo, videoCostRequest } from "../shot-video";
+import { digestOf, planShotVideo, videoCostRequest } from "../shot-video";
+import type { VideoGenerationSettings } from "../models/types";
 import {
   getBibleAssetVariants,
+  getCurrentImageVersion,
+  getShotEndFrameBase64,
   type BibleAsset,
   type BibleAssetVariant,
 } from "../backend-api";
@@ -54,6 +57,21 @@ type BibleRequest = Extract<AgentQuoteRequest, { target: "bible_asset" }>;
 type ShotRequest = Extract<AgentQuoteRequest, { target: "shot_start_frame" }>;
 type VideoRequest = Extract<AgentQuoteRequest, { target: "shot_video" }>;
 
+async function videoFrames(
+  shotId: string,
+  plan: { mode: "text-to-video" | "image-to-video"; usesEndFrame: boolean; settings: VideoGenerationSettings },
+) {
+  const start = plan.mode === "image-to-video" ? await getCurrentImageVersion(shotId) : null;
+  const end = plan.usesEndFrame ? await getShotEndFrameBase64(shotId) : null;
+  return {
+    mode: plan.mode,
+    settings: plan.settings,
+    uses_end_frame: plan.usesEndFrame,
+    ...(start ? { start_take_id: start.id } : {}),
+    ...(end ? { end_frame_digest: await digestOf(end) } : {}),
+  };
+}
+
 /** A shot video uses the shot's video model, saved settings, video prompt and frames, as the storyboard's Generate Video does. */
 async function resolveVideoTarget(
   request: VideoRequest,
@@ -78,9 +96,12 @@ async function resolveVideoTarget(
   const hasStartFrame = !!shot.image_path;
   if (!hasStartFrame && !prompt)
     return agentFailure("INVALID_INPUT", "Add a start frame or a video prompt before generating.");
-  let plan: ReturnType<typeof planShotVideo>;
+  let plan: ReturnType<typeof planShotVideo> & { settings: VideoGenerationSettings };
   try {
-    plan = planShotVideo(model, { hasStartFrame, hasEndFrame: !!shot.end_frame_path }, settings, prompt);
+    plan = {
+      ...planShotVideo(model, { hasStartFrame, hasEndFrame: !!shot.end_frame_path }, settings, prompt),
+      settings,
+    };
   } catch (cause) {
     return agentFailure("INVALID_INPUT", cause instanceof Error ? cause.message : String(cause));
   }
@@ -94,12 +115,7 @@ async function resolveVideoTarget(
       inputs: {
         prompt,
         reference_variant_ids: [],
-        video: {
-          mode: plan.mode,
-          settings,
-          uses_end_frame: plan.usesEndFrame,
-          shot_updated_at: shot.updated_at,
-        },
+        video: await videoFrames(shot.id, plan),
       },
     },
   };
