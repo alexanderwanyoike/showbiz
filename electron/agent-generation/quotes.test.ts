@@ -293,6 +293,29 @@ describe("agent generation quotes", () => {
       }).quotes.quote_generation({ ...shotRequest, operation: "edit", source_take_id: "t2" }),
     ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
   });
+
+  it("checks a shot's resolved model against the allowlist before asking for a price", async () => {
+    const resolve = vi.fn(async () => ({
+      ok: true as const,
+      value: {
+        model_id: "flux-dev-fal",
+        provider: "fal",
+        cost_request: { kind: "image" as const, count: 1 },
+        subject: { project_id: "film", subject_id: "shot-1" },
+        inputs: { prompt: "Sock enters", reference_variant_ids: [] },
+      },
+    }));
+    const planner = vi.fn();
+    const quotes = createAgentQuotes({
+      plan: planner,
+      resolve,
+      budget: async () => ({ ok: true, value: budget({ allowed_models: ["nano-banana-2"] }) }),
+    });
+    expect(
+      await quotes.quote_generation({ target: "shot_start_frame", operation: "generate", shot_id: "shot-1", prompt: "Sock enters" }),
+    ).toMatchObject({ ok: false, error: { code: "MODEL_NOT_ALLOWED" } });
+    expect(planner).not.toHaveBeenCalled();
+  });
 });
 
 function estimateOf(value: AgentQuotePlan) {

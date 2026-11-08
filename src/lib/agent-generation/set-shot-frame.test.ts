@@ -76,3 +76,17 @@ it("only accepts frames from the open project's Bible", async () => {
     await setShotFrameFromBible({ shot_id: "elsewhere", role: "start", bible_variant_id: characterTake.id }),
   ).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
 });
+
+it("refuses a frame take that has no picture", async () => {
+  const { commands, shot, frameTake } = project();
+  native.invoke.mockImplementation(async (command: string, args) =>
+    command === "get_bible_variant_image_base64"
+      ? null
+      : command === "get_project_document_state"
+        ? { ok: true, value: { current: { project_id: (commands.get_projects() as { id: string }[])[0].id }, recent: [] } }
+        : commands[command]?.(args),
+  );
+  expect(
+    await setShotFrameFromBible({ shot_id: shot.id, role: "end", bible_variant_id: frameTake.id }),
+  ).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+});
