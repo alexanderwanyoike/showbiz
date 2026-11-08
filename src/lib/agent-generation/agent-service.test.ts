@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { connectAgentService } from "./agent-service";
 
-const planner = vi.hoisted(() => ({ planAgentQuote: vi.fn(), resolveAgentTarget: vi.fn() }));
+const planner = vi.hoisted(() => ({ planAgentQuote: vi.fn() }));
 vi.mock("./plan-quote", () => planner);
 const runner = vi.hoisted(() => ({ runAgentJob: vi.fn() }));
 vi.mock("./run-job", () => runner);
@@ -36,7 +36,6 @@ function app() {
 afterEach(() => {
   vi.unstubAllGlobals();
   planner.planAgentQuote.mockReset();
-  planner.resolveAgentTarget.mockReset();
   runner.runAgentJob.mockReset();
 });
 
@@ -146,17 +145,6 @@ it("refuses a malformed job without running anything", async () => {
     }),
   );
   expect(runner.runAgentJob).not.toHaveBeenCalled();
-});
-
-it("resolves a quote's target for a submit check", async () => {
-  const native = app();
-  planner.resolveAgentTarget.mockResolvedValue({ ok: true, value: "target" });
-  connectAgentService();
-  native.send({ request_id: "r7", operation: "resolve_target", input: quoteInput });
-  await vi.waitFor(() =>
-    expect(native.respondAgentRequest).toHaveBeenCalledWith("r7", { ok: true, value: "target" }),
-  );
-  expect(planner.planAgentQuote).not.toHaveBeenCalled();
 });
 
 it("answers preview requests", async () => {
