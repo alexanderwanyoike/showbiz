@@ -57,6 +57,7 @@ describe("agent budget grants", () => {
         },
         committed_microusd: 0,
         remaining_microusd: 5_000_000,
+        frozen: false,
       },
     });
   });

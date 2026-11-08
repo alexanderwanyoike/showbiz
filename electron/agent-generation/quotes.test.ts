@@ -44,6 +44,7 @@ const budget = (overrides: Partial<AgentBudget["grant"]> = {}, remaining = 5_000
   },
   committed_microusd: 5_000_000 - remaining,
   remaining_microusd: remaining,
+  frozen: false,
 });
 const request = {
   target: "bible_asset",
