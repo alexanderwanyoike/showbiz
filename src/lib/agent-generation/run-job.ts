@@ -56,7 +56,8 @@ async function createVideo(job: AgentJobStart, shotId: string): Promise<AgentJob
   const { plan } = job;
   const video = plan.inputs.video;
   const model = getAvailableVideoModels().find((candidate) => candidate.id === plan.model_id);
-  if (!video || !model) throw new Error("The quoted video model is not available.");
+  if (!video) throw new Error("The quote has no video plan.");
+  if (!model) throw new Error("The quoted video model is not available.");
   const changed = new Error("The shot's frames changed after the quote. Request a new quote.");
   if (
     video.mode === "image-to-video" &&
