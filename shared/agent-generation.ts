@@ -17,13 +17,19 @@ export const AGENT_RESPONSE_CHANNEL = "showbiz:agent_response";
 const id = z.string().min(1).max(200);
 const prompt = z.string().trim().min(1).max(50000);
 
-export const agentQuoteRequestSchema = z.discriminatedUnion("target", [
+const bibleAsset = { target: z.literal("bible_asset"), asset_id: id, model_id: id };
+export const agentQuoteRequestSchema = z.discriminatedUnion("operation", [
+  z.strictObject({ ...bibleAsset, operation: z.literal("generate"), prompt }),
   z.strictObject({
-    target: z.literal("bible_asset"),
-    operation: z.literal("generate"),
-    asset_id: id,
+    ...bibleAsset,
+    operation: z.literal("retake"),
+    prompt: prompt.optional(),
+  }),
+  z.strictObject({
+    ...bibleAsset,
+    operation: z.literal("edit"),
+    source_variant_id: id,
     prompt,
-    model_id: id,
   }),
 ]);
 export type AgentQuoteRequest = z.infer<typeof agentQuoteRequestSchema>;
@@ -34,6 +40,12 @@ export const agentQuoteTargetSchema = z.strictObject({
   provider: id,
   cost_request: generationCostRequestSchema,
   subject: z.strictObject({ project_id: id, subject_id: id }),
+  /** The resolved prompt and pictures the job will use, frozen into the quote. */
+  inputs: z.strictObject({
+    prompt,
+    reference_variant_ids: z.array(id).max(10),
+    source_variant_id: id.optional(),
+  }),
 });
 export type AgentQuoteTarget = z.infer<typeof agentQuoteTargetSchema>;
 export const agentQuotePlanSchema = agentQuoteTargetSchema.extend({

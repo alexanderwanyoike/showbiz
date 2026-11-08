@@ -189,13 +189,14 @@ export const mcpTools: ToolDefinition[] = [
     ...define(
       "quote_generation",
       {},
-      "Price a generation before spending. Returns a quote_id valid for ten minutes and usable once, with the frozen estimate and its source. Bible entries (target bible_asset, operation generate) need asset_id, prompt and an installed image model_id. Unknown prices are refused with PRICE_UNKNOWN; NO_BUDGET, MODEL_NOT_ALLOWED, OVER_REQUEST_CAP and OVER_BUDGET reflect the budget the user granted.",
+      "Price a generation before spending. Returns a quote_id valid for ten minutes and usable once, with the frozen estimate and its source. For a Bible entry (target bible_asset) pass asset_id and an installed image model_id, plus: operation generate with a prompt (a new prompt-only take); retake with an optional prompt (composes from the entry's own picture or a frame's recipe, as the app's retake does, or prompt-only when it has none); or edit with source_variant_id and an instruction as prompt. Unknown prices are refused with PRICE_UNKNOWN; NO_BUDGET, MODEL_NOT_ALLOWED, OVER_REQUEST_CAP and OVER_BUDGET reflect the budget the user granted.",
     ),
     schema: z.strictObject({
       target: z.enum(["bible_asset"]),
-      operation: z.enum(["generate"]),
+      operation: z.enum(["generate", "retake", "edit"]),
       asset_id: id,
-      prompt: z.string().trim().min(1).max(50000),
+      prompt: z.string().trim().min(1).max(50000).optional(),
+      source_variant_id: id.optional(),
       model_id: id,
     }),
     openWorld: true,

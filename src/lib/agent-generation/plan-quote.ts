@@ -1,5 +1,12 @@
 import { invoke } from "../bridge";
-import { getBibleAssets, getBibles } from "../backend-api";
+import {
+  getBibleAssetVariants,
+  getBibleAssets,
+  getBibles,
+  type BibleAsset,
+  type BibleAssetVariant,
+} from "../backend-api";
+import { assetBasePrompt, assetReferences } from "../bible-compose";
 import { getGenerationEstimate } from "../generation-pricing";
 import { imageConfigs } from "../models/registry";
 import {
@@ -9,7 +16,10 @@ import {
   type AgentQuoteTarget,
   type AgentResult,
 } from "../../../shared/agent-generation";
-import { IMAGE_GENERATION_REQUEST } from "../../../shared/generation-cost";
+import {
+  imageCostRequest,
+  type ImageGenerationKind,
+} from "../../../shared/generation-cost";
 import type {
   DocumentResult,
   ProjectDocumentState,
@@ -28,15 +38,20 @@ async function openProjectId(): Promise<AgentResult<string>> {
 
 async function findProjectAsset(projectId: string, assetId: string) {
   for (const bible of await getBibles(projectId)) {
-    const asset = (await getBibleAssets(bible.id)).find(
-      (candidate) => candidate.id === assetId,
-    );
-    if (asset) return asset;
+    const assets = await getBibleAssets(bible.id);
+    const asset = assets.find((candidate) => candidate.id === assetId);
+    if (asset) return { asset, assets };
   }
   return null;
 }
 
-/** Resolves what a request targets: the model and cost request the app's own controls would use. */
+async function variantsOf(assets: BibleAsset[]) {
+  const variants: Record<string, BibleAssetVariant[]> = {};
+  for (const asset of assets) variants[asset.id] = await getBibleAssetVariants(asset.id);
+  return variants;
+}
+
+/** Resolves what a request targets: the model, cost request, prompt and pictures the app's own controls would use. */
 export async function resolveAgentTarget(
   request: AgentQuoteRequest,
 ): Promise<AgentResult<AgentQuoteTarget>> {
@@ -50,24 +65,54 @@ export async function resolveAgentTarget(
       "INVALID_INPUT",
       `${request.model_id} is not an available image model.`,
     );
-  const asset = await findProjectAsset(project.value, request.asset_id);
-  if (!asset)
+  const found = await findProjectAsset(project.value, request.asset_id);
+  if (!found)
     return agentFailure("NOT_FOUND", "That Bible entry is not in the open project.");
-  // Frames are stored as "reference" entries and are made by composition, which prices differently.
-  if (asset.asset_type === "reference")
-    return agentFailure(
-      "INVALID_INPUT",
-      "Frames are composed from Bible references rather than generated from a prompt.",
-    );
-  return {
-    ok: true,
+  const { asset } = found;
+  const target = (kind: ImageGenerationKind, inputs: AgentQuoteTarget["inputs"]) => ({
+    ok: true as const,
     value: {
       model_id: model.id,
       provider: model.apiKeyProvider,
-      cost_request: IMAGE_GENERATION_REQUEST,
-      subject: { project_id: project.value, subject_id: request.asset_id },
+      cost_request: imageCostRequest(kind),
+      subject: { project_id: project.value, subject_id: asset.id },
+      inputs,
     },
-  };
+  });
+  if (request.operation === "generate") {
+    // Frames are stored as "reference" entries and are made by composition, which prices differently.
+    if (asset.asset_type === "reference")
+      return agentFailure(
+        "INVALID_INPUT",
+        "Frames are composed from Bible references; use operation retake.",
+      );
+    return target("image", { prompt: request.prompt, reference_variant_ids: [] });
+  }
+  const variants = await variantsOf(found.assets);
+  if (request.operation === "edit") {
+    if (!model.supportsEditing)
+      return agentFailure("INVALID_INPUT", `${model.name} cannot edit pictures.`);
+    if (!variants[asset.id]?.some((variant) => variant.id === request.source_variant_id && variant.media_url))
+      return agentFailure("NOT_FOUND", "That picture is not one of this entry's takes.");
+    return target("image_edit", {
+      prompt: request.prompt,
+      reference_variant_ids: [],
+      source_variant_id: request.source_variant_id,
+    });
+  }
+  const prompt = (request.prompt ?? assetBasePrompt(asset, variants)).trim();
+  if (!prompt)
+    return agentFailure("INVALID_INPUT", "This entry has no prompt to retake; pass one.");
+  const references = assetReferences(asset, variants);
+  if (references.length > 0 && !model.supportsComposition)
+    return agentFailure(
+      "INVALID_INPUT",
+      `${model.name} cannot compose from reference pictures.`,
+    );
+  return target(references.length > 0 ? "image_compose" : "image", {
+    prompt,
+    reference_variant_ids: references,
+  });
 }
 
 export async function planAgentQuote(
