@@ -214,7 +214,7 @@ export const mcpTools: ToolDefinition[] = [
     ...define(
       "get_generation_job",
       {},
-      "Read an agent job: status (accepted, running, completed, failed, interrupted), the result (variant_id for a Bible take, take_id for a shot start frame, video_take_id for a shot video), the held estimate and the confirmed charge once the provider reports it.",
+      "Read an agent job: status (accepted, running, completed, failed, interrupted), the result (variant_id for a Bible take, take_id for a shot start frame, video_take_id for a shot video), the estimate (null when the price was unknown), the confirmed charge once the provider reports it, and charge_status (estimated, unknown, confirmed or released).",
     ),
     schema: z.strictObject({ job_id: id }),
     args: (input: Record<string, unknown>) => ({ ...input }),
@@ -336,7 +336,7 @@ export const mcpTools: ToolDefinition[] = [
         location_id: id.nullable(),
         location_variant_id: id.nullable(),
       },
-      "Create a frame entry the way the Bible's frame composer does: a prompt plus characters and a location (optionally one of its views). Frames hold no picture until composed; quote it with operation retake.",
+      "Create a frame entry the way the Bible's frame composer does: a prompt plus characters and a location (optionally one of its views). Frames hold no picture until composed; compose one with generate, operation retake.",
       true,
     ),
     command: "create_bible_asset",

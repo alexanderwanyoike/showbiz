@@ -22,9 +22,9 @@ export async function composeBibleImage(
   const images = (
     await Promise.all(variantIds.map((id) => getBibleVariantImageBase64(id)))
   ).filter((image): image is string => !!image);
-  // An agent paid for exactly the quoted pictures, so it never falls back to fewer.
+  // An agent asked for exactly the planned pictures, so it never falls back to fewer.
   if (agent && images.length !== variantIds.length)
-    throw new Error("A quoted reference picture could not be read. Request a new quote.");
+    throw new Error("A planned reference picture could not be read. Call generate again with a new request_id.");
   const accounting = agent ? ([agent] as const) : ([] as const);
   const raw =
     images.length > 0
