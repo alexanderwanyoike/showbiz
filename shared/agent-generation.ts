@@ -58,3 +58,9 @@ export type AgentGenerationErrorCode =
 export type AgentResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: { code: AgentGenerationErrorCode; message: string } };
+
+export interface AgentRequest {
+  request_id: string;
+  operation: string;
+  input: unknown;
+}

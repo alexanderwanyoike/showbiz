@@ -152,6 +152,22 @@ export const mcpTools: ToolDefinition[] = [
     {},
     "Read the spending budget the user granted in Showbiz: remaining amount, per-request cap, expiry and allowed models. Agents cannot create, raise, extend or revoke it. NO_BUDGET means paid generation is unavailable.",
   ),
+  {
+    ...define(
+      "quote_generation",
+      {},
+      "Price a generation before spending. Returns a quote_id valid for ten minutes and usable once, with the frozen estimate and its source. Bible entries (target bible_asset, operation generate) need asset_id, prompt and an installed image model_id. Unknown prices are refused with PRICE_UNKNOWN; NO_BUDGET, MODEL_NOT_ALLOWED, OVER_REQUEST_CAP and OVER_BUDGET reflect the budget the user granted.",
+    ),
+    schema: z.strictObject({
+      target: z.enum(["bible_asset"]),
+      operation: z.enum(["generate"]),
+      asset_id: id,
+      prompt: z.string().trim().min(1).max(50000),
+      model_id: id,
+    }),
+    requestTimeoutMs: 90000,
+    args: (input: Record<string, unknown>) => ({ ...input }),
+  },
   define(
     "read_context",
     {},

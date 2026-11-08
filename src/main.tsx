@@ -1,4 +1,5 @@
 import { connectAgentChanges } from "./lib/agent-changes";
+import { connectAgentService } from "./lib/agent-generation/agent-service";
 import { createRoot } from "react-dom/client";
 import { createHashRouter, RouterProvider } from "react-router";
 import Application from "./Application";
@@ -8,6 +9,7 @@ import { connectApplicationWork } from "./lib/application-work";
 
 connectApplicationWork();
 connectAgentChanges();
+connectAgentService();
 
 // Hash URLs work inside packaged file:// paths. The data router blocks
 // navigation before a workspace with unsaved input can unmount.

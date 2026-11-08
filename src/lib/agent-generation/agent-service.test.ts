@@ -23,7 +23,10 @@ function app() {
     connected: () => !!handler,
   };
 }
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  planner.planAgentQuote.mockReset();
+});
 
 const quoteInput = {
   target: "bible_asset",

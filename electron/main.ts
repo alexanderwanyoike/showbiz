@@ -7,6 +7,8 @@ import type { DocumentResult } from "../shared/project-document";
 import { desktopAppIconPath } from "./app-icon";
 import { integrateLinuxDesktop } from "./linux-desktop-integration";
 import { createMcpSession } from "./mcp/session";
+import { createAgentGenerationRuntime } from "./agent-generation/runtime";
+import type { AgentBudget, AgentBudgetResult } from "../shared/agent-budget";
 import { startLocalBridge } from "./mcp/local-bridge";
 import {
   createDesktopShell,
@@ -119,10 +121,35 @@ async function registerIpc(
     },
   });
   const updateHandler = createInvokeHandler(updates.commands);
+  const agentGeneration = createAgentGenerationRuntime({
+    window: () => {
+      const window = BrowserWindow.getAllWindows().find(
+        (candidate) => !candidate.isDestroyed(),
+      );
+      return window
+        ? {
+            id: window.webContents.id,
+            send: (channel, payload) => window.webContents.send(channel, payload),
+          }
+        : null;
+    },
+    budget: async () =>
+      (await projects.invoke("get_agent_budget")) as AgentBudgetResult<AgentBudget>,
+  });
+  const agentHandler = createInvokeHandler(agentGeneration.commands);
+  ipcMain.handle(
+    "showbiz:agent_response",
+    (event, requestId: unknown, answer: unknown) => {
+      if (typeof requestId === "string")
+        agentGeneration.respond(event.sender.id, requestId, answer);
+    },
+  );
   const invokeHandler = (command: string, args?: Record<string, unknown>) =>
     command in updates.commands
       ? updateHandler(command, args)
-      : projects.invoke(command, args);
+      : command in agentGeneration.commands
+        ? agentHandler(command, args)
+        : projects.invoke(command, args);
   app.on("will-quit", () => {
     const result = closeProjectStorage(
       projects.dispose,
