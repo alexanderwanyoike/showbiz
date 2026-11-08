@@ -1,21 +1,5 @@
 import { z } from "zod";
 
-export interface AgentBudgetGrant {
-  id: string;
-  max_microusd: number;
-  per_request_cap_microusd: number;
-  allowed_models: string[] | null;
-  granted_at: string;
-  expires_at: string;
-  revoked_at: string | null;
-}
-
-export interface AgentBudget {
-  grant: AgentBudgetGrant;
-  committed_microusd: number;
-  remaining_microusd: number;
-}
-
 export type AgentBudgetErrorCode = "NO_BUDGET" | "INVALID_INPUT" | "IO_ERROR";
 
 export type AgentBudgetResult<T> =
@@ -62,3 +46,5 @@ export const agentBudgetSchema = z.strictObject({
   committed_microusd: microusd,
   remaining_microusd: z.number().int(),
 });
+export type AgentBudgetGrant = z.infer<typeof agentBudgetGrantSchema>;
+export type AgentBudget = z.infer<typeof agentBudgetSchema>;
