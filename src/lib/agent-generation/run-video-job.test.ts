@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import type { AgentJobStart } from "../../../shared/agent-generation";
 import { runAgentJob } from "./run-job";
+import { digestOf } from "../shot-video";
 
 const actions = vi.hoisted(() => ({ generateAndSaveVideoRequestAction: vi.fn() }));
 vi.mock("../../actions/generation-actions", async (original) => ({
@@ -11,10 +12,11 @@ vi.mock("../backend-api", async (original) => ({
   ...(await original<typeof import("../backend-api")>()),
   getShotImageBase64: async () => "data:image/png;base64,START",
   getShotEndFrameBase64: async () => "data:image/png;base64,END",
-  getCurrentVideoVersion: async () => ({ id: "video-take-2" }),
+  getCurrentImageVersion: async () => ({ id: "start-take-1" }),
 }));
 
 const settings = { duration: "8", resolution: "720p", aspectRatio: "16:9", audio: true };
+const END_DIGEST = "1f1f8d0b8a5b4e0f62d24e4a4a2d7a5e7f9d07e37a5b5f6f15f3d8c1b0e2a9d3";
 const estimate = {
   kind: "estimate" as const,
   min_microusd: 400_000,
@@ -42,16 +44,42 @@ const job: AgentJobStart = {
     inputs: {
       prompt: "He pushes the door open",
       reference_variant_ids: [],
-      video: { mode: "image-to-video", settings, uses_end_frame: true, shot_updated_at: "2026-11-08 10:00:00" },
+      video: { mode: "image-to-video", settings, uses_end_frame: true, start_take_id: "start-take-1", end_frame_digest: END_DIGEST },
     },
     estimate,
   },
 };
 
-it("runs a shot video job through the storyboard's video action with the quoted request", async () => {
-  actions.generateAndSaveVideoRequestAction.mockResolvedValue({ success: true, videoUrl: "blob:video" });
+async function withRealDigest(start: AgentJobStart): Promise<AgentJobStart> {
+  const video = start.plan.inputs.video;
+  if (!video) throw new Error("expected video");
+  return {
+    ...start,
+    plan: {
+      ...start.plan,
+      inputs: { ...start.plan.inputs, video: { ...video, end_frame_digest: await digestOf("data:image/png;base64,END") } },
+    },
+  };
+}
+
+it("refuses to run when the frames changed after the quote", async () => {
+  actions.generateAndSaveVideoRequestAction.mockReset();
   const report = vi.fn(async () => undefined);
   await runAgentJob(job, report);
+  expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ status: "failed" }));
+  const quotedTake = await withRealDigest(job);
+  await runAgentJob(
+    { ...quotedTake, plan: { ...quotedTake.plan, inputs: { ...quotedTake.plan.inputs, video: { ...quotedTake.plan.inputs.video!, start_take_id: "older-take" } } } },
+    report,
+  );
+  expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ status: "failed" }));
+  expect(actions.generateAndSaveVideoRequestAction).not.toHaveBeenCalled();
+});
+
+it("runs a shot video job through the storyboard's video action with the quoted request", async () => {
+  actions.generateAndSaveVideoRequestAction.mockResolvedValue({ success: true, videoUrl: "blob:video", versionId: "video-take-2" });
+  const report = vi.fn(async () => undefined);
+  await runAgentJob(await withRealDigest(job), report);
   expect(actions.generateAndSaveVideoRequestAction).toHaveBeenCalledWith(
     "shot-1",
     "seedance-2-fal",
@@ -75,6 +103,6 @@ it("runs a shot video job through the storyboard's video action with the quoted 
 it("reports the video action's failure", async () => {
   actions.generateAndSaveVideoRequestAction.mockResolvedValue({ success: false, videoUrl: null, error: "Provider refused" });
   const report = vi.fn(async () => undefined);
-  await runAgentJob(job, report);
+  await runAgentJob(await withRealDigest(job), report);
   expect(report).toHaveBeenLastCalledWith({ job_id: "job-video", status: "failed", error: "Provider refused" });
 });

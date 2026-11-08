@@ -182,3 +182,37 @@ it("runs an agent video job with the quoted estimate and its own usage identity"
     db.close();
   }
 });
+
+it("sends a video without an end frame when the request leaves it out", async () => {
+  const db = openTestDb();
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> =
+      createGenerationUsageCommands(db);
+    mocks.invoke.mockImplementation(async (command: string, args) =>
+      command === "get_api_key"
+        ? "fixture-key"
+        : command === "get_project_document_state"
+          ? { ok: true, value: { current: { project_id: "film" }, recent: [] } }
+          : command === "get_shot_end_frame_base64"
+            ? "data:image/png;base64,END"
+            : commands[command]?.(args),
+    );
+    mocks.fetch.mockReset();
+    mocks.fetch.mockRejectedValue(new Error("provider unreachable"));
+    await generateAndSaveVideoRequestAction("shot-1", "veo-3.1-openrouter", {
+      mode: "image-to-video",
+      prompt: "A door opens",
+      settings: { duration: "8s", resolution: "720p", audio: false },
+      startImage: "data:image/png;base64,START",
+      endImage: null,
+    });
+    expect(mocks.invoke.mock.calls.map(([command]) => command)).not.toContain("get_shot_end_frame_base64");
+    expect(commands.get_generation_usage({ project_id: "film" })).toMatchObject({
+      ok: true,
+      value: { items: [{ settings: { has_end_frame: false } }] },
+    });
+  } finally {
+    db.close();
+  }
+});

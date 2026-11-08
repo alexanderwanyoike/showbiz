@@ -39,8 +39,8 @@ function storyboard() {
 }
 
 it("prices a video from the start frame with the shot's saved settings, as the storyboard does", async () => {
-  const { commands, film, shot, withStartFrame, shotRecord } = storyboard();
-  withStartFrame();
+  const { commands, film, shot, withStartFrame } = storyboard();
+  const start = withStartFrame() as { id: string };
   commands.update_shot({ id: shot.id, updatesJson: JSON.stringify({ video_prompt: "He pushes the door open" }) });
   const settings = { duration: "auto", resolution: "720p", aspectRatio: "auto", audio: true };
   expect(await resolveAgentTarget({ target: "shot_video", operation: "generate", shot_id: shot.id })).toEqual({
@@ -53,7 +53,7 @@ it("prices a video from the start frame with the shot's saved settings, as the s
       inputs: {
         prompt: "He pushes the door open",
         reference_variant_ids: [],
-        video: { mode: "image-to-video", settings, uses_end_frame: false, shot_updated_at: shotRecord().updated_at },
+        video: { mode: "image-to-video", settings, uses_end_frame: false, start_take_id: start.id },
       },
     },
   });
@@ -74,5 +74,19 @@ it("refuses a model that needs an end frame the shot does not have", async () =>
   expect(await resolveAgentTarget({ target: "shot_video", operation: "generate", shot_id: shot.id })).toMatchObject({
     ok: false,
     error: { code: "INVALID_INPUT", message: expect.stringContaining("end frame") as string },
+  });
+});
+
+it("freezes the end frame's content when the model uses it", async () => {
+  const { commands, shot, withStartFrame } = storyboard();
+  withStartFrame();
+  commands.set_shot_models({ shot_id: shot.id, video_model: "wan-flf2v-fal" });
+  commands.save_shot_end_frame({ id: shot.id, base64DataUrl: PNG });
+  expect(await resolveAgentTarget({ target: "shot_video", operation: "generate", shot_id: shot.id })).toMatchObject({
+    ok: true,
+    value: {
+      cost_request: { has_end_frame: true },
+      inputs: { video: { uses_end_frame: true, end_frame_digest: expect.stringMatching(/^[0-9a-f]{64}$/) as string } },
+    },
   });
 });

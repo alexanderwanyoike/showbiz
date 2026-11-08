@@ -332,6 +332,13 @@ describe("agent generation quotes", () => {
       await setup({ planned: { ok: true, value: { ...videoPlan, cost_request: { kind: "image", count: 1 } } } }).quotes.quote_generation(videoRequest),
     ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
   });
+
+  it("refuses a retake whose resolved prompt is empty", async () => {
+    const retake = { target: "bible_asset", operation: "retake", asset_id: "asset-1", model_id: "flux-dev-fal" };
+    expect(
+      await setup({ planned: { ok: true, value: plan({ inputs: { prompt: "", reference_variant_ids: [] } }) } }).quotes.quote_generation(retake),
+    ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+  });
 });
 
 function estimateOf(value: AgentQuotePlan) {
