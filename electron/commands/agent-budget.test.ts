@@ -140,3 +140,25 @@ describe("agent budget grants", () => {
     expect(commands.get_agent_budget()).toMatchObject({ ok: false });
   });
 });
+
+describe("damaged budget settings", () => {
+  it.each([["{not json"], [JSON.stringify({ id: 1 })]])(
+    "asks for a new grant when the saved budget is unreadable (%s)",
+    (value) => {
+      const db = openTestDb();
+      db.prepare(
+        "INSERT INTO settings (key, value, updated_at) VALUES ('agent_budget_grant', ?, CURRENT_TIMESTAMP)",
+      ).run(value);
+      const commands = createAgentBudgetCommands(db, {
+        readModels: catalog.get_generation_models,
+      });
+      expect(commands.get_agent_budget()).toEqual({
+        ok: false,
+        error: {
+          code: "IO_ERROR",
+          message: "The saved agent budget is unreadable. Grant a new budget.",
+        },
+      });
+    },
+  );
+});

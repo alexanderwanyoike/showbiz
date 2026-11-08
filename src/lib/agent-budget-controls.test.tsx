@@ -141,3 +141,34 @@ it("reads only plain decimal dollar amounts", () => {
   for (const text of ["0x10", "1e3", "-1", "0", "", "1.2345678", "abc"])
     expect(usdToMicrousd(text)).toBeNull();
 });
+
+it("drops a budget that expired before Revoke was pressed, from the banner and the dialog", async () => {
+  const commands = device();
+  commands.grant_agent_budget({ max_microusd: 1_000_000, duration_minutes: 60 });
+  render(
+    createElement(
+      Fragment,
+      null,
+      createElement(AgentBudgetBanner),
+      createElement(AgentBudgetDialog),
+    ),
+  );
+  const user = userEvent.setup();
+  const banner = await screen.findByRole("status", { name: "Agent budget" });
+  commands.revoke_agent_budget();
+  await user.click(within(banner).getByRole("button", { name: "Revoke" }));
+  await vi.waitFor(() =>
+    expect(screen.queryByRole("status", { name: "Agent budget" })).toBeNull(),
+  );
+  expect(screen.queryByRole("alert")).toBeNull();
+
+  commands.grant_agent_budget({ max_microusd: 1_000_000, duration_minutes: 60 });
+  await user.click(screen.getByRole("button", { name: "Agent budget" }));
+  const dialog = await screen.findByRole("dialog");
+  const revoke = await within(dialog).findByRole("button", { name: "Revoke" });
+  commands.revoke_agent_budget();
+  await user.click(revoke);
+  await vi.waitFor(() =>
+    expect(within(dialog).queryByRole("button", { name: "Revoke" })).toBeNull(),
+  );
+});

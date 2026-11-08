@@ -11,6 +11,7 @@ import { mcpTools } from "./tools";
 
 const grantMutations = ["grant_agent_budget", "revoke_agent_budget"];
 
+let saves = 0;
 function runtime() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "showbiz-budget-"));
   return createProjectRuntime({
@@ -20,7 +21,7 @@ function runtime() {
     migrations: loadMigrations(path.resolve("electron/migrations")),
     exports: () => ({}),
     chooseOpen: async () => null,
-    chooseSave: async (name) => path.join(directory, name),
+    chooseSave: async (name) => path.join(directory, `${saves++}-${name}`),
     canSwitch: () => true,
     beginSave: () => () => {},
     changed: () => {},
@@ -78,7 +79,7 @@ it("never exposes a tool that can create, raise, extend or revoke a budget", asy
   });
 });
 
-it("leaves a granted budget unchanged whatever an MCP tool's command is sent", async () => {
+it("leaves a granted budget unchanged after every MCP tool command (exposure itself is guarded by the allowlist test)", async () => {
   const app = runtime();
   await app.invoke("create_project_document");
   await app.invoke("grant_agent_budget", {
@@ -96,12 +97,13 @@ it("leaves a granted budget unchanged whatever an MCP tool's command is sent", a
     revoked_at: null,
     name: "agent_budget_grant",
   };
-  for (const tool of mcpTools)
+  for (const tool of mcpTools) {
     await Promise.resolve(app.invoke(tool.command, hostile)).catch(() => null);
-  expect(JSON.stringify(await app.invoke("get_agent_budget"))).toBe(before);
+    expect(JSON.stringify(await app.invoke("get_agent_budget"))).toBe(before);
+  }
 });
 
-it("keeps the budget out of project documents", async () => {
+it("keeps the budget out of project documents and Save As copies", async () => {
   const app = runtime();
   await app.invoke("grant_agent_budget", {
     max_microusd: 2_000_000,
@@ -112,14 +114,21 @@ it("keeps the budget out of project documents", async () => {
     value: { file_path: string };
   };
   await app.invoke("save_project_document");
-  const document = new DatabaseSync(created.value.file_path, { readOnly: true });
-  try {
-    expect(
-      document
-        .prepare("SELECT key FROM settings WHERE key LIKE '%budget%'")
-        .all(),
-    ).toEqual([]);
-  } finally {
-    document.close();
+  const copy = (await app.invoke("save_project_document_as")) as {
+    ok: true;
+    value: { file_path: string };
+  };
+  expect(copy.value.file_path).not.toBe(created.value.file_path);
+  for (const file of [created.value.file_path, copy.value.file_path]) {
+    const document = new DatabaseSync(file, { readOnly: true });
+    try {
+      expect(
+        document
+          .prepare("SELECT key FROM settings WHERE key LIKE '%budget%'")
+          .all(),
+      ).toEqual([]);
+    } finally {
+      document.close();
+    }
   }
 });
