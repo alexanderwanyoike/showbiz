@@ -33,11 +33,18 @@ export function AgentBudgetBanner() {
   return (
     <div role="status" aria-label="Agent budget" className="agent-budget-banner">
       <Bot size={14} aria-hidden="true" />
-      <span>
-        Agent budget: {formatGenerationCost(budget.remaining_microusd)} left of{" "}
-        {formatGenerationCost(budget.grant.max_microusd)}, until{" "}
-        {formatBudgetExpiry(budget.grant.expires_at)}
-      </span>
+      {budget.frozen ? (
+        <span>
+          Agent budget frozen because a charge exceeded its quote. Grant a new
+          budget to let the agent continue.
+        </span>
+      ) : (
+        <span>
+          Agent budget: {formatGenerationCost(budget.remaining_microusd)} left
+          of {formatGenerationCost(budget.grant.max_microusd)}, until{" "}
+          {formatBudgetExpiry(budget.grant.expires_at)}
+        </span>
+      )}
       {error && <span role="alert">{error}</span>}
       <button type="button" disabled={revoking} onClick={() => void revoke()}>
         Revoke

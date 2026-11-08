@@ -57,6 +57,11 @@ function withinBudget(
 ): AgentResult<AgentBudget> {
   if (!budget.ok) return budget;
   const { grant, remaining_microusd } = budget.value;
+  if (budget.value.frozen)
+    return agentFailure(
+      "NO_BUDGET",
+      "A charge exceeded its quote, so the agent budget is frozen. Grant a new budget in Showbiz to continue.",
+    );
   if (grant.allowed_models && !grant.allowed_models.includes(modelId))
     return agentFailure(
       "MODEL_NOT_ALLOWED",
