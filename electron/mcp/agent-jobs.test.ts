@@ -58,3 +58,12 @@ it("exposes set_shot_frame as an ordinary guarded edit", () => {
   expect(tool).toMatchObject({ mutates: true, command: "set_shot_frame" });
   expect(tool?.schema.safeParse({ shot_id: "s", role: "middle", bible_variant_id: "v", expected_revision: 0, request_id: "r" }).success).toBe(false);
 });
+
+it("exposes shot video settings as an ordinary guarded edit and video quotes", () => {
+  expect(mcpTools.find((entry) => entry.name === "set_shot_video_settings")).toMatchObject({
+    mutates: true,
+    command: "set_shot_video_settings",
+  });
+  const quote = mcpTools.find((entry) => entry.name === "quote_generation");
+  expect(quote?.schema.safeParse({ target: "shot_video", operation: "generate", shot_id: "s" }).success).toBe(true);
+});

@@ -5,6 +5,7 @@ import { createGenerationPricingCommands } from "../../../electron/commands/gene
 import {
   composeFrameAction,
   editImageAction,
+  generateAndSaveVideoRequestAction,
   generateImageAction,
 } from "../../actions/generation-actions";
 import type { GenerationCostEstimate } from "../../../shared/generation-cost";
@@ -145,6 +146,33 @@ it.each([
           { request_id: `usage-${operation}`, agent_job_id: `job-${operation}`, kind, estimated_max_microusd: 30_000 },
         ],
       },
+    });
+  } finally {
+    db.close();
+  }
+});
+
+it("runs an agent video job with the quoted estimate and its own usage identity", async () => {
+  const db = openTestDb();
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> =
+      createGenerationUsageCommands(db);
+    mocks.invoke.mockImplementation(async (command: string, args) =>
+      command === "get_api_key" ? "fixture-key" : commands[command]?.(args),
+    );
+    const videoQuote = { ...quoted, price: { ...(quoted.kind === "estimate" ? quoted.price : ({} as never)), model_id: "veo-3.1-openrouter" } };
+    mocks.fetch.mockReset();
+    mocks.fetch.mockRejectedValue(new Error("provider unreachable"));
+    await generateAndSaveVideoRequestAction(
+      "shot-1",
+      "veo-3.1-openrouter",
+      { mode: "text-to-video", prompt: "A door opens", settings: { duration: "8s", resolution: "720p", audio: false } },
+      { request_id: "usage-video", agent_job_id: "job-video", estimate: videoQuote },
+    );
+    expect(commands.get_generation_usage({ project_id: "film" })).toMatchObject({
+      ok: true,
+      value: { items: [{ request_id: "usage-video", agent_job_id: "job-video", kind: "video", estimated_max_microusd: 30_000 }] },
     });
   } finally {
     db.close();
