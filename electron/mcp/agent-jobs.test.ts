@@ -8,25 +8,20 @@ it("exposes job tools whose retries are guarded by the job ledger, not the edit 
     value: { command, args },
   }));
   const session = createMcpSession(dispatch, () => {}, () => false);
-  const submit = mcpTools.find((tool) => tool.name === "submit_generation");
-  expect(submit).toMatchObject({ command: "submit_generation", mutates: false });
+  const generate = mcpTools.find((tool) => tool.name === "generate");
+  expect(generate).toMatchObject({ command: "generate", mutates: false, spends: true, openWorld: true });
+  const args = {
+    target: "bible_asset",
+    operation: "generate",
+    asset_id: "asset-1",
+    prompt: "A sock puppet detective",
+    model_id: "flux-kontext-fal",
+    request_id: "agent-request-1",
+  };
   for (const attempt of [1, 2])
-    expect(
-      await session.call({
-        tool: "submit_generation",
-        args: { quote_id: "quote-1", request_id: "agent-request-1" },
-      }),
-    ).toMatchObject({
+    expect(await session.call({ tool: "generate", args })).toMatchObject({
       ok: true,
-      value: {
-        data: {
-          ok: true,
-          value: {
-            command: "submit_generation",
-            args: { quote_id: "quote-1", request_id: "agent-request-1" },
-          },
-        },
-      },
+      value: { data: { ok: true, value: { command: "generate", args } } },
     });
   expect(dispatch).toHaveBeenCalledTimes(2);
   expect(
@@ -64,6 +59,16 @@ it("exposes shot video settings as an ordinary guarded edit and video quotes", (
     mutates: true,
     command: "set_shot_video_settings",
   });
-  const quote = mcpTools.find((entry) => entry.name === "quote_generation");
-  expect(quote?.schema.safeParse({ target: "shot_video", operation: "generate", shot_id: "s" }).success).toBe(true);
+  const generate = mcpTools.find((entry) => entry.name === "generate");
+  expect(
+    generate?.schema.safeParse({ target: "shot_video", operation: "generate", shot_id: "s", request_id: "r" }).success,
+  ).toBe(true);
+  expect(generate?.schema.safeParse({ target: "shot_video", operation: "generate", shot_id: "s" }).success).toBe(false);
+});
+
+it("offers no budget, quote or submit step before generating", () => {
+  const names = mcpTools.map((tool) => tool.name);
+  for (const dropped of ["get_agent_budget", "quote_generation", "submit_generation"])
+    expect(names).not.toContain(dropped);
+  expect(names).toEqual(expect.arrayContaining(["generate", "get_generation_job", "list_generation_jobs"]));
 });

@@ -9,14 +9,10 @@ const tool = (name: string) => {
 };
 
 it("never presents a paid tool as read-only to MCP clients", () => {
-  expect(toolAnnotations(tool("submit_generation"))).toEqual({
+  expect(toolAnnotations(tool("generate"))).toEqual({
     readOnlyHint: false,
     destructiveHint: false,
     idempotentHint: true,
-    openWorldHint: true,
-  });
-  expect(toolAnnotations(tool("quote_generation"))).toMatchObject({
-    readOnlyHint: true,
     openWorldHint: true,
   });
   expect(toolAnnotations(tool("get_shots"))).toEqual({
