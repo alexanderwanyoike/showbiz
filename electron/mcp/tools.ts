@@ -324,6 +324,19 @@ export const mcpTools: ToolDefinition[] = [
       isPrimary: input.is_primary,
     }),
   },
+  {
+    ...define(
+      "get_media_preview",
+      {},
+      "See a Bible take or a shot image take as a small JPEG (at most 512 px) before choosing it. Pass exactly one of bible_variant_id or image_take_id.",
+    ),
+    schema: z.strictObject({
+      bible_variant_id: id.optional(),
+      image_take_id: id.optional(),
+    }),
+    requestTimeoutMs: 30000,
+    args: (input: Record<string, unknown>) => ({ ...input }),
+  },
   define(
     "get_image_versions",
     { shot_id: id },
