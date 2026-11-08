@@ -1,28 +1,29 @@
 import { useState } from "react";
 import { Bot } from "lucide-react";
 import { useAgentBudget } from "../hooks/useAgentBudget";
-import { revokeAgentBudget } from "../lib/agent-budget";
+import { formatBudgetExpiry, revokeAgentBudget } from "../lib/agent-budget";
 import { formatGenerationCost } from "../lib/generation-usage";
 
-export function formatBudgetExpiry(expiresAt: string): string {
-  return new Date(expiresAt).toLocaleString(undefined, {
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export function AgentBudgetBanner() {
-  const { budget } = useAgentBudget();
+  const { budget, error: loadError, refresh } = useAgentBudget();
   const [error, setError] = useState<string | null>(null);
   const [revoking, setRevoking] = useState(false);
-  if (!budget) return null;
+  if (!budget)
+    return loadError ? (
+      <div role="alert" className="agent-budget-banner">
+        <Bot size={14} aria-hidden="true" />
+        <span>Agent budget unavailable. {loadError}</span>
+      </div>
+    ) : null;
   async function revoke() {
     setRevoking(true);
     setError(null);
     try {
       const result = await revokeAgentBudget();
-      if (!result.ok) setError(result.error.message);
+      if (!result.ok) {
+        if (result.error.code !== "NO_BUDGET") setError(result.error.message);
+        await refresh();
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {

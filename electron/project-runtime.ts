@@ -41,7 +41,9 @@ export function createProjectRuntime(options: {
   const globals: CommandMap = {
     ...catalog,
     ...deviceSettings,
-    ...createAgentBudgetCommands(options.legacyDb),
+    ...createAgentBudgetCommands(options.legacyDb, {
+      readModels: catalog.get_generation_models,
+    }),
     ...createHttpCommands(),
     ...createProjectDocumentCommands({ ...options, documents }),
   };

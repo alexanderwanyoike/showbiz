@@ -2,6 +2,7 @@ import { invoke } from "./bridge";
 import type {
   AgentBudget,
   AgentBudgetGrant,
+  AgentBudgetGrantInput,
   AgentBudgetResult,
 } from "../../shared/agent-budget";
 
@@ -13,18 +14,22 @@ export const AGENT_BUDGET_DURATIONS = [
   { label: "1 week", minutes: 60 * 24 * 7 },
 ] as const;
 
-export interface AgentBudgetRequest {
-  max_microusd: number;
-  per_request_cap_microusd?: number;
-  duration_minutes: number;
-  allowed_models?: string[];
-}
 
 export function usdToMicrousd(text: string): number | null {
-  const value = Number(text.trim());
-  if (!text.trim() || !Number.isFinite(value) || value <= 0) return null;
-  const amount = Math.round(value * 1_000_000);
+  const match = /^(\d+)(?:\.(\d{1,6}))?$/.exec(text.trim());
+  if (!match) return null;
+  const amount =
+    Number(match[1]) * 1_000_000 + Number((match[2] ?? "").padEnd(6, "0"));
   return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
+}
+
+export function formatBudgetExpiry(expiresAt: string): string {
+  return new Date(expiresAt).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export const getAgentBudget = () =>
@@ -35,7 +40,7 @@ function announce<T>(result: AgentBudgetResult<T>) {
   return result;
 }
 
-export const grantAgentBudget = async (request: AgentBudgetRequest) =>
+export const grantAgentBudget = async (request: AgentBudgetGrantInput) =>
   announce(
     await invoke<AgentBudgetResult<AgentBudgetGrant>>("grant_agent_budget", {
       ...request,

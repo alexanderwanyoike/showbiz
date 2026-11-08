@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { expect, it } from "vitest";
 import { openTestDb } from "../db.test";
 import { loadMigrations } from "../db";
@@ -75,4 +76,50 @@ it("never exposes a tool that can create, raise, extend or revoke a budget", asy
     ok: false,
     error: { code: "NO_BUDGET" },
   });
+});
+
+it("leaves a granted budget unchanged whatever an MCP tool's command is sent", async () => {
+  const app = runtime();
+  await app.invoke("create_project_document");
+  await app.invoke("grant_agent_budget", {
+    max_microusd: 2_000_000,
+    duration_minutes: 60,
+  });
+  const before = JSON.stringify(await app.invoke("get_agent_budget"));
+  const hostile = {
+    id: "agent_budget_grant",
+    key: "agent_budget_grant",
+    max_microusd: 999_000_000,
+    per_request_cap_microusd: 999_000_000,
+    duration_minutes: 60 * 24 * 30,
+    allowed_models: null,
+    revoked_at: null,
+    name: "agent_budget_grant",
+  };
+  for (const tool of mcpTools)
+    await Promise.resolve(app.invoke(tool.command, hostile)).catch(() => null);
+  expect(JSON.stringify(await app.invoke("get_agent_budget"))).toBe(before);
+});
+
+it("keeps the budget out of project documents", async () => {
+  const app = runtime();
+  await app.invoke("grant_agent_budget", {
+    max_microusd: 2_000_000,
+    duration_minutes: 60,
+  });
+  const created = (await app.invoke("create_project_document")) as {
+    ok: true;
+    value: { file_path: string };
+  };
+  await app.invoke("save_project_document");
+  const document = new DatabaseSync(created.value.file_path, { readOnly: true });
+  try {
+    expect(
+      document
+        .prepare("SELECT key FROM settings WHERE key LIKE '%budget%'")
+        .all(),
+    ).toEqual([]);
+  } finally {
+    document.close();
+  }
 });
