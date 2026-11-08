@@ -17,7 +17,7 @@ API rate caches refresh after one hour. If an OpenRouter refresh fails, an older
 
 Provider request identities are saved before queue polling. Showbiz checks pending charges after generation finishes, including failed delivery. Opening Usage & billing or choosing Refresh charges checks the displayed requests and then rereads project totals. Missing receipts, denied permissions, malformed responses and incomplete pagination retain the original unconfirmed estimate; they do not invent a final charge. Refresh can be retried later when a provider publishes delayed billing events.
 
-FAL billing requires `billing:usage:read`, `auth:keys:read` and `account:users:read`. Settings offers an optional **fal.ai billing** key using the provider's `BILLING` preset, separate from the generation key. The normal FAL key is used when a separate billing key has not been provided. Showbiz does not create keys or expand permissions. A saved key is labeled **Key saved**, not a verified connection.
+FAL billing requires `billing:usage:read`, `auth:keys:read` and `account:users:read`. Settings offers an optional **fal.ai billing** key using the provider's `BILLING` preset, separate from the generation key. The normal FAL key is used when a separate billing key has not been provided. Showbiz does not create keys or expand permissions. A saved key is labeled **Key saved**, not a verified connection. When FAL refuses a billing check, the request's note says whether FAL did not accept the key or the key lacks billing permissions, and quotes FAL's own reason.
 
 ## Custom model rates
 
