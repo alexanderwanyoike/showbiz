@@ -19,7 +19,10 @@ import {
 } from "../lib/models";
 import { generateText } from "../lib/models/gemini-text";
 import type { VideoGenerationRequest } from "../lib/generation/types";
-import { IMAGE_GENERATION_REQUEST } from "../../shared/generation-cost";
+import {
+  IMAGE_GENERATION_REQUEST,
+  imageCostRequest,
+} from "../../shared/generation-cost";
 
 export async function generateImageAction(
   prompt: string,
@@ -140,7 +143,7 @@ export async function editImageAction(
   try {
     const result = await accountModelGeneration(
       modelId,
-      { kind: "image_edit", count: 1 },
+      imageCostRequest("image_edit"),
       subject,
       (observer) =>
         model.editImage!(editPrompt, sourceImageBase64, apiKey, observer),
@@ -174,7 +177,7 @@ export async function composeFrameAction(
   try {
     const result = await accountModelGeneration(
       modelId,
-      { kind: "image_compose", count: 1 },
+      imageCostRequest("image_compose"),
       subject,
       (observer) =>
         model.composeImage!(prompt, referenceImages, apiKey, observer),

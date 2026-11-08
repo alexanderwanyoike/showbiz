@@ -34,11 +34,12 @@ export interface GenerationCostRequest {
   mode?: string;
   has_end_frame?: boolean;
 }
-/** What one prompt-to-image generation is priced as, in the Bible, the storyboard and agent quotes alike. */
-export const IMAGE_GENERATION_REQUEST: GenerationCostRequest = {
-  kind: "image",
-  count: 1,
-};
+export type ImageGenerationKind = Exclude<GenerationKind, "video">;
+/** How one image generation of each kind is priced, in the Bible, the storyboard and agent quotes alike. */
+export function imageCostRequest(kind: ImageGenerationKind): GenerationCostRequest {
+  return { kind, count: 1 };
+}
+export const IMAGE_GENERATION_REQUEST = imageCostRequest("image");
 export type GenerationCostEstimate =
   | { kind: "unavailable"; reason: string }
   | {
