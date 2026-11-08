@@ -69,7 +69,7 @@ it("returns three frames of a video take: start, middle and end", async () => {
   native.invoke.mockImplementation(async (command: string, args) =>
     command === "get_video_versions" && args.shotId === undefined
       ? null
-      : command === "get_video_version_path" && args.versionId === "video-1"
+      : command === "get_video_version_url" && args.versionId === "video-1"
         ? "videos/shot-1_v1.mp4"
         : null,
   );
