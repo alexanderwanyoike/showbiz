@@ -13,6 +13,7 @@ import {
   type AgentResult,
 } from "../../shared/agent-generation";
 import { formatMicrousd } from "../../shared/money";
+import { imageGenerationKind } from "../../shared/generation-cost";
 
 const QUOTE_TTL_MS = 10 * 60 * 1000;
 
@@ -29,21 +30,39 @@ export interface StoredQuote {
 /** Fingerprints what a quote priced, so a later submit can detect drift. */
 export function quoteFingerprint(
   request: AgentQuoteRequest,
-  plan: Pick<AgentQuoteTarget, "model_id" | "cost_request" | "subject">,
+  plan: Pick<AgentQuoteTarget, "model_id" | "cost_request" | "subject" | "inputs">,
 ): string {
   return createHash("sha256")
     .update(
-      JSON.stringify([request, plan.model_id, plan.cost_request, plan.subject]),
+      JSON.stringify([
+        request,
+        plan.model_id,
+        plan.cost_request,
+        plan.subject,
+        plan.inputs,
+      ]),
     )
     .digest("hex");
 }
 
 const inconsistent = () =>
   agentFailure("IO_ERROR", "Showbiz returned an inconsistent price plan.");
-const matchesRequest = (request: AgentQuoteRequest, target: AgentQuoteTarget) =>
-  target.model_id === request.model_id &&
-  target.cost_request.kind === "image" &&
-  target.subject.subject_id === request.asset_id;
+function matchesRequest(request: AgentQuoteRequest, target: AgentQuoteTarget) {
+  const { kind } = target.cost_request;
+  const { inputs } = target;
+  const composes = inputs.reference_variant_ids.length > 0;
+  const edit = request.operation === "edit";
+  const operationFits =
+    kind === imageGenerationKind({ edit, composes }) &&
+    (request.operation !== "generate" || !composes) &&
+    (!edit || (!composes && inputs.source_variant_id === request.source_variant_id));
+  return (
+    operationFits &&
+    target.model_id === request.model_id &&
+    target.subject.subject_id === request.asset_id &&
+    (request.prompt === undefined || inputs.prompt === request.prompt)
+  );
+}
 
 export function readTarget(
   request: AgentQuoteRequest,

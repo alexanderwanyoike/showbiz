@@ -20,6 +20,7 @@ const plan = (overrides: Partial<AgentQuotePlan> = {}): AgentQuotePlan => ({
   provider: "fal",
   cost_request: { kind: "image", count: 1 },
   subject: { project_id: "film", subject_id: "asset-1" },
+  inputs: { prompt: "A tired sock puppet detective", reference_variant_ids: [] },
   estimate: {
     kind: "estimate",
     min_microusd: 25_000,
@@ -243,6 +244,32 @@ describe("agent generation quotes", () => {
       error: { code: "NO_BUDGET" },
     });
     expect(planner).not.toHaveBeenCalled();
+  });
+
+  it("matches each operation to the kind of generation it prices", async () => {
+    const retake = { target: "bible_asset", operation: "retake", asset_id: "asset-1", model_id: "flux-dev-fal" };
+    const composed = plan({
+      cost_request: { kind: "image_compose", count: 1 },
+      inputs: { prompt: "Sock again", reference_variant_ids: ["v1"] },
+    });
+    expect(
+      await setup({ planned: { ok: true, value: composed } }).quotes.quote_generation(retake),
+    ).toMatchObject({ ok: true, value: { kind: "image_compose" } });
+    const edit = { ...retake, operation: "edit", source_variant_id: "v1", prompt: "Add a hat" };
+    expect(
+      await setup({ planned: { ok: true, value: plan({ inputs: { prompt: "Add a hat", reference_variant_ids: [], source_variant_id: "v1" } }) } }).quotes.quote_generation(edit),
+    ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+    expect(
+      await setup({
+        planned: {
+          ok: true,
+          value: plan({
+            cost_request: { kind: "image_edit", count: 1 },
+            inputs: { prompt: "Add a hat", reference_variant_ids: [], source_variant_id: "other" },
+          }),
+        },
+      }).quotes.quote_generation(edit),
+    ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
   });
 });
 

@@ -14,6 +14,7 @@ const plan: AgentQuotePlan = {
   provider: "fal",
   cost_request: { kind: "image", count: 1 },
   subject: { project_id: "film", subject_id: "asset-1" },
+  inputs: { prompt: "A tired sock puppet detective", reference_variant_ids: [] },
   estimate: {
     kind: "estimate",
     min_microusd: 25_000,
@@ -72,8 +73,8 @@ function setup(options: { cap?: number; max?: number; canEdit?: boolean | (() =>
     canEdit: () =>
       typeof options.canEdit === "function" ? options.canEdit() : (options.canEdit ?? true),
   });
-  const quote = async () => {
-    const quoted = await quotes.quote_generation(quoteRequest);
+  const quote = async (request: Record<string, unknown> = quoteRequest) => {
+    const quoted = await quotes.quote_generation(request);
     if (!quoted.ok) throw new Error(quoted.error.message);
     return quoted.value.quote_id;
   };
@@ -165,6 +166,21 @@ describe("agent jobs", () => {
     expect(
       await jobs.submit_generation({ quote_id: "nope", request_id: "r2" }),
     ).toMatchObject({ ok: false, error: { code: "QUOTE_NOT_FOUND" } });
+  });
+
+  it("refuses a retake when the prompt it resolved to has changed", async () => {
+    const { jobs, quote, resolve, start } = setup();
+    const retake = { target: "bible_asset", operation: "retake", asset_id: "asset-1", model_id: "flux-dev-fal" };
+    resolve.mockResolvedValueOnce({ ok: true, value: plan });
+    const quoteId = await quote(retake);
+    resolve.mockResolvedValueOnce({
+      ok: true,
+      value: { ...plan, inputs: { ...plan.inputs, prompt: "A newer picture's prompt" } },
+    });
+    expect(
+      await jobs.submit_generation({ quote_id: quoteId, request_id: "r1" }),
+    ).toMatchObject({ ok: false, error: { code: "QUOTE_STALE" } });
+    expect(start).not.toHaveBeenCalled();
   });
 
   it("refuses when what was quoted has changed", async () => {

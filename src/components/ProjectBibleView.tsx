@@ -11,11 +11,17 @@ import { GenerationCost } from "./GenerationCost";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
+import { composeBibleImage, editBibleImage } from "../lib/bible-generation";
+import { frameAssetInput, frameName, frameRules } from "../../shared/bible-frame";
 import {
   addPrimaryBibleTake,
   prepareBibleImageDataUrl,
 } from "../lib/bible-takes";
-import { IMAGE_GENERATION_REQUEST } from "../../shared/generation-cost";
+import {
+  IMAGE_GENERATION_REQUEST,
+  imageCostRequest,
+  imageGenerationKind,
+} from "../../shared/generation-cost";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Loader2, Upload, Sparkles, Plus, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,8 +52,6 @@ import {
   type BibleAssetVariant,
 } from "../lib/backend-api";
 import {
-  composeFrameAction,
-  editImageAction,
   generateImageAction,
 } from "../actions/generation-actions";
 import {
@@ -432,29 +436,15 @@ export default function ProjectBibleView({
     }
   }
 
-  // Compose from reference pictures + a prompt (falls back to text-to-image when
-  // there are no references). Returns a prepared data URL.
-  async function composeFromVariantIds(
+  function composeFromVariantIds(
     variantIds: string[],
     prompt: string,
     subjectId: string,
   ): Promise<string> {
-    const images = (
-      await Promise.all(
-        variantIds.map((vid) => getBibleVariantImageBase64(vid)),
-      )
-    ).filter((x): x is string => !!x);
-    const raw =
-      images.length > 0
-        ? await composeFrameAction(prompt, images, imageModel, {
-            project_id: projectId,
-            subject_id: subjectId,
-          })
-        : await generateImageAction(prompt, imageModel, {
-            project_id: projectId,
-            subject_id: subjectId,
-          });
-    return prepareBibleImageDataUrl(raw);
+    return composeBibleImage(variantIds, prompt, imageModel, {
+      project_id: projectId,
+      subject_id: subjectId,
+    });
   }
 
   // Add a generated take to an asset and make it the new primary.
@@ -484,24 +474,16 @@ export default function ProjectBibleView({
         const pending = pendingAssets.current.get(draftKey);
         let asset = assets.find((entry) => entry.id === pending?.id);
         if (!asset || variants[asset.id]?.length) {
-          asset = await createBibleAsset(bibleId, {
-            asset_type: "reference",
-            name: recipe.prompt.slice(0, 50) || "Frame",
-            summary: null,
-            description: null,
-            tags_json: null,
-            rules_json: JSON.stringify(recipe),
-            consent_confirmed: false,
-          });
+          asset = await createBibleAsset(bibleId, frameAssetInput(recipe));
           const created = asset;
           setAssets((prev) => [created, ...prev]);
           setVariants((prev) => ({ ...prev, [created.id]: [] }));
           pendingAssets.current.set(draftKey, asset);
-        } else if (asset.rules_json !== JSON.stringify(recipe)) {
+        } else if (asset.rules_json !== frameRules(recipe)) {
           asset = await updateBibleAsset(asset.id, {
             ...asset,
-            name: recipe.prompt.slice(0, 50) || "Frame",
-            rules_json: JSON.stringify(recipe),
+            name: frameName(recipe),
+            rules_json: frameRules(recipe),
           });
           pendingAssets.current.set(draftKey, asset);
           const updated = asset;
@@ -601,25 +583,14 @@ export default function ProjectBibleView({
       const result = await withApplicationWork(
         "generation",
         async (): Promise<Result<void>> => {
-          const source = await getBibleVariantImageBase64(variant.id);
-          if (!source) {
-            return {
-              ok: false,
-              error: {
-                code: "IO_ERROR",
-                message: "Couldn't read that picture.",
-              },
-            };
-          }
-          const raw = await editImageAction(source, instruction, imageModel, {
-            project_id: projectId,
-            subject_id: asset.id,
-          });
-          await addPrimaryTake(
-            asset.id,
-            await prepareBibleImageDataUrl(raw),
+          const edited = await editBibleImage(
+            variant.id,
             instruction,
+            imageModel,
+            { project_id: projectId, subject_id: asset.id },
           );
+          if (!edited.ok) return edited;
+          await addPrimaryTake(asset.id, edited.value, instruction);
           return { ok: true, value: undefined };
         },
       );
@@ -1389,12 +1360,12 @@ function FramesTab({
           <div className="bible-cost">
             <GenerationCost
               modelId={generationContext.modelId}
-              request={{
-                kind:
-                  selectedChars.size > 0 || locationId
-                    ? "image_compose"
-                    : "image",
-              }}
+              request={imageCostRequest(
+                imageGenerationKind({
+                  edit: false,
+                  composes: selectedChars.size > 0 || !!locationId,
+                }),
+              )}
               subject={{ project_id: generationContext.projectId }}
             />
           </div>

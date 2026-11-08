@@ -64,6 +64,7 @@ it("plans a bible image with the estimate the app shows for the same model", asy
       provider: "local",
       cost_request: IMAGE_GENERATION_REQUEST,
       subject: { project_id: film.id, subject_id: asset.id },
+      inputs: { prompt: "A sock puppet detective in a trench coat", reference_variant_ids: [] },
       estimate: await getGenerationEstimate("local-image", IMAGE_GENERATION_REQUEST),
     },
   });
@@ -128,6 +129,7 @@ it("resolves what a quote targets without pricing it again", async () => {
       provider: "local",
       cost_request: IMAGE_GENERATION_REQUEST,
       subject: { project_id: film.id, subject_id: asset.id },
+      inputs: { prompt: "A sock puppet detective in a trench coat", reference_variant_ids: [] },
     },
   });
   expect(native.invoke.mock.calls.map(([command]) => command)).not.toContain(

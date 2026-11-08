@@ -19,7 +19,10 @@ import {
 } from "../lib/models";
 import { generateText } from "../lib/models/gemini-text";
 import type { VideoGenerationRequest } from "../lib/generation/types";
-import { IMAGE_GENERATION_REQUEST } from "../../shared/generation-cost";
+import {
+  IMAGE_GENERATION_REQUEST,
+  imageCostRequest,
+} from "../../shared/generation-cost";
 
 export async function generateImageAction(
   prompt: string,
@@ -130,6 +133,7 @@ export async function editImageAction(
   editPrompt: string,
   modelId: ImageModelId = DEFAULT_BIBLE_IMAGE_MODEL,
   subject?: GenerationSubject,
+  agent?: AgentAccounting,
 ): Promise<string> {
   const model = getImageModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
@@ -140,10 +144,11 @@ export async function editImageAction(
   try {
     const result = await accountModelGeneration(
       modelId,
-      { kind: "image_edit", count: 1 },
+      imageCostRequest("image_edit"),
       subject,
       (observer) =>
         model.editImage!(editPrompt, sourceImageBase64, apiKey, observer),
+      agent,
     );
     if (!result.ok) throw new Error(result.error.message);
     return result.value;
@@ -160,6 +165,7 @@ export async function composeFrameAction(
   referenceImages: string[],
   modelId: ImageModelId = DEFAULT_BIBLE_IMAGE_MODEL,
   subject?: GenerationSubject,
+  agent?: AgentAccounting,
 ): Promise<string> {
   const model = getImageModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
@@ -174,10 +180,11 @@ export async function composeFrameAction(
   try {
     const result = await accountModelGeneration(
       modelId,
-      { kind: "image_compose", count: 1 },
+      imageCostRequest("image_compose"),
       subject,
       (observer) =>
         model.composeImage!(prompt, referenceImages, apiKey, observer),
+      agent,
     );
     if (!result.ok) throw new Error(result.error.message);
     return result.value;

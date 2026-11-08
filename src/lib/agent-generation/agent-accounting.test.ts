@@ -2,7 +2,11 @@ import { expect, it, vi } from "vitest";
 import { openTestDb } from "../../../electron/db.test";
 import { createGenerationUsageCommands } from "../../../electron/commands/generation-usage";
 import { createGenerationPricingCommands } from "../../../electron/commands/generation-pricing";
-import { generateImageAction } from "../../actions/generation-actions";
+import {
+  composeFrameAction,
+  editImageAction,
+  generateImageAction,
+} from "../../actions/generation-actions";
 import type { GenerationCostEstimate } from "../../../shared/generation-cost";
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), fetch: vi.fn() }));
@@ -105,6 +109,43 @@ it("never calls the provider twice for the same agent usage identity", async () 
       generateImageAction("A", "seedream-4.5-openrouter", { project_id: "film" }, accounting),
     ).rejects.toThrow(/already started/);
     expect(mocks.fetch.mock.calls.length).toBe(calls);
+  } finally {
+    db.close();
+  }
+});
+
+it.each([
+  ["edit", "image_edit"],
+  ["compose", "image_compose"],
+] as const)("runs an agent %s job with the quoted estimate and its own usage identity", async (operation, kind) => {
+  const db = openTestDb();
+  try {
+    db.prepare("INSERT INTO projects(id,name) VALUES ('film','Film')").run();
+    const commands: Record<string, (args?: Record<string, unknown>) => unknown> =
+      createGenerationUsageCommands(db);
+    mocks.invoke.mockImplementation(async (command: string, args) =>
+      command === "get_api_key" ? "fixture-key" : commands[command]?.(args),
+    );
+    mocks.fetch.mockReset();
+    mocks.fetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({ id: "x", data: [{ b64_json: "aA==", media_type: "image/png" }] }),
+      ),
+    );
+    const accounting = { request_id: `usage-${operation}`, agent_job_id: `job-${operation}`, estimate: quoted };
+    const subject = { project_id: "film", subject_id: "asset-1" };
+    if (operation === "edit")
+      await editImageAction("data:image/png;base64,aA==", "Add a hat", "seedream-4.5-openrouter", subject, accounting);
+    else
+      await composeFrameAction("Detective in office", ["data:image/png;base64,aA=="], "seedream-4.5-openrouter", subject, accounting);
+    expect(commands.get_generation_usage({ project_id: "film" })).toMatchObject({
+      ok: true,
+      value: {
+        items: [
+          { request_id: `usage-${operation}`, agent_job_id: `job-${operation}`, kind, estimated_max_microusd: 30_000 },
+        ],
+      },
+    });
   } finally {
     db.close();
   }

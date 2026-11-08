@@ -54,15 +54,21 @@ The budget and its job ledger belong to this device, not to a project file. (Pro
 
 ## Quotes
 
-`quote_generation` prices a generation before anything is spent. For a Bible entry picture, pass `target: "bible_asset"`, `operation: "generate"`, the entry's `asset_id`, a `prompt` and an installed image `model_id` from `get_generation_models`. Showbiz asks its open window for the same estimate the app's own controls show for that model, including a live provider price check where the provider offers one, so quoting can take several seconds.
+`quote_generation` prices a generation before anything is spent. For a Bible entry, pass `target: "bible_asset"`, the entry's `asset_id`, an installed image `model_id` from `get_generation_models`, and one of these operations, which match the Bible's own controls:
 
-A quote returns a `quote_id`, the minimum and maximum amount, the frozen price basis with its source and when it was checked, whether that price is stale, whether the estimate excludes input charges, a fingerprint of what was priced, and the budget left. It expires after ten minutes, can back at most one submission, and is lost when Showbiz restarts. The agent chooses the image model for Bible pictures, as the app lets you choose one in the Bible. Frames are made by composing Bible references, so a frame entry cannot be quoted as a plain prompt picture. A quote that refreshes a provider price saves it to the device price cache, which counts as a change, so read context again before an edit that needs `expected_revision`.
+- `generate` with a `prompt`: a new picture from the prompt alone.
+- `retake` with an optional `prompt`: stays on-model by composing from the entry's current picture, or for a frame from its recipe's characters and location view, using the prompt that made it unless you pass one. An entry without pictures is generated from the prompt alone. Composition needs a model that supports it and uses at most 10 pictures. A frame whose characters or location have no picture yet is refused rather than composed without them, and a job never composes from fewer pictures than its quote.
+- `edit` with `source_variant_id` (one of the entry's takes) and the instruction as `prompt`. Editing needs a model that supports it.
+
+The result becomes the entry's current picture, as in the app. To make a new frame, call `create_bible_frame` with a prompt, up to nine character IDs and optionally a location and one of its views, exactly as the frame composer records them, then quote a `retake` of the new frame. The quote freezes the resolved prompt and reference pictures; changing them before submitting makes the quote stale. Showbiz asks its open window for the same estimate the app's own controls show for that model, including a live provider price check where the provider offers one, so quoting can take several seconds.
+
+A quote returns a `quote_id`, the minimum and maximum amount, the frozen price basis with its source and when it was checked, whether that price is stale, whether the estimate excludes input charges, a fingerprint of what was priced, and the budget left. It expires after ten minutes, can back at most one submission, and is lost when Showbiz restarts. The agent chooses the image model for Bible pictures, as the app lets you choose one in the Bible. A quote that refreshes a provider price saves it to the device price cache, which counts as a change, so read context again before an edit that needs `expected_revision`.
 
 Quotes are refused with these codes:
 
 - `PRICE_UNKNOWN`: no rate is available, the rate does not match the settings, or a provider's historical estimate is zero. An unknown price is never treated as free. Local models need a custom rate saved in the app, and an explicit rate of zero is accepted.
 - `NO_BUDGET`, `MODEL_NOT_ALLOWED`, `OVER_REQUEST_CAP`, `OVER_BUDGET`: the request falls outside the budget you granted.
-- `NOT_FOUND`, `INVALID_INPUT`: the Bible entry is not in the open project, it is a frame, or the model is not an installed image model.
+- `NOT_FOUND`, `INVALID_INPUT`: the Bible entry or source picture is not in the open project, `generate` was asked for a frame, the model is not an installed image model or cannot edit or compose as needed, a retake has no prompt, a frame's character or location has no picture, or a composition would need more than 10 pictures.
 - `IO_ERROR`: the window returned a price plan that does not match the request.
 - `UNAVAILABLE`: no Showbiz window or project is open, or the window did not answer.
 

@@ -165,6 +165,8 @@ export function createMcpSession(
             "The selected take does not belong to this shot",
           );
       }
+      const refusal = await definition.check?.(dispatch, args);
+      if (refusal) return remember(failure("INVALID_INPUT", refusal));
       if (definition.command === "read_context") data = { revision };
       else data = await invoke(definition.command, nativeArgs);
       const nativeFailure = z
