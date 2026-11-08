@@ -14,6 +14,10 @@ interface ToolDefinition {
   schema: z.ZodObject;
   command: string;
   mutates: boolean;
+  /** Spends from the agent budget, so it is never presented as read-only. */
+  spends?: boolean;
+  /** Reaches provider APIs outside Showbiz. */
+  openWorld?: boolean;
   requestTimeoutMs?: number;
   args: (input: Record<string, unknown>) => Record<string, unknown>;
 }
@@ -165,6 +169,7 @@ export const mcpTools: ToolDefinition[] = [
       prompt: z.string().trim().min(1).max(50000),
       model_id: id,
     }),
+    openWorld: true,
     requestTimeoutMs: 90000,
     args: (input: Record<string, unknown>) => ({ ...input }),
   },
@@ -175,7 +180,9 @@ export const mcpTools: ToolDefinition[] = [
       "Spend from the agent budget by submitting a quote. Pass the quote_id and a unique request_id. Retrying with the same request_id returns the same job and never pays twice, even after a timeout or a Showbiz restart. Returns a job; follow it with get_generation_job. Refused with QUOTE_EXPIRED, QUOTE_NOT_FOUND, QUOTE_STALE, NO_BUDGET, OVER_BUDGET, OVER_REQUEST_CAP, JOB_LIMIT (one paid job at a time) or BUSY (unsaved edits in Showbiz).",
     ),
     schema: z.strictObject({ quote_id: id, request_id: id }),
-    requestTimeoutMs: 90000,
+    spends: true,
+    openWorld: true,
+    requestTimeoutMs: 180000,
     args: (input: Record<string, unknown>) => ({ ...input }),
   },
   {
