@@ -20,18 +20,21 @@ const errorBodySchema = z.object({
 });
 const MAX_REASON = 160;
 
-/** fal's own explanation of a refusal, bounded and never repeating the key. */
 async function falReason(response: Response, key: string): Promise<string | null> {
   const body = errorBodySchema.safeParse(await response.json().catch(() => null));
   if (!body.success) return null;
-  const reason = body.data.error.message.trim().slice(0, MAX_REASON);
-  return reason && !reason.includes(key) ? reason : null;
+  const message = body.data.error.message;
+  // fal keys are "id:secret"; a reason naming the key, or either half, is never shown.
+  const secrets = [key, ...key.split(":")].filter((part) => part.length >= 4);
+  if (secrets.some((part) => message.includes(part))) return null;
+  const reason = message.replace(/\s+/g, " ").trim().slice(0, MAX_REASON);
+  return reason || null;
 }
 
 function refusalMessage(status: number, reason: string | null): string {
   const quoted = reason ? ` ("${reason}")` : "";
   return status === 401
-    ? `FAL did not accept the billing key${quoted}. Check the fal.ai billing key in Settings. This cost remains unconfirmed.`
+    ? `FAL did not accept the key used for billing${quoted}. Check the fal.ai billing key in Settings, or the fal.ai key when no billing key is saved. This cost remains unconfirmed.`
     : `FAL billing access denied${quoted}. Confirmed charges need a key with billing:usage:read, auth:keys:read and account:users:read, such as one made with the BILLING preset. This cost remains unconfirmed.`;
 }
 
