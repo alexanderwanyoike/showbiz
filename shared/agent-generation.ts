@@ -251,10 +251,18 @@ export type SetShotFrameRequest = z.infer<typeof setShotFrameRequestSchema>;
 export const BIBLE_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 // About 730 KB of picture, which keeps the whole request under the 1 MiB bridge limit.
 export const MAX_BIBLE_IMAGE_BASE64 = 1_000_000;
-const signatures: Record<(typeof BIBLE_IMAGE_TYPES)[number], (bytes: string) => boolean> = {
-  "image/png": (bytes) => bytes.startsWith("\x89PNG\r\n\x1a\n"),
-  "image/jpeg": (bytes) => bytes.startsWith("\xff\xd8\xff"),
-  "image/webp": (bytes) => bytes.startsWith("RIFF") && bytes.slice(8, 12) === "WEBP",
+const byteLength = (base64: string) => (base64.length / 4) * 3 - (/=*$/.exec(base64)?.[0].length ?? 0);
+const uint32le = (bytes: string, at: number) =>
+  (bytes.charCodeAt(at) | (bytes.charCodeAt(at + 1) << 8) | (bytes.charCodeAt(at + 2) << 16) | (bytes.charCodeAt(at + 3) << 24)) >>> 0;
+// Browsers decode a cut-off PNG or JPEG without error, so the file's end marker or declared length is checked too.
+const completeImage: Record<
+  (typeof BIBLE_IMAGE_TYPES)[number],
+  (head: string, tail: string, length: number) => boolean
+> = {
+  "image/png": (head, tail) => head.startsWith("\x89PNG\r\n\x1a\n") && tail.endsWith("IEND\xaeB`\x82"),
+  "image/jpeg": (head, tail) => head.startsWith("\xff\xd8\xff") && tail.endsWith("\xff\xd9"),
+  "image/webp": (head, _tail, length) =>
+    head.startsWith("RIFF") && head.slice(8, 12) === "WEBP" && uint32le(head, 4) === length - 8,
 };
 export const addBibleImageRequestSchema = z
   .strictObject({
@@ -263,9 +271,14 @@ export const addBibleImageRequestSchema = z
     base64: z.base64().min(1).max(MAX_BIBLE_IMAGE_BASE64),
     name: z.string().trim().min(1).max(200).optional(),
   })
-  .refine((input) => signatures[input.mime_type](atob(input.base64.slice(0, 16))), {
-    message: "The picture's bytes are not a PNG, JPEG or WebP of the declared mime_type.",
-    // Only well-formed base64 can be decoded to read its signature.
-    when: ({ issues }) => issues.length === 0,
-  });
+  .refine(
+    ({ mime_type, base64 }) =>
+      completeImage[mime_type](atob(base64.slice(0, 16)), atob(base64.slice(-16)), byteLength(base64)),
+    {
+      message:
+        "The picture's bytes are not a complete PNG, JPEG or WebP of the declared mime_type. Send the whole file as plain base64.",
+      // Only well-formed base64 can be decoded to read its signature.
+      when: ({ issues }) => issues.length === 0,
+    },
+  );
 export type AddBibleImageRequest = z.infer<typeof addBibleImageRequestSchema>;
