@@ -186,6 +186,12 @@ export function createVideoVersionCommands(db: DatabaseSync, mediaDir: string) {
       return version;
     },
 
+    get_video_version_path(args?: Record<string, unknown>): string | null {
+      const row = db
+        .prepare("SELECT video_path FROM video_versions WHERE id = ?")
+        .get(String(args?.versionId ?? "")) as { video_path: string } | undefined;
+      return row?.video_path ?? null;
+    },
     get_video_version_count(args?: Record<string, unknown>): number {
       const shotId = args!.shotId as string;
       const { n } = db

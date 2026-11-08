@@ -196,10 +196,10 @@ export const mcpTools: ToolDefinition[] = [
     ...define(
       "quote_generation",
       {},
-      "Price a generation before spending. Returns a quote_id valid for ten minutes and usable once, with the frozen estimate and its source. For a Bible entry (target bible_asset) pass asset_id and an installed image model_id, plus: operation generate with a prompt (a new prompt-only take); retake with an optional prompt (composes from the entry's own picture or a frame's recipe, as the app's retake does, or prompt-only when it has none); or edit with source_variant_id and an instruction as prompt. For a shot's start frame (target shot_start_frame) pass shot_id and either operation generate with a prompt, or edit with source_take_id and an instruction as prompt; the shot's image model is used (change it with set_shot_models). Unknown prices are refused with PRICE_UNKNOWN; NO_BUDGET, MODEL_NOT_ALLOWED, OVER_REQUEST_CAP and OVER_BUDGET reflect the budget the user granted.",
+      "Price a generation before spending. Returns a quote_id valid for ten minutes and usable once, with the frozen estimate and its source. For a Bible entry (target bible_asset) pass asset_id and an installed image model_id, plus: operation generate with a prompt (a new prompt-only take); retake with an optional prompt (composes from the entry's own picture or a frame's recipe, as the app's retake does, or prompt-only when it has none); or edit with source_variant_id and an instruction as prompt. For a shot's start frame (target shot_start_frame) pass shot_id and either operation generate with a prompt, or edit with source_take_id and an instruction as prompt; the shot's image model is used (change it with set_shot_models). For a shot's video (target shot_video, operation generate) pass shot_id; the shot's video model, saved video settings (set_shot_video_settings), video prompt (update_shot) and frames are used as the storyboard's Generate Video uses them. Unknown prices are refused with PRICE_UNKNOWN; NO_BUDGET, MODEL_NOT_ALLOWED, OVER_REQUEST_CAP and OVER_BUDGET reflect the budget the user granted.",
     ),
     schema: z.strictObject({
-      target: z.enum(["bible_asset", "shot_start_frame"]),
+      target: z.enum(["bible_asset", "shot_start_frame", "shot_video"]),
       operation: z.enum(["generate", "retake", "edit"]),
       asset_id: id.optional(),
       shot_id: id.optional(),
@@ -392,7 +392,7 @@ export const mcpTools: ToolDefinition[] = [
     ...define(
       "get_media_preview",
       {},
-      "See a Bible take or a shot image take as a small JPEG (at most 512 px) before choosing it. Pass exactly one of bible_variant_id or image_take_id.",
+      "See a Bible take or a shot image take as a small JPEG (at most 512 px), or three frames (start, middle, end) of a video take, before choosing it. Pass exactly one of bible_variant_id, image_take_id or video_take_id.",
     ),
     schema: mediaPreviewRequestSchema,
     requestTimeoutMs: 30000,
@@ -413,6 +413,28 @@ export const mcpTools: ToolDefinition[] = [
       shot_id: input.shot_id,
       role: input.role,
       bible_variant_id: input.bible_variant_id,
+    }),
+  },
+  {
+    ...define(
+      "set_shot_video_settings",
+      {
+        shot_id: id,
+        model_id: id,
+        settings: z.strictObject({
+          duration: z.string().min(1).max(16),
+          resolution: z.string().min(1).max(32).optional(),
+          aspect_ratio: z.string().min(1).max(32).optional(),
+          audio: z.boolean().optional(),
+        }),
+      },
+      "Save a shot's video settings (duration such as 8s or auto, resolution, aspect_ratio, audio) for its video model, as the shot's video settings panel does. Settings the model cannot use fall back to its defaults; quote_generation shows what will be used.",
+      true,
+    ),
+    args: (input: Record<string, unknown>) => ({
+      shot_id: input.shot_id,
+      model_id: input.model_id,
+      settings: input.settings,
     }),
   },
   define(

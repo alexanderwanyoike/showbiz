@@ -41,6 +41,11 @@ export const agentQuoteRequestSchema = z.union([
     source_take_id: id,
     prompt,
   }),
+  z.strictObject({
+    target: z.literal("shot_video"),
+    operation: z.literal("generate"),
+    shot_id: id,
+  }),
 ]);
 export type AgentQuoteRequest = z.infer<typeof agentQuoteRequestSchema>;
 
@@ -52,10 +57,24 @@ export const agentQuoteTargetSchema = z.strictObject({
   subject: z.strictObject({ project_id: id, subject_id: id }),
   /** The resolved prompt and pictures the job will use, frozen into the quote. */
   inputs: z.strictObject({
-    prompt,
+    // A video may have no prompt when it starts from a frame.
+    prompt: z.string().trim().max(50000),
     reference_variant_ids: z.array(id).max(MAX_REFERENCE_PICTURES),
     source_variant_id: id.optional(),
     source_take_id: id.optional(),
+    video: z
+      .strictObject({
+        mode: z.enum(["text-to-video", "image-to-video"]),
+        settings: z.strictObject({
+          duration: z.string().max(16),
+          resolution: z.string().max(32).optional(),
+          aspectRatio: z.string().max(32).optional(),
+          audio: z.boolean().optional(),
+        }),
+        uses_end_frame: z.boolean(),
+        shot_updated_at: z.string().max(64),
+      })
+      .optional(),
   }),
 });
 export type AgentQuoteTarget = z.infer<typeof agentQuoteTargetSchema>;
@@ -155,7 +174,7 @@ export interface AgentJob {
   status: AgentJobStatus;
   /** confirmed once the provider reports a charge; released only if the provider was never called. */
   charge_status: "confirmed" | "estimated" | "released";
-  /** The new Bible take (variant_id) or shot image take (take_id). */
+  /** The new Bible take (variant_id), shot image take (take_id) or video take (video_take_id). */
   result: AgentJobResult | null;
   error: string | null;
   warnings: string[];
@@ -174,6 +193,7 @@ export type AgentJobStart = z.infer<typeof agentJobStartSchema>;
 export const agentJobResultSchema = z.strictObject({
   variant_id: id.optional(),
   take_id: id.optional(),
+  video_take_id: id.optional(),
 });
 export type AgentJobResult = z.infer<typeof agentJobResultSchema>;
 
@@ -193,10 +213,13 @@ export const mediaPreviewRequestSchema = z
   .strictObject({
     bible_variant_id: id.optional(),
     image_take_id: id.optional(),
+    video_take_id: id.optional(),
   })
   .refine(
-    (input) => [input.bible_variant_id, input.image_take_id].filter(Boolean).length === 1,
-    { message: "Pass exactly one of bible_variant_id or image_take_id." },
+    (input) =>
+      [input.bible_variant_id, input.image_take_id, input.video_take_id].filter(Boolean)
+        .length === 1,
+    { message: "Pass exactly one of bible_variant_id, image_take_id or video_take_id." },
   );
 export type MediaPreviewRequest = z.infer<typeof mediaPreviewRequestSchema>;
 export const mediaPreviewSchema = z.strictObject({

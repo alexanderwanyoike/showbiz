@@ -55,6 +55,7 @@ export async function generateAndSaveVideoRequestAction(
   shotId: string,
   modelId: VideoModelId,
   request: VideoGenerationRequest,
+  agent?: AgentAccounting,
 ): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
   const model = getVideoModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
@@ -112,6 +113,7 @@ export async function generateAndSaveVideoRequestAction(
         );
         return { success: true, videoUrl: result.video_url };
       },
+      agent,
     );
     return operation.ok
       ? operation.value

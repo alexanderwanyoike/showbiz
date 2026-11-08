@@ -31,6 +31,12 @@ const shotSchema = z.object({
   id: z.string(),
   storyboard_id: z.string(),
   image_model: z.string().nullable(),
+  video_model: z.string().nullable(),
+  image_path: z.string().nullable(),
+  end_frame_path: z.string().nullable(),
+  video_prompt: z.string().nullable(),
+  video_settings_json: z.string().nullable().optional(),
+  updated_at: z.string(),
 });
 const versionNodeSchema: z.ZodType<{ version: { id: string }; children: unknown[] }> = z.object({
   version: z.object({ id: z.string() }),

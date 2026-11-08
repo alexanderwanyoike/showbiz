@@ -159,7 +159,11 @@ it("runs an agent video job with the quoted estimate and its own usage identity"
     const commands: Record<string, (args?: Record<string, unknown>) => unknown> =
       createGenerationUsageCommands(db);
     mocks.invoke.mockImplementation(async (command: string, args) =>
-      command === "get_api_key" ? "fixture-key" : commands[command]?.(args),
+      command === "get_api_key"
+        ? "fixture-key"
+        : command === "get_project_document_state"
+          ? { ok: true, value: { current: { project_id: "film" }, recent: [] } }
+          : commands[command]?.(args),
     );
     const videoQuote = { ...quoted, price: { ...(quoted.kind === "estimate" ? quoted.price : ({} as never)), model_id: "veo-3.1-openrouter" } };
     mocks.fetch.mockReset();

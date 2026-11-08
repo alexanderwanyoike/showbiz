@@ -1,6 +1,11 @@
-import { generateImageAction } from "../../actions/generation-actions";
+import {
+  generateAndSaveVideoRequestAction,
+  generateImageAction,
+} from "../../actions/generation-actions";
+import { getAvailableVideoModels } from "../models";
+import { buildShotVideoRequest } from "../shot-video";
 import { withApplicationWork } from "../application-work";
-import { getCurrentImageVersion } from "../backend-api";
+import { getCurrentImageVersion, getCurrentVideoVersion } from "../backend-api";
 import { addPrimaryBibleTake, prepareBibleImageDataUrl } from "../bible-takes";
 import { composeBibleImage, editBibleImage } from "../bible-generation";
 import { editShotStartFrame, generateShotStartFrame } from "../shot-frames";
@@ -40,8 +45,35 @@ async function createBiblePicture({ request, plan, job_id, usage_request_id }: B
   );
 }
 
+async function createVideo(job: AgentJobStart, shotId: string): Promise<AgentJobResult> {
+  const { plan } = job;
+  const video = plan.inputs.video;
+  const model = getAvailableVideoModels().find((candidate) => candidate.id === plan.model_id);
+  if (!video || !model) throw new Error("The quoted video model is not available.");
+  const request = await buildShotVideoRequest(
+    shotId,
+    model,
+    { hasStartFrame: video.mode === "image-to-video", hasEndFrame: video.uses_end_frame },
+    video.settings,
+    plan.inputs.prompt,
+  );
+  // The frames are read again at run time; a video made from other frames than quoted is not paid for.
+  if (request.mode !== video.mode || !!request.endImage !== video.uses_end_frame)
+    throw new Error("The shot's frames changed after the quote. Request a new quote.");
+  const made = await generateAndSaveVideoRequestAction(shotId, model.id, request, {
+    request_id: job.usage_request_id,
+    agent_job_id: job.job_id,
+    estimate: plan.estimate,
+  });
+  if (!made.success) throw new Error(made.error ?? "Video generation failed.");
+  const take = await getCurrentVideoVersion(shotId);
+  if (!take) throw new Error("The new video take could not be found.");
+  return { video_take_id: take.id };
+}
+
 async function createResult(job: AgentJobStart): Promise<AgentJobResult> {
   const { request, plan } = job;
+  if (request.target === "shot_video") return createVideo(job, request.shot_id);
   if (request.target === "bible_asset") {
     const variant = await addPrimaryBibleTake(
       request.asset_id,
