@@ -6,12 +6,11 @@ import { mcpTools } from "./tools";
 
 const PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1]).toString("base64");
-const WEBP = Buffer.concat([
-  Buffer.from("RIFF"),
-  Buffer.from([0x24, 0, 0, 0]),
-  Buffer.from("WEBPVP8 "),
-]).toString("base64");
+const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1, 0xff, 0xd9]).toString("base64");
+const webp = (riffSize: number) =>
+  Buffer.concat([Buffer.from("RIFF"), Buffer.from([riffSize, 0, 0, 0]), Buffer.from("WEBPVP8 ")]).toString("base64");
+const WEBP = webp(8);
+const cutOff = (base64: string, bytes: number) => Buffer.from(base64, "base64").subarray(0, -bytes).toString("base64");
 
 function app(canEdit = true) {
   const dispatch = vi.fn(async (command: string) =>
@@ -63,6 +62,9 @@ it.each([
   ["a file path", { base64: "/home/someone/sock.png" }],
   ["too many bytes", { base64: `${PNG.slice(0, 12)}${"A".repeat(MAX_BIBLE_IMAGE_BASE64)}` }],
   ["no bytes", { base64: "" }],
+  ["a PNG that is cut off", { base64: cutOff(PNG, 4) }],
+  ["a JPEG that is cut off", { mime_type: "image/jpeg", base64: cutOff(JPEG, 2) }],
+  ["a WebP shorter than it says", { mime_type: "image/webp", base64: webp(12) }],
 ])("refuses %s before the app sees it", async (_label, args) => {
   const { dispatch, session } = app();
   expect(await session.call(request(args))).toMatchObject({
