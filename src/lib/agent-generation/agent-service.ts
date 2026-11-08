@@ -9,6 +9,7 @@ import {
 import { planAgentQuote, resolveAgentTarget } from "./plan-quote";
 import { runAgentJob } from "./run-job";
 
+const REPORT_ATTEMPTS = 3;
 const invalid = (issue: { message: string } | undefined) =>
   agentFailure("INVALID_INPUT", issue?.message ?? "Invalid agent request.");
 
@@ -39,9 +40,17 @@ export function connectAgentService(): () => void {
   const respond = bridge.respondAgentRequest;
   const send = bridge.reportAgentJob;
   const report = async (update: AgentJobReport) => {
-    await send(update).catch((cause: unknown) =>
-      console.error("Could not report agent job progress:", cause),
-    );
+    // A lost report would leave the job open, so sending is retried before giving up.
+    for (let attempt = 1; attempt <= REPORT_ATTEMPTS; attempt++) {
+      try {
+        await send(update);
+        break;
+      } catch (cause) {
+        if (attempt === REPORT_ATTEMPTS)
+          console.error("Could not report agent job progress:", cause);
+        else await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+      }
+    }
     if (update.status === "completed")
       window.dispatchEvent(new Event("showbiz:project-changed"));
   };
