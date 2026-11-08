@@ -9,6 +9,7 @@ import { createAgentBudgetCommands } from "../../electron/commands/agent-budget"
 import { createGenerationModelCommands } from "../../electron/commands/generation-models";
 import { AgentBudgetDialog } from "../components/AgentBudgetDialog";
 import { AgentBudgetBanner } from "../components/AgentBudgetBanner";
+import { usdToMicrousd } from "./agent-budget";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("./bridge", () => native);
@@ -95,4 +96,48 @@ it("refuses an empty budget without saving anything", async () => {
   await user.click(within(dialog).getByRole("button", { name: "Grant budget" }));
   expect(await within(dialog).findByRole("alert")).toBeTruthy();
   expect(commands.get_agent_budget()).toMatchObject({ ok: false });
+});
+
+it("shows the expiry date so a week-long budget is not mistaken for today", async () => {
+  const commands = device();
+  commands.grant_agent_budget({ max_microusd: 1_000_000, duration_minutes: 60 * 24 * 7 });
+  render(createElement(AgentBudgetBanner));
+  const banner = await screen.findByRole("status", { name: "Agent budget" });
+  const grant = (commands.get_agent_budget() as { value: { grant: { expires_at: string } } }).value.grant;
+  const expires = new Date(grant.expires_at);
+  expect(banner.textContent).toContain(
+    expires.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+  );
+});
+
+it("tells the user when the budget cannot be read", async () => {
+  native.invoke.mockImplementation(async () => ({
+    ok: false,
+    error: { code: "IO_ERROR", message: "The saved agent budget is unreadable." },
+  }));
+  render(createElement(AgentBudgetBanner));
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    "The saved agent budget is unreadable.",
+  );
+});
+
+it("hides the banner when the budget expires", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    const commands = device();
+    commands.grant_agent_budget({ max_microusd: 1_000_000, duration_minutes: 60 });
+    render(createElement(AgentBudgetBanner));
+    await screen.findByRole("status", { name: "Agent budget" });
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000 + 1000);
+    expect(screen.queryByRole("status", { name: "Agent budget" })).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("reads only plain decimal dollar amounts", () => {
+  expect(usdToMicrousd("5")).toBe(5_000_000);
+  expect(usdToMicrousd("0.25")).toBe(250_000);
+  for (const text of ["0x10", "1e3", "-1", "0", "", "1.2345678", "abc"])
+    expect(usdToMicrousd(text)).toBeNull();
 });
