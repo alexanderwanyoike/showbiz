@@ -38,7 +38,7 @@ First create or open a `.showbiz` file through the app. Project tools then addre
 
 Writes are blocked while the UI has unsaved drafts or other active work. Selecting a take verifies it belongs to the requested shot. Reordering requires every shot exactly once. Switching project files expires the replay cache and invalidates stale edit revisions. The app retains a bounded 128-request replay window for the current running instance; do not replay old requests after that window or across an application restart.
 
-`get_generation_models` reads the installed model IDs, provider identities, capabilities and defaults. `get_generation_price` reads the device's saved, cached or bundled rate and source; a missing rate remains unknown. OpenRouter metadata refresh happens through the app's generation controls.
+`get_generation_models` reads the installed model IDs, provider identities, capabilities and defaults. `get_generation_price` reads the device's saved, cached or bundled rate and source; a missing rate remains unknown. OpenRouter metadata refreshes through the app's generation controls or when an agent asks for a quote.
 
 Use `update_storyboard_models` with both `image_model` and `video_model` to change defaults. `set_shot_models` changes either shot override independently: omit a field to preserve it, or pass null to inherit the storyboard default. These writes use the same revision, request replay and unsaved-work safeguards as other edits. Model configuration JSON is packaged with the app and discovery omits transport credentials and endpoints.
 
@@ -56,7 +56,7 @@ The budget belongs to this device, not to a project file. It covers whichever pr
 
 `quote_generation` prices a generation before anything is spent. For a Bible entry picture, pass `target: "bible_asset"`, `operation: "generate"`, the entry's `asset_id`, a `prompt` and an installed image `model_id` from `get_generation_models`. Showbiz asks its open window for the same estimate the app's own controls show for that model, including a live provider price check where the provider offers one, so quoting can take several seconds.
 
-A quote returns a `quote_id`, the minimum and maximum amount, the frozen price basis with its source and when it was checked, whether that price is stale, whether the estimate excludes input charges, a fingerprint of what was priced, and the budget left. The agent chooses the image model for Bible pictures, as the app lets you choose one in the Bible. Frames are made by composing Bible references, so a frame entry cannot be quoted as a plain prompt picture. It expires after ten minutes, can back at most one submission, and is lost when Showbiz restarts.
+A quote returns a `quote_id`, the minimum and maximum amount, the frozen price basis with its source and when it was checked, whether that price is stale, whether the estimate excludes input charges, a fingerprint of what was priced, and the budget left. It expires after ten minutes, can back at most one submission, and is lost when Showbiz restarts. The agent chooses the image model for Bible pictures, as the app lets you choose one in the Bible. Frames are made by composing Bible references, so a frame entry cannot be quoted as a plain prompt picture. A quote that refreshes a provider price saves it to the device price cache, which counts as a change, so read context again before an edit that needs `expected_revision`.
 
 Quotes are refused with these codes:
 
