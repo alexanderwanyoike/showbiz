@@ -459,6 +459,11 @@ export async function getVideoVersions(shotId: string): Promise<VideoVersionNode
   return Promise.all(nodes.map(convertVideoVersionUrls));
 }
 
+/** The media URL of one video take, for reading it inside the app only. */
+export async function getVideoVersionUrl(versionId: string): Promise<string | null> {
+  return invoke("get_video_version_url", { versionId });
+}
+
 export async function getCurrentVideoVersion(shotId: string): Promise<VideoVersionWithUrl | null> {
   const ver: VideoVersionWithUrl | null = await invoke("get_current_video_version", { shotId });
   if (!ver) return null;

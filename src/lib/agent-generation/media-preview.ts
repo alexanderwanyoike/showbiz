@@ -1,5 +1,8 @@
-import { invoke } from "../bridge";
-import { getBibleVariantImageBase64, getVersionImageBase64 } from "../backend-api";
+import {
+  getBibleVariantImageBase64,
+  getVersionImageBase64,
+  getVideoVersionUrl,
+} from "../backend-api";
 import { electronMediaUrlResolver } from "../electron-media-url";
 import {
   agentFailure,
@@ -42,11 +45,13 @@ export const shrinkToJpeg: Shrink = async (dataUrl, maxSide) => {
 const VIDEO_PREVIEW_FRAMES = 3;
 type ExtractFrames = (mediaPath: string, count: number) => Promise<string[]>;
 
-function seek(video: HTMLVideoElement, time: number): Promise<void> {
+const VIDEO_READ_MS = 15_000;
+
+function waitFor(video: HTMLVideoElement, event: "loadeddata" | "seeked"): Promise<void> {
   return new Promise((resolve, reject) => {
-    video.onseeked = () => resolve();
-    video.onerror = () => reject(new Error("The video could not be read."));
-    video.currentTime = time;
+    const timer = setTimeout(() => reject(new Error("The video took too long to read.")), VIDEO_READ_MS);
+    video.addEventListener(event, () => { clearTimeout(timer); resolve(); }, { once: true });
+    video.addEventListener("error", () => { clearTimeout(timer); reject(new Error("The video could not be read.")); }, { once: true });
   });
 }
 
@@ -55,25 +60,31 @@ export const extractVideoFrames: ExtractFrames = async (mediaPath, count) => {
   const video = document.createElement("video");
   video.muted = true;
   video.preload = "auto";
-  const loaded = new Promise<void>((resolve, reject) => {
-    video.onloadeddata = () => resolve();
-    video.onerror = () => reject(new Error("The video could not be read."));
-  });
-  video.src = (await electronMediaUrlResolver.resolve(mediaPath)) ?? "";
-  await loaded;
-  const last = Math.max(0, video.duration - 0.1);
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("The preview could not be drawn.");
-  const frames: string[] = [];
-  for (let index = 0; index < count; index++) {
-    await seek(video, count === 1 ? 0 : (last * index) / (count - 1));
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    frames.push(canvas.toDataURL("image/jpeg", 0.8));
+  try {
+    const loaded = waitFor(video, "loadeddata");
+    video.src = (await electronMediaUrlResolver.resolve(mediaPath)) ?? "";
+    await loaded;
+    // Streams without a known length still give their first frame.
+    const frames = Number.isFinite(video.duration) ? count : 1;
+    const last = Math.max(0, (Number.isFinite(video.duration) ? video.duration : 0) - 0.1);
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("The preview could not be drawn.");
+    const images: string[] = [];
+    for (let index = 0; index < frames; index++) {
+      const seeked = waitFor(video, "seeked");
+      video.currentTime = frames === 1 ? 0 : (last * index) / (frames - 1);
+      await seeked;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      images.push(canvas.toDataURL("image/jpeg", 0.8));
+    }
+    return images;
+  } finally {
+    video.removeAttribute("src");
+    video.load();
   }
-  return frames;
 };
 
 async function videoPreview(
@@ -81,7 +92,7 @@ async function videoPreview(
   shrink: Shrink,
   frames: ExtractFrames,
 ): Promise<AgentResult<MediaPreview>> {
-  const mediaPath = await invoke<string | null>("get_video_version_url", { versionId: takeId });
+  const mediaPath = await getVideoVersionUrl(takeId);
   if (!mediaPath)
     return agentFailure("NOT_FOUND", "No video take with that ID is in the open project.");
   const images = [];

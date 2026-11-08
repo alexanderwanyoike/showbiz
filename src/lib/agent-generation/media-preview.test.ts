@@ -67,11 +67,9 @@ it("never passes file system details from a failed read to the agent", async () 
 
 it("returns three frames of a video take: start, middle and end", async () => {
   native.invoke.mockImplementation(async (command: string, args) =>
-    command === "get_video_versions" && args.shotId === undefined
-      ? null
-      : command === "get_video_version_url" && args.versionId === "video-1"
-        ? "videos/shot-1_v1.mp4"
-        : null,
+    command === "get_video_version_url" && args.versionId === "video-1"
+      ? "videos/shot-1_v1.mp4"
+      : null,
   );
   const frames = vi.fn(async () => ["data:image/jpeg;base64,A", "data:image/jpeg;base64,B", "data:image/jpeg;base64,C"]);
   const result = await previewMedia({ video_take_id: "video-1" }, shrink, frames);
