@@ -306,6 +306,24 @@ export const mcpTools: ToolDefinition[] = [
     { asset_id: id },
     "Read candidate references and approved bible images.",
   ),
+  {
+    ...define(
+      "set_bible_variant_status",
+      {
+        variant_id: id,
+        status: z.enum(["approved", "rejected"]),
+        is_primary: z.boolean(),
+      },
+      "Approve a Bible take, optionally making it the entry's current picture (as the app's Use this take does), or reject a take. The current picture cannot be rejected; make another take current first.",
+      true,
+    ),
+    command: "update_bible_asset_variant_status",
+    args: (input: Record<string, unknown>) => ({
+      id: input.variant_id,
+      status: input.status,
+      isPrimary: input.is_primary,
+    }),
+  },
   define(
     "get_image_versions",
     { shot_id: id },

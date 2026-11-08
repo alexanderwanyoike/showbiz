@@ -356,13 +356,22 @@ export function createBibleCommands(db: DatabaseSync, mediaDir: string) {
     isPrimary: boolean
   ): BibleAssetVariant {
     const assetRow = db
-      .prepare("SELECT asset_id FROM bible_asset_variants WHERE id = ?")
-      .get(id) as { asset_id: string } | undefined;
+      .prepare("SELECT asset_id, is_primary FROM bible_asset_variants WHERE id = ?")
+      .get(id) as { asset_id: string; is_primary: number } | undefined;
     if (!assetRow) {
       // Deliberate deviation: Rust surfaces rusqlite's incidental
       // "Query returned no rows" here; no caller matches on the text.
       throw new Error("Bible asset variant not found");
     }
+
+    if (!["candidate", "approved", "rejected"].includes(status))
+      throw new Error("Choose a valid picture status");
+    if (status === "rejected" && isPrimary)
+      throw new Error("A rejected picture cannot be the current picture");
+    if (status === "rejected" && assetRow.is_primary === 1)
+      throw new Error(
+        "Make another picture current before rejecting the current picture",
+      );
 
     if (isPrimary) {
       db.prepare(
