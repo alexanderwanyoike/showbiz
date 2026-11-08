@@ -73,8 +73,11 @@ export function createMcpSession(
     const parsed = definition.schema.safeParse(request.data.args);
     if (!parsed.success) return failure("INVALID_INPUT", parsed.error.message);
     const args = parsed.data as Record<string, unknown>;
+    // Paid generation tools carry a request ID that the device job ledger guards across restarts.
     const requestId =
-      typeof args.request_id === "string" ? args.request_id : undefined;
+      definition.mutates && typeof args.request_id === "string"
+        ? args.request_id
+        : undefined;
     const fingerprint = createHash("sha256")
       .update(JSON.stringify(request.data))
       .digest("hex");
