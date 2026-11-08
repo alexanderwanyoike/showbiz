@@ -3,7 +3,7 @@ import { openTestDb } from "../../../electron/db.test";
 import { createTestDataCommands } from "../../../electron/test-support/data-commands";
 import { createGenerationPricingCommands } from "../../../electron/commands/generation-pricing";
 import { getGenerationEstimate } from "../generation-pricing";
-import { planAgentQuote } from "./plan-quote";
+import { planAgentQuote, resolveAgentTarget } from "./plan-quote";
 import { IMAGE_GENERATION_REQUEST } from "../../../shared/generation-cost";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -116,4 +116,21 @@ it("needs an open project", async () => {
     ok: false,
     error: { code: "UNAVAILABLE" },
   });
+});
+
+it("resolves what a quote targets without pricing it again", async () => {
+  const { film, asset } = project();
+  const resolved = await resolveAgentTarget(request({ asset_id: asset.id }));
+  expect(resolved).toEqual({
+    ok: true,
+    value: {
+      model_id: "local-image",
+      provider: "local",
+      cost_request: IMAGE_GENERATION_REQUEST,
+      subject: { project_id: film.id, subject_id: asset.id },
+    },
+  });
+  expect(native.invoke.mock.calls.map(([command]) => command)).not.toContain(
+    "get_generation_price",
+  );
 });

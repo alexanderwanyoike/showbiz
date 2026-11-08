@@ -276,3 +276,144 @@ it("keeps the hold of a failed job when its usage record cannot be checked", asy
   });
   expect(budget.get_agent_budget()).toMatchObject({ ok: true, value: { remaining_microusd: 75_000 } });
 });
+
+describe("agent job money safety", () => {
+  function deferred() {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    return { gate, release };
+  }
+
+  it("returns the same job to a retry that arrives while the first submit is still checking", async () => {
+    const { jobs, quote, resolve, start } = setup();
+    const quoteId = await quote();
+    const slow = deferred();
+    resolve.mockImplementationOnce(async () => {
+      await slow.gate;
+      return { ok: true as const, value: plan };
+    });
+    const first = jobs.submit_generation({ quote_id: quoteId, request_id: "r1" });
+    const retry = jobs.submit_generation({ quote_id: quoteId, request_id: "r1" });
+    slow.release();
+    const [a, b] = await Promise.all([first, retry]);
+    expect(a).toMatchObject({ ok: true });
+    expect(b).toEqual(a);
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets only one of two simultaneous submits through", async () => {
+    const { jobs, quote, start } = setup();
+    const [q1, q2] = [await quote(), await quote()];
+    const results = await Promise.all([
+      jobs.submit_generation({ quote_id: q1, request_id: "r1" }),
+      jobs.submit_generation({ quote_id: q2, request_id: "r2" }),
+    ]);
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.find((result) => !result.ok)).toMatchObject({
+      error: { code: "JOB_LIMIT" },
+    });
+    expect(start).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses to reuse a quote that already backed a job", async () => {
+    const { jobs, quote, ledger } = setup();
+    const quoteId = await quote();
+    const first = await jobs.submit_generation({ quote_id: quoteId, request_id: "r1" });
+    if (!first.ok) throw new Error("expected job");
+    ledger.update(first.value.job_id, { status: "completed", provider_called: true });
+    expect(
+      await jobs.submit_generation({ quote_id: quoteId, request_id: "r2" }),
+    ).toMatchObject({ ok: false, error: { code: "QUOTE_NOT_FOUND" } });
+  });
+
+  it("checks the per-request cap and a frozen budget at submit too", async () => {
+    const capped = setup({ cap: 30_000 });
+    const quoteId = await capped.quote();
+    const granted = capped.budget.get_agent_budget();
+    if (!granted.ok) throw new Error("expected budget");
+    capped.budget.grant_agent_budget({ max_microusd: 100_000, per_request_cap_microusd: 20_000, duration_minutes: 60 });
+    expect(
+      await capped.jobs.submit_generation({ quote_id: quoteId, request_id: "r1" }),
+    ).toMatchObject({ ok: false, error: { code: "OVER_REQUEST_CAP" } });
+
+    const frozen = setup();
+    const first = await frozen.jobs.submit_generation({ quote_id: await frozen.quote(), request_id: "r1" });
+    if (!first.ok) throw new Error("expected job");
+    const next = await frozen.quote();
+    frozen.ledger.update(first.value.job_id, { status: "completed", provider_called: true, reported_microusd: 30_000 });
+    expect(
+      await frozen.jobs.submit_generation({ quote_id: next, request_id: "r2" }),
+    ).toMatchObject({ ok: false, error: { code: "NO_BUDGET" } });
+  });
+
+  it("freezes the budget when a charge confirmed after completion exceeds the hold", async () => {
+    const { jobs, quote, usage, budget } = setup();
+    const first = await jobs.submit_generation({ quote_id: await quote(), request_id: "r1" });
+    if (!first.ok) throw new Error("expected job");
+    usage.mockResolvedValue({ reported_microusd: null });
+    await jobs.report({ job_id: first.value.job_id, status: "completed", result: { variant_id: "v1" }, warnings: [] });
+    const next = await quote();
+    usage.mockResolvedValue({ reported_microusd: 31_000 });
+    expect(
+      await jobs.submit_generation({ quote_id: next, request_id: "r2" }),
+    ).toMatchObject({ ok: false, error: { code: "NO_BUDGET" } });
+    await jobs.settle();
+    expect(budget.get_agent_budget()).toMatchObject({
+      ok: true,
+      value: { committed_microusd: 31_000, frozen: true },
+    });
+  });
+
+  it("keeps the hold and the job open when the window did not answer a start in time", async () => {
+    const { jobs, quote, start, budget } = setup();
+    start.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "NO_ANSWER", message: "Showbiz did not answer in time." },
+    } as never);
+    const submitted = await jobs.submit_generation({ quote_id: await quote(), request_id: "r1" });
+    expect(submitted).toMatchObject({
+      ok: true,
+      value: { status: "accepted", provider_called: null },
+    });
+    expect(budget.get_agent_budget()).toMatchObject({ ok: true, value: { remaining_microusd: 75_000 } });
+    expect(
+      await jobs.submit_generation({ quote_id: await quote(), request_id: "r2" }),
+    ).toMatchObject({ ok: false, error: { code: "JOB_LIMIT" } });
+  });
+
+  it("ignores reports for finished jobs, but accepts the outcome of an interrupted one", async () => {
+    const { jobs, quote, ledger } = setup();
+    const first = await jobs.submit_generation({ quote_id: await quote(), request_id: "r1" });
+    if (!first.ok) throw new Error("expected job");
+    const id = first.value.job_id;
+    await jobs.report({ job_id: id, status: "failed", error: "Provider error" });
+    await jobs.report({ job_id: id, status: "running" });
+    expect(ledger.get(id)?.status).toBe("failed");
+    ledger.update(id, { status: "interrupted" });
+    await jobs.report({ job_id: id, status: "running" });
+    expect(ledger.get(id)?.status).toBe("interrupted");
+    await jobs.report({ job_id: id, status: "completed", result: { variant_id: "v1" }, warnings: [] });
+    expect(ledger.get(id)).toMatchObject({ status: "completed", provider_called: true });
+  });
+
+  it("interrupts unfinished jobs when the app window goes away, keeping their holds", async () => {
+    const { jobs, quote, budget, ledger } = setup();
+    const first = await jobs.submit_generation({ quote_id: await quote(), request_id: "r1" });
+    if (!first.ok) throw new Error("expected job");
+    jobs.interruptUnfinished();
+    expect(ledger.get(first.value.job_id)?.status).toBe("interrupted");
+    expect(budget.get_agent_budget()).toMatchObject({ ok: true, value: { remaining_microusd: 75_000 } });
+  });
+
+  it("says whether a job's amount is confirmed, still an estimate, or released", async () => {
+    const { jobs, quote, ledger } = setup();
+    const first = await jobs.submit_generation({ quote_id: await quote(), request_id: "r1" });
+    if (!first.ok) throw new Error("expected job");
+    const id = first.value.job_id;
+    expect(first.value.charge_status).toBe("estimated");
+    ledger.update(id, { status: "failed", provider_called: false });
+    expect(await jobs.get_generation_job({ job_id: id })).toMatchObject({ ok: true, value: { charge_status: "released" } });
+    ledger.update(id, { status: "completed", provider_called: true, reported_microusd: 20_000 });
+    expect(await jobs.get_generation_job({ job_id: id })).toMatchObject({ ok: true, value: { charge_status: "confirmed" } });
+  });
+});

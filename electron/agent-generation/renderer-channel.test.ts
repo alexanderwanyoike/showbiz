@@ -55,7 +55,7 @@ describe("renderer agent channel", () => {
       const channel = createRendererChannel({ target: () => app.target, timeoutMs: 1000 });
       const answer = channel.request("plan_quote", {});
       await vi.advanceTimersByTimeAsync(1000);
-      expect(await answer).toMatchObject({ ok: false, error: { code: "UNAVAILABLE" } });
+      expect(await answer).toMatchObject({ ok: false, error: { code: "NO_ANSWER" } });
       channel.respond(7, app.sent[0].payload.request_id, { ok: true, value: "late" });
     } finally {
       vi.useRealTimers();
@@ -87,6 +87,6 @@ describe("renderer agent channel", () => {
     const answer = channel.request("plan_quote", {});
     channel.abandon(8);
     channel.abandon(7);
-    expect(await answer).toMatchObject({ ok: false, error: { code: "UNAVAILABLE" } });
+    expect(await answer).toMatchObject({ ok: false, error: { code: "NO_ANSWER" } });
   });
 });
