@@ -3,6 +3,7 @@ import { frameAssetInput } from "../../shared/bible-frame";
 import {
   MAX_REFERENCE_PICTURES,
   mediaPreviewRequestSchema,
+  setShotFrameRequestSchema,
 } from "../../shared/agent-generation";
 
 const id = z.string().min(1).max(200);
@@ -394,6 +395,23 @@ export const mcpTools: ToolDefinition[] = [
     schema: mediaPreviewRequestSchema,
     requestTimeoutMs: 30000,
     args: (input: Record<string, unknown>) => ({ ...input }),
+  },
+  {
+    ...define(
+      "set_shot_frame",
+      {},
+      "Use a Bible frame take as a shot's start frame (a new take) or end frame, as the storyboard's frame picker does. Free; uses the normal revision and replay safeguards.",
+      true,
+    ),
+    schema: setShotFrameRequestSchema.extend({
+      expected_revision: z.number().int().nonnegative(),
+      request_id: id,
+    }),
+    args: (input: Record<string, unknown>) => ({
+      shot_id: input.shot_id,
+      role: input.role,
+      bible_variant_id: input.bible_variant_id,
+    }),
   },
   define(
     "get_image_versions",

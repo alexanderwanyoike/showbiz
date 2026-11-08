@@ -214,3 +214,10 @@ export const mediaPreviewSchema = z.strictObject({
     .max(3),
 });
 export type MediaPreview = z.infer<typeof mediaPreviewSchema>;
+
+export const setShotFrameRequestSchema = z.strictObject({
+  shot_id: id,
+  role: z.enum(["start", "end"]),
+  bible_variant_id: id,
+});
+export type SetShotFrameRequest = z.infer<typeof setShotFrameRequestSchema>;

@@ -31,8 +31,8 @@ function project() {
       assetId,
       input: { name: "take", image_base64: PNG, source_kind: "generated", status: "approved", is_primary: true },
     }) as { id: string };
-  const frameTake = picture(entry("reference"));
-  const characterTake = picture(entry("character"));
+  const frameTake = picture(entry("reference").id);
+  const characterTake = picture(entry("character").id);
   const board = commands.create_storyboard({ projectId: film.id, name: "Opening" }) as { id: string };
   const shot = commands.create_shot({ storyboardId: board.id }) as { id: string };
   const first = commands.create_generation_version({ shotId: shot.id, prompt: "First", imageBase64: PNG, parentVersionId: null }) as { id: string };
