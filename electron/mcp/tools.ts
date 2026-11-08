@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { frameAssetInput } from "../../shared/bible-frame";
+import { shotVideoSettingsSchema } from "../../shared/shot-video-settings";
 import {
   MAX_REFERENCE_PICTURES,
   mediaPreviewRequestSchema,
@@ -418,24 +419,29 @@ export const mcpTools: ToolDefinition[] = [
   {
     ...define(
       "set_shot_video_settings",
-      {
-        shot_id: id,
-        model_id: id,
-        settings: z.strictObject({
-          duration: z.string().min(1).max(16),
-          resolution: z.string().min(1).max(32).optional(),
-          aspect_ratio: z.string().min(1).max(32).optional(),
-          audio: z.boolean().optional(),
-        }),
-      },
-      "Save a shot's video settings (duration such as 8s or auto, resolution, aspect_ratio, audio) for its video model, as the shot's video settings panel does. Settings the model cannot use fall back to its defaults; quote_generation shows what will be used.",
+      {},
+      "Save a shot's video settings (duration such as 8s or auto, resolution, aspect_ratio, audio) for an installed video model, as the shot's video settings panel does. Settings the model cannot use fall back to its defaults; quote_generation shows what will be used.",
       true,
     ),
+    schema: shotVideoSettingsSchema.extend({
+      shot_id: id,
+      expected_revision: z.number().int().nonnegative(),
+      request_id: id,
+    }),
     args: (input: Record<string, unknown>) => ({
       shot_id: input.shot_id,
       model_id: input.model_id,
       settings: input.settings,
     }),
+    check: async (read, args) => {
+      const catalog = z
+        .object({ ok: z.literal(true), value: z.array(z.object({ id: z.string(), kind: z.string() })) })
+        .safeParse(await read("get_generation_models", {}));
+      return catalog.success &&
+        catalog.data.value.some((model) => model.id === args.model_id && model.kind === "video")
+        ? null
+        : "Choose an installed video model.";
+    },
   },
   define(
     "get_image_versions",
