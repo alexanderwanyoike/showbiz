@@ -160,7 +160,7 @@ export interface AgentJob {
   /** null until the app knows whether a provider request was sent. */
   provider_called: boolean | null;
   status: AgentJobStatus;
-  /** confirmed once the provider reports a charge; released only if the provider was never called; unknown when no estimate exists yet. */
+  /** confirmed once the provider reports a charge; released only if the provider was never called; unknown when the price was unknown and no charge is confirmed. */
   charge_status: "confirmed" | "estimated" | "unknown" | "released";
   /** The new Bible take (variant_id), shot image take (take_id) or video take (video_take_id). */
   result: AgentJobResult | null;
