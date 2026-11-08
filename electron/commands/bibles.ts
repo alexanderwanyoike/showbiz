@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
+import { isBibleVariantStatus } from "../../shared/bible-variant-status";
 import { generateId } from "../db";
 import {
   saveBibleImage,
@@ -364,7 +365,7 @@ export function createBibleCommands(db: DatabaseSync, mediaDir: string) {
       throw new Error("Bible asset variant not found");
     }
 
-    if (!["candidate", "approved", "rejected"].includes(status))
+    if (!isBibleVariantStatus(status))
       throw new Error("Choose a valid picture status");
     if (status === "rejected" && isPrimary)
       throw new Error("A rejected picture cannot be the current picture");
@@ -379,8 +380,9 @@ export function createBibleCommands(db: DatabaseSync, mediaDir: string) {
       ).run(assetRow.asset_id);
     }
 
+    // Only making a picture current changes which picture is current, so an entry never loses it by approval.
     db.prepare(
-      "UPDATE bible_asset_variants SET status = ?, is_primary = ? WHERE id = ?"
+      "UPDATE bible_asset_variants SET status = ?, is_primary = CASE WHEN ? THEN 1 ELSE is_primary END WHERE id = ?"
     ).run(status, isPrimary ? 1 : 0, id);
 
     return getVariantById(id);
