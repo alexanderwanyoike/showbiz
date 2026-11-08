@@ -85,7 +85,8 @@ import {
 } from "../lib/models";
 import { blobToBase64, type VideoGenerationSettings } from "../lib/models/types";
 import { chooseVideoGenerationMode } from "../lib/generation/video-modes";
-import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
+import type { FrameOption } from "../components/ShotInspector";
+import type { ShotFrameRole } from "../../shared/shot-frames";
 import { buildFrameOptions } from "../lib/bible-compose";
 import { imageCostRequest } from "../../shared/generation-cost";
 import { editShotStartFrame, generateShotStartFrame, saveShotFrame } from "../lib/shot-frames";

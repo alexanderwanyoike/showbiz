@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SHOT_FRAME_ROLES } from "./shot-frames";
 import {
   generationCostRequestSchema,
   generationPriceSchema,
@@ -240,7 +241,7 @@ export type MediaPreview = z.infer<typeof mediaPreviewSchema>;
 
 export const setShotFrameRequestSchema = z.strictObject({
   shot_id: id,
-  role: z.enum(["start", "end"]),
+  role: z.enum(SHOT_FRAME_ROLES),
   bible_variant_id: id,
 });
 export type SetShotFrameRequest = z.infer<typeof setShotFrameRequestSchema>;
