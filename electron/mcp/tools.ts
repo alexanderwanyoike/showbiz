@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { frameAssetInput } from "../../shared/bible-frame";
 import {
   MAX_REFERENCE_PICTURES,
   mediaPreviewRequestSchema,
@@ -350,20 +351,12 @@ export const mcpTools: ToolDefinition[] = [
     command: "create_bible_asset",
     args: (input: Record<string, unknown>) => ({
       bibleId: input.bible_id,
-      input: {
-        asset_type: "reference",
-        name: String(input.prompt).slice(0, 50) || "Frame",
-        summary: null,
-        description: null,
-        tags_json: null,
-        rules_json: JSON.stringify({
-          characters: [...new Set(z.array(z.string()).parse(input.character_ids))],
-          location: input.location_id,
-          locationVariantId: input.location_variant_id,
-          prompt: input.prompt,
-        }),
-        consent_confirmed: false,
-      },
+      input: frameAssetInput({
+        characters: [...new Set(z.array(z.string()).parse(input.character_ids))],
+        location: z.string().nullable().parse(input.location_id),
+        locationVariantId: z.string().nullable().parse(input.location_variant_id),
+        prompt: z.string().parse(input.prompt),
+      }),
     }),
     check: checkFrameReferences,
   },
