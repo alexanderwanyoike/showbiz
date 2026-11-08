@@ -56,7 +56,7 @@ export async function generateAndSaveVideoRequestAction(
   modelId: VideoModelId,
   request: VideoGenerationRequest,
   agent?: AgentAccounting,
-): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
+): Promise<{ success: boolean; videoUrl: string | null; versionId?: string; error?: string }> {
   const model = getVideoModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
   if (!credential.ok)
@@ -67,8 +67,11 @@ export async function generateAndSaveVideoRequestAction(
     if (request.mode === "image-to-video") {
       effectiveRequest = {
         ...request,
-        startImage: request.startImage ?? (await getShotImageBase64(shotId)),
-        endImage: request.endImage ?? (await getShotEndFrameBase64(shotId)),
+        // Only frames the caller left undecided are loaded; null means the request does without.
+        startImage:
+          request.startImage === undefined ? await getShotImageBase64(shotId) : request.startImage,
+        endImage:
+          request.endImage === undefined ? await getShotEndFrameBase64(shotId) : request.endImage,
       };
     }
     const operation = await accountModelGeneration(
@@ -111,7 +114,7 @@ export async function generateAndSaveVideoRequestAction(
           modelId,
           currentVersion?.id ?? null,
         );
-        return { success: true, videoUrl: result.video_url };
+        return { success: true, videoUrl: result.video_url, versionId: result.id };
       },
       agent,
     );
