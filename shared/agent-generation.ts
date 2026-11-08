@@ -105,3 +105,32 @@ export interface AgentRequest {
   operation: string;
   input: unknown;
 }
+
+export type AgentJobStatus =
+  | "accepted"
+  | "running"
+  | "completed"
+  | "failed"
+  | "interrupted";
+
+export interface AgentJob {
+  job_id: string;
+  request_id: string;
+  quote_id: string;
+  grant_id: string;
+  project_id: string;
+  subject_id: string;
+  usage_request_id: string;
+  model_id: string;
+  kind: string;
+  reserved_microusd: number;
+  reported_microusd: number | null;
+  /** null until the app knows whether a provider request was sent. */
+  provider_called: boolean | null;
+  status: AgentJobStatus;
+  result: { variant_id?: string } | null;
+  error: string | null;
+  warnings: string[];
+  created_at: string;
+  updated_at: string;
+}
