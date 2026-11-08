@@ -61,8 +61,9 @@ export const extractVideoFrames: ExtractFrames = async (mediaPath, count) => {
   video.muted = true;
   video.preload = "auto";
   try {
+    const source = (await electronMediaUrlResolver.resolve(mediaPath)) ?? "";
     const loaded = waitFor(video, "loadeddata");
-    video.src = (await electronMediaUrlResolver.resolve(mediaPath)) ?? "";
+    video.src = source;
     await loaded;
     // Streams without a known length still give their first frame.
     const frames = Number.isFinite(video.duration) ? count : 1;
