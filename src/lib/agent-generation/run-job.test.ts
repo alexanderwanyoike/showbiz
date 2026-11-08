@@ -92,6 +92,7 @@ it("generates a Bible picture where the app puts it, with the agent's usage reco
   const report = vi.fn(async () => undefined);
   await runAgentJob(job, report);
   expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).not.toHaveProperty("aspect_ratio");
   const variants = commands.get_bible_asset_variants({ assetId: asset.id }) as {
     id: string;
     is_primary: boolean;
@@ -209,6 +210,29 @@ it("fails a retake job instead of composing from fewer pictures than were quoted
   expect(commands.get_bible_asset_variants({ assetId: asset.id })).toEqual([]);
 });
 
+it("composes a frame in the shape its plan asks for", async () => {
+  const { commands, asset, job } = project("fixture-key");
+  const character = commands.create_bible_asset_variant({
+    assetId: asset.id,
+    input: { name: "sock", image_base64: `data:image/png;base64,${PNG}`, source_kind: "generated", status: "approved", prompt: "sock", is_primary: true },
+  }) as { id: string };
+  const report = vi.fn(async () => undefined);
+  await runAgentJob(
+    {
+      ...job,
+      request: { target: "bible_asset", operation: "retake", asset_id: asset.id, model_id: "seedream-4.5-openrouter" },
+      plan: {
+        ...job.plan,
+        cost_request: { kind: "image_compose", count: 1 },
+        inputs: { prompt: "Sock at the desk", reference_variant_ids: [character.id], aspect_ratio: "16:9" },
+      },
+    },
+    report,
+  );
+  expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ status: "completed" }));
+  expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toMatchObject({ aspect_ratio: "16:9", input_references: [{ type: "image_url" }] });
+});
+
 it("edits the source picture frozen in the quote", async () => {
   const { commands, asset, job } = project("fixture-key");
   const take = (prompt: string) =>
@@ -258,6 +282,7 @@ it.each(["generate", "edit"] as const)("runs a shot start frame %s job as a new 
     },
     report,
   );
+  expect(JSON.parse(mocks.fetch.mock.calls[0][1].body)).toMatchObject({ aspect_ratio: "16:9" });
   const versions = commands.get_image_versions({ shotId: shot.id }) as { version: { id: string; is_current: boolean; parent_version_id: string | null } ; children: { version: { id: string; is_current: boolean; parent_version_id: string | null } }[] }[];
   const all = versions.flatMap((node) => [node.version, ...node.children.map((child) => child.version)]);
   const current = all.find((version) => version.is_current);

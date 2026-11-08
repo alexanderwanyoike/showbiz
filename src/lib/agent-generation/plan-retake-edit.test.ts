@@ -91,7 +91,7 @@ it("composes a frame from its recipe's characters and location view", async () =
     ok: true,
     value: {
       cost_request: imageCostRequest("image_compose"),
-      inputs: { prompt: "Sock asleep at the desk", reference_variant_ids: [sockPicture.id, officePicture.id] },
+      inputs: { prompt: "Sock asleep at the desk", reference_variant_ids: [sockPicture.id, officePicture.id], aspect_ratio: "16:9" },
     },
   });
 });
