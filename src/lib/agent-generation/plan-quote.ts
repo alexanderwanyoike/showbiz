@@ -63,6 +63,7 @@ async function videoFrames(
 ) {
   const start = plan.mode === "image-to-video" ? await getCurrentImageVersion(shotId) : null;
   const end = plan.usesEndFrame ? await getShotEndFrameBase64(shotId) : null;
+  if (plan.usesEndFrame && !end) return null;
   return {
     mode: plan.mode,
     settings: plan.settings,
@@ -105,6 +106,8 @@ async function resolveVideoTarget(
   } catch (cause) {
     return agentFailure("INVALID_INPUT", cause instanceof Error ? cause.message : String(cause));
   }
+  const frames = await videoFrames(shot.id, plan);
+  if (!frames) return agentFailure("NOT_FOUND", "The shot's end frame could not be read.");
   return {
     ok: true,
     value: {
@@ -115,7 +118,7 @@ async function resolveVideoTarget(
       inputs: {
         prompt,
         reference_variant_ids: [],
-        video: await videoFrames(shot.id, plan),
+        video: frames,
       },
     },
   };
