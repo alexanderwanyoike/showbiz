@@ -69,4 +69,15 @@ describe("renderer agent channel", () => {
     channel.respond(7, app.sent[0].payload.request_id, { value: 1 });
     expect(await answer).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
   });
+
+  it("rejects error codes the agent contract does not define", async () => {
+    const app = window();
+    const channel = createRendererChannel({ target: () => app.target });
+    const answer = channel.request("plan_quote", {});
+    channel.respond(7, app.sent[0].payload.request_id, {
+      ok: false,
+      error: { code: "ROOT_ACCESS", message: "nope" },
+    });
+    expect(await answer).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+  });
 });

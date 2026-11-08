@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { AgentBudget, AgentBudgetResult } from "../../shared/agent-budget";
 import {
+  agentFailure,
+  agentQuotePlanSchema,
   agentQuoteRequestSchema,
   type AgentQuote,
   type AgentQuotePlan,
@@ -21,11 +23,6 @@ export interface StoredQuote {
   expires_at: number;
 }
 
-const failure = (
-  code: Extract<AgentResult<never>, { ok: false }>["error"]["code"],
-  message: string,
-): AgentResult<never> => ({ ok: false, error: { code, message } });
-
 /** Fingerprints what a quote priced, so a later submit can detect drift. */
 export function quoteFingerprint(
   request: AgentQuoteRequest,
@@ -33,18 +30,53 @@ export function quoteFingerprint(
 ): string {
   return createHash("sha256")
     .update(
-      JSON.stringify([
-        request,
-        plan.model_id,
-        plan.cost_request,
-        plan.subject,
-      ]),
+      JSON.stringify([request, plan.model_id, plan.cost_request, plan.subject]),
     )
     .digest("hex");
 }
 
+function readPlan(
+  request: AgentQuoteRequest,
+  answer: unknown,
+): AgentResult<AgentQuotePlan> {
+  const parsed = agentQuotePlanSchema.safeParse(answer);
+  if (
+    !parsed.success ||
+    parsed.data.model_id !== request.model_id ||
+    parsed.data.cost_request.kind !== "image" ||
+    parsed.data.subject.subject_id !== request.asset_id
+  )
+    return agentFailure("IO_ERROR", "Showbiz returned an inconsistent price plan.");
+  return { ok: true, value: parsed.data };
+}
+
+function withinBudget(
+  budget: AgentBudgetResult<AgentBudget>,
+  modelId: string,
+  maxMicrousd: number | null,
+): AgentResult<AgentBudget> {
+  if (!budget.ok) return budget;
+  const { grant, remaining_microusd } = budget.value;
+  if (grant.allowed_models && !grant.allowed_models.includes(modelId))
+    return agentFailure(
+      "MODEL_NOT_ALLOWED",
+      `The agent budget does not allow ${modelId}. Allowed models: ${grant.allowed_models.join(", ")}.`,
+    );
+  if (maxMicrousd !== null && maxMicrousd > grant.per_request_cap_microusd)
+    return agentFailure(
+      "OVER_REQUEST_CAP",
+      `Up to ${formatMicrousd(maxMicrousd)} exceeds the ${formatMicrousd(grant.per_request_cap_microusd)} per-request limit.`,
+    );
+  if (maxMicrousd !== null && maxMicrousd > remaining_microusd)
+    return agentFailure(
+      "OVER_BUDGET",
+      `Up to ${formatMicrousd(maxMicrousd)} exceeds the ${formatMicrousd(remaining_microusd)} left in the agent budget.`,
+    );
+  return budget;
+}
+
 export function createAgentQuotes(options: {
-  plan: (request: AgentQuoteRequest) => Promise<AgentResult<AgentQuotePlan>>;
+  plan: (request: AgentQuoteRequest) => Promise<AgentResult<unknown>>;
   budget: () => Promise<AgentBudgetResult<AgentBudget>>;
   now?: () => number;
 }) {
@@ -60,49 +92,38 @@ export function createAgentQuotes(options: {
     ): Promise<AgentResult<AgentQuote>> {
       const parsed = agentQuoteRequestSchema.safeParse(args ?? {});
       if (!parsed.success)
-        return failure(
+        return agentFailure(
           "INVALID_INPUT",
           parsed.error.issues[0]?.message ?? "Invalid quote request.",
         );
-      const budget = await options.budget();
-      if (!budget.ok) return budget;
-      const { grant } = budget.value;
-      if (grant.allowed_models && !grant.allowed_models.includes(parsed.data.model_id))
-        return failure(
-          "MODEL_NOT_ALLOWED",
-          `The agent budget does not allow ${parsed.data.model_id}. Allowed models: ${grant.allowed_models.join(", ")}.`,
-        );
-      const planned = await options.plan(parsed.data);
+      const request = parsed.data;
+      const early = withinBudget(await options.budget(), request.model_id, null);
+      if (!early.ok) return early;
+      const answer = await options.plan(request);
+      if (!answer.ok) return answer;
+      const planned = readPlan(request, answer.value);
       if (!planned.ok) return planned;
       const { estimate } = planned.value;
       if (estimate.kind !== "estimate")
-        return failure(
+        return agentFailure(
           "PRICE_UNKNOWN",
           `${estimate.reason} Paid generation needs a known price.`,
         );
-      if (grant.allowed_models && !grant.allowed_models.includes(planned.value.model_id))
-        return failure(
-          "MODEL_NOT_ALLOWED",
-          `The agent budget does not allow ${planned.value.model_id}.`,
-        );
-      if (estimate.max_microusd > grant.per_request_cap_microusd)
-        return failure(
-          "OVER_REQUEST_CAP",
-          `Up to ${formatMicrousd(estimate.max_microusd)} exceeds the ${formatMicrousd(grant.per_request_cap_microusd)} per-request limit.`,
-        );
-      if (estimate.max_microusd > budget.value.remaining_microusd)
-        return failure(
-          "OVER_BUDGET",
-          `Up to ${formatMicrousd(estimate.max_microusd)} exceeds the ${formatMicrousd(budget.value.remaining_microusd)} left in the agent budget.`,
-        );
+      // Pricing can take a while, so the grant is read again before it is quoted against.
+      const budget = withinBudget(
+        await options.budget(),
+        request.model_id,
+        estimate.max_microusd,
+      );
+      if (!budget.ok) return budget;
       prune();
       const quote: StoredQuote = {
         quote_id: randomUUID(),
-        request: parsed.data,
+        request,
         plan: planned.value,
-        grant_id: grant.id,
+        grant_id: budget.value.grant.id,
         max_microusd: estimate.max_microusd,
-        fingerprint: quoteFingerprint(parsed.data, planned.value),
+        fingerprint: quoteFingerprint(request, planned.value),
         expires_at: now() + QUOTE_TTL_MS,
       };
       quotes.set(quote.quote_id, quote);
@@ -119,7 +140,10 @@ export function createAgentQuotes(options: {
           price_source: estimate.price.source_url,
           price_checked_at: estimate.price.checked_at,
           price_freshness: estimate.price_freshness ?? null,
+          price_stale: estimate.stale,
+          price_basis: estimate.price,
           excludes_input_cost: estimate.excludes_input_cost,
+          fingerprint: quote.fingerprint,
           budget_remaining_microusd: budget.value.remaining_microusd,
         },
       };
@@ -128,13 +152,13 @@ export function createAgentQuotes(options: {
     take(quoteId: string): AgentResult<StoredQuote> {
       const quote = quotes.get(quoteId);
       if (!quote)
-        return failure(
+        return agentFailure(
           "QUOTE_NOT_FOUND",
           "This quote is unknown or was already used. Request a new quote.",
         );
       quotes.delete(quoteId);
       if (quote.expires_at <= now())
-        return failure("QUOTE_EXPIRED", "This quote expired. Request a new quote.");
+        return agentFailure("QUOTE_EXPIRED", "This quote expired. Request a new quote.");
       return { ok: true, value: quote };
     },
   };

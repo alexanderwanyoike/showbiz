@@ -94,6 +94,21 @@ it("refuses unknown models and Bible entries outside the open project", async ()
   });
 });
 
+it("leaves composed frames to frame composition", async () => {
+  const { commands } = project();
+  const [bible] = commands.get_bibles({
+    projectId: (commands.get_projects() as { id: string }[])[0].id,
+  }) as { id: string }[];
+  const frame = commands.create_bible_asset({
+    bibleId: bible.id,
+    input: { asset_type: "reference", name: "Office at night", consent_confirmed: false },
+  }) as { id: string };
+  expect(await planAgentQuote(request({ asset_id: frame.id }))).toMatchObject({
+    ok: false,
+    error: { code: "INVALID_INPUT" },
+  });
+});
+
 it("needs an open project", async () => {
   native.invoke.mockImplementation(async () => ({
     ok: true,

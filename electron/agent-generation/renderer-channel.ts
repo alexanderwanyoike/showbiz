@@ -1,8 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { AgentResult } from "../../shared/agent-generation";
-
-export const AGENT_REQUEST_CHANNEL = "showbiz:agent_request";
+import {
+  AGENT_REQUEST_CHANNEL,
+  agentFailure,
+  agentGenerationErrorCodes,
+  type AgentResult,
+} from "../../shared/agent-generation";
 
 export interface AgentWindow {
   id: number;
@@ -13,15 +16,14 @@ const answerSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(true), value: z.unknown() }),
   z.object({
     ok: z.literal(false),
-    error: z.object({ code: z.string(), message: z.string() }),
+    error: z.object({
+      code: z.enum(agentGenerationErrorCodes),
+      message: z.string(),
+    }),
   }),
 ]);
-const unavailable = (message: string): AgentResult<never> => ({
-  ok: false,
-  error: { code: "UNAVAILABLE", message },
-});
+const unavailable = (message: string) => agentFailure("UNAVAILABLE", message);
 
-/** Hands agent work to the app window, which owns pricing, providers and saving. */
 export function createRendererChannel(options: {
   target: () => AgentWindow | null;
   timeoutMs?: number;
@@ -31,7 +33,7 @@ export function createRendererChannel(options: {
     { owner: number; settle: (result: AgentResult<unknown>) => void }
   >();
   return {
-    request<T>(operation: string, input: unknown): Promise<AgentResult<T>> {
+    request(operation: string, input: unknown): Promise<AgentResult<unknown>> {
       const target = options.target();
       if (!target)
         return Promise.resolve(
@@ -48,12 +50,13 @@ export function createRendererChannel(options: {
           settle: (result) => {
             clearTimeout(timer);
             pending.delete(request_id);
-            resolve(result as AgentResult<T>);
+            resolve(result);
           },
         });
         try {
           target.send(AGENT_REQUEST_CHANNEL, { request_id, operation, input });
-        } catch {
+        } catch (cause) {
+          console.error("Could not send agent work to the window:", cause);
           pending.get(request_id)?.settle(
             unavailable("The Showbiz window is not responding."),
           );
@@ -66,14 +69,8 @@ export function createRendererChannel(options: {
       const parsed = answerSchema.safeParse(answer);
       entry.settle(
         parsed.success
-          ? (parsed.data as AgentResult<unknown>)
-          : {
-              ok: false,
-              error: {
-                code: "IO_ERROR",
-                message: "Showbiz returned an unreadable answer.",
-              },
-            },
+          ? parsed.data
+          : agentFailure("IO_ERROR", "Showbiz returned an unreadable answer."),
       );
     },
   };
