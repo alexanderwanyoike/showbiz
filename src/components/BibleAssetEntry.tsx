@@ -5,7 +5,10 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { imageCostRequest } from "../../shared/generation-cost";
+import {
+  imageCostRequest,
+  imageGenerationKind,
+} from "../../shared/generation-cost";
 import {
   ArrowLeft,
   ImageIcon,
@@ -305,11 +308,10 @@ export function BibleAssetEntry({
               <GenerationCost
                 modelId={generationContext.modelId}
                 request={imageCostRequest(
-                  mode === "edit"
-                    ? "image_edit"
-                    : usesReferenceImages
-                      ? "image_compose"
-                      : "image",
+                  imageGenerationKind({
+                    edit: mode === "edit",
+                    composes: usesReferenceImages,
+                  }),
                 )}
                 subject={{
                   project_id: generationContext.projectId,

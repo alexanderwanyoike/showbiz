@@ -12,7 +12,7 @@ async function createPicture({ request, plan, job_id, usage_request_id }: AgentJ
   const { inputs } = plan;
   if (request.operation === "edit") {
     const edited = await editBibleImage(
-      request.source_variant_id,
+      inputs.source_variant_id ?? request.source_variant_id,
       inputs.prompt,
       plan.model_id,
       plan.subject,

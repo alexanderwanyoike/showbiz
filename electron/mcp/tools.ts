@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { mediaPreviewRequestSchema } from "../../shared/agent-generation";
+import { frameAssetInput } from "../../shared/bible-frame";
+import {
+  MAX_REFERENCE_PICTURES,
+  mediaPreviewRequestSchema,
+} from "../../shared/agent-generation";
 
 const id = z.string().min(1).max(200);
 const name = z.string().trim().min(1).max(1000);
@@ -337,7 +341,7 @@ export const mcpTools: ToolDefinition[] = [
       {
         bible_id: id,
         prompt: z.string().trim().min(1).max(50000),
-        character_ids: z.array(id).max(20),
+        character_ids: z.array(id).max(MAX_REFERENCE_PICTURES - 1),
         location_id: id.nullable(),
         location_variant_id: id.nullable(),
       },
@@ -347,20 +351,12 @@ export const mcpTools: ToolDefinition[] = [
     command: "create_bible_asset",
     args: (input: Record<string, unknown>) => ({
       bibleId: input.bible_id,
-      input: {
-        asset_type: "reference",
-        name: String(input.prompt).slice(0, 50) || "Frame",
-        summary: null,
-        description: null,
-        tags_json: null,
-        rules_json: JSON.stringify({
-          characters: input.character_ids,
-          location: input.location_id,
-          locationVariantId: input.location_variant_id,
-          prompt: input.prompt,
-        }),
-        consent_confirmed: false,
-      },
+      input: frameAssetInput({
+        characters: [...new Set(z.array(z.string()).parse(input.character_ids))],
+        location: z.string().nullable().parse(input.location_id),
+        locationVariantId: z.string().nullable().parse(input.location_variant_id),
+        prompt: z.string().parse(input.prompt),
+      }),
     }),
     check: checkFrameReferences,
   },

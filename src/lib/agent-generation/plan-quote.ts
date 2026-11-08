@@ -6,10 +6,16 @@ import {
   type BibleAsset,
   type BibleAssetVariant,
 } from "../backend-api";
-import { assetBasePrompt, assetReferences } from "../bible-compose";
+import {
+  assetBasePrompt,
+  assetReferences,
+  parseRecipe,
+  primaryPicture,
+} from "../bible-compose";
 import { getGenerationEstimate } from "../generation-pricing";
 import { imageConfigs } from "../models/registry";
 import {
+  MAX_REFERENCE_PICTURES,
   agentFailure,
   type AgentQuotePlan,
   type AgentQuoteRequest,
@@ -18,6 +24,7 @@ import {
 } from "../../../shared/agent-generation";
 import {
   imageCostRequest,
+  imageGenerationKind,
   type ImageGenerationKind,
 } from "../../../shared/generation-cost";
 import type {
@@ -49,6 +56,19 @@ async function variantsOf(assets: BibleAsset[]) {
   const variants: Record<string, BibleAssetVariant[]> = {};
   for (const asset of assets) variants[asset.id] = await getBibleAssetVariants(asset.id);
   return variants;
+}
+
+/** Frame characters and locations the app would silently leave out of a composition for lack of a picture. */
+function unpicturedReferences(
+  asset: BibleAsset,
+  assets: BibleAsset[],
+  variants: Record<string, BibleAssetVariant[]>,
+): string[] {
+  if (asset.asset_type !== "reference") return [];
+  const recipe = parseRecipe(asset.rules_json);
+  return [...recipe.characters, ...(recipe.location ? [recipe.location] : [])]
+    .filter((id) => !primaryPicture(variants[id] ?? []))
+    .map((id) => assets.find((entry) => entry.id === id)?.name ?? "A referenced entry");
 }
 
 /** Resolves what a request targets: the model, cost request, prompt and pictures the app's own controls would use. */
@@ -103,13 +123,24 @@ export async function resolveAgentTarget(
   const prompt = (request.prompt ?? assetBasePrompt(asset, variants)).trim();
   if (!prompt)
     return agentFailure("INVALID_INPUT", "This entry has no prompt to retake; pass one.");
+  const missing = unpicturedReferences(asset, found.assets, variants);
+  if (missing.length)
+    return agentFailure(
+      "INVALID_INPUT",
+      `${missing.join(", ")} ${missing.length === 1 ? "has" : "have"} no picture yet. Give ${missing.length === 1 ? "it" : "them"} a picture before composing this frame.`,
+    );
   const references = assetReferences(asset, variants);
+  if (references.length > MAX_REFERENCE_PICTURES)
+    return agentFailure(
+      "INVALID_INPUT",
+      `A composition can use at most ${MAX_REFERENCE_PICTURES} pictures.`,
+    );
   if (references.length > 0 && !model.supportsComposition)
     return agentFailure(
       "INVALID_INPUT",
       `${model.name} cannot compose from reference pictures.`,
     );
-  return target(references.length > 0 ? "image_compose" : "image", {
+  return target(imageGenerationKind({ edit: false, composes: references.length > 0 }), {
     prompt,
     reference_variant_ids: references,
   });

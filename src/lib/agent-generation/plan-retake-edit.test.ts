@@ -127,3 +127,23 @@ it("edits one of the entry's own pictures with a model that can edit", async () 
     await resolveAgentTarget(ask({ operation: "edit", asset_id: sock.id, source_variant_id: sockPicture.id, prompt: "x", model_id: "local-image" })),
   ).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
 });
+
+it("refuses a frame whose characters have no picture yet instead of dropping them", async () => {
+  const { bare, office, officePicture } = bible();
+  const frame = await (async () => {
+    const commands = native.invoke;
+    return commands("create_bible_asset", {
+      bibleId: ((await commands("get_bibles", { projectId: (await commands("get_project_document_state")).value.current.project_id })) as { id: string }[])[0].id,
+      input: {
+        asset_type: "reference",
+        name: "Hat on desk",
+        rules_json: JSON.stringify({ characters: [bare.id], location: office.id, locationVariantId: officePicture.id, prompt: "Hat on the desk" }),
+        consent_confirmed: false,
+      },
+    }) as Promise<{ id: string }>;
+  })();
+  expect(await resolveAgentTarget(ask({ operation: "retake", asset_id: frame.id }))).toMatchObject({
+    ok: false,
+    error: { code: "INVALID_INPUT", message: expect.stringContaining("Hat") as string },
+  });
+});

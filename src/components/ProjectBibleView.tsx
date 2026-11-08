@@ -12,6 +12,7 @@ import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
 import { composeBibleImage, editBibleImage } from "../lib/bible-generation";
+import { frameAssetInput, frameName, frameRules } from "../../shared/bible-frame";
 import {
   addPrimaryBibleTake,
   prepareBibleImageDataUrl,
@@ -19,6 +20,7 @@ import {
 import {
   IMAGE_GENERATION_REQUEST,
   imageCostRequest,
+  imageGenerationKind,
 } from "../../shared/generation-cost";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Loader2, Upload, Sparkles, Plus, X, ImageIcon } from "lucide-react";
@@ -472,24 +474,16 @@ export default function ProjectBibleView({
         const pending = pendingAssets.current.get(draftKey);
         let asset = assets.find((entry) => entry.id === pending?.id);
         if (!asset || variants[asset.id]?.length) {
-          asset = await createBibleAsset(bibleId, {
-            asset_type: "reference",
-            name: recipe.prompt.slice(0, 50) || "Frame",
-            summary: null,
-            description: null,
-            tags_json: null,
-            rules_json: JSON.stringify(recipe),
-            consent_confirmed: false,
-          });
+          asset = await createBibleAsset(bibleId, frameAssetInput(recipe));
           const created = asset;
           setAssets((prev) => [created, ...prev]);
           setVariants((prev) => ({ ...prev, [created.id]: [] }));
           pendingAssets.current.set(draftKey, asset);
-        } else if (asset.rules_json !== JSON.stringify(recipe)) {
+        } else if (asset.rules_json !== frameRules(recipe)) {
           asset = await updateBibleAsset(asset.id, {
             ...asset,
-            name: recipe.prompt.slice(0, 50) || "Frame",
-            rules_json: JSON.stringify(recipe),
+            name: frameName(recipe),
+            rules_json: frameRules(recipe),
           });
           pendingAssets.current.set(draftKey, asset);
           const updated = asset;
@@ -1367,7 +1361,10 @@ function FramesTab({
             <GenerationCost
               modelId={generationContext.modelId}
               request={imageCostRequest(
-                selectedChars.size > 0 || locationId ? "image_compose" : "image",
+                imageGenerationKind({
+                  edit: false,
+                  composes: selectedChars.size > 0 || !!locationId,
+                }),
               )}
               subject={{ project_id: generationContext.projectId }}
             />

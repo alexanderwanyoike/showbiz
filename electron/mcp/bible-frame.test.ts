@@ -78,3 +78,37 @@ it("refuses references that are not this Bible's characters and locations", asyn
   expect(await attempt({ location_id: office.id, location_variant_id: "elsewhere" }, 3)).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
   expect(await attempt({ location_variant_id: view.id }, 4)).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
 });
+
+it("keeps frames within the reference limit and ignores repeated characters", async () => {
+  const { commands, bibleId, sock, session } = bible();
+  expect(
+    await session.call({
+      tool: "create_bible_frame",
+      args: {
+        bible_id: bibleId,
+        prompt: "Crowd",
+        character_ids: Array.from({ length: 10 }, (_, n) => `c${n}`),
+        location_id: null,
+        location_variant_id: null,
+        expected_revision: 0,
+        request_id: "crowd",
+      },
+    }),
+  ).toMatchObject({ ok: false, error: { code: "INVALID_INPUT" } });
+  await session.call({
+    tool: "create_bible_frame",
+    args: {
+      bible_id: bibleId,
+      prompt: "Twice",
+      character_ids: [sock.id, sock.id],
+      location_id: null,
+      location_variant_id: null,
+      expected_revision: 0,
+      request_id: "twice",
+    },
+  });
+  const frame = (commands.get_bible_assets({ bibleId }) as { name: string; rules_json: string }[]).find(
+    (asset) => asset.name === "Twice",
+  );
+  expect(JSON.parse(frame?.rules_json ?? "{}").characters).toEqual([sock.id]);
+});
