@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { openTestDb } from "../db.test";
+import path from "node:path";
 import { createAgentBudgetCommands } from "./agent-budget";
+import { createGenerationModelCommands } from "./generation-models";
+
+const catalog = createGenerationModelCommands(
+  path.resolve("src/lib/models/providers"),
+);
 
 const HOUR = 60 * 60 * 1000;
 
 function setup(start = Date.parse("2026-11-08T10:00:00.000Z")) {
   let now = start;
-  const commands = createAgentBudgetCommands(openTestDb(), () => now);
+  const commands = createAgentBudgetCommands(openTestDb(), {
+    now: () => now,
+    readModels: catalog.get_generation_models,
+  });
   return {
     commands,
     advance: (ms: number) => {
@@ -30,7 +39,7 @@ describe("agent budget grants", () => {
       max_microusd: 5_000_000,
       per_request_cap_microusd: 1_000_000,
       duration_minutes: 60,
-      allowed_models: ["flux-schnell-fal"],
+      allowed_models: ["flux-dev-fal"],
     });
     expect(granted).toMatchObject({ ok: true });
     expect(commands.get_agent_budget()).toEqual({
@@ -40,7 +49,7 @@ describe("agent budget grants", () => {
           id: expect.any(String) as string,
           max_microusd: 5_000_000,
           per_request_cap_microusd: 1_000_000,
-          allowed_models: ["flux-schnell-fal"],
+          allowed_models: ["flux-dev-fal"],
           granted_at: "2026-11-08T10:00:00.000Z",
           expires_at: "2026-11-08T11:00:00.000Z",
           revoked_at: null,
@@ -115,6 +124,13 @@ describe("agent budget grants", () => {
     ],
     [{ max_microusd: 1_000_000, duration_minutes: 60, allowed_models: [] }],
     [{ max_microusd: 1_000_000, duration_minutes: 60, allowed_models: [""] }],
+    [
+      {
+        max_microusd: 1_000_000,
+        duration_minutes: 60,
+        allowed_models: ["flux-dev-fal", "not-an-installed-model"],
+      },
+    ],
   ])("rejects an invalid grant %o", (input) => {
     const { commands } = setup();
     expect(commands.grant_agent_budget(input)).toMatchObject({
