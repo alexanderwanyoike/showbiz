@@ -1,10 +1,11 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { createAgentQuotes } from "../agent-generation/quotes";
 import { createMcpSession } from "./session";
 import { mcpTools } from "./tools";
 
 it("quotes a generation through MCP without changing project data", async () => {
   const quotes = createAgentQuotes({
+    resolve: vi.fn(),
     budget: async () => ({
       ok: true,
       value: {

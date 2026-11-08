@@ -50,9 +50,6 @@ import {
   getCurrentImageVersion,
   getVersionCount,
   switchToVersion,
-  createGenerationVersion,
-  createRemixVersion,
-  getVersionImageBase64,
   getVideoVersions,
   getCurrentVideoVersion,
   getVideoVersionCount,
@@ -62,7 +59,6 @@ import {
   getBibleAssetVariants,
   getBibleVariantImageBase64,
   getShotEndFrameBase64,
-  saveShotEndFrame,
   clearShotEndFrame,
   clearShotStartFrame,
 } from "../lib/backend-api";
@@ -77,8 +73,6 @@ import type {
   BibleAssetVariant,
 } from "../lib/backend-api";
 import {
-  generateImageAction,
-  editImageAction,
   generateVideoPromptFromImage,
   enhanceVideoPrompt,
   generateAndSaveVideoRequestAction,
@@ -93,8 +87,11 @@ import {
 import { blobToBase64, type VideoGenerationSettings } from "../lib/models/types";
 import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
 import type { VideoGenerationRequest } from "../lib/generation/types";
-import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
+import type { FrameOption } from "../components/ShotInspector";
+import type { ShotFrameRole } from "../../shared/shot-frames";
 import { buildFrameOptions } from "../lib/bible-compose";
+import { imageCostRequest } from "../../shared/generation-cost";
+import { editShotStartFrame, generateShotStartFrame, saveShotFrame } from "../lib/shot-frames";
 import { versionsForShot, valueForShot } from "../lib/shot-versions";
 import {
   invalidateGenerationRun,
@@ -527,17 +524,12 @@ export default function StoryboardPage() {
     try {
       await withApplicationWork("generation", async () => {
         const targetModel = resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model as ImageModelId;
-        const imageDataUrl = await generateImageAction(imagePrompt, targetModel, {project_id: storyboard?.project_id, subject_id: activeShotId});
-
-        // Get current version to use as parent (if exists)
-        const currentVersion = shotCurrentVersions[activeShotId];
-
-        // Create a new version
-        await createGenerationVersion(
+        await generateShotStartFrame(
           activeShotId,
           imagePrompt,
-          imageDataUrl,
-          currentVersion?.id || null
+          targetModel,
+          {project_id: storyboard?.project_id, subject_id: activeShotId},
+          shotCurrentVersions[activeShotId]?.id || null,
         );
 
         // Reload shot data and version data
@@ -578,13 +570,8 @@ export default function StoryboardPage() {
   // The start frame is versioned (image_versions); the end frame is a single slot.
   async function setShotFrameFromDataUrl(shotId: string, role: ShotFrameRole, dataUrl: string) {
     if (!id) return;
-    if (role === "start") {
-      const currentVersion = shotCurrentVersions[shotId];
-      await createGenerationVersion(shotId, "Uploaded frame", dataUrl, currentVersion?.id || null);
-      await refreshVersionData(shotId);
-    } else {
-      await saveShotEndFrame(shotId, dataUrl);
-    }
+    await saveShotFrame(shotId, role, dataUrl, shotCurrentVersions[shotId]?.id || null);
+    if (role === "start") await refreshVersionData(shotId);
     const updatedShots = await getShots(id);
     setShots(updatedShots.map(shotFromShotWithUrls));
   }
@@ -704,18 +691,8 @@ export default function StoryboardPage() {
     setImageEditError(null);
     try {
       await withApplicationWork("generation", async () => {
-        // Get source image as base64
-        const sourceBase64 = await getVersionImageBase64(versionId);
-        if (!sourceBase64) {
-          throw new Error("Failed to load source image");
-        }
-
-        // Call edit image action
         const targetModel = resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model as ImageModelId;
-        const resultBase64 = await editImageAction(sourceBase64, editPrompt, targetModel, {project_id: storyboard?.project_id, subject_id: shotId});
-
-        // Create a new remix version
-        await createRemixVersion(shotId, versionId, editPrompt, resultBase64);
+        await editShotStartFrame(shotId, versionId, editPrompt, targetModel, {project_id: storyboard?.project_id, subject_id: shotId});
 
         // Reload data
         const updatedShots = await getShots(id);
@@ -1093,7 +1070,7 @@ export default function StoryboardPage() {
           </div>
           {refreshFeedback(imagePromptInput.current)}
           {imageGenerationError && <p role="alert" className="text-sm text-destructive">{imageGenerationError}</p>}
-          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model} request={{kind: "image"}} subject={{project_id: storyboard?.project_id, subject_id: activeShotId ?? undefined}} />
+          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model} request={imageCostRequest("image")} subject={{project_id: storyboard?.project_id, subject_id: activeShotId ?? undefined}} />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
               Cancel
@@ -1170,7 +1147,7 @@ export default function StoryboardPage() {
           </div>
           {refreshFeedback(editPromptInput.current)}
           {imageEditError && <p role="alert" className="text-sm text-destructive">{imageEditError}</p>}
-          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model} request={{kind: "image_edit"}} subject={{project_id: storyboard?.project_id, subject_id: editModalState.shotId ?? undefined}} />
+          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model} request={imageCostRequest("image_edit")} subject={{project_id: storyboard?.project_id, subject_id: editModalState.shotId ?? undefined}} />
           <DialogFooter>
             <Button
               variant="ghost"

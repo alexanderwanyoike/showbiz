@@ -52,15 +52,23 @@ function matchesRequest(request: AgentQuoteRequest, target: AgentQuoteTarget) {
   const { inputs } = target;
   const composes = inputs.reference_variant_ids.length > 0;
   const edit = request.operation === "edit";
-  const operationFits =
+  const kindFits =
     kind === imageGenerationKind({ edit, composes }) &&
-    (request.operation !== "generate" || !composes) &&
-    (!edit || (!composes && inputs.source_variant_id === request.source_variant_id));
+    (request.operation === "retake" || !composes);
+  const promptFits = request.prompt === undefined || inputs.prompt === request.prompt;
+  if (request.target === "shot_start_frame")
+    return (
+      kindFits &&
+      promptFits &&
+      target.subject.subject_id === request.shot_id &&
+      (request.operation !== "edit" || inputs.source_take_id === request.source_take_id)
+    );
   return (
-    operationFits &&
+    kindFits &&
+    promptFits &&
     target.model_id === request.model_id &&
     target.subject.subject_id === request.asset_id &&
-    (request.prompt === undefined || inputs.prompt === request.prompt)
+    (request.operation !== "edit" || inputs.source_variant_id === request.source_variant_id)
   );
 }
 
@@ -92,7 +100,7 @@ export function readPlan(
 
 export function withinBudget(
   budget: AgentBudgetResult<AgentBudget>,
-  modelId: string,
+  modelId: string | null,
   maxMicrousd: number | null,
 ): AgentResult<AgentBudget> {
   if (!budget.ok) return budget;
@@ -102,7 +110,7 @@ export function withinBudget(
       "NO_BUDGET",
       "A charge exceeded its quote, so the agent budget is frozen. Grant a new budget in Showbiz to continue.",
     );
-  if (grant.allowed_models && !grant.allowed_models.includes(modelId))
+  if (modelId !== null && grant.allowed_models && !grant.allowed_models.includes(modelId))
     return agentFailure(
       "MODEL_NOT_ALLOWED",
       `The agent budget does not allow ${modelId}. Allowed models: ${grant.allowed_models.join(", ")}.`,
@@ -122,6 +130,8 @@ export function withinBudget(
 
 export function createAgentQuotes(options: {
   plan: (request: AgentQuoteRequest) => Promise<AgentResult<unknown>>;
+  /** Resolves the model a request will use without pricing it. */
+  resolve: (request: AgentQuoteRequest) => Promise<AgentResult<unknown>>;
   budget: () => Promise<AgentBudgetResult<AgentBudget>>;
   now?: () => number;
 }) {
@@ -142,7 +152,16 @@ export function createAgentQuotes(options: {
           parsed.error.issues[0]?.message ?? "Invalid quote request.",
         );
       const request = parsed.data;
-      const early = withinBudget(await options.budget(), request.model_id, null);
+      let modelId = "model_id" in request ? request.model_id : null;
+      // Shots use their own model, so it is resolved, without pricing, before the allowlist check.
+      if (modelId === null) {
+        const resolved = await options.resolve(request);
+        if (!resolved.ok) return resolved;
+        const target = readTarget(request, resolved.value);
+        if (!target.ok) return target;
+        modelId = target.value.model_id;
+      }
+      const early = withinBudget(await options.budget(), modelId, null);
       if (!early.ok) return early;
       const answer = await options.plan(request);
       if (!answer.ok) return answer;
@@ -157,7 +176,7 @@ export function createAgentQuotes(options: {
       // Pricing can take a while, so the grant is read again before it is quoted against.
       const budget = withinBudget(
         await options.budget(),
-        request.model_id,
+        planned.value.model_id,
         estimate.max_microusd,
       );
       if (!budget.ok) return budget;

@@ -3,6 +3,7 @@ import { frameAssetInput } from "../../shared/bible-frame";
 import {
   MAX_REFERENCE_PICTURES,
   mediaPreviewRequestSchema,
+  setShotFrameRequestSchema,
 } from "../../shared/agent-generation";
 
 const id = z.string().min(1).max(200);
@@ -195,15 +196,17 @@ export const mcpTools: ToolDefinition[] = [
     ...define(
       "quote_generation",
       {},
-      "Price a generation before spending. Returns a quote_id valid for ten minutes and usable once, with the frozen estimate and its source. For a Bible entry (target bible_asset) pass asset_id and an installed image model_id, plus: operation generate with a prompt (a new prompt-only take); retake with an optional prompt (composes from the entry's own picture or a frame's recipe, as the app's retake does, or prompt-only when it has none); or edit with source_variant_id and an instruction as prompt. Unknown prices are refused with PRICE_UNKNOWN; NO_BUDGET, MODEL_NOT_ALLOWED, OVER_REQUEST_CAP and OVER_BUDGET reflect the budget the user granted.",
+      "Price a generation before spending. Returns a quote_id valid for ten minutes and usable once, with the frozen estimate and its source. For a Bible entry (target bible_asset) pass asset_id and an installed image model_id, plus: operation generate with a prompt (a new prompt-only take); retake with an optional prompt (composes from the entry's own picture or a frame's recipe, as the app's retake does, or prompt-only when it has none); or edit with source_variant_id and an instruction as prompt. For a shot's start frame (target shot_start_frame) pass shot_id and either operation generate with a prompt, or edit with source_take_id and an instruction as prompt; the shot's image model is used (change it with set_shot_models). Unknown prices are refused with PRICE_UNKNOWN; NO_BUDGET, MODEL_NOT_ALLOWED, OVER_REQUEST_CAP and OVER_BUDGET reflect the budget the user granted.",
     ),
     schema: z.strictObject({
-      target: z.enum(["bible_asset"]),
+      target: z.enum(["bible_asset", "shot_start_frame"]),
       operation: z.enum(["generate", "retake", "edit"]),
-      asset_id: id,
+      asset_id: id.optional(),
+      shot_id: id.optional(),
       prompt: z.string().trim().min(1).max(50000).optional(),
       source_variant_id: id.optional(),
-      model_id: id,
+      source_take_id: id.optional(),
+      model_id: id.optional(),
     }),
     openWorld: true,
     requestTimeoutMs: 90000,
@@ -225,7 +228,7 @@ export const mcpTools: ToolDefinition[] = [
     ...define(
       "get_generation_job",
       {},
-      "Read an agent job: status (accepted, running, completed, failed, interrupted), the resulting variant ID, the held estimate and the confirmed charge once the provider reports it.",
+      "Read an agent job: status (accepted, running, completed, failed, interrupted), the result (variant_id for a Bible take, take_id for a shot start frame), the held estimate and the confirmed charge once the provider reports it.",
     ),
     schema: z.strictObject({ job_id: id }),
     args: (input: Record<string, unknown>) => ({ ...input }),
@@ -394,6 +397,23 @@ export const mcpTools: ToolDefinition[] = [
     schema: mediaPreviewRequestSchema,
     requestTimeoutMs: 30000,
     args: (input: Record<string, unknown>) => ({ ...input }),
+  },
+  {
+    ...define(
+      "set_shot_frame",
+      {},
+      "Use a Bible frame take as a shot's start frame (a new take) or end frame, as the storyboard's frame picker does. Free; uses the normal revision and replay safeguards.",
+      true,
+    ),
+    schema: setShotFrameRequestSchema.extend({
+      expected_revision: z.number().int().nonnegative(),
+      request_id: id,
+    }),
+    args: (input: Record<string, unknown>) => ({
+      shot_id: input.shot_id,
+      role: input.role,
+      bible_variant_id: input.bible_variant_id,
+    }),
   },
   define(
     "get_image_versions",

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SHOT_FRAME_ROLES } from "./shot-frames";
 import {
   generationCostRequestSchema,
   generationPriceSchema,
@@ -20,7 +21,8 @@ export const MAX_REFERENCE_PICTURES = 10;
 const prompt = z.string().trim().min(1).max(50000);
 
 const bibleAsset = { target: z.literal("bible_asset"), asset_id: id, model_id: id };
-export const agentQuoteRequestSchema = z.discriminatedUnion("operation", [
+const shotStartFrame = { target: z.literal("shot_start_frame"), shot_id: id };
+export const agentQuoteRequestSchema = z.union([
   z.strictObject({ ...bibleAsset, operation: z.literal("generate"), prompt }),
   z.strictObject({
     ...bibleAsset,
@@ -31,6 +33,13 @@ export const agentQuoteRequestSchema = z.discriminatedUnion("operation", [
     ...bibleAsset,
     operation: z.literal("edit"),
     source_variant_id: id,
+    prompt,
+  }),
+  z.strictObject({ ...shotStartFrame, operation: z.literal("generate"), prompt }),
+  z.strictObject({
+    ...shotStartFrame,
+    operation: z.literal("edit"),
+    source_take_id: id,
     prompt,
   }),
 ]);
@@ -47,6 +56,7 @@ export const agentQuoteTargetSchema = z.strictObject({
     prompt,
     reference_variant_ids: z.array(id).max(MAX_REFERENCE_PICTURES),
     source_variant_id: id.optional(),
+    source_take_id: id.optional(),
   }),
 });
 export type AgentQuoteTarget = z.infer<typeof agentQuoteTargetSchema>;
@@ -146,7 +156,8 @@ export interface AgentJob {
   status: AgentJobStatus;
   /** confirmed once the provider reports a charge; released only if the provider was never called. */
   charge_status: "confirmed" | "estimated" | "released";
-  result: { variant_id?: string } | null;
+  /** The new Bible take (variant_id) or shot image take (take_id). */
+  result: AgentJobResult | null;
   error: string | null;
   warnings: string[];
   created_at: string;
@@ -161,12 +172,18 @@ export const agentJobStartSchema = z.strictObject({
 });
 export type AgentJobStart = z.infer<typeof agentJobStartSchema>;
 
+export const agentJobResultSchema = z.strictObject({
+  variant_id: id.optional(),
+  take_id: id.optional(),
+});
+export type AgentJobResult = z.infer<typeof agentJobResultSchema>;
+
 export type AgentJobReport =
   | { job_id: string; status: "running" }
   | {
       job_id: string;
       status: "completed";
-      result: { variant_id?: string };
+      result: AgentJobResult;
       warnings: string[];
     }
   | { job_id: string; status: "failed"; error: string };
@@ -198,3 +215,10 @@ export const mediaPreviewSchema = z.strictObject({
     .max(3),
 });
 export type MediaPreview = z.infer<typeof mediaPreviewSchema>;
+
+export const setShotFrameRequestSchema = z.strictObject({
+  shot_id: id,
+  role: z.enum(SHOT_FRAME_ROLES),
+  bible_variant_id: id,
+});
+export type SetShotFrameRequest = z.infer<typeof setShotFrameRequestSchema>;

@@ -1,8 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import type { AgentJob } from "../../shared/agent-generation";
+import { agentJobResultSchema, type AgentJob } from "../../shared/agent-generation";
 
-const resultSchema = z.strictObject({ variant_id: z.string().optional() }).nullable();
+const resultSchema = agentJobResultSchema.nullable();
 const warningsSchema = z.array(z.string());
 
 export type NewAgentJob = Pick<
