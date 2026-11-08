@@ -229,7 +229,7 @@ export const mcpTools: ToolDefinition[] = [
     ...define(
       "get_generation_job",
       {},
-      "Read an agent job: status (accepted, running, completed, failed, interrupted), the result (variant_id for a Bible take, take_id for a shot start frame), the held estimate and the confirmed charge once the provider reports it.",
+      "Read an agent job: status (accepted, running, completed, failed, interrupted), the result (variant_id for a Bible take, take_id for a shot start frame, video_take_id for a shot video), the held estimate and the confirmed charge once the provider reports it.",
     ),
     schema: z.strictObject({ job_id: id }),
     args: (input: Record<string, unknown>) => ({ ...input }),
