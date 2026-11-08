@@ -21,6 +21,11 @@ interface ToolDefinition {
   openWorld?: boolean;
   requestTimeoutMs?: number;
   args: (input: Record<string, unknown>) => Record<string, unknown>;
+  /** Reads current data to refuse input that the native command alone would accept. */
+  check?: (
+    read: (command: string, args: Record<string, unknown>) => Promise<unknown>,
+    args: Record<string, unknown>,
+  ) => Promise<string | null>;
 }
 const aliases: Record<string, string> = {
   project_id: "projectId",
@@ -82,6 +87,29 @@ const asset = z.object({
   rules_json: description,
   consent_confirmed: z.boolean(),
 });
+const assetsSchema = z.array(z.object({ id: z.string(), asset_type: z.string() }));
+const variantsSchema = z.array(z.object({ id: z.string() }));
+async function checkFrameReferences(
+  read: (command: string, args: Record<string, unknown>) => Promise<unknown>,
+  args: Record<string, unknown>,
+): Promise<string | null> {
+  const assets = assetsSchema.parse(await read("get_bible_assets", { bibleId: args.bible_id }));
+  const typeOf = (assetId: unknown) => assets.find((asset) => asset.id === assetId)?.asset_type;
+  const characters = z.array(z.string()).parse(args.character_ids);
+  if (characters.some((character) => typeOf(character) !== "character"))
+    return "Every character must be a character in this Bible.";
+  if (args.location_id !== null && typeOf(args.location_id) !== "location")
+    return "The location must be a location in this Bible.";
+  if (args.location_variant_id !== null) {
+    if (args.location_id === null) return "Choose the location the view belongs to.";
+    const views = variantsSchema.parse(
+      await read("get_bible_asset_variants", { assetId: args.location_id }),
+    );
+    if (!views.some((view) => view.id === args.location_variant_id))
+      return "The location view must be a picture of that location.";
+  }
+  return null;
+}
 export const mcpTools: ToolDefinition[] = [
   define(
     "get_generation_models",
@@ -302,6 +330,39 @@ export const mcpTools: ToolDefinition[] = [
     "Update a bible entry's creative guidance.",
     true,
   ),
+  {
+    ...define(
+      "create_bible_frame",
+      {
+        bible_id: id,
+        prompt: z.string().trim().min(1).max(50000),
+        character_ids: z.array(id).max(20),
+        location_id: id.nullable(),
+        location_variant_id: id.nullable(),
+      },
+      "Create a frame entry the way the Bible's frame composer does: a prompt plus characters and a location (optionally one of its views). Frames hold no picture until composed; quote it with operation retake.",
+      true,
+    ),
+    command: "create_bible_asset",
+    args: (input: Record<string, unknown>) => ({
+      bibleId: input.bible_id,
+      input: {
+        asset_type: "reference",
+        name: String(input.prompt).slice(0, 50) || "Frame",
+        summary: null,
+        description: null,
+        tags_json: null,
+        rules_json: JSON.stringify({
+          characters: input.character_ids,
+          location: input.location_id,
+          locationVariantId: input.location_variant_id,
+          prompt: input.prompt,
+        }),
+        consent_confirmed: false,
+      },
+    }),
+    check: checkFrameReferences,
+  },
   define(
     "get_bible_asset_variants",
     { asset_id: id },
