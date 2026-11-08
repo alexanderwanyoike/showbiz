@@ -115,7 +115,7 @@ export const FRAME_ASPECT_RATIO = "16:9" as const;
 export interface ImageRequestOptions {
   aspectRatio?: string;
 }
-export const FRAME_SHAPE = { aspectRatio: FRAME_ASPECT_RATIO };
+export const FRAME_SHAPE: Readonly<ImageRequestOptions> = Object.freeze({ aspectRatio: FRAME_ASPECT_RATIO });
 
 /** Why a model cannot be asked for the requested shape, or null when it can. */
 export function shapeRefusal(
@@ -327,7 +327,7 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
     );
   }
   if (config.aspectRatios !== undefined) {
-    if (!SHAPED_IMAGE_TRANSPORTS.includes(String(config.transport)))
+    if (!SHAPED_IMAGE_TRANSPORTS.some((transport) => transport === config.transport))
       throw new Error(
         `Image config "${config.id}": "aspectRatios" is not supported by the ${String(config.transport)} transport, which cannot send a shape`,
       );

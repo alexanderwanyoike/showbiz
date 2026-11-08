@@ -18,7 +18,7 @@ export const VALID_IMAGE_TRANSPORTS = [
   "google-interactions-image",
 ] as const;
 /** Image transports that map a requested aspect ratio onto their provider's parameter. */
-export const SHAPED_IMAGE_TRANSPORTS: readonly string[] = [
+export const SHAPED_IMAGE_TRANSPORTS: readonly (typeof VALID_IMAGE_TRANSPORTS)[number][] = [
   "google-image",
   "google-interactions-image",
   "openrouter-image",
