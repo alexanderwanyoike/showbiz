@@ -214,7 +214,7 @@ it("explains that unconfirmed estimates include unsuccessful requests without cl
   ).toBeTruthy();
 });
 
-it("marks requests that an agent submitted from its budget", async () => {
+it("marks requests that an agent made", async () => {
   billing.loadUsageWithBilling.mockResolvedValue({
     ok: true,
     value: page([

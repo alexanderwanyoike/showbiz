@@ -1,4 +1,4 @@
--- The agent budget is gone: generation no longer needs a grant or a quote.
+-- Generation no longer needs a budget grant or a quote.
 DELETE FROM settings WHERE key = 'agent_budget_grant';
 
 CREATE TABLE agent_generation_jobs_next (
