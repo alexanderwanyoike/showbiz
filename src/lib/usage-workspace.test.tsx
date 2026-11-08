@@ -31,6 +31,7 @@ const request: GenerationUsage = {
   estimated_min_microusd: 25000,
   estimated_max_microusd: 25000,
   reported_microusd: 0,
+  agent_job_id: null,
   provider_request_id: "provider-job-zero",
   started_at: "2026-10-31T12:00:00Z",
   finished_at: "2026-10-31T12:01:00Z",

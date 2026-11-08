@@ -16,6 +16,7 @@ export interface GenerationUsage {
   price_checked_at: string | null;
   reported_microusd: number | null;
   provider_request_id: string | null;
+  agent_job_id: string | null;
   started_at: string;
   finished_at: string | null;
 }
