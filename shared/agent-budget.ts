@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { microusdSchema } from "./generation-price-schema";
 
-export type AgentBudgetErrorCode = "NO_BUDGET" | "INVALID_INPUT" | "IO_ERROR";
+const agentBudgetErrorCodes = ["NO_BUDGET", "INVALID_INPUT", "IO_ERROR"] as const;
+export type AgentBudgetErrorCode = (typeof agentBudgetErrorCodes)[number];
 
 export type AgentBudgetResult<T> =
   | { ok: true; value: T }
@@ -8,7 +10,7 @@ export type AgentBudgetResult<T> =
 
 export const AGENT_BUDGET_MAX_DURATION_MINUTES = 60 * 24 * 30;
 
-const microusd = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+const microusd = microusdSchema;
 const positiveMicrousd = microusd.positive();
 export const agentBudgetGrantInputSchema = z
   .strictObject({
@@ -54,7 +56,7 @@ const agentBudgetResultSchema = z.discriminatedUnion("ok", [
   z.strictObject({
     ok: z.literal(false),
     error: z.strictObject({
-      code: z.enum(["NO_BUDGET", "INVALID_INPUT", "IO_ERROR"]),
+      code: z.enum(agentBudgetErrorCodes),
       message: z.string(),
     }),
   }),
