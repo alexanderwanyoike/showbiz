@@ -56,3 +56,25 @@ it("refuses an aspect ratio list that is not a list of ratios", () => {
   expect(() => validateImageConfig({ ...config, aspectRatios: "16:9" })).toThrow("aspectRatios");
   expect(() => validateImageConfig({ ...config, aspectRatios: ["wide"] })).toThrow("aspectRatios");
 });
+
+it("only lets a model declare shapes its transport can send", () => {
+  const config = {
+    id: "test-image",
+    name: "Test Image",
+    description: "A test image model",
+    enabled: true,
+    models: { generate: "test-model" },
+    supportsEditing: false,
+    supportsInpainting: false,
+    aspectRatios: ["16:9"],
+  };
+  for (const [transport, apiKeyProvider] of [["local-image", "local"], ["kie-image", "kie"], ["replicate-image", "replicate"]])
+    expect(() => validateImageConfig({ ...config, transport, apiKeyProvider })).toThrow("aspectRatios");
+  expect(() => validateImageConfig({ ...config, transport: "fal-image", apiKeyProvider: "fal" })).toThrow("aspectRatioParam");
+  expect(() =>
+    validateImageConfig({ ...config, transport: "fal-image", apiKeyProvider: "fal", transportOptions: { aspectRatioParam: "size" } }),
+  ).toThrow("aspectRatioParam");
+  expect(() =>
+    validateImageConfig({ ...config, transport: "fal-image", apiKeyProvider: "fal", transportOptions: { aspectRatioParam: "image_size" } }),
+  ).not.toThrow();
+});

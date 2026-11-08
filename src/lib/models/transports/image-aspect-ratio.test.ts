@@ -154,3 +154,14 @@ describe("asking each provider for a 16:9 picture", () => {
     expect(falInput()).not.toHaveProperty("image_size");
   });
 });
+
+it("keeps the frame shape even when a fal model has fixed parameters", async () => {
+  await falImageTransport.generateImage(
+    { ...gptImage, fixedParams: { image_size: "square_hd", quality: "high" } },
+    "A frame",
+    "key",
+    undefined,
+    wide,
+  );
+  expect(falInput()).toMatchObject({ image_size: "landscape_16_9", quality: "high" });
+});
