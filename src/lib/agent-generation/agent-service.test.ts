@@ -5,6 +5,8 @@ const planner = vi.hoisted(() => ({ planAgentQuote: vi.fn(), resolveAgentTarget:
 vi.mock("./plan-quote", () => planner);
 const runner = vi.hoisted(() => ({ runAgentJob: vi.fn() }));
 vi.mock("./run-job", () => runner);
+const previews = vi.hoisted(() => ({ previewMedia: vi.fn() }));
+vi.mock("./media-preview", () => previews);
 
 type Request = { request_id: string; operation: string; input: unknown };
 function app() {
@@ -154,4 +156,15 @@ it("resolves a quote's target for a submit check", async () => {
     expect(native.respondAgentRequest).toHaveBeenCalledWith("r7", { ok: true, value: "target" }),
   );
   expect(planner.planAgentQuote).not.toHaveBeenCalled();
+});
+
+it("answers preview requests", async () => {
+  const native = app();
+  previews.previewMedia.mockResolvedValue({ ok: true, value: { images: [] } });
+  connectAgentService();
+  native.send({ request_id: "r8", operation: "preview_media", input: { bible_variant_id: "v1" } });
+  await vi.waitFor(() =>
+    expect(native.respondAgentRequest).toHaveBeenCalledWith("r8", { ok: true, value: { images: [] } }),
+  );
+  expect(previews.previewMedia).toHaveBeenCalledWith({ bible_variant_id: "v1" });
 });
