@@ -19,6 +19,7 @@ import {
 } from "../lib/models";
 import { generateText } from "../lib/models/gemini-text";
 import type { VideoGenerationRequest } from "../lib/generation/types";
+import { videoCostRequest } from "../lib/shot-video";
 import {
   IMAGE_GENERATION_REQUEST,
   imageCostRequest,
@@ -54,7 +55,8 @@ export async function generateAndSaveVideoRequestAction(
   shotId: string,
   modelId: VideoModelId,
   request: VideoGenerationRequest,
-): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
+  agent?: AgentAccounting,
+): Promise<{ success: boolean; videoUrl: string | null; versionId?: string; error?: string }> {
   const model = getVideoModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
   if (!credential.ok)
@@ -65,21 +67,20 @@ export async function generateAndSaveVideoRequestAction(
     if (request.mode === "image-to-video") {
       effectiveRequest = {
         ...request,
-        startImage: request.startImage ?? (await getShotImageBase64(shotId)),
-        endImage: request.endImage ?? (await getShotEndFrameBase64(shotId)),
+        // Only frames the caller left undecided are loaded; null means the request does without.
+        startImage:
+          request.startImage === undefined ? await getShotImageBase64(shotId) : request.startImage,
+        endImage:
+          request.endImage === undefined ? await getShotEndFrameBase64(shotId) : request.endImage,
       };
     }
     const operation = await accountModelGeneration(
       modelId,
-      {
-        kind: "video",
-        duration: request.settings.duration,
-        resolution: request.settings.resolution,
-        audio: request.settings.audio,
-        aspect_ratio: request.settings.aspectRatio,
-        mode: effectiveRequest.mode,
-        has_end_frame: !!effectiveRequest.endImage,
-      },
+      videoCostRequest(
+        request.settings,
+        effectiveRequest.mode,
+        !!effectiveRequest.endImage,
+      ),
       { subject_id: shotId },
       async (observer) => {
         const videoBlob = model.generateVideoFromRequest
@@ -113,8 +114,9 @@ export async function generateAndSaveVideoRequestAction(
           modelId,
           currentVersion?.id ?? null,
         );
-        return { success: true, videoUrl: result.video_url };
+        return { success: true, videoUrl: result.video_url, versionId: result.id };
       },
+      agent,
     );
     return operation.ok
       ? operation.value

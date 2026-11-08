@@ -50,12 +50,20 @@ const inconsistent = () =>
 function matchesRequest(request: AgentQuoteRequest, target: AgentQuoteTarget) {
   const { kind } = target.cost_request;
   const { inputs } = target;
+  if (request.target === "shot_video")
+    return (
+      kind === "video" &&
+      inputs.video !== undefined &&
+      inputs.reference_variant_ids.length === 0 &&
+      target.subject.subject_id === request.shot_id
+    );
   const composes = inputs.reference_variant_ids.length > 0;
   const edit = request.operation === "edit";
   const kindFits =
     kind === imageGenerationKind({ edit, composes }) &&
     (request.operation === "retake" || !composes);
-  const promptFits = request.prompt === undefined || inputs.prompt === request.prompt;
+  const promptFits =
+    request.prompt === undefined ? inputs.prompt.length > 0 : inputs.prompt === request.prompt;
   if (request.target === "shot_start_frame")
     return (
       kindFits &&

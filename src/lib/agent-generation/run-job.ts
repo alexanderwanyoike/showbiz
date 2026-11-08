@@ -1,4 +1,9 @@
-import { generateImageAction } from "../../actions/generation-actions";
+import {
+  generateAndSaveVideoRequestAction,
+  generateImageAction,
+} from "../../actions/generation-actions";
+import { getAvailableVideoModels } from "../models";
+import { buildShotVideoRequest, digestOf } from "../shot-video";
 import { withApplicationWork } from "../application-work";
 import { getCurrentImageVersion } from "../backend-api";
 import { addPrimaryBibleTake, prepareBibleImageDataUrl } from "../bible-takes";
@@ -47,8 +52,40 @@ async function createBiblePicture(job: BibleJob) {
   );
 }
 
+async function createVideo(job: AgentJobStart, shotId: string): Promise<AgentJobResult> {
+  const { plan } = job;
+  const video = plan.inputs.video;
+  const model = getAvailableVideoModels().find((candidate) => candidate.id === plan.model_id);
+  if (!video) throw new Error("The quote has no video plan.");
+  if (!model) throw new Error("The quoted video model is not available.");
+  const changed = new Error("The shot's frames changed after the quote. Request a new quote.");
+  if (
+    video.mode === "image-to-video" &&
+    (await getCurrentImageVersion(shotId))?.id !== video.start_take_id
+  )
+    throw changed;
+  const request = await buildShotVideoRequest(
+    shotId,
+    model,
+    { hasStartFrame: video.mode === "image-to-video", hasEndFrame: video.uses_end_frame },
+    video.settings,
+    plan.inputs.prompt,
+  );
+  // A video made from other frames than quoted is not paid for.
+  if (
+    request.mode !== video.mode ||
+    !!request.endImage !== video.uses_end_frame ||
+    (request.endImage && (await digestOf(request.endImage)) !== video.end_frame_digest)
+  )
+    throw changed;
+  const made = await generateAndSaveVideoRequestAction(shotId, model.id, request, accountingFor(job));
+  if (!made.success || !made.versionId) throw new Error(made.error ?? "Video generation failed.");
+  return { video_take_id: made.versionId };
+}
+
 async function createResult(job: AgentJobStart): Promise<AgentJobResult> {
   const { request, plan } = job;
+  if (request.target === "shot_video") return createVideo(job, request.shot_id);
   if (request.target === "bible_asset") {
     const variant = await addPrimaryBibleTake(
       request.asset_id,

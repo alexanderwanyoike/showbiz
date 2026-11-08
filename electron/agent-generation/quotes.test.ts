@@ -317,6 +317,28 @@ describe("agent generation quotes", () => {
     ).toMatchObject({ ok: false, error: { code: "MODEL_NOT_ALLOWED" } });
     expect(planner).not.toHaveBeenCalled();
   });
+  it("quotes a shot video as video for that shot", async () => {
+    const videoRequest = { target: "shot_video", operation: "generate", shot_id: "shot-1" };
+    const settings = { duration: "8", resolution: "720p" };
+    const videoPlan = plan({
+      cost_request: { kind: "video", duration: "8", resolution: "720p", mode: "image-to-video", has_end_frame: false },
+      subject: { project_id: "film", subject_id: "shot-1" },
+      inputs: { prompt: "", reference_variant_ids: [], video: { mode: "image-to-video", settings, uses_end_frame: false, start_take_id: "t" } },
+    });
+    expect(
+      await setup({ planned: { ok: true, value: videoPlan } }).quotes.quote_generation(videoRequest),
+    ).toMatchObject({ ok: true, value: { kind: "video" } });
+    expect(
+      await setup({ planned: { ok: true, value: { ...videoPlan, cost_request: { kind: "image", count: 1 } } } }).quotes.quote_generation(videoRequest),
+    ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+  });
+
+  it("refuses a retake whose resolved prompt is empty", async () => {
+    const retake = { target: "bible_asset", operation: "retake", asset_id: "asset-1", model_id: "flux-dev-fal" };
+    expect(
+      await setup({ planned: { ok: true, value: plan({ inputs: { prompt: "", reference_variant_ids: [] } }) } }).quotes.quote_generation(retake),
+    ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+  });
 });
 
 function estimateOf(value: AgentQuotePlan) {

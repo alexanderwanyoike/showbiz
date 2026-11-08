@@ -2,8 +2,13 @@ import { invoke } from "../bridge";
 import { findProjectAsset, findProjectShot, openProjectId, versionIds } from "./project-lookup";
 import { getAvailableVideoModels } from "../models";
 import { resolveShotModels, resolveStoryboardModels } from "../shot-models";
+import { resolveShotVideoSettings } from "../shot-video-settings";
+import { digestOf, planShotVideo, videoCostRequest } from "../shot-video";
+import type { VideoGenerationSettings } from "../models/types";
 import {
   getBibleAssetVariants,
+  getCurrentImageVersion,
+  getShotEndFrameBase64,
   type BibleAsset,
   type BibleAssetVariant,
 } from "../backend-api";
@@ -50,6 +55,74 @@ function unpicturedReferences(
 
 type BibleRequest = Extract<AgentQuoteRequest, { target: "bible_asset" }>;
 type ShotRequest = Extract<AgentQuoteRequest, { target: "shot_start_frame" }>;
+type VideoRequest = Extract<AgentQuoteRequest, { target: "shot_video" }>;
+
+async function videoFrames(
+  shotId: string,
+  plan: { mode: "text-to-video" | "image-to-video"; usesEndFrame: boolean; settings: VideoGenerationSettings },
+) {
+  const start = plan.mode === "image-to-video" ? await getCurrentImageVersion(shotId) : null;
+  const end = plan.usesEndFrame ? await getShotEndFrameBase64(shotId) : null;
+  if (plan.usesEndFrame && !end) return null;
+  return {
+    mode: plan.mode,
+    settings: plan.settings,
+    uses_end_frame: plan.usesEndFrame,
+    ...(start ? { start_take_id: start.id } : {}),
+    ...(end ? { end_frame_digest: await digestOf(end) } : {}),
+  };
+}
+
+/** A shot video uses the shot's video model, saved settings, video prompt and frames, as the storyboard's Generate Video does. */
+async function resolveVideoTarget(
+  request: VideoRequest,
+  projectId: string,
+): Promise<AgentResult<AgentQuoteTarget>> {
+  const found = await findProjectShot(projectId, request.shot_id);
+  if (!found) return agentFailure("NOT_FOUND", "That shot is not in the open project.");
+  const { shot, storyboard } = found;
+  const videoModels = getAvailableVideoModels();
+  const modelId = resolveShotModels(
+    shot,
+    resolveStoryboardModels(storyboard, videoModels),
+  ).video_model;
+  const model = videoModels.find((candidate) => candidate.id === modelId);
+  if (!model)
+    return agentFailure(
+      "INVALID_INPUT",
+      `The shot's video model ${modelId} is not available. Choose another with set_shot_models.`,
+    );
+  const settings = resolveShotVideoSettings(shot.video_settings_json, model).settings;
+  const prompt = shot.video_prompt?.trim() ?? "";
+  const hasStartFrame = !!shot.image_path;
+  if (!hasStartFrame && !prompt)
+    return agentFailure("INVALID_INPUT", "Add a start frame or a video prompt before generating.");
+  let plan: ReturnType<typeof planShotVideo> & { settings: VideoGenerationSettings };
+  try {
+    plan = {
+      ...planShotVideo(model, { hasStartFrame, hasEndFrame: !!shot.end_frame_path }, settings, prompt),
+      settings,
+    };
+  } catch (cause) {
+    return agentFailure("INVALID_INPUT", cause instanceof Error ? cause.message : String(cause));
+  }
+  const frames = await videoFrames(shot.id, plan);
+  if (!frames) return agentFailure("NOT_FOUND", "The shot's end frame could not be read.");
+  return {
+    ok: true,
+    value: {
+      model_id: model.id,
+      provider: model.apiKeyProvider,
+      cost_request: videoCostRequest(settings, plan.mode, plan.usesEndFrame),
+      subject: { project_id: projectId, subject_id: shot.id },
+      inputs: {
+        prompt,
+        reference_variant_ids: [],
+        video: frames,
+      },
+    },
+  };
+}
 
 /** Resolves what a request targets: the model, cost request, prompt and pictures the app's own controls would use. */
 export async function resolveAgentTarget(
@@ -57,6 +130,7 @@ export async function resolveAgentTarget(
 ): Promise<AgentResult<AgentQuoteTarget>> {
   const project = await openProjectId();
   if (!project.ok) return project;
+  if (request.target === "shot_video") return resolveVideoTarget(request, project.value);
   return request.target === "shot_start_frame"
     ? resolveShotTarget(request, project.value)
     : resolveBibleTarget(request, project.value);
