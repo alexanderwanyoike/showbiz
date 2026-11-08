@@ -1,8 +1,12 @@
+import { z } from "zod";
 import { invoke } from "../bridge";
+import { getAvailableVideoModels } from "../models";
+import { resolveShotModels, resolveStoryboardModels } from "../shot-models";
 import {
   getBibleAssetVariants,
   getBibleAssets,
   getBibles,
+  getStoryboards,
   type BibleAsset,
   type BibleAssetVariant,
 } from "../backend-api";
@@ -72,11 +76,93 @@ function unpicturedReferences(
 }
 
 /** Resolves what a request targets: the model, cost request, prompt and pictures the app's own controls would use. */
+type BibleRequest = Extract<AgentQuoteRequest, { target: "bible_asset" }>;
+type ShotRequest = Extract<AgentQuoteRequest, { target: "shot_start_frame" }>;
+
 export async function resolveAgentTarget(
   request: AgentQuoteRequest,
 ): Promise<AgentResult<AgentQuoteTarget>> {
   const project = await openProjectId();
   if (!project.ok) return project;
+  return request.target === "shot_start_frame"
+    ? resolveShotTarget(request, project.value)
+    : resolveBibleTarget(request, project.value);
+}
+
+const shotSchema = z.object({
+  id: z.string(),
+  storyboard_id: z.string(),
+  image_model: z.string().nullable(),
+});
+const versionNodeSchema: z.ZodType<{ version: { id: string }; children: unknown[] }> = z.object({
+  version: z.object({ id: z.string() }),
+  children: z.array(z.lazy(() => versionNodeSchema)),
+});
+const versionIds = (nodes: unknown[]): string[] =>
+  z.array(versionNodeSchema).parse(nodes).flatMap((node) => [
+    node.version.id,
+    ...versionIds(node.children),
+  ]);
+
+async function findProjectShot(projectId: string, shotId: string) {
+  for (const storyboard of await getStoryboards(projectId)) {
+    const shots = z.array(shotSchema).parse(
+      await invoke("get_shots", { storyboardId: storyboard.id }),
+    );
+    const shot = shots.find((candidate) => candidate.id === shotId);
+    if (shot) return { shot, storyboard };
+  }
+  return null;
+}
+
+/** Shot frames use the shot's image model, or the storyboard default, exactly as the storyboard does. */
+async function resolveShotTarget(
+  request: ShotRequest,
+  projectId: string,
+): Promise<AgentResult<AgentQuoteTarget>> {
+  const found = await findProjectShot(projectId, request.shot_id);
+  if (!found) return agentFailure("NOT_FOUND", "That shot is not in the open project.");
+  const defaults = resolveStoryboardModels(found.storyboard, getAvailableVideoModels());
+  const modelId = resolveShotModels(found.shot, defaults).image_model;
+  const model = imageConfigs.find((config) => config.id === modelId && config.enabled);
+  if (!model)
+    return agentFailure(
+      "INVALID_INPUT",
+      `The shot's image model ${modelId} is not available. Choose another with set_shot_models.`,
+    );
+  const edit = request.operation === "edit";
+  if (edit && !model.supportsEditing)
+    return agentFailure(
+      "INVALID_INPUT",
+      `${model.name} cannot edit pictures. Choose another image model with set_shot_models.`,
+    );
+  if (
+    request.operation === "edit" &&
+    !versionIds(await invoke("get_image_versions", { shotId: request.shot_id })).includes(
+      request.source_take_id,
+    )
+  )
+    return agentFailure("NOT_FOUND", "That take is not one of this shot's start frames.");
+  return {
+    ok: true,
+    value: {
+      model_id: model.id,
+      provider: model.apiKeyProvider,
+      cost_request: imageCostRequest(imageGenerationKind({ edit, composes: false })),
+      subject: { project_id: projectId, subject_id: request.shot_id },
+      inputs: {
+        prompt: request.prompt,
+        reference_variant_ids: [],
+        ...(request.operation === "edit" ? { source_take_id: request.source_take_id } : {}),
+      },
+    },
+  };
+}
+
+async function resolveBibleTarget(
+  request: BibleRequest,
+  projectId: string,
+): Promise<AgentResult<AgentQuoteTarget>> {
   const model = imageConfigs.find(
     (config) => config.id === request.model_id && config.enabled,
   );
@@ -85,7 +171,7 @@ export async function resolveAgentTarget(
       "INVALID_INPUT",
       `${request.model_id} is not an available image model.`,
     );
-  const found = await findProjectAsset(project.value, request.asset_id);
+  const found = await findProjectAsset(projectId, request.asset_id);
   if (!found)
     return agentFailure("NOT_FOUND", "That Bible entry is not in the open project.");
   const { asset } = found;
@@ -95,7 +181,7 @@ export async function resolveAgentTarget(
       model_id: model.id,
       provider: model.apiKeyProvider,
       cost_request: imageCostRequest(kind),
-      subject: { project_id: project.value, subject_id: asset.id },
+      subject: { project_id: projectId, subject_id: asset.id },
       inputs,
     },
   });

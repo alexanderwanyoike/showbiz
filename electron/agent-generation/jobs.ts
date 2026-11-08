@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { AgentBudget, AgentBudgetResult } from "../../shared/agent-budget";
 import {
   agentFailure,
+  agentJobResultSchema,
   type AgentJob,
   type AgentJobStart,
   type AgentQuoteRequest,
@@ -28,7 +29,7 @@ const listSchema = z.strictObject({
 const reportSchema = z.strictObject({
   job_id: id,
   status: z.enum(["running", "completed", "failed"]),
-  result: z.strictObject({ variant_id: id.optional() }).optional(),
+  result: agentJobResultSchema.optional(),
   error: z.string().max(2000).optional(),
   warnings: z.array(z.string().max(2000)).max(20).optional(),
 });
