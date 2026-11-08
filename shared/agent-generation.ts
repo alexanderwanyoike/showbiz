@@ -247,3 +247,25 @@ export const setShotFrameRequestSchema = z.strictObject({
   bible_variant_id: id,
 });
 export type SetShotFrameRequest = z.infer<typeof setShotFrameRequestSchema>;
+
+export const BIBLE_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+// About 730 KB of picture, which keeps the whole request under the 1 MiB bridge limit.
+export const MAX_BIBLE_IMAGE_BASE64 = 1_000_000;
+const signatures: Record<(typeof BIBLE_IMAGE_TYPES)[number], (bytes: string) => boolean> = {
+  "image/png": (bytes) => bytes.startsWith("\x89PNG\r\n\x1a\n"),
+  "image/jpeg": (bytes) => bytes.startsWith("\xff\xd8\xff"),
+  "image/webp": (bytes) => bytes.startsWith("RIFF") && bytes.slice(8, 12) === "WEBP",
+};
+export const addBibleImageRequestSchema = z
+  .strictObject({
+    bible_asset_id: id,
+    mime_type: z.enum(BIBLE_IMAGE_TYPES),
+    base64: z.base64().min(1).max(MAX_BIBLE_IMAGE_BASE64),
+    name: z.string().trim().min(1).max(200).optional(),
+  })
+  .refine((input) => signatures[input.mime_type](atob(input.base64.slice(0, 16))), {
+    message: "The picture's bytes are not a PNG, JPEG or WebP of the declared mime_type.",
+    // Only well-formed base64 can be decoded to read its signature.
+    when: ({ issues }) => issues.length === 0,
+  });
+export type AddBibleImageRequest = z.infer<typeof addBibleImageRequestSchema>;

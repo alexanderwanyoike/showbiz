@@ -10,6 +10,7 @@ import { planAgentQuote, resolveAgentTarget } from "./plan-quote";
 import { runAgentJob } from "./run-job";
 import { previewMedia } from "./media-preview";
 import { setShotFrameFromBible } from "./set-shot-frame";
+import { addBibleImage } from "./add-bible-image";
 
 const REPORT_ATTEMPTS = 3;
 const invalid = (issue: { message: string } | undefined) =>
@@ -33,8 +34,11 @@ async function handle(
     return { ok: true, value: null };
   }
   if (request.operation === "preview_media") return previewMedia(request.input);
-  if (request.operation === "set_shot_frame") {
-    const saved = await setShotFrameFromBible(request.input);
+  if (request.operation === "set_shot_frame" || request.operation === "add_bible_image") {
+    const saved =
+      request.operation === "set_shot_frame"
+        ? await setShotFrameFromBible(request.input)
+        : await addBibleImage(request.input);
     if (saved.ok) window.dispatchEvent(new Event("showbiz:project-changed"));
     return saved;
   }

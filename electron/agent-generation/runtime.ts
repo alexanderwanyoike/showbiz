@@ -52,6 +52,8 @@ export function createAgentGenerationRuntime(options: {
       get_agent_budget: () => budget(),
       set_shot_frame: (args?: Record<string, unknown>) =>
         channel.request("set_shot_frame", args ?? {}),
+      add_bible_image: (args?: Record<string, unknown>) =>
+        channel.request("add_bible_image", args ?? {}),
       get_media_preview: async (args?: Record<string, unknown>) => {
         const answer = await channel.request("preview_media", args ?? {});
         if (!answer.ok) return answer;

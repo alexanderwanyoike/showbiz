@@ -2,6 +2,7 @@ import { z } from "zod";
 import { frameAssetInput } from "../../shared/bible-frame";
 import { shotVideoSettingsSchema } from "../../shared/shot-video-settings";
 import {
+  addBibleImageRequestSchema,
   MAX_REFERENCE_PICTURES,
   mediaPreviewRequestSchema,
   setShotFrameRequestSchema,
@@ -371,6 +372,24 @@ export const mcpTools: ToolDefinition[] = [
     { asset_id: id },
     "Read candidate references and approved bible images.",
   ),
+  {
+    ...define(
+      "add_bible_image",
+      {},
+      "Add a reference picture to a Bible entry, as uploading a picture in the Bible does: base64 bytes of a PNG, JPEG or WebP (about 730 KB at most, 40 megapixels at most) with its mime_type, and an optional name. It is shrunk to 1600 px and becomes the entry's current picture only when the entry has none. Free; uses the normal revision and replay safeguards.",
+      true,
+    ),
+    schema: addBibleImageRequestSchema.safeExtend({
+      expected_revision: z.number().int().nonnegative(),
+      request_id: id,
+    }),
+    args: (input: Record<string, unknown>) => ({
+      bible_asset_id: input.bible_asset_id,
+      mime_type: input.mime_type,
+      base64: input.base64,
+      name: input.name,
+    }),
+  },
   {
     ...define(
       "set_bible_variant_status",
