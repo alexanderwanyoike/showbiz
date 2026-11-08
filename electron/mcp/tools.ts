@@ -100,7 +100,9 @@ async function checkFrameReferences(
 ): Promise<string | null> {
   const assets = assetsSchema.parse(await read("get_bible_assets", { bibleId: args.bible_id }));
   const typeOf = (assetId: unknown) => assets.find((asset) => asset.id === assetId)?.asset_type;
-  const characters = z.array(z.string()).parse(args.character_ids);
+  const characters = [...new Set(z.array(z.string()).parse(args.character_ids))];
+  if (characters.length > MAX_REFERENCE_PICTURES - 1)
+    return `A frame can use at most ${MAX_REFERENCE_PICTURES - 1} characters, so that with a location view it stays within one composition.`;
   if (characters.some((character) => typeOf(character) !== "character"))
     return "Every character must be a character in this Bible.";
   if (args.location_id !== null && typeOf(args.location_id) !== "location")
@@ -344,7 +346,7 @@ export const mcpTools: ToolDefinition[] = [
       {
         bible_id: id,
         prompt: z.string().trim().min(1).max(50000),
-        character_ids: z.array(id).max(MAX_REFERENCE_PICTURES - 1),
+        character_ids: z.array(id).max(50),
         location_id: id.nullable(),
         location_variant_id: id.nullable(),
       },

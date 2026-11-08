@@ -50,7 +50,18 @@ function bible() {
       ? { ok: true, value: { current: { project_id: film.id }, recent: [] } }
       : commands[command]?.(args),
   );
-  return { film, sock, sockPicture, office, officePicture, frame, bare };
+  const makeFrame = (characters: string[]) =>
+    entry(
+      "reference",
+      "Crowd",
+      JSON.stringify({ characters, location: null, locationVariantId: null, prompt: "A crowd" }),
+    );
+  const pictured = (name: string) => {
+    const character = entry("character", name);
+    picture(character.id, name);
+    return character.id;
+  };
+  return { film, sock, sockPicture, office, officePicture, frame, bare, makeFrame, pictured };
 }
 const ask = (overrides: Record<string, unknown>) => ({
   target: "bible_asset" as const,
@@ -145,5 +156,23 @@ it("refuses a frame whose characters have no picture yet instead of dropping the
   expect(await resolveAgentTarget(ask({ operation: "retake", asset_id: frame.id }))).toMatchObject({
     ok: false,
     error: { code: "INVALID_INPUT", message: expect.stringContaining("Hat") as string },
+  });
+});
+
+it("composes a frame without entries that were deleted, as the app does", async () => {
+  const { makeFrame, sockPicture, sock } = bible();
+  const frame = makeFrame([sock.id, "deleted-character"]);
+  expect(await resolveAgentTarget(ask({ operation: "retake", asset_id: frame.id }))).toMatchObject({
+    ok: true,
+    value: { inputs: { reference_variant_ids: [sockPicture.id] } },
+  });
+});
+
+it("refuses a frame with more pictures than one composition can use", async () => {
+  const { makeFrame, pictured } = bible();
+  const frame = makeFrame(Array.from({ length: 11 }, (_, n) => pictured(`Extra ${n}`)));
+  expect(await resolveAgentTarget(ask({ operation: "retake", asset_id: frame.id }))).toMatchObject({
+    ok: false,
+    error: { code: "INVALID_INPUT", message: expect.stringContaining("at most 10") as string },
   });
 });
