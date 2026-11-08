@@ -8,6 +8,9 @@ import { addBibleImage } from "./add-bible-image";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("../bridge", () => native);
+vi.mock("../electron-media-url", () => ({
+  electronMediaUrlResolver: { resolve: async (value: string) => `blob:${value}`, invalidate: () => {} },
+}));
 
 const PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
