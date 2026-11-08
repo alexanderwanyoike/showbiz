@@ -15,6 +15,8 @@ export const AGENT_REQUEST_CHANNEL = "showbiz:agent_request";
 export const AGENT_RESPONSE_CHANNEL = "showbiz:agent_response";
 
 const id = z.string().min(1).max(200);
+/** Most pictures one composition may use; frames record at most this many characters plus a location view. */
+export const MAX_REFERENCE_PICTURES = 10;
 const prompt = z.string().trim().min(1).max(50000);
 
 const bibleAsset = { target: z.literal("bible_asset"), asset_id: id, model_id: id };
@@ -43,7 +45,7 @@ export const agentQuoteTargetSchema = z.strictObject({
   /** The resolved prompt and pictures the job will use, frozen into the quote. */
   inputs: z.strictObject({
     prompt,
-    reference_variant_ids: z.array(id).max(10),
+    reference_variant_ids: z.array(id).max(MAX_REFERENCE_PICTURES),
     source_variant_id: id.optional(),
   }),
 });

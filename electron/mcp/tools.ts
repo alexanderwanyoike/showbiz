@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { mediaPreviewRequestSchema } from "../../shared/agent-generation";
+import {
+  MAX_REFERENCE_PICTURES,
+  mediaPreviewRequestSchema,
+} from "../../shared/agent-generation";
 
 const id = z.string().min(1).max(200);
 const name = z.string().trim().min(1).max(1000);
@@ -337,7 +340,7 @@ export const mcpTools: ToolDefinition[] = [
       {
         bible_id: id,
         prompt: z.string().trim().min(1).max(50000),
-        character_ids: z.array(id).max(20),
+        character_ids: z.array(id).max(MAX_REFERENCE_PICTURES - 1),
         location_id: id.nullable(),
         location_variant_id: id.nullable(),
       },
@@ -354,7 +357,7 @@ export const mcpTools: ToolDefinition[] = [
         description: null,
         tags_json: null,
         rules_json: JSON.stringify({
-          characters: input.character_ids,
+          characters: [...new Set(z.array(z.string()).parse(input.character_ids))],
           location: input.location_id,
           locationVariantId: input.location_variant_id,
           prompt: input.prompt,
