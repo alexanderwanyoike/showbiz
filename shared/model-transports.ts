@@ -17,3 +17,11 @@ export const VALID_IMAGE_TRANSPORTS = [
   "openai-image",
   "google-interactions-image",
 ] as const;
+/** Image transports that map a requested aspect ratio onto their provider's parameter. */
+export const SHAPED_IMAGE_TRANSPORTS: readonly string[] = [
+  "google-image",
+  "google-interactions-image",
+  "openrouter-image",
+  "fal-image",
+];
+export const FAL_SHAPE_PARAMS: readonly string[] = ["aspect_ratio", "image_size"];

@@ -72,7 +72,7 @@ export const falImageTransport: ImageTransport = {
   ): Promise<string> {
     const opts = (config.transportOptions ?? {}) as Record<string, string>;
     const endpointId = opts.endpoint ?? config.models.generate;
-    const input: Record<string, unknown> = { prompt, ...shapeInput(config, options), ...(config.fixedParams ?? {}) };
+    const input: Record<string, unknown> = { prompt, ...(config.fixedParams ?? {}), ...shapeInput(config, options) };
     return runFalImageRequest(config, endpointId, input, apiKey, observer);
   },
 
@@ -92,8 +92,8 @@ export const falImageTransport: ImageTransport = {
     const input: Record<string, unknown> = {
       prompt: editPrompt,
       [imageInput]: mode?.imageFormat === "array" ? [uploaded] : uploaded,
-      ...shapeInput(config, options),
       ...(config.fixedParams ?? {}),
+      ...shapeInput(config, options),
     };
     return runFalImageRequest(config, endpointId, input, apiKey, observer);
   },
@@ -117,8 +117,8 @@ export const falImageTransport: ImageTransport = {
     const input: Record<string, unknown> = {
       prompt,
       [imageInput]: referenceImages.map((img) => uploadImageToFal(img)),
-      ...shapeInput(config, options),
       ...(config.fixedParams ?? {}),
+      ...shapeInput(config, options),
     };
     return runFalImageRequest(config, endpointId, input, apiKey, observer);
   },

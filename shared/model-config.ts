@@ -15,6 +15,8 @@ export interface VideoGenerationSettings {
 import {
   VALID_VIDEO_TRANSPORTS,
   VALID_IMAGE_TRANSPORTS,
+  SHAPED_IMAGE_TRANSPORTS,
+  FAL_SHAPE_PARAMS,
 } from "./model-transports";
 import { isApiKeyProvider, type ApiKeyProvider } from "./provider-catalog";
 
@@ -311,6 +313,17 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
     throw new Error(
       `Image config "${config.id}": "aspectRatios" must be a list of ratios such as "16:9"`,
     );
+  }
+  if (config.aspectRatios !== undefined) {
+    if (!SHAPED_IMAGE_TRANSPORTS.includes(String(config.transport)))
+      throw new Error(
+        `Image config "${config.id}": "aspectRatios" is not supported by the ${String(config.transport)} transport, which cannot send a shape`,
+      );
+    const options = config.transportOptions as Record<string, unknown> | undefined;
+    if (config.transport === "fal-image" && !FAL_SHAPE_PARAMS.includes(String(options?.aspectRatioParam)))
+      throw new Error(
+        `Image config "${config.id}": fal models with "aspectRatios" need transportOptions.aspectRatioParam set to ${FAL_SHAPE_PARAMS.join(" or ")}`,
+      );
   }
 
   if (config.generationModes !== undefined) {
