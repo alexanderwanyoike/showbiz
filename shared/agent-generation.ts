@@ -88,6 +88,9 @@ export const agentGenerationErrorCodes = [
   "PRICE_UNKNOWN",
   "QUOTE_EXPIRED",
   "QUOTE_NOT_FOUND",
+  "QUOTE_STALE",
+  "BUSY",
+  "JOB_LIMIT",
 ] as const;
 export type AgentGenerationErrorCode = (typeof agentGenerationErrorCodes)[number];
 

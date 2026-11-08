@@ -35,7 +35,7 @@ export function quoteFingerprint(
     .digest("hex");
 }
 
-function readPlan(
+export function readPlan(
   request: AgentQuoteRequest,
   answer: unknown,
 ): AgentResult<AgentQuotePlan> {
@@ -50,7 +50,7 @@ function readPlan(
   return { ok: true, value: parsed.data };
 }
 
-function withinBudget(
+export function withinBudget(
   budget: AgentBudgetResult<AgentBudget>,
   modelId: string,
   maxMicrousd: number | null,
