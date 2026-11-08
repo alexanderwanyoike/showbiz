@@ -11,8 +11,9 @@ async function createPicture({ request, plan, job_id, usage_request_id }: AgentJ
   const agent = { request_id: usage_request_id, agent_job_id: job_id, estimate: plan.estimate };
   const { inputs } = plan;
   if (request.operation === "edit") {
+    if (!inputs.source_variant_id) throw new Error("The quote has no source picture to edit.");
     const edited = await editBibleImage(
-      inputs.source_variant_id ?? request.source_variant_id,
+      inputs.source_variant_id,
       inputs.prompt,
       plan.model_id,
       plan.subject,
