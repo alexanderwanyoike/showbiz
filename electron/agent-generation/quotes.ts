@@ -130,6 +130,8 @@ export function withinBudget(
 
 export function createAgentQuotes(options: {
   plan: (request: AgentQuoteRequest) => Promise<AgentResult<unknown>>;
+  /** Resolves the model a request will use without pricing it. */
+  resolve?: (request: AgentQuoteRequest) => Promise<AgentResult<unknown>>;
   budget: () => Promise<AgentBudgetResult<AgentBudget>>;
   now?: () => number;
 }) {
@@ -150,12 +152,16 @@ export function createAgentQuotes(options: {
           parsed.error.issues[0]?.message ?? "Invalid quote request.",
         );
       const request = parsed.data;
-      // Shot frames use the shot's model, so their allowlist check waits for the plan.
-      const early = withinBudget(
-        await options.budget(),
-        "model_id" in request ? request.model_id : null,
-        null,
-      );
+      let modelId = "model_id" in request ? request.model_id : null;
+      // Shots use their own model, so it is resolved, without pricing, before the allowlist check.
+      if (modelId === null && options.resolve) {
+        const resolved = await options.resolve(request);
+        if (!resolved.ok) return resolved;
+        const target = readTarget(request, resolved.value);
+        if (!target.ok) return target;
+        modelId = target.value.model_id;
+      }
+      const early = withinBudget(await options.budget(), modelId, null);
       if (!early.ok) return early;
       const answer = await options.plan(request);
       if (!answer.ok) return answer;
