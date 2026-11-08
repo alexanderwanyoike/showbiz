@@ -1,25 +1,21 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { AgentBudget, AgentBudgetResult } from "../../shared/agent-budget";
 import {
   agentFailure,
   agentJobResultSchema,
+  agentQuoteRequestSchema,
   type AgentJob,
+  type AgentJobEstimate,
   type AgentJobStart,
+  type AgentQuotePlan,
   type AgentQuoteRequest,
   type AgentResult,
 } from "../../shared/agent-generation";
 import type { createAgentJobLedger } from "./job-ledger";
-import {
-  quoteFingerprint,
-  readTarget,
-  withinBudget,
-  type createAgentQuotes,
-} from "./quotes";
+import { readPlan } from "./plan-check";
 
 const MAX_UNFINISHED_JOBS = 1;
 const id = z.string().min(1).max(200);
-const submitSchema = z.strictObject({ quote_id: id, request_id: id });
 const jobIdSchema = z.strictObject({ job_id: id });
 const listSchema = z.strictObject({
   project_id: id,
@@ -37,28 +33,55 @@ const reportSchema = z.strictObject({
 type Usage = { reported_microusd: number | null } | null | undefined;
 const providerCalled = (usage: Usage): boolean | null =>
   usage === undefined ? null : usage !== null;
+const fingerprint = (request: AgentQuoteRequest) =>
+  createHash("sha256").update(JSON.stringify(request)).digest("hex");
+const estimateOf = ({ estimate }: AgentQuotePlan): AgentJobEstimate | null =>
+  estimate.kind === "estimate"
+    ? {
+        min_microusd: estimate.min_microusd,
+        max_microusd: estimate.max_microusd,
+        price_source: estimate.price.source_url,
+        price_checked_at: estimate.price.checked_at,
+        price_stale: estimate.stale,
+        excludes_input_cost: estimate.excludes_input_cost,
+      }
+    : null;
+
+function readGenerateArgs(
+  args: Record<string, unknown> | undefined,
+): AgentResult<{ request_id: string; request: AgentQuoteRequest }> {
+  const { request_id, ...fields } = args ?? {};
+  const requestId = id.safeParse(request_id);
+  if (!requestId.success) return agentFailure("INVALID_INPUT", "Pass a request_id.");
+  const request = agentQuoteRequestSchema.safeParse(fields);
+  if (!request.success)
+    return agentFailure(
+      "INVALID_INPUT",
+      request.error.issues[0]?.message ?? "Invalid generation request.",
+    );
+  return { ok: true, value: { request_id: requestId.data, request: request.data } };
+}
 
 export function createAgentJobs(options: {
   ledger: ReturnType<typeof createAgentJobLedger>;
-  quotes: Pick<ReturnType<typeof createAgentQuotes>, "take">;
-  budget: () => Promise<AgentBudgetResult<AgentBudget>>;
-  resolve: (request: AgentQuoteRequest) => Promise<AgentResult<unknown>>;
+  /** Asks the app window for the model, inputs and estimate its own controls would use. */
+  plan: (request: AgentQuoteRequest) => Promise<AgentResult<unknown>>;
   start: (job: AgentJobStart) => Promise<AgentResult<unknown>>;
   /** null when no usage record was started; undefined when that cannot be known. */
   usage: (job: AgentJob) => Promise<Usage>;
   canEdit: () => boolean;
 }) {
   const { ledger } = options;
-  // A retry can arrive while the first submit is still checking, before its ledger row exists.
+  // A retry can arrive while the first request is still planning, before its ledger row exists.
   const inFlight = new Map<
     string,
-    { quote_id: string; result: Promise<AgentResult<AgentJob>> }
+    { fingerprint: string; result: Promise<AgentResult<AgentJob>> }
   >();
   const limitReached = () =>
     ledger.unfinished() >= MAX_UNFINISHED_JOBS
       ? agentFailure(
           "JOB_LIMIT",
-          "An agent generation is already running. Wait for it with get_generation_job before submitting another.",
+          "An agent generation is already running. Wait for it with get_generation_job before starting another.",
         )
       : null;
   const editBlocked = () =>
@@ -68,7 +91,7 @@ export function createAgentJobs(options: {
           "BUSY",
           "Finish or discard unsaved edits in Showbiz before generating.",
         );
-  // A failed lookup means the outcome is unknown, so any hold is kept.
+  // A failed lookup means the outcome is unknown.
   async function readUsage(job: AgentJob): Promise<Usage> {
     try {
       return await options.usage(job);
@@ -84,60 +107,41 @@ export function createAgentJobs(options: {
       ? (ledger.update(job.job_id, { reported_microusd: usage.reported_microusd }) ?? job)
       : job;
   }
-  async function settle(): Promise<void> {
-    for (const job of ledger.unsettled()) await confirmCharge(job);
-  }
-  async function submit(
+  async function start(
     request_id: string,
-    quote_id: string,
+    request: AgentQuoteRequest,
+    request_fingerprint: string,
   ): Promise<AgentResult<AgentJob>> {
     const early = limitReached() ?? editBlocked();
     if (early) return early;
-    const quote = options.quotes.take(quote_id);
-    if (!quote.ok) return quote;
-    const resolved = await options.resolve(quote.value.request);
-    if (!resolved.ok) return resolved;
-    const target = readTarget(quote.value.request, resolved.value);
-    if (!target.ok) return target;
-    if (quoteFingerprint(quote.value.request, target.value) !== quote.value.fingerprint)
-      return agentFailure("QUOTE_STALE", "What was quoted has changed. Request a new quote.");
-    await settle();
-    const budget = withinBudget(
-      await options.budget(),
-      quote.value.plan.model_id,
-      quote.value.max_microusd,
-    );
-    if (!budget.ok) return budget;
-    if (budget.value.grant.id !== quote.value.grant_id)
-      return agentFailure(
-        "NO_BUDGET",
-        "The agent budget changed after this quote. Request a new quote.",
-      );
-    // No awaits from here until the insert, so the checks and the hold cannot interleave with another submit.
+    const answer = await options.plan(request);
+    if (!answer.ok) return answer;
+    const plan = readPlan(request, answer.value);
+    if (!plan.ok) return plan;
+    // No awaits from here until the insert, so the checks and the record cannot interleave with another request.
     const late = limitReached() ?? editBlocked();
     if (late) return late;
     const job = ledger.insert({
       job_id: randomUUID(),
       request_id,
-      quote_id,
-      grant_id: quote.value.grant_id,
-      project_id: quote.value.plan.subject.project_id,
-      subject_id: quote.value.plan.subject.subject_id,
+      request_fingerprint,
+      project_id: plan.value.subject.project_id,
+      subject_id: plan.value.subject.subject_id,
       usage_request_id: randomUUID(),
-      model_id: quote.value.plan.model_id,
-      kind: quote.value.plan.cost_request.kind,
-      reserved_microusd: quote.value.max_microusd,
+      model_id: plan.value.model_id,
+      kind: plan.value.cost_request.kind,
+      estimate: estimateOf(plan.value),
     });
     const started = await options.start({
       job_id: job.job_id,
       usage_request_id: job.usage_request_id,
-      request: quote.value.request,
-      plan: quote.value.plan,
+      request,
+      plan: plan.value,
     });
     if (!started.ok)
       ledger.update(
         job.job_id,
-        // Without an answer the window may still be generating, so the hold stays; a late report can still finish the job.
+        // Without an answer the window may still be generating; a late report can still finish the job.
         started.error.code === "NO_ANSWER"
           ? { status: "interrupted", error: started.error.message }
           : { status: "failed", provider_called: false, error: started.error.message },
@@ -145,25 +149,24 @@ export function createAgentJobs(options: {
     return { ok: true, value: ledger.get(job.job_id) ?? job };
   }
   return {
-    settle,
-    async submit_generation(
-      args?: Record<string, unknown>,
-    ): Promise<AgentResult<AgentJob>> {
-      const input = submitSchema.safeParse(args ?? {});
-      if (!input.success)
-        return agentFailure("INVALID_INPUT", "Pass a quote_id and a request_id.");
-      const { request_id, quote_id } = input.data;
+    async generate(args?: Record<string, unknown>): Promise<AgentResult<AgentJob>> {
+      const input = readGenerateArgs(args);
+      if (!input.ok) return input;
+      const { request_id, request } = input.value;
+      const requestFingerprint = fingerprint(request);
       const reused = agentFailure(
         "INVALID_INPUT",
-        "This request ID was already used with a different quote.",
+        "This request ID was already used with different arguments.",
       );
       const existing = ledger.find(request_id);
       if (existing)
-        return existing.quote_id === quote_id ? { ok: true, value: existing } : reused;
+        return existing.request_fingerprint === requestFingerprint
+          ? { ok: true, value: existing }
+          : reused;
       const pending = inFlight.get(request_id);
-      if (pending) return pending.quote_id === quote_id ? pending.result : reused;
-      const result = submit(request_id, quote_id);
-      inFlight.set(request_id, { quote_id, result });
+      if (pending) return pending.fingerprint === requestFingerprint ? pending.result : reused;
+      const result = start(request_id, request, requestFingerprint);
+      inFlight.set(request_id, { fingerprint: requestFingerprint, result });
       try {
         return await result;
       } finally {
@@ -189,7 +192,6 @@ export function createAgentJobs(options: {
       for (const job of listed) confirmed.push(await confirmCharge(job));
       return { ok: true, value: confirmed };
     },
-    /** Jobs the window can no longer finish keep their holds until a charge is confirmed. */
     interruptUnfinished(): void {
       ledger.recoverInterrupted();
     },

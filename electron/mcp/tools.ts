@@ -21,7 +21,7 @@ interface ToolDefinition {
   schema: z.ZodObject;
   command: string;
   mutates: boolean;
-  /** Spends from the agent budget, so it is never presented as read-only. */
+  /** Pays a provider, so it is never presented as read-only. */
   spends?: boolean;
   /** Reaches provider APIs outside Showbiz. */
   openWorld?: boolean;
@@ -188,16 +188,11 @@ export const mcpTools: ToolDefinition[] = [
       subject_id: input.subject_id,
     }),
   },
-  define(
-    "get_agent_budget",
-    {},
-    "Read the spending budget the user granted in Showbiz: remaining amount, per-request cap, expiry and allowed models. Agents cannot create, raise, extend or revoke it. NO_BUDGET means nothing is granted.",
-  ),
   {
     ...define(
-      "quote_generation",
+      "generate",
       {},
-      "Price a generation before spending. Returns a quote_id valid for ten minutes and usable once, with the frozen estimate and its source. For a Bible entry (target bible_asset) pass asset_id and an installed image model_id, plus: operation generate with a prompt (a new prompt-only take); retake with an optional prompt (composes from the entry's own picture or a frame's recipe, as the app's retake does, or prompt-only when it has none); or edit with source_variant_id and an instruction as prompt. For a shot's start frame (target shot_start_frame) pass shot_id and either operation generate with a prompt, or edit with source_take_id and an instruction as prompt; the shot's image model is used (change it with set_shot_models). For a shot's video (target shot_video, operation generate) pass shot_id; the shot's video model, saved video settings (set_shot_video_settings), video prompt (update_shot) and frames are used as the storyboard's Generate Video uses them. Unknown prices are refused with PRICE_UNKNOWN; NO_BUDGET, MODEL_NOT_ALLOWED, OVER_REQUEST_CAP and OVER_BUDGET reflect the budget the user granted.",
+      "Generate with a provider straight away, which may cost money. Pass a unique request_id; retrying with the same request_id and arguments returns the same job and never pays twice, even after a timeout or a Showbiz restart, while other arguments under a used request_id are refused. For a Bible entry (target bible_asset) pass asset_id and an installed image model_id, plus: operation generate with a prompt (a new prompt-only take); retake with an optional prompt (composes from the entry's own picture or a frame's recipe, as the app's retake does, or prompt-only when it has none); or edit with source_variant_id and an instruction as prompt. For a shot's start frame (target shot_start_frame) pass shot_id and either operation generate with a prompt, or edit with source_take_id and an instruction as prompt; the shot's image model is used (change it with set_shot_models). For a shot's video (target shot_video, operation generate) pass shot_id; the shot's video model, saved video settings (set_shot_video_settings), video prompt (update_shot) and frames are used as the storyboard's Generate Video uses them. Returns a job with the app's cost estimate, or estimate null when the price is unknown; an unknown price never blocks generation. Follow the job with get_generation_job. Refused with JOB_LIMIT (one job at a time) or BUSY (unsaved edits in Showbiz).",
     ),
     schema: z.strictObject({
       target: z.enum(["bible_asset", "shot_start_frame", "shot_video"]),
@@ -208,18 +203,8 @@ export const mcpTools: ToolDefinition[] = [
       source_variant_id: id.optional(),
       source_take_id: id.optional(),
       model_id: id.optional(),
+      request_id: id,
     }),
-    openWorld: true,
-    requestTimeoutMs: 90000,
-    args: (input: Record<string, unknown>) => ({ ...input }),
-  },
-  {
-    ...define(
-      "submit_generation",
-      {},
-      "Spend from the agent budget by submitting a quote. Pass the quote_id and a unique request_id. Retrying with the same request_id returns the same job and never pays twice, even after a timeout or a Showbiz restart. Returns a job; follow it with get_generation_job. Refused with QUOTE_EXPIRED, QUOTE_NOT_FOUND, QUOTE_STALE, NO_BUDGET, OVER_BUDGET, OVER_REQUEST_CAP, JOB_LIMIT (one paid job at a time) or BUSY (unsaved edits in Showbiz).",
-    ),
-    schema: z.strictObject({ quote_id: id, request_id: id }),
     spends: true,
     openWorld: true,
     requestTimeoutMs: 180000,
@@ -420,7 +405,7 @@ export const mcpTools: ToolDefinition[] = [
     ...define(
       "set_shot_video_settings",
       {},
-      "Save a shot's video settings (duration such as 8s or auto, resolution, aspect_ratio, audio) for an installed video model, as the shot's video settings panel does. Settings the model cannot use fall back to its defaults; quote_generation shows what will be used.",
+      "Save a shot's video settings (duration such as 8s or auto, resolution, aspect_ratio, audio) for an installed video model, as the shot's video settings panel does. Settings the model cannot use fall back to its defaults.",
       true,
     ),
     schema: shotVideoSettingsSchema.extend({
