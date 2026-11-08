@@ -233,6 +233,15 @@ describe("agent generation quotes", () => {
       }).quotes.quote_generation(request),
     ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
   });
+
+  it("refuses a budget frozen by a charge above its quote", async () => {
+    const { quotes, planner } = setup({ granted: { ...budget(), frozen: true } });
+    expect(await quotes.quote_generation(request)).toMatchObject({
+      ok: false,
+      error: { code: "NO_BUDGET" },
+    });
+    expect(planner).not.toHaveBeenCalled();
+  });
 });
 
 function estimateOf(value: AgentQuotePlan) {
