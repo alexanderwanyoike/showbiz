@@ -4,6 +4,7 @@ import { createTestDataCommands } from "../../../electron/test-support/data-comm
 import { createGenerationPricingCommands } from "../../../electron/commands/generation-pricing";
 import { getGenerationEstimate } from "../generation-pricing";
 import { planAgentQuote } from "./plan-quote";
+import { IMAGE_GENERATION_REQUEST } from "../../../shared/generation-cost";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("../bridge", () => native);
@@ -61,12 +62,9 @@ it("plans a bible image with the estimate the app shows for the same model", asy
     value: {
       model_id: "local-image",
       provider: "local",
-      cost_request: { kind: "image", count: 1 },
+      cost_request: IMAGE_GENERATION_REQUEST,
       subject: { project_id: film.id, subject_id: asset.id },
-      estimate: await getGenerationEstimate("local-image", {
-        kind: "image",
-        count: 1,
-      }),
+      estimate: await getGenerationEstimate("local-image", IMAGE_GENERATION_REQUEST),
     },
   });
   expect(planned.ok && planned.value.estimate).toMatchObject({

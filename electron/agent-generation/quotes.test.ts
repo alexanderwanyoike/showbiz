@@ -219,6 +219,8 @@ describe("agent generation quotes", () => {
     ["another model", plan({ model_id: "nano-banana-2" })],
     ["another kind of generation", plan({ cost_request: { kind: "video", duration: 8 } })],
     ["another subject", plan({ subject: { project_id: "film", subject_id: "asset-2" } })],
+    ["a malformed cost request", plan({ cost_request: { kind: "image", count: "lots" } as never })],
+    ["another model's price", plan({ estimate: { ...estimateOf(plan()), price: { ...price, model_id: "nano-banana-2" } } })],
   ])("rejects a planned quote with %s", async (_label, malformed) => {
     expect(
       await setup({ planned: { ok: true, value: malformed } }).quotes.quote_generation(request),

@@ -80,4 +80,13 @@ describe("renderer agent channel", () => {
     });
     expect(await answer).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
   });
+
+  it("fails pending work at once when its window goes away", async () => {
+    const app = window(7);
+    const channel = createRendererChannel({ target: () => app.target, timeoutMs: 60_000 });
+    const answer = channel.request("plan_quote", {});
+    channel.abandon(8);
+    channel.abandon(7);
+    expect(await answer).toMatchObject({ ok: false, error: { code: "UNAVAILABLE" } });
+  });
 });
