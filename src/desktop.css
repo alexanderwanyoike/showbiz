@@ -794,7 +794,7 @@ body,
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 16px;
+  padding: 2px 8px 2px 16px;
   background: var(--muted);
   border-bottom: 1px solid var(--border);
   font-size: 12px;
@@ -802,9 +802,8 @@ body,
 .agent-budget-banner [role="alert"] {
   color: var(--destructive);
 }
-.agent-budget-banner button {
+.agent-budget-revoke {
   margin-left: auto;
-  text-decoration: underline;
 }
 .document-start {
   display: grid;

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Bot } from "lucide-react";
+import { Ban, Bot } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useAgentBudget } from "../hooks/useAgentBudget";
 import { formatBudgetExpiry, revokeAgentBudget } from "../lib/agent-budget";
 import { formatGenerationCost } from "../lib/generation-usage";
@@ -39,9 +40,16 @@ export function AgentBudgetBanner() {
         {formatBudgetExpiry(budget.grant.expires_at)}
       </span>
       {error && <span role="alert">{error}</span>}
-      <button type="button" disabled={revoking} onClick={() => void revoke()}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="agent-budget-revoke"
+        disabled={revoking}
+        onClick={() => void revoke()}
+      >
+        <Ban size={15} aria-hidden="true" />
         Revoke
-      </button>
+      </Button>
     </div>
   );
 }
