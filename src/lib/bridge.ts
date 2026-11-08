@@ -2,6 +2,7 @@ import type { ApplicationMenuAction, DesktopMenuCommand, DesktopShellMetadata, D
 import type { Result } from "../../shared/result";
 import type { ApplicationWorkStatus } from "../../shared/application-work";
 import type { UpdateStatus } from "../../shared/update-status";
+import type { AgentJobReport, AgentRequest } from "../../shared/agent-generation";
 
 // Runtime bridge to the Electron main process, exposed by the preload script
 // as window.showbiz.
@@ -18,6 +19,9 @@ export interface ElectronBridge {
   onApplicationWork(cb: (status: ApplicationWorkStatus) => void): () => void;
   onPrepareShutdown(cb: (request_id: string) => void): () => void;
   onUpdateStatus(cb: (status: UpdateStatus) => void): () => void;
+  onAgentRequest?(cb: (request: AgentRequest) => void): () => void;
+  respondAgentRequest?(request_id: string, answer: unknown): Promise<void>;
+  reportAgentJob?(update: AgentJobReport): Promise<void>;
 }
 
 declare global {

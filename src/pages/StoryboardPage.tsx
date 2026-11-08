@@ -50,9 +50,6 @@ import {
   getCurrentImageVersion,
   getVersionCount,
   switchToVersion,
-  createGenerationVersion,
-  createRemixVersion,
-  getVersionImageBase64,
   getVideoVersions,
   getCurrentVideoVersion,
   getVideoVersionCount,
@@ -61,8 +58,6 @@ import {
   getBibleAssets,
   getBibleAssetVariants,
   getBibleVariantImageBase64,
-  getShotEndFrameBase64,
-  saveShotEndFrame,
   clearShotEndFrame,
   clearShotStartFrame,
 } from "../lib/backend-api";
@@ -77,8 +72,6 @@ import type {
   BibleAssetVariant,
 } from "../lib/backend-api";
 import {
-  generateImageAction,
-  editImageAction,
   generateVideoPromptFromImage,
   enhanceVideoPrompt,
   generateAndSaveVideoRequestAction,
@@ -91,10 +84,12 @@ import {
   getAvailableVideoModels,
 } from "../lib/models";
 import { blobToBase64, type VideoGenerationSettings } from "../lib/models/types";
-import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
-import type { VideoGenerationRequest } from "../lib/generation/types";
-import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
+import type { FrameOption } from "../components/ShotInspector";
+import type { ShotFrameRole } from "../../shared/shot-frames";
 import { buildFrameOptions } from "../lib/bible-compose";
+import { imageCostRequest } from "../../shared/generation-cost";
+import { editShotStartFrame, generateShotStartFrame, saveShotFrame } from "../lib/shot-frames";
+import { buildShotVideoRequest, chooseShotVideoFrames, videoCostRequest } from "../lib/shot-video";
 import { versionsForShot, valueForShot } from "../lib/shot-versions";
 import {
   invalidateGenerationRun,
@@ -200,15 +195,14 @@ export default function StoryboardPage() {
   const videoSettings: VideoGenerationSettings = selectedVideoDraft?.settings ?? storedVideoSettings.settings;
   const inactiveVideoDraft = Object.keys(videoSettingsDrafts).find((shotId) => shotId !== selectedShotId);
 
-  const videoCostRequest = {
-    kind: "video" as const,
-    duration: videoSettings.duration,
-    resolution: videoSettings.resolution,
-    audio: videoSettings.audio,
-    aspect_ratio: videoSettings.aspectRatio,
-    mode: currentVideoModel ? chooseVideoGenerationMode(currentVideoModel.modeCapabilities, { hasStartImage: !!selectedShot?.image_url }) : undefined,
-    has_end_frame: !!(selectedShot?.end_frame_url && currentVideoModel?.modeCapabilities.imageToVideo?.supportsEndImage),
-  };
+  const selectedVideoFrames = currentVideoModel
+    ? chooseShotVideoFrames(currentVideoModel, { hasStartFrame: !!selectedShot?.image_url, hasEndFrame: !!selectedShot?.end_frame_url })
+    : null;
+  const selectedVideoCost = videoCostRequest(
+    videoSettings,
+    selectedVideoFrames?.mode,
+    selectedVideoFrames?.usesEndFrame ?? false,
+  );
 
 
 
@@ -527,17 +521,12 @@ export default function StoryboardPage() {
     try {
       await withApplicationWork("generation", async () => {
         const targetModel = resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model as ImageModelId;
-        const imageDataUrl = await generateImageAction(imagePrompt, targetModel, {project_id: storyboard?.project_id, subject_id: activeShotId});
-
-        // Get current version to use as parent (if exists)
-        const currentVersion = shotCurrentVersions[activeShotId];
-
-        // Create a new version
-        await createGenerationVersion(
+        await generateShotStartFrame(
           activeShotId,
           imagePrompt,
-          imageDataUrl,
-          currentVersion?.id || null
+          targetModel,
+          {project_id: storyboard?.project_id, subject_id: activeShotId},
+          shotCurrentVersions[activeShotId]?.id || null,
         );
 
         // Reload shot data and version data
@@ -578,13 +567,8 @@ export default function StoryboardPage() {
   // The start frame is versioned (image_versions); the end frame is a single slot.
   async function setShotFrameFromDataUrl(shotId: string, role: ShotFrameRole, dataUrl: string) {
     if (!id) return;
-    if (role === "start") {
-      const currentVersion = shotCurrentVersions[shotId];
-      await createGenerationVersion(shotId, "Uploaded frame", dataUrl, currentVersion?.id || null);
-      await refreshVersionData(shotId);
-    } else {
-      await saveShotEndFrame(shotId, dataUrl);
-    }
+    await saveShotFrame(shotId, role, dataUrl, shotCurrentVersions[shotId]?.id || null);
+    if (role === "start") await refreshVersionData(shotId);
     const updatedShots = await getShots(id);
     setShots(updatedShots.map(shotFromShotWithUrls));
   }
@@ -704,18 +688,8 @@ export default function StoryboardPage() {
     setImageEditError(null);
     try {
       await withApplicationWork("generation", async () => {
-        // Get source image as base64
-        const sourceBase64 = await getVersionImageBase64(versionId);
-        if (!sourceBase64) {
-          throw new Error("Failed to load source image");
-        }
-
-        // Call edit image action
         const targetModel = resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model as ImageModelId;
-        const resultBase64 = await editImageAction(sourceBase64, editPrompt, targetModel, {project_id: storyboard?.project_id, subject_id: shotId});
-
-        // Create a new remix version
-        await createRemixVersion(shotId, versionId, editPrompt, resultBase64);
+        await editShotStartFrame(shotId, versionId, editPrompt, targetModel, {project_id: storyboard?.project_id, subject_id: shotId});
 
         // Reload data
         const updatedShots = await getShots(id);
@@ -771,21 +745,13 @@ export default function StoryboardPage() {
 
     try {
       await withApplicationWork("generation", async () => {
-        const startImage = shot.image_url ? await getShotImageBase64(shotId) : null;
-        const supportsEndFrame = targetModel.modeCapabilities.imageToVideo?.supportsEndImage === true;
-        const endImage =
-          supportsEndFrame && shot.end_frame_url ? await getShotEndFrameBase64(shotId) : null;
-        const mode = chooseVideoGenerationMode(targetModel.modeCapabilities, {
-          hasStartImage: !!startImage,
-        });
-        const request: VideoGenerationRequest = {
-          mode,
+        const request = await buildShotVideoRequest(
+          shotId,
+          targetModel,
+          { hasStartFrame: !!shot.image_url, hasEndFrame: !!shot.end_frame_url },
+          targetSettings,
           prompt,
-          settings: targetSettings,
-          startImage,
-          endImage: mode === "image-to-video" ? endImage : null,
-        };
-        validateVideoGenerationRequest(targetModel.modeCapabilities, request);
+        );
 
         const result = await generateAndSaveVideoRequestAction(shotId, targetModelId, request);
         if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
@@ -1008,7 +974,7 @@ export default function StoryboardPage() {
           inspectorSlot={
             <ShotInspector
               imageModel={imageModels.find(model => model.id === imageModel) ?? null}
-              generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={videoCostRequest} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
+              generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={selectedVideoCost} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
               frameLibraryHref={`/project/${storyboard.project_id}?view=bible&bibleTab=frames`}
               generationDisabled={isLoading || !!loadError || modelSaving || videoSettingsSaving || !!selectedVideoDraft || !!(selectedShotId && (pendingVideoShots.has(selectedShotId) || savingFrameShots.has(selectedShotId) || frameErrors[selectedShotId]))}
               frameError={selectedShotId ? frameErrors[selectedShotId] : null}
@@ -1093,7 +1059,7 @@ export default function StoryboardPage() {
           </div>
           {refreshFeedback(imagePromptInput.current)}
           {imageGenerationError && <p role="alert" className="text-sm text-destructive">{imageGenerationError}</p>}
-          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model} request={{kind: "image"}} subject={{project_id: storyboard?.project_id, subject_id: activeShotId ?? undefined}} />
+          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === activeShotId), defaultModels).image_model} request={imageCostRequest("image")} subject={{project_id: storyboard?.project_id, subject_id: activeShotId ?? undefined}} />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
               Cancel
@@ -1170,7 +1136,7 @@ export default function StoryboardPage() {
           </div>
           {refreshFeedback(editPromptInput.current)}
           {imageEditError && <p role="alert" className="text-sm text-destructive">{imageEditError}</p>}
-          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model} request={{kind: "image_edit"}} subject={{project_id: storyboard?.project_id, subject_id: editModalState.shotId ?? undefined}} />
+          <GenerationCost modelId={resolveShotModels(shots.find(shot => shot.id === editModalState.shotId), defaultModels).image_model} request={imageCostRequest("image_edit")} subject={{project_id: storyboard?.project_id, subject_id: editModalState.shotId ?? undefined}} />
           <DialogFooter>
             <Button
               variant="ghost"

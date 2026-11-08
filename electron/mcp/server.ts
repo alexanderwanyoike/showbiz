@@ -3,12 +3,51 @@ import { z } from "zod";
 import { mcpTools } from "./tools";
 import { callBridge, listSessions, sessionDirectory } from "./sessions";
 import type { BridgeResult, LocalSession } from "./contract";
+import { mediaPreviewSchema } from "../../shared/agent-generation";
 
-function toolResult(result: BridgeResult) {
+const previewSchema = z.object({
+  revision: z.number(),
+  data: z.object({ ok: z.literal(true), value: mediaPreviewSchema }),
+});
+
+export function toolResult(result: BridgeResult) {
+  const preview = result.ok ? previewSchema.safeParse(result.value) : null;
+  if (!result.ok || !preview?.success)
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(result) }],
+      structuredContent: result,
+      isError: !result.ok,
+    };
+  const { images } = preview.data.data.value;
+  const described = {
+    ok: true,
+    value: {
+      revision: preview.data.revision,
+      data: {
+        ok: true,
+        value: { images: images.map(({ base64: _bytes, ...image }) => image) },
+      },
+    },
+  };
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(result) }],
-    structuredContent: result,
-    isError: !result.ok,
+    content: [
+      { type: "text" as const, text: JSON.stringify(described) },
+      ...images.map((image) => ({
+        type: "image" as const,
+        data: image.base64,
+        mimeType: image.mime_type,
+      })),
+    ],
+    structuredContent: described,
+    isError: false,
+  };
+}
+export function toolAnnotations(definition: (typeof mcpTools)[number]) {
+  return {
+    readOnlyHint: !definition.mutates && !definition.spends,
+    destructiveHint: false,
+    ...(definition.spends ? { idempotentHint: true } : {}),
+    ...(definition.openWorld ? { openWorldHint: true } : {}),
   };
 }
 export function createMcpServer(directory = sessionDirectory()) {
@@ -69,10 +108,7 @@ export function createMcpServer(directory = sessionDirectory()) {
       {
         description: definition.description,
         inputSchema: definition.schema,
-        annotations: {
-          readOnlyHint: !definition.mutates,
-          destructiveHint: false,
-        },
+        annotations: toolAnnotations(definition),
       },
       async (args, context) =>
         toolResult(

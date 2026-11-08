@@ -4,6 +4,13 @@ import type { Result } from "../shared/result";
 import { contextBridge, ipcRenderer } from "electron";
 import type { ApplicationWorkStatus } from "../shared/application-work";
 import type { UpdateStatus } from "../shared/update-status";
+import {
+  AGENT_JOB_REPORT_CHANNEL,
+  AGENT_REQUEST_CHANNEL,
+  AGENT_RESPONSE_CHANNEL,
+  type AgentJobReport,
+  type AgentRequest,
+} from "../shared/agent-generation";
 
 // The renderer-facing bridge; src/lib/bridge.ts detects this to pick the
 // Electron shell over Tauri. Sandboxed preload: keep it a pure passthrough.
@@ -46,6 +53,15 @@ contextBridge.exposeInMainWorld("showbiz", {
     ipcRenderer.on("showbiz:update_status", listener);
     return () => ipcRenderer.removeListener("showbiz:update_status", listener);
   },
+  onAgentRequest: (cb: (request: AgentRequest) => void) => {
+    const listener = (_event: unknown, request: AgentRequest) => cb(request);
+    ipcRenderer.on(AGENT_REQUEST_CHANNEL, listener);
+    return () => ipcRenderer.removeListener(AGENT_REQUEST_CHANNEL, listener);
+  },
+  respondAgentRequest: (request_id: string, answer: unknown): Promise<void> =>
+    ipcRenderer.invoke(AGENT_RESPONSE_CHANNEL, request_id, answer),
+  reportAgentJob: (update: AgentJobReport): Promise<void> =>
+    ipcRenderer.invoke(AGENT_JOB_REPORT_CHANNEL, update),
   invoke: (cmd: string, args?: Record<string, unknown>) =>
     ipcRenderer.invoke("showbiz:invoke", cmd, args),
   readMediaBytes: (relativePath: string) =>

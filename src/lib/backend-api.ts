@@ -110,7 +110,8 @@ export interface VideoVersionNode {
 }
 
 export type BibleAssetType = "character" | "location" | "prop" | "style" | "reference" | "note" | "scene";
-export type BibleAssetVariantStatus = "candidate" | "approved" | "rejected";
+export type { BibleAssetVariantStatus } from "../../shared/bible-variant-status";
+import type { BibleAssetVariantStatus } from "../../shared/bible-variant-status";
 
 export interface Bible {
   id: string;
@@ -456,6 +457,11 @@ async function convertVideoVersionUrls(node: VideoVersionNode): Promise<VideoVer
 export async function getVideoVersions(shotId: string): Promise<VideoVersionNode[]> {
   const nodes: VideoVersionNode[] = await invoke("get_video_versions", { shotId });
   return Promise.all(nodes.map(convertVideoVersionUrls));
+}
+
+/** The media URL of one video take, for reading it inside the app only. */
+export async function getVideoVersionUrl(versionId: string): Promise<string | null> {
+  return invoke("get_video_version_url", { versionId });
 }
 
 export async function getCurrentVideoVersion(shotId: string): Promise<VideoVersionWithUrl | null> {

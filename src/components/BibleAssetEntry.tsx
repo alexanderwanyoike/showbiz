@@ -6,6 +6,10 @@ import {
   type RefObject,
 } from "react";
 import {
+  imageCostRequest,
+  imageGenerationKind,
+} from "../../shared/generation-cost";
+import {
   ArrowLeft,
   ImageIcon,
   Loader2,
@@ -303,14 +307,12 @@ export function BibleAssetEntry({
               <p>Estimate for the next generation</p>
               <GenerationCost
                 modelId={generationContext.modelId}
-                request={{
-                  kind:
-                    mode === "edit"
-                      ? "image_edit"
-                      : usesReferenceImages
-                        ? "image_compose"
-                        : "image",
-                }}
+                request={imageCostRequest(
+                  imageGenerationKind({
+                    edit: mode === "edit",
+                    composes: usesReferenceImages,
+                  }),
+                )}
                 subject={{
                   project_id: generationContext.projectId,
                   subject_id: asset.id,

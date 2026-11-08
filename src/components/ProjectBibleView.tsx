@@ -11,6 +11,17 @@ import { GenerationCost } from "./GenerationCost";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
+import { composeBibleImage, editBibleImage } from "../lib/bible-generation";
+import { frameAssetInput, frameName, frameRules } from "../../shared/bible-frame";
+import {
+  addPrimaryBibleTake,
+  prepareBibleImageDataUrl,
+} from "../lib/bible-takes";
+import {
+  IMAGE_GENERATION_REQUEST,
+  imageCostRequest,
+  imageGenerationKind,
+} from "../../shared/generation-cost";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Loader2, Upload, Sparkles, Plus, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,8 +52,6 @@ import {
   type BibleAssetVariant,
 } from "../lib/backend-api";
 import {
-  composeFrameAction,
-  editImageAction,
   generateImageAction,
 } from "../actions/generation-actions";
 import {
@@ -67,8 +76,6 @@ type BibleDeletion =
   | { kind: "asset"; asset: BibleAsset }
   | { kind: "picture"; variant: BibleAssetVariant };
 
-const MAX_BIBLE_IMAGE_SIDE = 1600;
-const BIBLE_IMAGE_QUALITY = 0.9;
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -80,35 +87,6 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () =>
       reject(reader.error ?? new Error("Failed to read file"));
     reader.readAsDataURL(file);
-  });
-}
-
-function prepareBibleImageDataUrl(dataUrl: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      const scale = Math.min(
-        1,
-        MAX_BIBLE_IMAGE_SIDE / Math.max(image.width, image.height),
-      );
-      if (scale === 1 && dataUrl.length < 4_000_000) {
-        resolve(dataUrl);
-        return;
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("Failed to prepare image canvas"));
-        return;
-      }
-      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", BIBLE_IMAGE_QUALITY));
-    };
-    image.onerror = () =>
-      reject(new Error("Unsupported image format. Try PNG, JPEG, or WebP."));
-    image.src = dataUrl;
   });
 }
 
@@ -458,29 +436,15 @@ export default function ProjectBibleView({
     }
   }
 
-  // Compose from reference pictures + a prompt (falls back to text-to-image when
-  // there are no references). Returns a prepared data URL.
-  async function composeFromVariantIds(
+  function composeFromVariantIds(
     variantIds: string[],
     prompt: string,
     subjectId: string,
   ): Promise<string> {
-    const images = (
-      await Promise.all(
-        variantIds.map((vid) => getBibleVariantImageBase64(vid)),
-      )
-    ).filter((x): x is string => !!x);
-    const raw =
-      images.length > 0
-        ? await composeFrameAction(prompt, images, imageModel, {
-            project_id: projectId,
-            subject_id: subjectId,
-          })
-        : await generateImageAction(prompt, imageModel, {
-            project_id: projectId,
-            subject_id: subjectId,
-          });
-    return prepareBibleImageDataUrl(raw);
+    return composeBibleImage(variantIds, prompt, imageModel, {
+      project_id: projectId,
+      subject_id: subjectId,
+    });
   }
 
   // Add a generated take to an asset and make it the new primary.
@@ -489,16 +453,7 @@ export default function ProjectBibleView({
     preparedDataUrl: string,
     prompt: string | null,
   ) {
-    const take = await createBibleAssetVariant(assetId, {
-      name: (prompt ?? "take").slice(0, 40),
-      image_base64: preparedDataUrl,
-      source_kind: "generated",
-      status: "approved",
-      prompt,
-      model_id: imageModel,
-      is_primary: false,
-    });
-    await updateBibleAssetVariantStatus(take.id, "approved", true);
+    await addPrimaryBibleTake(assetId, preparedDataUrl, prompt, imageModel);
     await refreshAsset(assetId);
   }
 
@@ -519,24 +474,16 @@ export default function ProjectBibleView({
         const pending = pendingAssets.current.get(draftKey);
         let asset = assets.find((entry) => entry.id === pending?.id);
         if (!asset || variants[asset.id]?.length) {
-          asset = await createBibleAsset(bibleId, {
-            asset_type: "reference",
-            name: recipe.prompt.slice(0, 50) || "Frame",
-            summary: null,
-            description: null,
-            tags_json: null,
-            rules_json: JSON.stringify(recipe),
-            consent_confirmed: false,
-          });
+          asset = await createBibleAsset(bibleId, frameAssetInput(recipe));
           const created = asset;
           setAssets((prev) => [created, ...prev]);
           setVariants((prev) => ({ ...prev, [created.id]: [] }));
           pendingAssets.current.set(draftKey, asset);
-        } else if (asset.rules_json !== JSON.stringify(recipe)) {
+        } else if (asset.rules_json !== frameRules(recipe)) {
           asset = await updateBibleAsset(asset.id, {
             ...asset,
-            name: recipe.prompt.slice(0, 50) || "Frame",
-            rules_json: JSON.stringify(recipe),
+            name: frameName(recipe),
+            rules_json: frameRules(recipe),
           });
           pendingAssets.current.set(draftKey, asset);
           const updated = asset;
@@ -636,25 +583,14 @@ export default function ProjectBibleView({
       const result = await withApplicationWork(
         "generation",
         async (): Promise<Result<void>> => {
-          const source = await getBibleVariantImageBase64(variant.id);
-          if (!source) {
-            return {
-              ok: false,
-              error: {
-                code: "IO_ERROR",
-                message: "Couldn't read that picture.",
-              },
-            };
-          }
-          const raw = await editImageAction(source, instruction, imageModel, {
-            project_id: projectId,
-            subject_id: asset.id,
-          });
-          await addPrimaryTake(
-            asset.id,
-            await prepareBibleImageDataUrl(raw),
+          const edited = await editBibleImage(
+            variant.id,
             instruction,
+            imageModel,
+            { project_id: projectId, subject_id: asset.id },
           );
+          if (!edited.ok) return edited;
+          await addPrimaryTake(asset.id, edited.value, instruction);
           return { ok: true, value: undefined };
         },
       );
@@ -1029,7 +965,7 @@ function AssetTab({
           <div className="bible-cost">
             <GenerationCost
               modelId={generationContext.modelId}
-              request={{ kind: "image" }}
+              request={IMAGE_GENERATION_REQUEST}
               subject={{ project_id: generationContext.projectId }}
             />
           </div>
@@ -1424,12 +1360,12 @@ function FramesTab({
           <div className="bible-cost">
             <GenerationCost
               modelId={generationContext.modelId}
-              request={{
-                kind:
-                  selectedChars.size > 0 || locationId
-                    ? "image_compose"
-                    : "image",
-              }}
+              request={imageCostRequest(
+                imageGenerationKind({
+                  edit: false,
+                  composes: selectedChars.size > 0 || !!locationId,
+                }),
+              )}
               subject={{ project_id: generationContext.projectId }}
             />
           </div>

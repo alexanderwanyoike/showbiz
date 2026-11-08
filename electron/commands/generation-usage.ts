@@ -160,10 +160,13 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
           return invalid(
             "Supply pricing provenance only through the price basis.",
           );
+        const agentJob = args.agent_job_id ?? null;
+        if (agentJob !== null && !identifier(agentJob))
+          return invalid("The agent job identity is invalid.");
         const source = price?.source_url ?? null;
         const checked = price?.checked_at ?? null;
         db.prepare(
-          `INSERT INTO generation_usage(request_id,project_id,subject_id,price_basis_json,kind,provider,model_id,settings_json,estimated_min_microusd,estimated_max_microusd,price_source,price_checked_at,started_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          `INSERT INTO generation_usage(request_id,project_id,subject_id,price_basis_json,kind,provider,model_id,settings_json,estimated_min_microusd,estimated_max_microusd,price_source,price_checked_at,agent_job_id,started_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         ).run(
           args.request_id as string,
           args.project_id as string,
@@ -177,6 +180,7 @@ export function createGenerationUsageCommands(db: DatabaseSync) {
           max as number | null,
           source,
           checked,
+          agentJob as string | null,
           new Date().toISOString(),
         );
         const row = usage(args.request_id)!;

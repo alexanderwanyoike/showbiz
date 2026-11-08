@@ -1,4 +1,11 @@
 import { z } from "zod";
+import { frameAssetInput } from "../../shared/bible-frame";
+import { shotVideoSettingsSchema } from "../../shared/shot-video-settings";
+import {
+  MAX_REFERENCE_PICTURES,
+  mediaPreviewRequestSchema,
+  setShotFrameRequestSchema,
+} from "../../shared/agent-generation";
 
 const id = z.string().min(1).max(200);
 const name = z.string().trim().min(1).max(1000);
@@ -14,8 +21,17 @@ interface ToolDefinition {
   schema: z.ZodObject;
   command: string;
   mutates: boolean;
+  /** Spends from the agent budget, so it is never presented as read-only. */
+  spends?: boolean;
+  /** Reaches provider APIs outside Showbiz. */
+  openWorld?: boolean;
   requestTimeoutMs?: number;
   args: (input: Record<string, unknown>) => Record<string, unknown>;
+  /** Reads current data to refuse input that the native command alone would accept. */
+  check?: (
+    read: (command: string, args: Record<string, unknown>) => Promise<unknown>,
+    args: Record<string, unknown>,
+  ) => Promise<string | null>;
 }
 const aliases: Record<string, string> = {
   project_id: "projectId",
@@ -77,6 +93,31 @@ const asset = z.object({
   rules_json: description,
   consent_confirmed: z.boolean(),
 });
+const assetsSchema = z.array(z.object({ id: z.string(), asset_type: z.string() }));
+const variantsSchema = z.array(z.object({ id: z.string() }));
+async function checkFrameReferences(
+  read: (command: string, args: Record<string, unknown>) => Promise<unknown>,
+  args: Record<string, unknown>,
+): Promise<string | null> {
+  const assets = assetsSchema.parse(await read("get_bible_assets", { bibleId: args.bible_id }));
+  const typeOf = (assetId: unknown) => assets.find((asset) => asset.id === assetId)?.asset_type;
+  const characters = [...new Set(z.array(z.string()).parse(args.character_ids))];
+  if (characters.length > MAX_REFERENCE_PICTURES - 1)
+    return `A frame can use at most ${MAX_REFERENCE_PICTURES - 1} characters, so that with a location view it stays within one composition.`;
+  if (characters.some((character) => typeOf(character) !== "character"))
+    return "Every character must be a character in this Bible.";
+  if (args.location_id !== null && typeOf(args.location_id) !== "location")
+    return "The location must be a location in this Bible.";
+  if (args.location_variant_id !== null) {
+    if (args.location_id === null) return "Choose the location the view belongs to.";
+    const views = variantsSchema.parse(
+      await read("get_bible_asset_variants", { assetId: args.location_id }),
+    );
+    if (!views.some((view) => view.id === args.location_variant_id))
+      return "The location view must be a picture of that location.";
+  }
+  return null;
+}
 export const mcpTools: ToolDefinition[] = [
   define(
     "get_generation_models",
@@ -146,6 +187,60 @@ export const mcpTools: ToolDefinition[] = [
       project_id: input.project_id,
       subject_id: input.subject_id,
     }),
+  },
+  define(
+    "get_agent_budget",
+    {},
+    "Read the spending budget the user granted in Showbiz: remaining amount, per-request cap, expiry and allowed models. Agents cannot create, raise, extend or revoke it. NO_BUDGET means nothing is granted.",
+  ),
+  {
+    ...define(
+      "quote_generation",
+      {},
+      "Price a generation before spending. Returns a quote_id valid for ten minutes and usable once, with the frozen estimate and its source. For a Bible entry (target bible_asset) pass asset_id and an installed image model_id, plus: operation generate with a prompt (a new prompt-only take); retake with an optional prompt (composes from the entry's own picture or a frame's recipe, as the app's retake does, or prompt-only when it has none); or edit with source_variant_id and an instruction as prompt. For a shot's start frame (target shot_start_frame) pass shot_id and either operation generate with a prompt, or edit with source_take_id and an instruction as prompt; the shot's image model is used (change it with set_shot_models). For a shot's video (target shot_video, operation generate) pass shot_id; the shot's video model, saved video settings (set_shot_video_settings), video prompt (update_shot) and frames are used as the storyboard's Generate Video uses them. Unknown prices are refused with PRICE_UNKNOWN; NO_BUDGET, MODEL_NOT_ALLOWED, OVER_REQUEST_CAP and OVER_BUDGET reflect the budget the user granted.",
+    ),
+    schema: z.strictObject({
+      target: z.enum(["bible_asset", "shot_start_frame", "shot_video"]),
+      operation: z.enum(["generate", "retake", "edit"]),
+      asset_id: id.optional(),
+      shot_id: id.optional(),
+      prompt: z.string().trim().min(1).max(50000).optional(),
+      source_variant_id: id.optional(),
+      source_take_id: id.optional(),
+      model_id: id.optional(),
+    }),
+    openWorld: true,
+    requestTimeoutMs: 90000,
+    args: (input: Record<string, unknown>) => ({ ...input }),
+  },
+  {
+    ...define(
+      "submit_generation",
+      {},
+      "Spend from the agent budget by submitting a quote. Pass the quote_id and a unique request_id. Retrying with the same request_id returns the same job and never pays twice, even after a timeout or a Showbiz restart. Returns a job; follow it with get_generation_job. Refused with QUOTE_EXPIRED, QUOTE_NOT_FOUND, QUOTE_STALE, NO_BUDGET, OVER_BUDGET, OVER_REQUEST_CAP, JOB_LIMIT (one paid job at a time) or BUSY (unsaved edits in Showbiz).",
+    ),
+    schema: z.strictObject({ quote_id: id, request_id: id }),
+    spends: true,
+    openWorld: true,
+    requestTimeoutMs: 180000,
+    args: (input: Record<string, unknown>) => ({ ...input }),
+  },
+  {
+    ...define(
+      "get_generation_job",
+      {},
+      "Read an agent job: status (accepted, running, completed, failed, interrupted), the result (variant_id for a Bible take, take_id for a shot start frame, video_take_id for a shot video), the held estimate and the confirmed charge once the provider reports it.",
+    ),
+    schema: z.strictObject({ job_id: id }),
+    args: (input: Record<string, unknown>) => ({ ...input }),
+  },
+  {
+    ...define(
+      "list_generation_jobs",
+      { project_id: id },
+      "List agent jobs for a project, newest first.",
+    ),
+    args: (input: Record<string, unknown>) => ({ ...input }),
   },
   define(
     "read_context",
@@ -246,11 +341,108 @@ export const mcpTools: ToolDefinition[] = [
     "Update a bible entry's creative guidance.",
     true,
   ),
+  {
+    ...define(
+      "create_bible_frame",
+      {
+        bible_id: id,
+        prompt: z.string().trim().min(1).max(50000),
+        character_ids: z.array(id).max(50),
+        location_id: id.nullable(),
+        location_variant_id: id.nullable(),
+      },
+      "Create a frame entry the way the Bible's frame composer does: a prompt plus characters and a location (optionally one of its views). Frames hold no picture until composed; quote it with operation retake.",
+      true,
+    ),
+    command: "create_bible_asset",
+    args: (input: Record<string, unknown>) => ({
+      bibleId: input.bible_id,
+      input: frameAssetInput({
+        characters: [...new Set(z.array(z.string()).parse(input.character_ids))],
+        location: z.string().nullable().parse(input.location_id),
+        locationVariantId: z.string().nullable().parse(input.location_variant_id),
+        prompt: z.string().parse(input.prompt),
+      }),
+    }),
+    check: checkFrameReferences,
+  },
   define(
     "get_bible_asset_variants",
     { asset_id: id },
     "Read candidate references and approved bible images.",
   ),
+  {
+    ...define(
+      "set_bible_variant_status",
+      {
+        variant_id: id,
+        status: z.enum(["approved", "rejected"]),
+        is_primary: z.boolean(),
+      },
+      "Approve a Bible take, optionally making it the entry's current picture (as the app's Use this take does), or reject a take. The current picture cannot be rejected; make another take current first.",
+      true,
+    ),
+    command: "update_bible_asset_variant_status",
+    args: (input: Record<string, unknown>) => ({
+      id: input.variant_id,
+      status: input.status,
+      isPrimary: input.is_primary,
+    }),
+  },
+  {
+    ...define(
+      "get_media_preview",
+      {},
+      "See a Bible take or a shot image take as a small JPEG (at most 512 px), or three frames (start, middle, end) of a video take, before choosing it. Pass exactly one of bible_variant_id, image_take_id or video_take_id.",
+    ),
+    schema: mediaPreviewRequestSchema,
+    requestTimeoutMs: 30000,
+    args: (input: Record<string, unknown>) => ({ ...input }),
+  },
+  {
+    ...define(
+      "set_shot_frame",
+      {},
+      "Use a Bible frame take as a shot's start frame (a new take) or end frame, as the storyboard's frame picker does. Free; uses the normal revision and replay safeguards.",
+      true,
+    ),
+    schema: setShotFrameRequestSchema.extend({
+      expected_revision: z.number().int().nonnegative(),
+      request_id: id,
+    }),
+    args: (input: Record<string, unknown>) => ({
+      shot_id: input.shot_id,
+      role: input.role,
+      bible_variant_id: input.bible_variant_id,
+    }),
+  },
+  {
+    ...define(
+      "set_shot_video_settings",
+      {},
+      "Save a shot's video settings (duration such as 8s or auto, resolution, aspect_ratio, audio) for an installed video model, as the shot's video settings panel does. Settings the model cannot use fall back to its defaults; quote_generation shows what will be used.",
+      true,
+    ),
+    schema: shotVideoSettingsSchema.extend({
+      shot_id: id,
+      expected_revision: z.number().int().nonnegative(),
+      request_id: id,
+    }),
+    args: (input: Record<string, unknown>) => ({
+      shot_id: input.shot_id,
+      model_id: input.model_id,
+      settings: input.settings,
+    }),
+    check: async (read, args) => {
+      const catalog = z
+        .object({ ok: z.literal(true), value: z.array(z.object({ id: z.string(), kind: z.string() })) })
+        .safeParse(await read("get_generation_models", {}));
+      return catalog.success &&
+        catalog.data.value.some((model) => model.id === args.model_id && model.kind === "video")
+        ? null
+        : "Choose an installed video model.";
+    },
+  },
   define(
     "get_image_versions",
     { shot_id: id },

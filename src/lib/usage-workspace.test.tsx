@@ -31,6 +31,7 @@ const request: GenerationUsage = {
   estimated_min_microusd: 25000,
   estimated_max_microusd: 25000,
   reported_microusd: 0,
+  agent_job_id: null,
   provider_request_id: "provider-job-zero",
   started_at: "2026-10-31T12:00:00Z",
   finished_at: "2026-10-31T12:01:00Z",
@@ -211,4 +212,20 @@ it("explains that unconfirmed estimates include unsuccessful requests without cl
   expect(
     within(help).getByText(/a failed request may still incur a charge/i),
   ).toBeTruthy();
+});
+
+it("marks requests that an agent submitted from its budget", async () => {
+  billing.loadUsageWithBilling.mockResolvedValue({
+    ok: true,
+    value: page([
+      request,
+      { ...request, request_id: "agent-request", agent_job_id: "job-1" },
+    ]),
+  });
+  renderUsage();
+  const rows = (await screen.findAllByRole("cell", { name: "Flux Dev" })).map(
+    (cell) => cell.closest("tr")!,
+  );
+  expect(within(rows[0]).queryByText("Agent")).toBeNull();
+  expect(within(rows[1]).getByText("Agent")).toBeTruthy();
 });

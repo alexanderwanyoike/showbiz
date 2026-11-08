@@ -1,13 +1,7 @@
 import type { BibleAsset, BibleAssetVariant } from "./backend-api";
 
-// A frame's compose recipe, stored as JSON on the frame asset so the frame can
-// be reproduced (retaken) or varied while keeping its characters and location.
-export interface FrameRecipe {
-  characters: string[]; // character asset ids (compose uses each one's primary picture)
-  location: string | null; // location asset id (for display)
-  locationVariantId: string | null; // the chosen location view (compose uses this picture)
-  prompt: string;
-}
+import type { FrameRecipe } from "../../shared/bible-frame";
+export type { FrameRecipe } from "../../shared/bible-frame";
 
 type VariantMap = Record<string, BibleAssetVariant[]>;
 

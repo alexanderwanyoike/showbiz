@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
+import { isBibleVariantStatus } from "../../shared/bible-variant-status";
 import { generateId } from "../db";
 import {
   saveBibleImage,
@@ -356,13 +357,22 @@ export function createBibleCommands(db: DatabaseSync, mediaDir: string) {
     isPrimary: boolean
   ): BibleAssetVariant {
     const assetRow = db
-      .prepare("SELECT asset_id FROM bible_asset_variants WHERE id = ?")
-      .get(id) as { asset_id: string } | undefined;
+      .prepare("SELECT asset_id, is_primary FROM bible_asset_variants WHERE id = ?")
+      .get(id) as { asset_id: string; is_primary: number } | undefined;
     if (!assetRow) {
       // Deliberate deviation: Rust surfaces rusqlite's incidental
       // "Query returned no rows" here; no caller matches on the text.
       throw new Error("Bible asset variant not found");
     }
+
+    if (!isBibleVariantStatus(status))
+      throw new Error("Choose a valid picture status");
+    if (status === "rejected" && isPrimary)
+      throw new Error("A rejected picture cannot be the current picture");
+    if (status === "rejected" && assetRow.is_primary === 1)
+      throw new Error(
+        "Make another picture current before rejecting the current picture",
+      );
 
     if (isPrimary) {
       db.prepare(
@@ -370,8 +380,9 @@ export function createBibleCommands(db: DatabaseSync, mediaDir: string) {
       ).run(assetRow.asset_id);
     }
 
+    // Only making a picture current changes which picture is current, so an entry never loses it by approval.
     db.prepare(
-      "UPDATE bible_asset_variants SET status = ?, is_primary = ? WHERE id = ?"
+      "UPDATE bible_asset_variants SET status = ?, is_primary = CASE WHEN ? THEN 1 ELSE is_primary END WHERE id = ?"
     ).run(status, isPrimary ? 1 : 0, id);
 
     return getVariantById(id);

@@ -1,4 +1,5 @@
 import { invoke } from "./bridge";
+import { formatMicrousd } from "../../shared/money";
 import type {
   GenerationUsage,
   GenerationCostSummary,
@@ -14,14 +15,7 @@ export const getGenerationCostSummary = (projectId: string) =>
   invoke<Result<GenerationCostSummary>>("get_generation_cost_summary", {
     project_id: projectId,
   });
-export function formatGenerationCost(microusd: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 6,
-  }).format(microusd / 1000000);
-}
+export const formatGenerationCost = formatMicrousd;
 export function formatGenerationEstimate(min: number, max: number): string {
   return min === max
     ? formatGenerationCost(min)

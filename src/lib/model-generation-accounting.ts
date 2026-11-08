@@ -2,10 +2,16 @@ import { invoke } from "./bridge";
 import { getImageModel, getVideoModel } from "./models";
 import { getGenerationEstimate } from "./generation-pricing";
 import { runAccountedGeneration } from "./generation-accounting";
-import type { GenerationCostRequest } from "../../shared/generation-cost";
+import type {
+  GenerationCostEstimate,
+  GenerationCostRequest,
+} from "../../shared/generation-cost";
 import type { GenerationObserver } from "../../shared/generation-output";
 import type { GenerationUsage } from "../../shared/generation-usage";
-import type { GenerationAccountingResult } from "./generation-accounting";
+import type {
+  AgentGenerationIdentity,
+  GenerationAccountingResult,
+} from "./generation-accounting";
 import type {
   DocumentResult,
   ProjectDocumentState,
@@ -15,11 +21,16 @@ export interface GenerationSubject {
   project_id?: string;
   subject_id?: string;
 }
+/** An agent job runs with the estimate it was quoted, not a fresh one. */
+export interface AgentAccounting extends AgentGenerationIdentity {
+  estimate: GenerationCostEstimate;
+}
 export async function accountModelGeneration<T>(
   modelId: string,
   request: GenerationCostRequest,
   subject: GenerationSubject | undefined,
   operation: (observer: GenerationObserver) => Promise<T>,
+  agent?: AgentAccounting,
 ): Promise<GenerationAccountingResult<T>> {
   try {
     let projectId = subject?.project_id;
@@ -46,7 +57,8 @@ export async function accountModelGeneration<T>(
       request.kind === "video"
         ? getVideoModel(modelId)
         : getImageModel(modelId);
-    const estimate = await getGenerationEstimate(modelId, request);
+    const estimate =
+      agent?.estimate ?? (await getGenerationEstimate(modelId, request));
     const settings: GenerationUsage["settings"] = {};
     for (const key of [
       "duration",
@@ -73,6 +85,10 @@ export async function accountModelGeneration<T>(
       },
       estimate,
       operation,
+      agent && {
+        request_id: agent.request_id,
+        agent_job_id: agent.agent_job_id,
+      },
     );
   } catch (cause) {
     return {

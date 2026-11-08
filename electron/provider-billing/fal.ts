@@ -15,6 +15,29 @@ const failure = (message: string): Result<never> => ({
   ok: false,
   error: { code: "IO_ERROR", message },
 });
+const errorBodySchema = z.object({
+  error: z.object({ message: z.string() }),
+});
+const MAX_REASON = 160;
+
+async function falReason(response: Response, key: string): Promise<string | null> {
+  const body = errorBodySchema.safeParse(await response.json().catch(() => null));
+  if (!body.success) return null;
+  const message = body.data.error.message;
+  // fal keys are "id:secret"; a reason naming the key, or either half, is never shown.
+  const secrets = [key, ...key.split(":")].filter((part) => part.length >= 4);
+  if (secrets.some((part) => message.includes(part))) return null;
+  const reason = message.replace(/\s+/g, " ").trim().slice(0, MAX_REASON);
+  return reason || null;
+}
+
+function refusalMessage(status: number, reason: string | null): string {
+  const quoted = reason ? ` ("${reason}")` : "";
+  return status === 401
+    ? `FAL did not accept the key used for billing${quoted}. Check the fal.ai billing key in Settings, or the fal.ai key when no billing key is saved. This cost remains unconfirmed.`
+    : `FAL billing access denied${quoted}. Confirmed charges need a key with billing:usage:read, auth:keys:read and account:users:read, such as one made with the BILLING preset. This cost remains unconfirmed.`;
+}
+
 export async function readFalCharges(
   requests: { provider_request_id: string; started_at: string }[],
   key: string,
@@ -44,9 +67,7 @@ export async function readFalCharges(
         },
       );
       if (response.status === 401 || response.status === 403)
-        return failure(
-          "FAL billing access denied. Confirmed charges need a key with billing:usage:read, auth:keys:read and account:users:read. This cost remains unconfirmed.",
-        );
+        return failure(refusalMessage(response.status, await falReason(response, key)));
       if (!response.ok)
         return failure(
           `FAL billing is unavailable (${response.status}). This cost remains unconfirmed.`,

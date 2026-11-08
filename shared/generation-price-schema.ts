@@ -50,3 +50,23 @@ export const generationPriceSchema = z
     (price) => price.source_kind === "manual" || !!price.source_url,
     "Provider rates require a source URL.",
   );
+
+export const microusdSchema = z
+  .number()
+  .int()
+  .nonnegative()
+  .max(Number.MAX_SAFE_INTEGER);
+export const priceFreshnessSchema = z.enum(["live", "cached", "stale"]);
+export const generationCostRequestSchema = z.strictObject({
+  kind: z.enum(["image", "image_edit", "image_compose", "video"]),
+  duration: z.union([z.number().positive(), z.string().max(32)]).optional(),
+  duration_range: z.tuple([z.number().positive(), z.number().positive()]).optional(),
+  resolution: z.string().max(128).optional(),
+  audio: z.boolean().optional(),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
+  count: z.number().int().positive().optional(),
+  aspect_ratio: z.string().max(32).optional(),
+  mode: z.string().max(64).optional(),
+  has_end_frame: z.boolean().optional(),
+});

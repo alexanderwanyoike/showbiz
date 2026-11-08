@@ -2,6 +2,7 @@ import { resolveGenerationKey } from "../lib/generation-key";
 import { DEFAULT_BIBLE_IMAGE_MODEL } from "../lib/bible-assets";
 import {
   accountModelGeneration,
+  type AgentAccounting,
   type GenerationSubject,
 } from "../lib/model-generation-accounting";
 import {
@@ -18,11 +19,17 @@ import {
 } from "../lib/models";
 import { generateText } from "../lib/models/gemini-text";
 import type { VideoGenerationRequest } from "../lib/generation/types";
+import { videoCostRequest } from "../lib/shot-video";
+import {
+  IMAGE_GENERATION_REQUEST,
+  imageCostRequest,
+} from "../../shared/generation-cost";
 
 export async function generateImageAction(
   prompt: string,
   modelId: ImageModelId = "imagen4",
   subject?: GenerationSubject,
+  agent?: AgentAccounting,
 ): Promise<string> {
   const model = getImageModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
@@ -31,9 +38,10 @@ export async function generateImageAction(
   try {
     const result = await accountModelGeneration(
       modelId,
-      { kind: "image", count: 1 },
+      IMAGE_GENERATION_REQUEST,
       subject,
       (observer) => model.generateImage(prompt, apiKey, observer),
+      agent,
     );
     if (!result.ok) throw new Error(result.error.message);
     return result.value;
@@ -47,7 +55,8 @@ export async function generateAndSaveVideoRequestAction(
   shotId: string,
   modelId: VideoModelId,
   request: VideoGenerationRequest,
-): Promise<{ success: boolean; videoUrl: string | null; error?: string }> {
+  agent?: AgentAccounting,
+): Promise<{ success: boolean; videoUrl: string | null; versionId?: string; error?: string }> {
   const model = getVideoModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
   if (!credential.ok)
@@ -58,21 +67,20 @@ export async function generateAndSaveVideoRequestAction(
     if (request.mode === "image-to-video") {
       effectiveRequest = {
         ...request,
-        startImage: request.startImage ?? (await getShotImageBase64(shotId)),
-        endImage: request.endImage ?? (await getShotEndFrameBase64(shotId)),
+        // Only frames the caller left undecided are loaded; null means the request does without.
+        startImage:
+          request.startImage === undefined ? await getShotImageBase64(shotId) : request.startImage,
+        endImage:
+          request.endImage === undefined ? await getShotEndFrameBase64(shotId) : request.endImage,
       };
     }
     const operation = await accountModelGeneration(
       modelId,
-      {
-        kind: "video",
-        duration: request.settings.duration,
-        resolution: request.settings.resolution,
-        audio: request.settings.audio,
-        aspect_ratio: request.settings.aspectRatio,
-        mode: effectiveRequest.mode,
-        has_end_frame: !!effectiveRequest.endImage,
-      },
+      videoCostRequest(
+        request.settings,
+        effectiveRequest.mode,
+        !!effectiveRequest.endImage,
+      ),
       { subject_id: shotId },
       async (observer) => {
         const videoBlob = model.generateVideoFromRequest
@@ -106,8 +114,9 @@ export async function generateAndSaveVideoRequestAction(
           modelId,
           currentVersion?.id ?? null,
         );
-        return { success: true, videoUrl: result.video_url };
+        return { success: true, videoUrl: result.video_url, versionId: result.id };
       },
+      agent,
     );
     return operation.ok
       ? operation.value
@@ -126,6 +135,7 @@ export async function editImageAction(
   editPrompt: string,
   modelId: ImageModelId = DEFAULT_BIBLE_IMAGE_MODEL,
   subject?: GenerationSubject,
+  agent?: AgentAccounting,
 ): Promise<string> {
   const model = getImageModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
@@ -136,10 +146,11 @@ export async function editImageAction(
   try {
     const result = await accountModelGeneration(
       modelId,
-      { kind: "image_edit", count: 1 },
+      imageCostRequest("image_edit"),
       subject,
       (observer) =>
         model.editImage!(editPrompt, sourceImageBase64, apiKey, observer),
+      agent,
     );
     if (!result.ok) throw new Error(result.error.message);
     return result.value;
@@ -156,6 +167,7 @@ export async function composeFrameAction(
   referenceImages: string[],
   modelId: ImageModelId = DEFAULT_BIBLE_IMAGE_MODEL,
   subject?: GenerationSubject,
+  agent?: AgentAccounting,
 ): Promise<string> {
   const model = getImageModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
@@ -170,10 +182,11 @@ export async function composeFrameAction(
   try {
     const result = await accountModelGeneration(
       modelId,
-      { kind: "image_compose", count: 1 },
+      imageCostRequest("image_compose"),
       subject,
       (observer) =>
         model.composeImage!(prompt, referenceImages, apiKey, observer),
+      agent,
     );
     if (!result.ok) throw new Error(result.error.message);
     return result.value;
