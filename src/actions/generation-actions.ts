@@ -19,6 +19,7 @@ import {
 } from "../lib/models";
 import { generateText } from "../lib/models/gemini-text";
 import type { VideoGenerationRequest } from "../lib/generation/types";
+import { videoCostRequest } from "../lib/shot-video";
 import {
   IMAGE_GENERATION_REQUEST,
   imageCostRequest,
@@ -71,15 +72,11 @@ export async function generateAndSaveVideoRequestAction(
     }
     const operation = await accountModelGeneration(
       modelId,
-      {
-        kind: "video",
-        duration: request.settings.duration,
-        resolution: request.settings.resolution,
-        audio: request.settings.audio,
-        aspect_ratio: request.settings.aspectRatio,
-        mode: effectiveRequest.mode,
-        has_end_frame: !!effectiveRequest.endImage,
-      },
+      videoCostRequest(
+        request.settings,
+        effectiveRequest.mode,
+        !!effectiveRequest.endImage,
+      ),
       { subject_id: shotId },
       async (observer) => {
         const videoBlob = model.generateVideoFromRequest

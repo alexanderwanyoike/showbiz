@@ -58,7 +58,6 @@ import {
   getBibleAssets,
   getBibleAssetVariants,
   getBibleVariantImageBase64,
-  getShotEndFrameBase64,
   clearShotEndFrame,
   clearShotStartFrame,
 } from "../lib/backend-api";
@@ -85,12 +84,12 @@ import {
   getAvailableVideoModels,
 } from "../lib/models";
 import { blobToBase64, type VideoGenerationSettings } from "../lib/models/types";
-import { chooseVideoGenerationMode, validateVideoGenerationRequest } from "../lib/generation/video-modes";
-import type { VideoGenerationRequest } from "../lib/generation/types";
+import { chooseVideoGenerationMode } from "../lib/generation/video-modes";
 import type { ShotFrameRole, FrameOption } from "../components/ShotInspector";
 import { buildFrameOptions } from "../lib/bible-compose";
 import { imageCostRequest } from "../../shared/generation-cost";
 import { editShotStartFrame, generateShotStartFrame, saveShotFrame } from "../lib/shot-frames";
+import { buildShotVideoRequest, videoCostRequest } from "../lib/shot-video";
 import { versionsForShot, valueForShot } from "../lib/shot-versions";
 import {
   invalidateGenerationRun,
@@ -196,15 +195,11 @@ export default function StoryboardPage() {
   const videoSettings: VideoGenerationSettings = selectedVideoDraft?.settings ?? storedVideoSettings.settings;
   const inactiveVideoDraft = Object.keys(videoSettingsDrafts).find((shotId) => shotId !== selectedShotId);
 
-  const videoCostRequest = {
-    kind: "video" as const,
-    duration: videoSettings.duration,
-    resolution: videoSettings.resolution,
-    audio: videoSettings.audio,
-    aspect_ratio: videoSettings.aspectRatio,
-    mode: currentVideoModel ? chooseVideoGenerationMode(currentVideoModel.modeCapabilities, { hasStartImage: !!selectedShot?.image_url }) : undefined,
-    has_end_frame: !!(selectedShot?.end_frame_url && currentVideoModel?.modeCapabilities.imageToVideo?.supportsEndImage),
-  };
+  const selectedVideoCost = videoCostRequest(
+    videoSettings,
+    currentVideoModel ? chooseVideoGenerationMode(currentVideoModel.modeCapabilities, { hasStartImage: !!selectedShot?.image_url }) : undefined,
+    !!(selectedShot?.end_frame_url && currentVideoModel?.modeCapabilities.imageToVideo?.supportsEndImage),
+  );
 
 
 
@@ -747,21 +742,13 @@ export default function StoryboardPage() {
 
     try {
       await withApplicationWork("generation", async () => {
-        const startImage = shot.image_url ? await getShotImageBase64(shotId) : null;
-        const supportsEndFrame = targetModel.modeCapabilities.imageToVideo?.supportsEndImage === true;
-        const endImage =
-          supportsEndFrame && shot.end_frame_url ? await getShotEndFrameBase64(shotId) : null;
-        const mode = chooseVideoGenerationMode(targetModel.modeCapabilities, {
-          hasStartImage: !!startImage,
-        });
-        const request: VideoGenerationRequest = {
-          mode,
+        const request = await buildShotVideoRequest(
+          shotId,
+          targetModel,
+          { hasStartFrame: !!shot.image_url, hasEndFrame: !!shot.end_frame_url },
+          targetSettings,
           prompt,
-          settings: targetSettings,
-          startImage,
-          endImage: mode === "image-to-video" ? endImage : null,
-        };
-        validateVideoGenerationRequest(targetModel.modeCapabilities, request);
+        );
 
         const result = await generateAndSaveVideoRequestAction(shotId, targetModelId, request);
         if (!isCurrentGenerationRun(videoGenerationRuns.current, shotId, runId)) return;
@@ -984,7 +971,7 @@ export default function StoryboardPage() {
           inspectorSlot={
             <ShotInspector
               imageModel={imageModels.find(model => model.id === imageModel) ?? null}
-              generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={videoCostRequest} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
+              generationCost={selectedShot && currentVideoModel ? <GenerationCost modelId={currentVideoModel.id} request={selectedVideoCost} subject={{project_id: storyboard?.project_id, subject_id: selectedShot.id}} /> : null}
               frameLibraryHref={`/project/${storyboard.project_id}?view=bible&bibleTab=frames`}
               generationDisabled={isLoading || !!loadError || modelSaving || videoSettingsSaving || !!selectedVideoDraft || !!(selectedShotId && (pendingVideoShots.has(selectedShotId) || savingFrameShots.has(selectedShotId) || frameErrors[selectedShotId]))}
               frameError={selectedShotId ? frameErrors[selectedShotId] : null}
