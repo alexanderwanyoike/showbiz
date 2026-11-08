@@ -50,7 +50,20 @@ This initial MCP boundary does not expose credentials, arbitrary HTTP requests, 
 
 You can grant an agent a spending budget in Showbiz. Open Usage & billing and choose Agent budget. Enter the amount in USD, optionally a lower per-request limit, how long it lasts (1 hour, 1 day or 1 week), and optionally the only models the agent may use. Granting again replaces the earlier budget. While a budget is active, a banner across the project workspace shows what is left and when it ends, with Revoke.
 
-The budget belongs to this device, not to a project file. It covers whichever project is open, is never written into a `.showbiz` document or export, and a copied project carries no spending rights. `get_agent_budget` is the only budget tool. It reads the remaining amount, per-request cap, expiry and allowed models, and returns `NO_BUDGET` when nothing is granted, the budget expired or you revoked it. No MCP tool creates, raises, extends or revokes a budget. Agents can read the budget but cannot spend it yet; the paid generation tools that work within it are not available in this release.
+The budget belongs to this device, not to a project file. It covers whichever project is open, is never written into a `.showbiz` document or export, and a copied project carries no spending rights. `get_agent_budget` is the only budget tool. It reads the remaining amount, per-request cap, expiry and allowed models, and returns `NO_BUDGET` when nothing is granted, the budget expired or you revoked it. No MCP tool creates, raises, extends or revokes a budget. Agents can read the budget and ask for quotes against it, but cannot spend it yet; submitting a quoted generation is not available in this release.
+
+## Quotes
+
+`quote_generation` prices a generation before anything is spent. For a Bible entry picture, pass `target: "bible_asset"`, `operation: "generate"`, the entry's `asset_id`, a `prompt` and an installed image `model_id` from `get_generation_models`. Showbiz asks its open window for the same estimate the app's own controls show for that model, including a live provider price check where the provider offers one, so quoting can take several seconds.
+
+A quote returns a `quote_id`, the minimum and maximum amount, the price source and when it was checked, whether the estimate excludes input charges, and the budget left. It expires after ten minutes, can back at most one submission, and is lost when Showbiz restarts.
+
+Quotes are refused with these codes:
+
+- `PRICE_UNKNOWN`: no rate is available, the rate does not match the settings, or a provider's historical estimate is zero. An unknown price is never treated as free. Local models need a custom rate saved in the app, and an explicit rate of zero is accepted.
+- `NO_BUDGET`, `MODEL_NOT_ALLOWED`, `OVER_REQUEST_CAP`, `OVER_BUDGET`: the request falls outside the budget you granted.
+- `NOT_FOUND`, `INVALID_INPUT`: the Bible entry is not in the open project, or the model is not an installed image model.
+- `UNAVAILABLE`: no Showbiz window or project is open, or the window did not answer.
 
 ## Local connection
 
