@@ -60,9 +60,25 @@ export function createAgentJobs(options: {
           "An agent generation is already running. Wait for it with get_generation_job before submitting another.",
         )
       : null;
+  const editBlocked = () =>
+    options.canEdit()
+      ? null
+      : agentFailure(
+          "BUSY",
+          "Finish or discard unsaved edits in Showbiz before generating.",
+        );
+  // A failed lookup means the outcome is unknown, so any hold is kept.
+  async function readUsage(job: AgentJob): Promise<Usage> {
+    try {
+      return await options.usage(job);
+    } catch (cause) {
+      console.warn(`Could not read the usage record of agent job ${job.job_id}:`, cause);
+      return undefined;
+    }
+  }
   async function confirmCharge(job: AgentJob): Promise<AgentJob> {
     if (job.reported_microusd !== null || job.provider_called === false) return job;
-    const usage = await options.usage(job);
+    const usage = await readUsage(job);
     return usage?.reported_microusd != null
       ? (ledger.update(job.job_id, { reported_microusd: usage.reported_microusd }) ?? job)
       : job;
@@ -74,12 +90,7 @@ export function createAgentJobs(options: {
     request_id: string,
     quote_id: string,
   ): Promise<AgentResult<AgentJob>> {
-    if (!options.canEdit())
-      return agentFailure(
-        "BUSY",
-        "Finish or discard unsaved edits in Showbiz before generating.",
-      );
-    const early = limitReached();
+    const early = limitReached() ?? editBlocked();
     if (early) return early;
     const quote = options.quotes.take(quote_id);
     if (!quote.ok) return quote;
@@ -102,7 +113,7 @@ export function createAgentJobs(options: {
         "The agent budget changed after this quote. Request a new quote.",
       );
     // No awaits from here until the insert, so the checks and the hold cannot interleave with another submit.
-    const late = limitReached();
+    const late = limitReached() ?? editBlocked();
     if (late) return late;
     const job = ledger.insert({
       job_id: randomUUID(),
@@ -122,12 +133,14 @@ export function createAgentJobs(options: {
       request: quote.value.request,
       plan: quote.value.plan,
     });
-    if (!started.ok && started.error.code !== "NO_ANSWER")
-      ledger.update(job.job_id, {
-        status: "failed",
-        provider_called: false,
-        error: started.error.message,
-      });
+    if (!started.ok)
+      ledger.update(
+        job.job_id,
+        // Without an answer the window may still be generating, so the hold stays; a late report can still finish the job.
+        started.error.code === "NO_ANSWER"
+          ? { status: "interrupted", error: started.error.message }
+          : { status: "failed", provider_called: false, error: started.error.message },
+      );
     return { ok: true, value: ledger.get(job.job_id) ?? job };
   }
   return {
@@ -170,10 +183,10 @@ export function createAgentJobs(options: {
     ): Promise<AgentResult<AgentJob[]>> {
       const input = listSchema.safeParse(args ?? {});
       if (!input.success) return agentFailure("INVALID_INPUT", "Pass a project_id.");
-      return {
-        ok: true,
-        value: ledger.list(input.data.project_id, input.data.offset, input.data.limit),
-      };
+      const listed = ledger.list(input.data.project_id, input.data.offset, input.data.limit);
+      const confirmed: AgentJob[] = [];
+      for (const job of listed) confirmed.push(await confirmCharge(job));
+      return { ok: true, value: confirmed };
     },
     /** Jobs the window can no longer finish keep their holds until a charge is confirmed. */
     interruptUnfinished(): void {
@@ -201,7 +214,7 @@ export function createAgentJobs(options: {
         status === "completed"
           ? true
           : status === "failed"
-            ? providerCalled(await options.usage(job))
+            ? providerCalled(await readUsage(job))
             : job.provider_called;
       const updated = ledger.update(job_id, { status, provider_called, ...details });
       if (updated && status === "completed") await confirmCharge(updated);
