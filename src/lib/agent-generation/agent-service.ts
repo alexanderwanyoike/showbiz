@@ -13,6 +13,10 @@ import { setShotFrameFromBible } from "./set-shot-frame";
 import { addBibleImage } from "./add-bible-image";
 
 const REPORT_ATTEMPTS = 3;
+const projectEdits = new Map<string, (input: unknown) => Promise<AgentResult<unknown>>>([
+  ["set_shot_frame", setShotFrameFromBible],
+  ["add_bible_image", addBibleImage],
+]);
 const invalid = (issue: { message: string } | undefined) =>
   agentFailure("INVALID_INPUT", issue?.message ?? "Invalid agent request.");
 
@@ -34,11 +38,9 @@ async function handle(
     return { ok: true, value: null };
   }
   if (request.operation === "preview_media") return previewMedia(request.input);
-  if (request.operation === "set_shot_frame" || request.operation === "add_bible_image") {
-    const saved =
-      request.operation === "set_shot_frame"
-        ? await setShotFrameFromBible(request.input)
-        : await addBibleImage(request.input);
+  const edit = projectEdits.get(request.operation);
+  if (edit) {
+    const saved = await edit(request.input);
     if (saved.ok) window.dispatchEvent(new Event("showbiz:project-changed"));
     return saved;
   }
