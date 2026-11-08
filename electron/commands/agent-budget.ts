@@ -3,6 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import {
   AGENT_BUDGET_MAX_DURATION_MINUTES,
+  agentBudgetGrantSchema,
   type AgentBudget,
   type AgentBudgetGrant,
   type AgentBudgetResult,
@@ -31,15 +32,6 @@ const grantInput = z
       input.per_request_cap_microusd <= input.max_microusd,
     { message: "The per-request cap cannot exceed the budget." },
   );
-const storedGrant = z.strictObject({
-  id: z.string(),
-  max_microusd: microusd,
-  per_request_cap_microusd: microusd,
-  allowed_models: z.array(z.string()).nullable(),
-  granted_at: z.string(),
-  expires_at: z.string(),
-  revoked_at: z.string().nullable(),
-});
 const noBudget = (): AgentBudgetResult<never> => ({
   ok: false,
   error: {
@@ -58,7 +50,7 @@ export function createAgentBudgetCommands(
     const row = db
       .prepare("SELECT value FROM settings WHERE key = ?")
       .get(GRANT_KEY) as { value: string } | undefined;
-    return row ? storedGrant.parse(JSON.parse(row.value)) : null;
+    return row ? agentBudgetGrantSchema.parse(JSON.parse(row.value)) : null;
   }
   function writeGrant(grant: AgentBudgetGrant) {
     db.prepare(

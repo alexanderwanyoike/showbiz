@@ -790,6 +790,22 @@ body,
   margin-left: auto;
   text-decoration: underline;
 }
+.agent-budget-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--muted);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.agent-budget-banner [role="alert"] {
+  color: var(--destructive);
+}
+.agent-budget-banner button {
+  margin-left: auto;
+  text-decoration: underline;
+}
 .document-start {
   display: grid;
   height: 100%;

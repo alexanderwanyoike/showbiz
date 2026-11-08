@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface AgentBudgetGrant {
   id: string;
   max_microusd: number;
@@ -21,3 +23,19 @@ export type AgentBudgetResult<T> =
   | { ok: false; error: { code: AgentBudgetErrorCode; message: string } };
 
 export const AGENT_BUDGET_MAX_DURATION_MINUTES = 60 * 24 * 30;
+
+const microusd = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+export const agentBudgetGrantSchema = z.strictObject({
+  id: z.string().min(1),
+  max_microusd: microusd,
+  per_request_cap_microusd: microusd,
+  allowed_models: z.array(z.string()).nullable(),
+  granted_at: z.string(),
+  expires_at: z.string(),
+  revoked_at: z.string().nullable(),
+});
+export const agentBudgetSchema = z.strictObject({
+  grant: agentBudgetGrantSchema,
+  committed_microusd: microusd,
+  remaining_microusd: z.number().int(),
+});
