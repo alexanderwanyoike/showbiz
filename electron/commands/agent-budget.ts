@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
+import type { ReadGenerationModels } from "./generation-models";
 import {
   AGENT_BUDGET_MAX_DURATION_MINUTES,
   agentBudgetGrantSchema,
@@ -44,8 +45,20 @@ const noBudget = (): AgentBudgetResult<never> => ({
 /** Device-only grant commands. Only the renderer may call grant and revoke; MCP reads the budget. */
 export function createAgentBudgetCommands(
   db: DatabaseSync,
-  now: () => number = Date.now,
+  options: { readModels: ReadGenerationModels; now?: () => number },
 ) {
+  const now = options.now ?? Date.now;
+  function unknownModel(ids: string[] | undefined): string | null {
+    if (!ids) return null;
+    const catalog = options.readModels();
+    if (!catalog.ok) return catalog.error.message;
+    const missing = ids.filter(
+      (id) => !catalog.value.some((model) => model.id === id),
+    );
+    return missing.length
+      ? `These models are not installed: ${missing.join(", ")}.`
+      : null;
+  }
   function readGrant(): AgentBudgetGrant | null {
     const row = db
       .prepare("SELECT value FROM settings WHERE key = ?")
@@ -107,6 +120,9 @@ export function createAgentBudgetCommands(
               message: input.error.issues[0]?.message ?? "Invalid budget.",
             },
           };
+        const unknown = unknownModel(input.data.allowed_models);
+        if (unknown)
+          return { ok: false, error: { code: "INVALID_INPUT", message: unknown } };
         const granted = now();
         const grant: AgentBudgetGrant = {
           id: randomUUID(),

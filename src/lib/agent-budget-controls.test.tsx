@@ -4,7 +4,9 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { openTestDb } from "../../electron/db.test";
+import path from "node:path";
 import { createAgentBudgetCommands } from "../../electron/commands/agent-budget";
+import { createGenerationModelCommands } from "../../electron/commands/generation-models";
 import { AgentBudgetDialog } from "../components/AgentBudgetDialog";
 import { AgentBudgetBanner } from "../components/AgentBudgetBanner";
 
@@ -14,7 +16,11 @@ afterEach(cleanup);
 
 function device() {
   const commands: Record<string, (args?: Record<string, unknown>) => unknown> =
-    createAgentBudgetCommands(openTestDb());
+    createAgentBudgetCommands(openTestDb(), {
+      readModels: createGenerationModelCommands(
+        path.resolve("src/lib/models/providers"),
+      ).get_generation_models,
+    });
   native.invoke.mockImplementation(async (command: string, args) =>
     commands[command]?.(args),
   );
