@@ -15,6 +15,7 @@ export function createAgentGenerationRuntime(options: {
   });
   return {
     respond: channel.respond,
+    abandon: channel.abandon,
     commands: {
       quote_generation: (args?: Record<string, unknown>) =>
         quotes.quote_generation(args),

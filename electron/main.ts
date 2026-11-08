@@ -40,6 +40,7 @@ import { createUpdateRuntime } from "./update-runtime";
 const isDev = !app.isPackaged;
 // Agent work is answered only by the window Showbiz created, never by a child window.
 let mainWindow: BrowserWindow | null = null;
+let abandonAgentWork: (windowId: number) => void = () => {};
 const DEV_SERVER_URL =
   process.env.SHOWBIZ_DEV_SERVER_URL ?? "http://localhost:1420";
 const projectFiles = createProjectFileOpening((file, message) =>
@@ -137,6 +138,7 @@ async function registerIpc(
       readAgentBudgetResult(await projects.invoke("get_agent_budget")),
   });
   const agentHandler = createInvokeHandler(agentGeneration.commands);
+  abandonAgentWork = agentGeneration.abandon;
   ipcMain.handle(
     AGENT_RESPONSE_CHANNEL,
     (event, requestId: unknown, answer: unknown) => {
@@ -242,6 +244,10 @@ function createWindow(
     },
   });
   mainWindow = win;
+  const windowId = win.webContents.id;
+  win.webContents.on("did-navigate", () => abandonAgentWork(windowId));
+  win.webContents.on("render-process-gone", () => abandonAgentWork(windowId));
+  win.webContents.on("destroyed", () => abandonAgentWork(windowId));
 
   work.attachWindow(win);
   const detachShell = shell.attachWindow(win);
