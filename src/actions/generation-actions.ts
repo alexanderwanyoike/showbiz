@@ -24,15 +24,12 @@ import {
   IMAGE_GENERATION_REQUEST,
   imageCostRequest,
 } from "../../shared/generation-cost";
-import type { ImageRequestOptions } from "../../shared/model-config";
+import { shapeRefusal, type ImageRequestOptions } from "../../shared/model-config";
 
 /** Refuses before any key is read or provider called, so a model never silently returns another shape. */
 function requireShape(model: { name: string; aspectRatios: string[] }, options?: ImageRequestOptions) {
-  const ratio = options?.aspectRatio;
-  if (ratio && !model.aspectRatios.includes(ratio))
-    throw new Error(
-      `${model.name} cannot make ${ratio} pictures, which frames and shots need. Choose another image model.`,
-    );
+  const refusal = shapeRefusal(model, options);
+  if (refusal) throw new Error(`${refusal} Choose another image model.`);
 }
 
 export async function generateImageAction(

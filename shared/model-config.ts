@@ -115,6 +115,18 @@ export const FRAME_ASPECT_RATIO = "16:9" as const;
 export interface ImageRequestOptions {
   aspectRatio?: string;
 }
+export const FRAME_SHAPE = { aspectRatio: FRAME_ASPECT_RATIO };
+
+/** Why a model cannot be asked for the requested shape, or null when it can. */
+export function shapeRefusal(
+  model: { name: string; aspectRatios?: readonly string[] },
+  options?: ImageRequestOptions,
+): string | null {
+  const ratio = options?.aspectRatio;
+  return ratio && !model.aspectRatios?.includes(ratio)
+    ? `${model.name} cannot make ${ratio} pictures, which frames and shots need.`
+    : null;
+}
 
 function validateMetadata(
   config: Record<string, unknown>,

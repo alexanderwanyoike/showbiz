@@ -10,12 +10,7 @@ import type {
   GenerationSubject,
 } from "./model-generation-accounting";
 import type { Result } from "../../shared/result";
-import { FRAME_ASPECT_RATIO, type ImageRequestOptions } from "../../shared/model-config";
-
-/** Frames (stored as "reference" entries) are 16:9; characters and locations keep the provider's default shape. */
-export function bibleImageShape(assetType: string): ImageRequestOptions | undefined {
-  return assetType === "reference" ? { aspectRatio: FRAME_ASPECT_RATIO } : undefined;
-}
+import type { ImageRequestOptions } from "../../shared/model-config";
 
 /** Composes from reference pictures and a prompt, or generates from the prompt alone without references. */
 export async function composeBibleImage(

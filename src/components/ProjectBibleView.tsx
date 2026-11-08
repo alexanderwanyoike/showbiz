@@ -11,11 +11,7 @@ import { GenerationCost } from "./GenerationCost";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
-import {
-  bibleImageShape,
-  composeBibleImage,
-  editBibleImage,
-} from "../lib/bible-generation";
+import { composeBibleImage, editBibleImage } from "../lib/bible-generation";
 import { frameAssetInput, frameName, frameRules } from "../../shared/bible-frame";
 import {
   addPrimaryBibleTake,
@@ -61,6 +57,7 @@ import {
 import {
   assetBasePrompt,
   assetReferences,
+  bibleImageShape,
   builtFromLabel,
   parseRecipe,
   primaryPicture,

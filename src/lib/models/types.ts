@@ -41,7 +41,6 @@ export interface ImageModelProvider {
   description: string;
   enabled: boolean;
   apiKeyProvider: ApiKeyProvider;
-  /** Shapes this model can be asked for; a frame needs FRAME_ASPECT_RATIO among them. */
   aspectRatios: string[];
   generateImage(
     prompt: string,

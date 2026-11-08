@@ -1,9 +1,15 @@
-import type { BibleAsset, BibleAssetVariant } from "./backend-api";
+import type { BibleAsset, BibleAssetType, BibleAssetVariant } from "./backend-api";
+import { FRAME_SHAPE, type ImageRequestOptions } from "../../shared/model-config";
 
 import type { FrameRecipe } from "../../shared/bible-frame";
 export type { FrameRecipe } from "../../shared/bible-frame";
 
 type VariantMap = Record<string, BibleAssetVariant[]>;
+
+/** Frames are stored as "reference" entries; other entries keep the provider's default shape. */
+export function bibleImageShape(assetType: BibleAssetType): ImageRequestOptions | undefined {
+  return assetType === "reference" ? FRAME_SHAPE : undefined;
+}
 
 export function parseRecipe(rulesJson: string | null): FrameRecipe {
   try {
