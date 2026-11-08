@@ -263,3 +263,16 @@ describe("agent jobs", () => {
     });
   });
 });
+
+it("keeps the hold of a failed job when its usage record cannot be checked", async () => {
+  const { jobs, quote, usage, budget } = setup();
+  const submitted = await jobs.submit_generation({ quote_id: await quote(), request_id: "r1" });
+  if (!submitted.ok) throw new Error("expected job");
+  usage.mockResolvedValue(undefined as never);
+  await jobs.report({ job_id: submitted.value.job_id, status: "failed", error: "Closed" });
+  expect(await jobs.get_generation_job({ job_id: submitted.value.job_id })).toMatchObject({
+    ok: true,
+    value: { status: "failed", provider_called: null },
+  });
+  expect(budget.get_agent_budget()).toMatchObject({ ok: true, value: { remaining_microusd: 75_000 } });
+});
