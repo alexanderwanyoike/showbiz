@@ -51,18 +51,25 @@ function notify(
       }),
     );
 }
+/** Identifies a generation an agent job submitted, so retries can never start a second provider request. */
+export interface AgentGenerationIdentity {
+  request_id: string;
+  agent_job_id: string;
+}
 export async function runAccountedGeneration<T>(
   request: GenerationAccountingRequest,
   estimate: GenerationCostEstimate,
   operation: (observer: GenerationObserver) => Promise<T>,
+  agent?: AgentGenerationIdentity,
 ): Promise<GenerationAccountingResult<T>> {
-  const request_id = crypto.randomUUID();
+  const request_id = agent?.request_id ?? crypto.randomUUID();
   try {
     const begun = await invoke<Result<GenerationUsage>>(
       "begin_generation_usage",
       {
         ...request,
         request_id,
+        ...(agent ? { agent_job_id: agent.agent_job_id } : {}),
         ...(estimate.kind === "estimate"
           ? {
               estimated_min_microusd: estimate.min_microusd,
