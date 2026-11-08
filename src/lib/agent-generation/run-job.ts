@@ -12,8 +12,15 @@ import type {
 
 type BibleJob = AgentJobStart & { request: { target: "bible_asset" } };
 
-async function createBiblePicture({ request, plan, job_id, usage_request_id }: BibleJob) {
-  const agent = { request_id: usage_request_id, agent_job_id: job_id, estimate: plan.estimate };
+const accountingFor = (job: AgentJobStart) => ({
+  request_id: job.usage_request_id,
+  agent_job_id: job.job_id,
+  estimate: job.plan.estimate,
+});
+
+async function createBiblePicture(job: BibleJob) {
+  const { request, plan } = job;
+  const agent = accountingFor(job);
   const { inputs } = plan;
   if (request.operation === "edit") {
     if (!inputs.source_variant_id) throw new Error("The quote has no source picture to edit.");
@@ -51,12 +58,15 @@ async function createResult(job: AgentJobStart): Promise<AgentJobResult> {
     );
     return { variant_id: variant.id };
   }
-  const agent = { request_id: job.usage_request_id, agent_job_id: job.job_id, estimate: plan.estimate };
+  const agent = accountingFor(job);
+  const sourceTake = plan.inputs.source_take_id;
+  if (request.operation === "edit" && !sourceTake)
+    throw new Error("The quote has no source take to edit.");
   const take =
     request.operation === "edit"
       ? await editShotStartFrame(
           request.shot_id,
-          plan.inputs.source_take_id ?? request.source_take_id,
+          sourceTake ?? request.source_take_id,
           plan.inputs.prompt,
           plan.model_id,
           plan.subject,

@@ -48,10 +48,10 @@ function unpicturedReferences(
     .map((id) => assets.find((entry) => entry.id === id)?.name ?? id);
 }
 
-/** Resolves what a request targets: the model, cost request, prompt and pictures the app's own controls would use. */
 type BibleRequest = Extract<AgentQuoteRequest, { target: "bible_asset" }>;
 type ShotRequest = Extract<AgentQuoteRequest, { target: "shot_start_frame" }>;
 
+/** Resolves what a request targets: the model, cost request, prompt and pictures the app's own controls would use. */
 export async function resolveAgentTarget(
   request: AgentQuoteRequest,
 ): Promise<AgentResult<AgentQuoteTarget>> {
