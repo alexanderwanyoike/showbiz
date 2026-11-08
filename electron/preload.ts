@@ -5,8 +5,10 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { ApplicationWorkStatus } from "../shared/application-work";
 import type { UpdateStatus } from "../shared/update-status";
 import {
+  AGENT_JOB_REPORT_CHANNEL,
   AGENT_REQUEST_CHANNEL,
   AGENT_RESPONSE_CHANNEL,
+  type AgentJobReport,
   type AgentRequest,
 } from "../shared/agent-generation";
 
@@ -58,6 +60,8 @@ contextBridge.exposeInMainWorld("showbiz", {
   },
   respondAgentRequest: (request_id: string, answer: unknown): Promise<void> =>
     ipcRenderer.invoke(AGENT_RESPONSE_CHANNEL, request_id, answer),
+  reportAgentJob: (update: AgentJobReport): Promise<void> =>
+    ipcRenderer.invoke(AGENT_JOB_REPORT_CHANNEL, update),
   invoke: (cmd: string, args?: Record<string, unknown>) =>
     ipcRenderer.invoke("showbiz:invoke", cmd, args),
   readMediaBytes: (relativePath: string) =>

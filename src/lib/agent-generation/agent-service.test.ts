@@ -124,8 +124,10 @@ it("accepts a job at once and reports its progress back to the main process", as
       warnings: [],
     }),
   );
-  expect(native.dispatchEvent).toHaveBeenCalledWith(
-    expect.objectContaining({ type: "showbiz:project-changed" }),
+  await vi.waitFor(() =>
+    expect(native.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "showbiz:project-changed" }),
+    ),
   );
 });
 
