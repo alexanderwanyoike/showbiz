@@ -63,6 +63,8 @@ export const agentQuoteTargetSchema = z.strictObject({
     reference_variant_ids: z.array(id).max(MAX_REFERENCE_PICTURES),
     source_variant_id: id.optional(),
     source_take_id: id.optional(),
+    /** Frames and shot start frames ask for this shape; other pictures take the provider's default. */
+    aspect_ratio: z.literal("16:9").optional(),
     video: z
       .strictObject({
         mode: z.enum(["text-to-video", "image-to-video"]),

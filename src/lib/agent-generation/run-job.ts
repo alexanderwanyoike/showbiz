@@ -27,6 +27,7 @@ async function createBiblePicture(job: BibleJob) {
   const { request, plan } = job;
   const agent = accountingFor(job);
   const { inputs } = plan;
+  const shape = inputs.aspect_ratio ? { aspectRatio: inputs.aspect_ratio } : undefined;
   if (request.operation === "edit") {
     if (!inputs.source_variant_id) throw new Error("The quote has no source picture to edit.");
     const edited = await editBibleImage(
@@ -35,6 +36,7 @@ async function createBiblePicture(job: BibleJob) {
       plan.model_id,
       plan.subject,
       agent,
+      shape,
     );
     if (!edited.ok) throw new Error(edited.error.message);
     return edited.value;
@@ -46,9 +48,10 @@ async function createBiblePicture(job: BibleJob) {
       plan.model_id,
       plan.subject,
       agent,
+      shape,
     );
   return prepareBibleImageDataUrl(
-    await generateImageAction(inputs.prompt, plan.model_id, plan.subject, agent),
+    await generateImageAction(inputs.prompt, plan.model_id, plan.subject, agent, shape),
   );
 }
 

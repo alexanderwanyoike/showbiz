@@ -33,6 +33,15 @@ import {
   imageGenerationKind,
   type ImageGenerationKind,
 } from "../../../shared/generation-cost";
+import { FRAME_ASPECT_RATIO, type ImageModelConfig } from "../../../shared/model-config";
+import { bibleImageShape } from "../bible-generation";
+
+/** A frame-shaped picture needs a model that can make that shape, as the app's own generate refuses one that cannot. */
+function shapeRefusal(model: ImageModelConfig, aspectRatio: string | undefined, fix: string) {
+  return aspectRatio && !model.aspectRatios?.includes(aspectRatio)
+    ? agentFailure("INVALID_INPUT", `${model.name} cannot make ${aspectRatio} pictures, which frames and shots need. ${fix}`)
+    : null;
+}
 
 async function variantsOf(assets: BibleAsset[]) {
   const variants: Record<string, BibleAssetVariant[]> = {};
@@ -157,6 +166,8 @@ async function resolveShotTarget(
       "INVALID_INPUT",
       `${model.name} cannot edit pictures. Choose another image model with set_shot_models.`,
     );
+  const shape = shapeRefusal(model, FRAME_ASPECT_RATIO, "Choose another image model with set_shot_models.");
+  if (shape) return shape;
   if (
     request.operation === "edit" &&
     !versionIds(await invoke("get_image_versions", { shotId: request.shot_id })).includes(
@@ -175,6 +186,7 @@ async function resolveShotTarget(
         prompt: request.prompt,
         reference_variant_ids: [],
         ...(request.operation === "edit" ? { source_take_id: request.source_take_id } : {}),
+        aspect_ratio: FRAME_ASPECT_RATIO,
       },
     },
   };
@@ -196,6 +208,9 @@ async function resolveBibleTarget(
   if (!found)
     return agentFailure("NOT_FOUND", "That Bible entry is not in the open project.");
   const { asset } = found;
+  const aspectRatio = bibleImageShape(asset.asset_type)?.aspectRatio;
+  const shape = shapeRefusal(model, aspectRatio, "Choose another image model_id.");
+  if (shape) return shape;
   const target = (kind: ImageGenerationKind, inputs: AgentQuoteTarget["inputs"]) => ({
     ok: true as const,
     value: {
@@ -203,7 +218,7 @@ async function resolveBibleTarget(
       provider: model.apiKeyProvider,
       cost_request: imageCostRequest(kind),
       subject: { project_id: projectId, subject_id: asset.id },
-      inputs,
+      inputs: aspectRatio === FRAME_ASPECT_RATIO ? { ...inputs, aspect_ratio: FRAME_ASPECT_RATIO } : inputs,
     },
   });
   if (request.operation === "generate") {

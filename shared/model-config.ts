@@ -102,8 +102,16 @@ export interface ImageModelConfig {
   // Multi-reference composition (compose a frame from several images). Distinct
   // from editing a single image; gates whether composeImage is exposed.
   supportsComposition?: boolean;
+  /** Shapes Showbiz can ask this model for, such as "16:9"; without one the provider picks. */
+  aspectRatios?: string[];
   paramMapping?: Record<string, string>;
   fixedParams?: Record<string, unknown>;
+}
+
+/** Frames and shot start frames belong to a 16:9 video. */
+export const FRAME_ASPECT_RATIO = "16:9" as const;
+export interface ImageRequestOptions {
+  aspectRatio?: string;
 }
 
 function validateMetadata(
@@ -293,6 +301,16 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
   const models = config.models as Record<string, unknown>;
   if (!models.generate) {
     throw new Error(`Image config "${config.id}": models.generate is required`);
+  }
+
+  if (
+    config.aspectRatios !== undefined &&
+    (!Array.isArray(config.aspectRatios) ||
+      !config.aspectRatios.every((ratio) => typeof ratio === "string" && /^\d+:\d+$/.test(ratio)))
+  ) {
+    throw new Error(
+      `Image config "${config.id}": "aspectRatios" must be a list of ratios such as "16:9"`,
+    );
   }
 
   if (config.generationModes !== undefined) {

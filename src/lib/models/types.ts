@@ -1,4 +1,5 @@
 import type { GenerationObserver } from "../../../shared/generation-output";
+import type { ImageRequestOptions } from "../../../shared/model-config";
 import type { VideoGenerationRequest } from "../generation/types";
 import type { ApiKeyProvider } from "../../../shared/provider-catalog";
 
@@ -40,14 +41,22 @@ export interface ImageModelProvider {
   description: string;
   enabled: boolean;
   apiKeyProvider: ApiKeyProvider;
-  generateImage(prompt: string, apiKey: string, observer?: GenerationObserver): Promise<string>;
+  /** Shapes this model can be asked for; a frame needs FRAME_ASPECT_RATIO among them. */
+  aspectRatios: string[];
+  generateImage(
+    prompt: string,
+    apiKey: string,
+    observer?: GenerationObserver,
+    options?: ImageRequestOptions
+  ): Promise<string>;
   supportsImageEditing?: boolean;
   supportsInpainting?: boolean;
   editImage?(
     prompt: string,
     sourceImageBase64: string,
     apiKey: string,
-    observer?: GenerationObserver
+    observer?: GenerationObserver,
+    options?: ImageRequestOptions
   ): Promise<string>;
   inpaintImage?(
     prompt: string,
@@ -61,7 +70,8 @@ export interface ImageModelProvider {
     prompt: string,
     referenceImages: string[],
     apiKey: string,
-    observer?: GenerationObserver
+    observer?: GenerationObserver,
+    options?: ImageRequestOptions
   ): Promise<string>;
 }
 

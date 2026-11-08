@@ -6,7 +6,8 @@
   "transportOptions": {
     "endpoint": "fal-ai/flux-pro/kontext/text-to-image",
     "editEndpoint": "fal-ai/flux-pro/kontext",
-    "directInference": true
+    "directInference": true,
+    "aspectRatioParam": "aspect_ratio"
   },
   "enabled": true,
   "apiKeyProvider": "fal",
@@ -28,5 +29,8 @@
     }
   },
   "supportsEditing": true,
-  "supportsInpainting": false
+  "supportsInpainting": false,
+  "aspectRatios": [
+    "16:9"
+  ]
 }

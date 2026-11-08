@@ -1,6 +1,7 @@
 import type { GenerationObserver } from "../../../../shared/generation-output";
 import type { VideoGenerationSettings } from "../types";
 import type { VideoModelConfig, ImageModelConfig } from "../config-schema";
+import type { ImageRequestOptions } from "../../../../shared/model-config";
 import type { VideoGenerationRequest } from "../../generation/types";
 
 export interface VideoTransport {
@@ -27,6 +28,7 @@ export interface ImageTransport {
     prompt: string,
     apiKey: string,
     observer?: GenerationObserver,
+    options?: ImageRequestOptions,
   ): Promise<string>;
 
   editImage?(
@@ -35,6 +37,7 @@ export interface ImageTransport {
     sourceImageBase64: string,
     apiKey: string,
     observer?: GenerationObserver,
+    options?: ImageRequestOptions,
   ): Promise<string>;
 
   // Generate a single image from a prompt plus one or more reference images
@@ -45,5 +48,6 @@ export interface ImageTransport {
     referenceImages: string[],
     apiKey: string,
     observer?: GenerationObserver,
+    options?: ImageRequestOptions,
   ): Promise<string>;
 }
