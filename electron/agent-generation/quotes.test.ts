@@ -56,15 +56,25 @@ const request = {
 function setup(options: {
   planned?: Awaited<ReturnType<Parameters<typeof createAgentQuotes>[0]["plan"]>>;
   granted?: AgentBudget | null;
+  afterPlanning?: AgentBudget | null;
 } = {}) {
+  let planned = false;
   let now = Date.parse("2026-11-08T10:00:00.000Z");
-  const planner = vi.fn(async () => options.planned ?? { ok: true as const, value: plan() });
+  const planner = vi.fn(async () => {
+    planned = true;
+    return options.planned ?? { ok: true as const, value: plan() };
+  });
   const quotes = createAgentQuotes({
     plan: planner,
-    budget: async () =>
-      options.granted === null
+    budget: async () => {
+      const current =
+        planned && options.afterPlanning !== undefined
+          ? options.afterPlanning
+          : options.granted;
+      return current === null
         ? { ok: false, error: { code: "NO_BUDGET", message: "none" } }
-        : { ok: true, value: options.granted ?? budget() },
+        : { ok: true, value: current ?? budget() };
+    },
     now: () => now,
   });
   return { quotes, planner, advance: (ms: number) => (now += ms) };
@@ -88,7 +98,10 @@ describe("agent generation quotes", () => {
         price_source: "https://fal.ai/docs",
         price_checked_at: "2026-11-08T09:59:00.000Z",
         price_freshness: "live",
+        price_stale: false,
+        price_basis: price,
         excludes_input_cost: false,
+        fingerprint: expect.stringMatching(/^[0-9a-f]{64}$/) as string,
         budget_remaining_microusd: 5_000_000,
       },
     });
@@ -189,4 +202,39 @@ describe("agent generation quotes", () => {
       error: { code: "QUOTE_EXPIRED" },
     });
   });
+
+  it("checks the budget again after a slow price lookup", async () => {
+    expect(
+      await setup({ afterPlanning: null }).quotes.quote_generation(request),
+    ).toMatchObject({ ok: false, error: { code: "NO_BUDGET" } });
+    expect(
+      await setup({ afterPlanning: budget({}, 10_000) }).quotes.quote_generation(request),
+    ).toMatchObject({ ok: false, error: { code: "OVER_BUDGET" } });
+  });
+
+  it.each([
+    ["a non-numeric amount", plan({ estimate: { ...estimateOf(plan()), max_microusd: Number.NaN } })],
+    ["a negative amount", plan({ estimate: { ...estimateOf(plan()), min_microusd: -5, max_microusd: -1 } })],
+    ["a minimum above the maximum", plan({ estimate: { ...estimateOf(plan()), min_microusd: 30_000 } })],
+    ["another model", plan({ model_id: "nano-banana-2" })],
+    ["another kind of generation", plan({ cost_request: { kind: "video", duration: 8 } })],
+    ["another subject", plan({ subject: { project_id: "film", subject_id: "asset-2" } })],
+  ])("rejects a planned quote with %s", async (_label, malformed) => {
+    expect(
+      await setup({ planned: { ok: true, value: malformed } }).quotes.quote_generation(request),
+    ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+  });
+
+  it("rejects an answer that is not a plan at all", async () => {
+    expect(
+      await setup({
+        planned: { ok: true, value: { model_id: "flux-dev-fal" } as unknown as AgentQuotePlan },
+      }).quotes.quote_generation(request),
+    ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+  });
 });
+
+function estimateOf(value: AgentQuotePlan) {
+  if (value.estimate.kind !== "estimate") throw new Error("expected estimate");
+  return value.estimate;
+}
