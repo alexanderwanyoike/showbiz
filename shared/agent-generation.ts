@@ -251,6 +251,8 @@ export type SetShotFrameRequest = z.infer<typeof setShotFrameRequestSchema>;
 export const BIBLE_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 // About 730 KB of picture, which keeps the whole request under the 1 MiB bridge limit.
 export const MAX_BIBLE_IMAGE_BASE64 = 1_000_000;
+// Checked from the image header before full decoding, so a small file cannot claim an enormous canvas.
+export const MAX_BIBLE_IMAGE_PIXELS = 40_000_000;
 const byteLength = (base64: string) => (base64.length / 4) * 3 - (/=*$/.exec(base64)?.[0].length ?? 0);
 const uint32le = (bytes: string, at: number) =>
   (bytes.charCodeAt(at) | (bytes.charCodeAt(at + 1) << 8) | (bytes.charCodeAt(at + 2) << 16) | (bytes.charCodeAt(at + 3) << 24)) >>> 0;

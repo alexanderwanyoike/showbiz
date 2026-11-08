@@ -3,6 +3,8 @@ import { frameAssetInput } from "../../shared/bible-frame";
 import { shotVideoSettingsSchema } from "../../shared/shot-video-settings";
 import {
   addBibleImageRequestSchema,
+  MAX_BIBLE_IMAGE_BASE64,
+  MAX_BIBLE_IMAGE_PIXELS,
   MAX_REFERENCE_PICTURES,
   mediaPreviewRequestSchema,
   setShotFrameRequestSchema,
@@ -376,7 +378,7 @@ export const mcpTools: ToolDefinition[] = [
     ...define(
       "add_bible_image",
       {},
-      "Add a reference picture to a Bible entry, as uploading a picture in the Bible does: base64 bytes of a PNG, JPEG or WebP (about 730 KB at most, 40 megapixels at most) with its mime_type, and an optional name. It is shrunk to 1600 px and becomes the entry's current picture only when the entry has none. Free; uses the normal revision and replay safeguards.",
+      `Add a reference picture to a Bible entry, as uploading a picture in the Bible does: the complete file of a PNG, JPEG or WebP as plain base64 (at most ${MAX_BIBLE_IMAGE_BASE64.toLocaleString("en-US")} characters, about ${Math.floor((MAX_BIBLE_IMAGE_BASE64 * 3) / 4 / 1024)} KB, and ${MAX_BIBLE_IMAGE_PIXELS / 1_000_000} megapixels) with its mime_type, and an optional name. It is shrunk as uploads are and becomes the entry's current picture only when the entry has none. Free; uses the normal revision and replay safeguards.`,
       true,
     ),
     schema: addBibleImageRequestSchema.safeExtend({

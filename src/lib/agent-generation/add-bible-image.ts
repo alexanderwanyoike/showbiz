@@ -3,12 +3,10 @@ import { loadImage } from "../load-image";
 import {
   addBibleImageRequestSchema,
   agentFailure,
+  MAX_BIBLE_IMAGE_PIXELS,
   type AgentResult,
 } from "../../../shared/agent-generation";
 import { findProjectAsset, openProjectId } from "./project-lookup";
-
-// Checked from the image header before full decoding, so a small file cannot claim an enormous canvas.
-const MAX_BIBLE_IMAGE_PIXELS = 40_000_000;
 
 async function checkPicture(dataUrl: string): Promise<string | null> {
   const image = await loadImage(dataUrl).then(
