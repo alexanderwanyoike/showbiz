@@ -48,12 +48,24 @@ export async function previewMedia(
       request.error.issues[0]?.message ?? "Invalid preview request.",
     );
   const { bible_variant_id, image_take_id } = request.data;
-  const dataUrl = bible_variant_id
-    ? await getBibleVariantImageBase64(bible_variant_id)
-    : await getVersionImageBase64(image_take_id ?? "");
+  // Read and decode errors can carry file system paths, which agents must never see.
+  const unreadable = agentFailure("IO_ERROR", "That picture could not be read.");
+  let dataUrl: string | null;
+  try {
+    dataUrl = bible_variant_id
+      ? await getBibleVariantImageBase64(bible_variant_id)
+      : await getVersionImageBase64(image_take_id ?? "");
+  } catch {
+    return unreadable;
+  }
   if (!dataUrl)
     return agentFailure("NOT_FOUND", "No picture with that ID is in the open project.");
-  const small = await shrink(dataUrl, PREVIEW_SIDE);
+  let small: Awaited<ReturnType<Shrink>>;
+  try {
+    small = await shrink(dataUrl, PREVIEW_SIDE);
+  } catch {
+    return unreadable;
+  }
   return {
     ok: true,
     value: { images: [{ mime_type: "image/jpeg", ...small }] },
