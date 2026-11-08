@@ -48,3 +48,25 @@ export const agentBudgetSchema = z.strictObject({
 });
 export type AgentBudgetGrant = z.infer<typeof agentBudgetGrantSchema>;
 export type AgentBudget = z.infer<typeof agentBudgetSchema>;
+
+const agentBudgetResultSchema = z.discriminatedUnion("ok", [
+  z.strictObject({ ok: z.literal(true), value: agentBudgetSchema }),
+  z.strictObject({
+    ok: z.literal(false),
+    error: z.strictObject({
+      code: z.enum(["NO_BUDGET", "INVALID_INPUT", "IO_ERROR"]),
+      message: z.string(),
+    }),
+  }),
+]);
+export function readAgentBudgetResult(
+  value: unknown,
+): AgentBudgetResult<AgentBudget> {
+  const parsed = agentBudgetResultSchema.safeParse(value);
+  return parsed.success
+    ? parsed.data
+    : {
+        ok: false,
+        error: { code: "IO_ERROR", message: "The agent budget could not be read." },
+      };
+}

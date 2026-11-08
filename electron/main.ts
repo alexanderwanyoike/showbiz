@@ -8,7 +8,8 @@ import { desktopAppIconPath } from "./app-icon";
 import { integrateLinuxDesktop } from "./linux-desktop-integration";
 import { createMcpSession } from "./mcp/session";
 import { createAgentGenerationRuntime } from "./agent-generation/runtime";
-import type { AgentBudget, AgentBudgetResult } from "../shared/agent-budget";
+import { readAgentBudgetResult } from "../shared/agent-budget";
+import { AGENT_RESPONSE_CHANNEL } from "../shared/agent-generation";
 import { startLocalBridge } from "./mcp/local-bridge";
 import {
   createDesktopShell,
@@ -37,6 +38,8 @@ import { createWorkRuntime } from "./work-runtime";
 import { createUpdateRuntime } from "./update-runtime";
 
 const isDev = !app.isPackaged;
+// Agent work is answered only by the window Showbiz created, never by a child window.
+let mainWindow: BrowserWindow | null = null;
 const DEV_SERVER_URL =
   process.env.SHOWBIZ_DEV_SERVER_URL ?? "http://localhost:1420";
 const projectFiles = createProjectFileOpening((file, message) =>
@@ -122,23 +125,20 @@ async function registerIpc(
   });
   const updateHandler = createInvokeHandler(updates.commands);
   const agentGeneration = createAgentGenerationRuntime({
-    window: () => {
-      const window = BrowserWindow.getAllWindows().find(
-        (candidate) => !candidate.isDestroyed(),
-      );
-      return window
+    window: () =>
+      mainWindow && !mainWindow.isDestroyed()
         ? {
-            id: window.webContents.id,
-            send: (channel, payload) => window.webContents.send(channel, payload),
+            id: mainWindow.webContents.id,
+            send: (channel, payload) =>
+              mainWindow?.webContents.send(channel, payload),
           }
-        : null;
-    },
+        : null,
     budget: async () =>
-      (await projects.invoke("get_agent_budget")) as AgentBudgetResult<AgentBudget>,
+      readAgentBudgetResult(await projects.invoke("get_agent_budget")),
   });
   const agentHandler = createInvokeHandler(agentGeneration.commands);
   ipcMain.handle(
-    "showbiz:agent_response",
+    AGENT_RESPONSE_CHANNEL,
     (event, requestId: unknown, answer: unknown) => {
       if (typeof requestId === "string")
         agentGeneration.respond(event.sender.id, requestId, answer);
@@ -241,6 +241,7 @@ function createWindow(
       contextIsolation: true,
     },
   });
+  mainWindow = win;
 
   work.attachWindow(win);
   const detachShell = shell.attachWindow(win);
