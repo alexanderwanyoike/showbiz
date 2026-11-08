@@ -44,13 +44,13 @@ Use `update_storyboard_models` with both `image_model` and `video_model` to chan
 
 Tools cover project naming, storyboard creation/naming, bible guidance, characters/locations/other bible entries, shot prompts and duration, ordering, take inspection/selection and storyboard package export. Reads that return lists accept `offset` and `limit` (up to 100). `export_storyboard_package` uses the native save dialog and exports ZIP or SBZ media packages. It never places clips on an editor timeline.
 
-This initial MCP boundary does not expose credentials, arbitrary HTTP requests, filesystem access, shell commands or destructive delete operations. Generation continues through the app controls; agent tools do not submit paid requests or write receipts. Agents can read usage and saved pricing.
+This MCP boundary does not expose credentials, arbitrary HTTP requests, filesystem access, shell commands or destructive delete operations. Agents generate only through quotes and jobs within the budget you grant, and the app writes every receipt itself. Agents can read usage and saved pricing.
 
 ## Agent budget
 
 You can grant an agent a spending budget in Showbiz. Open Usage & billing and choose Agent budget. Enter the amount in USD, optionally a lower per-request limit, how long it lasts (1 hour, 1 day or 1 week), and optionally the only models the agent may use. Granting again replaces the earlier budget. While a budget is active, a banner across the project workspace shows what is left and when it ends, with Revoke.
 
-The budget belongs to this device, not to a project file. It covers whichever project is open, is never written into a `.showbiz` document or export, and a copied project carries no spending rights. `get_agent_budget` is the only budget tool. It reads the remaining amount, per-request cap, expiry and allowed models, and returns `NO_BUDGET` when nothing is granted, the budget expired or you revoked it. No MCP tool creates, raises, extends or revokes a budget. Agents can read the budget and ask for quotes against it, but cannot spend it yet; submitting a quoted generation is not available in this release.
+The budget belongs to this device, not to a project file. It covers whichever project is open, is never written into a `.showbiz` document or export, and a copied project carries no spending rights. `get_agent_budget` is the only budget tool. It reads the remaining amount, per-request cap, expiry and allowed models, and returns `NO_BUDGET` when nothing is granted, the budget expired or you revoked it. No MCP tool creates, raises, extends or revokes a budget. Agents can read the budget, ask for quotes against it and submit quoted generations, which spend from it.
 
 ## Quotes
 
@@ -65,6 +65,18 @@ Quotes are refused with these codes:
 - `NOT_FOUND`, `INVALID_INPUT`: the Bible entry is not in the open project, it is a frame, or the model is not an installed image model.
 - `IO_ERROR`: the window returned a price plan that does not match the request.
 - `UNAVAILABLE`: no Showbiz window or project is open, or the window did not answer.
+
+## Generation jobs
+
+`submit_generation` takes a `quote_id` and a `request_id` you choose. It does not use `expected_revision`, because the quote already fixes what will be generated; if the Bible entry, model or project changed since quoting, it returns `QUOTE_STALE`. Showbiz first writes a job to a ledger on this device, holding the quote's maximum against the budget, and only then asks its window to generate. The job runs through the same code as the app's Generate button: the same usage record, provider request ID and receipt checks, and the picture becomes the entry's new primary take, as a new take does in the app. Usage & billing marks these requests as Agent.
+
+Retrying `submit_generation` with the same `request_id` and quote returns the same job and never submits a second paid request, after a timeout and after Showbiz restarts. The same `request_id` with another quote is refused. Each job also uses its own usage record identity, which the usage table refuses to start twice.
+
+Only one paid job runs at a time (`JOB_LIMIT`). While it runs, Showbiz counts it as generation work, so other agent edits return `BUSY` and the open project cannot be switched or closed. Submissions are refused while you have unsaved edits.
+
+`get_generation_job` reports `accepted`, `running`, `completed`, `failed` or `interrupted`, the new picture's `variant_id`, the held amount and the confirmed charge once the provider reports it. `list_generation_jobs` pages a project's jobs, newest first.
+
+The held amount becomes the confirmed charge once it is known. Until then the full quoted maximum stays held, also for failed and interrupted jobs, because a provider can charge for a request that failed. A hold is released only when the job never reached the provider, for example when a provider key is missing. A job still running when Showbiz quits is marked `interrupted` at the next start and keeps its hold. If a confirmed charge is higher than its quote, the budget is frozen and the banner says so; grant a new budget to continue.
 
 ## Local connection
 

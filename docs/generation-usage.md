@@ -23,7 +23,7 @@ FAL billing requires `billing:usage:read`, `auth:keys:read` and `account:users:r
 
 Model pricing opens a dialog that explicitly applies to this model on this device across all projects. Video overrides apply to the selected resolution and audio settings. Saving or removing an override affects future estimates and never rewrites recorded history. Local compute estimates can use the same mechanism. Escape, Close and Cancel discard the staged rate without changing the saved rate. A pending save keeps the dialog open until it finishes.
 
-Agents can read project usage, totals and saved price bases. Credential and receipt-writing commands are not exposed as MCP tools. The reconciler reads provider APIs rather than accepting a caller-supplied charge. Usage & billing also holds the device's agent budget, which agents can read; see [Agent access through MCP](mcp.md#agent-budget).
+Agents can read project usage, totals and saved price bases. Credential and receipt-writing commands are not exposed as MCP tools. The reconciler reads provider APIs rather than accepting a caller-supplied charge. Usage & billing also holds the device's agent budget. Agents spend it only through quoted jobs that run the app's own generation path, record the same usage and receipts, and are marked Agent in the request list. A missing or zero historical estimate is never quoted, so it cannot be spent under a budget. See [Agent access through MCP](mcp.md#agent-budget).
 
 ## Sources and verification
 
