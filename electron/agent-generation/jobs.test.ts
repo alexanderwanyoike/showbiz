@@ -470,3 +470,16 @@ describe("agent job progress and edits", () => {
     });
   });
 });
+
+it("refuses a submit when the quoted reference pictures changed", async () => {
+  const { jobs, quote, resolve, start } = setup();
+  const quoteId = await quote();
+  resolve.mockResolvedValueOnce({
+    ok: true,
+    value: { ...plan, inputs: { ...plan.inputs, prompt: "A different prompt" } },
+  });
+  expect(
+    await jobs.submit_generation({ quote_id: quoteId, request_id: "r1" }),
+  ).toMatchObject({ ok: false, error: { code: expect.stringMatching(/QUOTE_STALE|IO_ERROR/) as string } });
+  expect(start).not.toHaveBeenCalled();
+});

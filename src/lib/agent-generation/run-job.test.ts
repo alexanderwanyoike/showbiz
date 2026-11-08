@@ -188,3 +188,23 @@ it.each(["retake", "edit"] as const)("runs a %s job and makes the result the ent
   });
   expect(variants).toHaveLength(2);
 });
+
+it("fails a retake job instead of composing from fewer pictures than were quoted", async () => {
+  const { commands, asset, job } = project("fixture-key");
+  const report = vi.fn(async () => undefined);
+  await runAgentJob(
+    {
+      ...job,
+      request: { target: "bible_asset", operation: "retake", asset_id: asset.id, model_id: "seedream-4.5-openrouter" },
+      plan: {
+        ...job.plan,
+        cost_request: { kind: "image_compose", count: 1 },
+        inputs: { prompt: "first", reference_variant_ids: ["deleted-picture"] },
+      },
+    },
+    report,
+  );
+  expect(mocks.fetch).not.toHaveBeenCalled();
+  expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ status: "failed" }));
+  expect(commands.get_bible_asset_variants({ assetId: asset.id })).toEqual([]);
+});
