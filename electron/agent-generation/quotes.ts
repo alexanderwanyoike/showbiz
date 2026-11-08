@@ -139,7 +139,7 @@ export function withinBudget(
 export function createAgentQuotes(options: {
   plan: (request: AgentQuoteRequest) => Promise<AgentResult<unknown>>;
   /** Resolves the model a request will use without pricing it. */
-  resolve?: (request: AgentQuoteRequest) => Promise<AgentResult<unknown>>;
+  resolve: (request: AgentQuoteRequest) => Promise<AgentResult<unknown>>;
   budget: () => Promise<AgentBudgetResult<AgentBudget>>;
   now?: () => number;
 }) {
@@ -162,7 +162,7 @@ export function createAgentQuotes(options: {
       const request = parsed.data;
       let modelId = "model_id" in request ? request.model_id : null;
       // Shots use their own model, so it is resolved, without pricing, before the allowlist check.
-      if (modelId === null && options.resolve) {
+      if (modelId === null) {
         const resolved = await options.resolve(request);
         if (!resolved.ok) return resolved;
         const target = readTarget(request, resolved.value);

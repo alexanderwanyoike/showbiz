@@ -57,6 +57,7 @@ function setup(options: { cap?: number; max?: number; canEdit?: boolean | (() =>
   const resolve = vi.fn(async () => ({ ok: true as const, value: plan }));
   const quotes = createAgentQuotes({
     plan: resolve,
+    resolve,
     budget: async () => budget.get_agent_budget(),
     now: () => now,
   });
@@ -124,7 +125,7 @@ describe("agent jobs", () => {
     restarted.recoverInterrupted();
     const after = createAgentJobs({
       ledger: restarted,
-      quotes: createAgentQuotes({ plan: vi.fn(), budget: vi.fn() }),
+      quotes: createAgentQuotes({ plan: vi.fn(), resolve: vi.fn(), budget: vi.fn() }),
       budget: vi.fn(),
       resolve: vi.fn(),
       start,

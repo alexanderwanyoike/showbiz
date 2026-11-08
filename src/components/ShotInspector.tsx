@@ -40,7 +40,6 @@ import type {
   VideoModelInfo,
 } from "../lib/models/types";
 
-export type { ShotFrameRole } from "../../shared/shot-frames";
 import type { ShotFrameRole } from "../../shared/shot-frames";
 
 // A composed frame from the bible that a shot can use as a start/end frame.

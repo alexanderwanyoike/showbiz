@@ -91,27 +91,27 @@ async function createResult(job: AgentJobStart): Promise<AgentJobResult> {
     return { variant_id: variant.id };
   }
   const agent = accountingFor(job);
-  const sourceTake = plan.inputs.source_take_id;
-  if (request.operation === "edit" && !sourceTake)
-    throw new Error("The quote has no source take to edit.");
-  const take =
-    request.operation === "edit"
-      ? await editShotStartFrame(
-          request.shot_id,
-          sourceTake ?? request.source_take_id,
-          plan.inputs.prompt,
-          plan.model_id,
-          plan.subject,
-          agent,
-        )
-      : await generateShotStartFrame(
-          request.shot_id,
-          plan.inputs.prompt,
-          plan.model_id,
-          plan.subject,
-          (await getCurrentImageVersion(request.shot_id))?.id ?? null,
-          agent,
-        );
+  if (request.operation === "edit") {
+    const sourceTake = plan.inputs.source_take_id;
+    if (!sourceTake) throw new Error("The quote has no source take to edit.");
+    const take = await editShotStartFrame(
+      request.shot_id,
+      sourceTake,
+      plan.inputs.prompt,
+      plan.model_id,
+      plan.subject,
+      agent,
+    );
+    return { take_id: take.id };
+  }
+  const take = await generateShotStartFrame(
+    request.shot_id,
+    plan.inputs.prompt,
+    plan.model_id,
+    plan.subject,
+    (await getCurrentImageVersion(request.shot_id))?.id ?? null,
+    agent,
+  );
   return { take_id: take.id };
 }
 

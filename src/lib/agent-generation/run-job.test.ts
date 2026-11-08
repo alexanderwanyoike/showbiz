@@ -269,3 +269,30 @@ it.each(["generate", "edit"] as const)("runs a shot start frame %s job as a new 
     warnings: [],
   });
 });
+
+it("edits the shot take frozen in the quote and refuses a quote without one", async () => {
+  const { commands, film, job } = project("fixture-key");
+  const board = commands.create_storyboard({ projectId: film.id, name: "Opening" }) as { id: string };
+  const shot = commands.create_shot({ storyboardId: board.id }) as { id: string };
+  const frozen = commands.create_generation_version({ shotId: shot.id, prompt: "Frozen", imageBase64: `data:image/png;base64,${PNG}`, parentVersionId: null }) as { id: string };
+  const edit = (inputs: { prompt: string; reference_variant_ids: string[]; source_take_id?: string }) => ({
+    ...job,
+    request: { target: "shot_start_frame" as const, operation: "edit" as const, shot_id: shot.id, source_take_id: "not-the-frozen-one", prompt: "Darker" },
+    plan: {
+      ...job.plan,
+      cost_request: { kind: "image_edit" as const, count: 1 },
+      subject: { project_id: film.id, subject_id: shot.id },
+      inputs,
+    },
+  });
+  const report = vi.fn(async () => undefined);
+  await runAgentJob(edit({ prompt: "Darker", reference_variant_ids: [], source_take_id: frozen.id }), report);
+  expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ status: "completed" }));
+  const nodes = commands.get_image_versions({ shotId: shot.id }) as { version: { id: string }; children: { version: { parent_version_id: string } }[] }[];
+  expect(nodes[0].children[0].version.parent_version_id).toBe(frozen.id);
+
+  mocks.fetch.mockClear();
+  await runAgentJob(edit({ prompt: "Darker", reference_variant_ids: [] }), report);
+  expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ status: "failed" }));
+  expect(mocks.fetch).not.toHaveBeenCalled();
+});
