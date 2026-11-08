@@ -7,7 +7,7 @@ import {
   type AgentQuoteRequest,
   type AgentResult,
 } from "../../shared/agent-generation";
-import { formatMicrousd } from "./money";
+import { formatMicrousd } from "../../shared/money";
 
 const QUOTE_TTL_MS = 10 * 60 * 1000;
 
