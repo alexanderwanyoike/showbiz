@@ -7,6 +7,9 @@ import type { DocumentResult } from "../shared/project-document";
 import { desktopAppIconPath } from "./app-icon";
 import { integrateLinuxDesktop } from "./linux-desktop-integration";
 import { createMcpSession } from "./mcp/session";
+import { createAgentGenerationRuntime } from "./agent-generation/runtime";
+import { readAgentBudgetResult } from "../shared/agent-budget";
+import { AGENT_RESPONSE_CHANNEL } from "../shared/agent-generation";
 import { startLocalBridge } from "./mcp/local-bridge";
 import {
   createDesktopShell,
@@ -35,6 +38,9 @@ import { createWorkRuntime } from "./work-runtime";
 import { createUpdateRuntime } from "./update-runtime";
 
 const isDev = !app.isPackaged;
+// Agent work is answered only by the window Showbiz created, never by a child window.
+let mainWindow: BrowserWindow | null = null;
+let abandonAgentWork: (windowId: number) => void = () => {};
 const DEV_SERVER_URL =
   process.env.SHOWBIZ_DEV_SERVER_URL ?? "http://localhost:1420";
 const projectFiles = createProjectFileOpening((file, message) =>
@@ -119,10 +125,33 @@ async function registerIpc(
     },
   });
   const updateHandler = createInvokeHandler(updates.commands);
+  const agentGeneration = createAgentGenerationRuntime({
+    window: () =>
+      mainWindow && !mainWindow.isDestroyed()
+        ? {
+            id: mainWindow.webContents.id,
+            send: (channel, payload) =>
+              mainWindow?.webContents.send(channel, payload),
+          }
+        : null,
+    budget: async () =>
+      readAgentBudgetResult(await projects.invoke("get_agent_budget")),
+  });
+  const agentHandler = createInvokeHandler(agentGeneration.commands);
+  abandonAgentWork = agentGeneration.abandon;
+  ipcMain.handle(
+    AGENT_RESPONSE_CHANNEL,
+    (event, requestId: unknown, answer: unknown) => {
+      if (typeof requestId === "string")
+        agentGeneration.respond(event.sender.id, requestId, answer);
+    },
+  );
   const invokeHandler = (command: string, args?: Record<string, unknown>) =>
     command in updates.commands
       ? updateHandler(command, args)
-      : projects.invoke(command, args);
+      : command in agentGeneration.commands
+        ? agentHandler(command, args)
+        : projects.invoke(command, args);
   app.on("will-quit", () => {
     const result = closeProjectStorage(
       projects.dispose,
@@ -214,6 +243,11 @@ function createWindow(
       contextIsolation: true,
     },
   });
+  mainWindow = win;
+  const windowId = win.webContents.id;
+  win.webContents.on("did-navigate", () => abandonAgentWork(windowId));
+  win.webContents.on("render-process-gone", () => abandonAgentWork(windowId));
+  win.webContents.on("destroyed", () => abandonAgentWork(windowId));
 
   work.attachWindow(win);
   const detachShell = shell.attachWindow(win);

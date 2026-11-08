@@ -11,6 +11,7 @@ import { GenerationCost } from "./GenerationCost";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
+import { IMAGE_GENERATION_REQUEST } from "../../shared/generation-cost";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Loader2, Upload, Sparkles, Plus, X, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -1029,7 +1030,7 @@ function AssetTab({
           <div className="bible-cost">
             <GenerationCost
               modelId={generationContext.modelId}
-              request={{ kind: "image" }}
+              request={IMAGE_GENERATION_REQUEST}
               subject={{ project_id: generationContext.projectId }}
             />
           </div>

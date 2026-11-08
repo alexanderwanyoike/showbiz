@@ -25,6 +25,7 @@ it("forwards only update status and removes the exact listener on unsubscribe", 
 it.each([
   ["onApplicationWork", "showbiz:application_work", { active: ["export"], unsaved: [], closing: false }],
   ["onPrepareShutdown", "showbiz:prepare_shutdown", "request-1"],
+  ["onAgentRequest", "showbiz:agent_request", { request_id: "r", operation: "plan_quote", input: {} }],
 ])("scopes %s subscriptions to payloads and cleans up", (method, channel, payload) => {
   native.on.mockClear(); native.removeListener.mockClear();
   const bridge = native.expose.mock.calls[0][1];
@@ -48,4 +49,11 @@ it("does not forward private Electron events through the data-change bridge", ()
   expect(callback).toHaveBeenCalledExactlyOnceWith();
   unsubscribe();
   expect(native.removeListener).toHaveBeenCalledExactlyOnceWith(channel, receive);
+});
+
+it("answers agent requests on their own channel", async () => {
+  const bridge = native.expose.mock.calls[0][1];
+  native.invoke.mockResolvedValueOnce(undefined);
+  await bridge.respondAgentRequest("request-7", { ok: true, value: 1 });
+  expect(native.invoke).toHaveBeenLastCalledWith("showbiz:agent_response", "request-7", { ok: true, value: 1 });
 });
