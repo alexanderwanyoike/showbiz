@@ -21,10 +21,20 @@ export interface AgentBudgetRequest {
 }
 
 export function usdToMicrousd(text: string): number | null {
-  const value = Number(text.trim());
-  if (!text.trim() || !Number.isFinite(value) || value <= 0) return null;
-  const amount = Math.round(value * 1_000_000);
+  const match = /^(\d+)(?:\.(\d{1,6}))?$/.exec(text.trim());
+  if (!match) return null;
+  const amount =
+    Number(match[1]) * 1_000_000 + Number((match[2] ?? "").padEnd(6, "0"));
   return Number.isSafeInteger(amount) && amount > 0 ? amount : null;
+}
+
+export function formatBudgetExpiry(expiresAt: string): string {
+  return new Date(expiresAt).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export const getAgentBudget = () =>

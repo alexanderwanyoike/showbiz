@@ -14,6 +14,7 @@ import {
 import { useAgentBudget } from "../hooks/useAgentBudget";
 import {
   AGENT_BUDGET_DURATIONS,
+  formatBudgetExpiry,
   grantAgentBudget,
   revokeAgentBudget,
   usdToMicrousd,
@@ -21,7 +22,6 @@ import {
 import { formatGenerationCost } from "../lib/generation-usage";
 import { imageConfigs, videoConfigs } from "../lib/models/registry";
 import { modelProviderName } from "../lib/model-provider";
-import { formatBudgetExpiry } from "./AgentBudgetBanner";
 
 const budgetModels = [...imageConfigs, ...videoConfigs]
   .filter((model) => model.enabled)
@@ -33,7 +33,7 @@ const budgetModels = [...imageConfigs, ...videoConfigs]
 
 export function AgentBudgetDialog() {
   const ids = useId();
-  const { budget } = useAgentBudget();
+  const { budget, error: loadError } = useAgentBudget();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [cap, setCap] = useState("");
@@ -94,11 +94,15 @@ export function AgentBudgetDialog() {
         <DialogHeader>
           <DialogTitle>Agent budget</DialogTitle>
           <DialogDescription>
-            Let an agent connected through MCP spend up to this amount on
+            Set how much an agent connected through MCP may spend on
             generation. Only you can grant or revoke it, here in Showbiz.
-            Requests without a known price are never allowed.
           </DialogDescription>
         </DialogHeader>
+        {loadError && (
+          <p role="alert" className="text-xs text-destructive">
+            The current budget could not be read. {loadError}
+          </p>
+        )}
         {budget && (
           <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-xs">
             <p>
