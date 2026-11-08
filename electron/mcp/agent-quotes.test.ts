@@ -29,6 +29,7 @@ it("quotes a generation through MCP without changing project data", async () => 
         provider: "local",
         cost_request: { kind: "image", count: 1 },
         subject: { project_id: "film", subject_id: "asset-1" },
+        inputs: { prompt: "A sock puppet detective", reference_variant_ids: [] },
         estimate: {
           kind: "estimate",
           min_microusd: 0,

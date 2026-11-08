@@ -97,6 +97,7 @@ const jobInput = {
     provider: "local",
     cost_request: { kind: "image", count: 1 },
     subject: { project_id: "film", subject_id: "asset-1" },
+    inputs: { prompt: "A sock puppet", reference_variant_ids: [] },
     estimate: { kind: "unavailable", reason: "none" },
   },
 };

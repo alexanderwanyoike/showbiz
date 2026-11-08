@@ -14,6 +14,7 @@ const plan: AgentQuotePlan = {
   provider: "fal",
   cost_request: { kind: "image", count: 1 },
   subject: { project_id: "film", subject_id: "asset-1" },
+  inputs: { prompt: "A tired sock puppet detective", reference_variant_ids: [] },
   estimate: {
     kind: "estimate",
     min_microusd: 25_000,
