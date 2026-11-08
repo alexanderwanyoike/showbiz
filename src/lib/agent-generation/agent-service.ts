@@ -8,6 +8,7 @@ import {
 } from "../../../shared/agent-generation";
 import { planAgentQuote, resolveAgentTarget } from "./plan-quote";
 import { runAgentJob } from "./run-job";
+import { previewMedia } from "./media-preview";
 
 const REPORT_ATTEMPTS = 3;
 const invalid = (issue: { message: string } | undefined) =>
@@ -30,6 +31,7 @@ async function handle(
     void runAgentJob(input.data, report);
     return { ok: true, value: null };
   }
+  if (request.operation === "preview_media") return previewMedia(request.input);
   return agentFailure("INVALID_INPUT", "Unknown agent operation.");
 }
 

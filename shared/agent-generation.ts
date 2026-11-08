@@ -158,3 +158,29 @@ export type AgentJobReport =
   | { job_id: string; status: "failed"; error: string };
 
 export const AGENT_JOB_REPORT_CHANNEL = "showbiz:agent_job_report";
+
+export const mediaPreviewRequestSchema = z
+  .strictObject({
+    bible_variant_id: id.optional(),
+    image_take_id: id.optional(),
+  })
+  .refine(
+    (input) => [input.bible_variant_id, input.image_take_id].filter(Boolean).length === 1,
+    { message: "Pass exactly one of bible_variant_id or image_take_id." },
+  );
+export type MediaPreviewRequest = z.infer<typeof mediaPreviewRequestSchema>;
+export const mediaPreviewSchema = z.strictObject({
+  images: z
+    .array(
+      z.strictObject({
+        mime_type: z.literal("image/jpeg"),
+        // A 512 px JPEG stays well below this, which keeps replies under the 1 MiB bridge limit.
+        base64: z.string().min(1).max(300_000),
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
+      }),
+    )
+    .min(1)
+    .max(3),
+});
+export type MediaPreview = z.infer<typeof mediaPreviewSchema>;

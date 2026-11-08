@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mediaPreviewRequestSchema } from "../../shared/agent-generation";
 
 const id = z.string().min(1).max(200);
 const name = z.string().trim().min(1).max(1000);
@@ -306,6 +307,34 @@ export const mcpTools: ToolDefinition[] = [
     { asset_id: id },
     "Read candidate references and approved bible images.",
   ),
+  {
+    ...define(
+      "set_bible_variant_status",
+      {
+        variant_id: id,
+        status: z.enum(["approved", "rejected"]),
+        is_primary: z.boolean(),
+      },
+      "Approve a Bible take, optionally making it the entry's current picture (as the app's Use this take does), or reject a take. The current picture cannot be rejected; make another take current first.",
+      true,
+    ),
+    command: "update_bible_asset_variant_status",
+    args: (input: Record<string, unknown>) => ({
+      id: input.variant_id,
+      status: input.status,
+      isPrimary: input.is_primary,
+    }),
+  },
+  {
+    ...define(
+      "get_media_preview",
+      {},
+      "See a Bible take or a shot image take as a small JPEG (at most 512 px) before choosing it. Pass exactly one of bible_variant_id or image_take_id.",
+    ),
+    schema: mediaPreviewRequestSchema,
+    requestTimeoutMs: 30000,
+    args: (input: Record<string, unknown>) => ({ ...input }),
+  },
   define(
     "get_image_versions",
     { shot_id: id },

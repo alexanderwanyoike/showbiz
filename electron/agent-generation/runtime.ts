@@ -1,6 +1,11 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { AgentBudget, AgentBudgetResult } from "../../shared/agent-budget";
-import type { AgentJobStart, AgentQuoteRequest } from "../../shared/agent-generation";
+import {
+  agentFailure,
+  mediaPreviewSchema,
+  type AgentJobStart,
+  type AgentQuoteRequest,
+} from "../../shared/agent-generation";
 import { createAgentJobLedger } from "./job-ledger";
 import { createAgentJobs } from "./jobs";
 import { createAgentQuotes } from "./quotes";
@@ -44,6 +49,14 @@ export function createAgentGenerationRuntime(options: {
     },
     commands: {
       get_agent_budget: () => budget(),
+      get_media_preview: async (args?: Record<string, unknown>) => {
+        const answer = await channel.request("preview_media", args ?? {});
+        if (!answer.ok) return answer;
+        const preview = mediaPreviewSchema.safeParse(answer.value);
+        return preview.success
+          ? { ok: true, value: preview.data }
+          : agentFailure("IO_ERROR", "Showbiz returned an unreadable preview.");
+      },
       quote_generation: (args?: Record<string, unknown>) => quotes.quote_generation(args),
       submit_generation: (args?: Record<string, unknown>) => jobs.submit_generation(args),
       get_generation_job: (args?: Record<string, unknown>) => jobs.get_generation_job(args),
