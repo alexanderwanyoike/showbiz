@@ -133,6 +133,7 @@ export async function editImageAction(
   editPrompt: string,
   modelId: ImageModelId = DEFAULT_BIBLE_IMAGE_MODEL,
   subject?: GenerationSubject,
+  agent?: AgentAccounting,
 ): Promise<string> {
   const model = getImageModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
@@ -147,6 +148,7 @@ export async function editImageAction(
       subject,
       (observer) =>
         model.editImage!(editPrompt, sourceImageBase64, apiKey, observer),
+      agent,
     );
     if (!result.ok) throw new Error(result.error.message);
     return result.value;
@@ -163,6 +165,7 @@ export async function composeFrameAction(
   referenceImages: string[],
   modelId: ImageModelId = DEFAULT_BIBLE_IMAGE_MODEL,
   subject?: GenerationSubject,
+  agent?: AgentAccounting,
 ): Promise<string> {
   const model = getImageModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
@@ -181,6 +184,7 @@ export async function composeFrameAction(
       subject,
       (observer) =>
         model.composeImage!(prompt, referenceImages, apiKey, observer),
+      agent,
     );
     if (!result.ok) throw new Error(result.error.message);
     return result.value;
