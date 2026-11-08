@@ -35,7 +35,7 @@ export interface GenerationCostRequest {
   has_end_frame?: boolean;
 }
 export type ImageGenerationKind = Exclude<GenerationKind, "video">;
-/** How one image generation of each kind is priced, in the Bible, the storyboard and agent quotes alike. */
+/** How one image generation of each kind is priced, in the Bible, the storyboard and agent jobs alike. */
 export function imageCostRequest(kind: ImageGenerationKind): GenerationCostRequest {
   return { kind, count: 1 };
 }

@@ -56,7 +56,7 @@ export const agentQuoteTargetSchema = z.strictObject({
   provider: id,
   cost_request: generationCostRequestSchema,
   subject: z.strictObject({ project_id: id, subject_id: id }),
-  /** The resolved prompt and pictures the job will use, frozen into the quote. */
+  /** The resolved prompt and pictures the job will use, fixed when it is planned. */
   inputs: z.strictObject({
     // A video may have no prompt when it starts from a frame.
     prompt: z.string().trim().max(50000),
@@ -73,7 +73,7 @@ export const agentQuoteTargetSchema = z.strictObject({
           audio: z.boolean().optional(),
         }),
         uses_end_frame: z.boolean(),
-        /** The start frame take and end frame content the video was quoted with. */
+        /** The start frame take and end frame content the video was planned with. */
         start_take_id: id.optional(),
         end_frame_digest: z.string().regex(/^[0-9a-f]{64}$/).optional(),
       })
@@ -160,7 +160,7 @@ export interface AgentJob {
   /** null until the app knows whether a provider request was sent. */
   provider_called: boolean | null;
   status: AgentJobStatus;
-  /** confirmed once the provider reports a charge; released only if the provider was never called. */
+  /** confirmed once the provider reports a charge; released only if the provider was never called; unknown when no estimate exists yet. */
   charge_status: "confirmed" | "estimated" | "unknown" | "released";
   /** The new Bible take (variant_id), shot image take (take_id) or video take (video_take_id). */
   result: AgentJobResult | null;
