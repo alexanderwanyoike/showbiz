@@ -1,4 +1,5 @@
 import { addBibleTake } from "../bible-takes";
+import { loadImage } from "../load-image";
 import {
   addBibleImageRequestSchema,
   agentFailure,
@@ -9,18 +10,12 @@ import { findProjectAsset, openProjectId } from "./project-lookup";
 // Checked from the image header before full decoding, so a small file cannot claim an enormous canvas.
 const MAX_BIBLE_IMAGE_PIXELS = 40_000_000;
 
-function loadImage(dataUrl: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => resolve(null);
-    image.src = dataUrl;
-  });
-}
-
 async function checkPicture(dataUrl: string): Promise<string | null> {
-  const image = await loadImage(dataUrl);
-  if (!image) return "The picture could not be read.";
+  const image = await loadImage(dataUrl).then(
+    (loaded) => loaded,
+    (cause: unknown) => (cause instanceof Error ? cause.message : String(cause)),
+  );
+  if (typeof image === "string") return image;
   if (image.naturalWidth * image.naturalHeight > MAX_BIBLE_IMAGE_PIXELS)
     return `The picture has more than ${MAX_BIBLE_IMAGE_PIXELS / 1_000_000} megapixels; send a smaller one.`;
   const decoded = await image.decode().then(
