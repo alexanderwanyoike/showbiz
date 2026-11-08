@@ -70,8 +70,9 @@ it.each([
   const http = refusal(403, JSON.stringify({ error: { message } }));
   const result = await readFalCharges(request, "fixture-id:fixture-secret", http);
   if (result.ok) throw new Error("expected a refusal");
-  expect(result.error.message).not.toMatch(/fixture-(id|secret)/);
-  expect(result.error.message).toContain("FAL billing access denied");
+  expect(result.error.message).toBe(
+    "FAL billing access denied. Confirmed charges need a key with billing:usage:read, auth:keys:read and account:users:read, such as one made with the BILLING preset. This cost remains unconfirmed.",
+  );
 });
 
 it("keeps fal's reason on one line and names the key actually used", async () => {
