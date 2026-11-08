@@ -47,6 +47,7 @@ export const agentBudgetSchema = z.strictObject({
   grant: agentBudgetGrantSchema,
   committed_microusd: microusd,
   remaining_microusd: z.number().int(),
+  frozen: z.boolean(),
 });
 export type AgentBudgetGrant = z.infer<typeof agentBudgetGrantSchema>;
 export type AgentBudget = z.infer<typeof agentBudgetSchema>;

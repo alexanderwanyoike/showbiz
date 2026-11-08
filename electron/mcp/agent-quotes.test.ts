@@ -19,6 +19,7 @@ it("quotes a generation through MCP without changing project data", async () => 
         },
         committed_microusd: 0,
         remaining_microusd: 1_000_000,
+        frozen: false,
       },
     }),
     plan: async () => ({

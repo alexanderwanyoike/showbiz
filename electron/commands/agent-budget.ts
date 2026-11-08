@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type { ReadGenerationModels } from "./generation-models";
+import { createAgentJobLedger } from "../agent-generation/job-ledger";
 import {
   agentBudgetGrantInputSchema,
   agentBudgetGrantSchema,
@@ -26,6 +27,7 @@ export function createAgentBudgetCommands(
   options: { readModels: ReadGenerationModels; now?: () => number },
 ) {
   const now = options.now ?? Date.now;
+  const ledger = createAgentJobLedger(db);
   function unknownModel(ids: string[] | undefined): string | null {
     if (!ids) return null;
     const catalog = options.readModels();
@@ -87,12 +89,14 @@ export function createAgentBudgetCommands(
       return guarded(() => {
         const grant = activeGrant();
         if (!grant) return noBudget();
+        const spend = ledger.spend(grant.id);
         return {
           ok: true,
           value: {
             grant,
-            committed_microusd: 0,
-            remaining_microusd: grant.max_microusd,
+            committed_microusd: spend.committed_microusd,
+            remaining_microusd: grant.max_microusd - spend.committed_microusd,
+            frozen: spend.frozen,
           },
         };
       });

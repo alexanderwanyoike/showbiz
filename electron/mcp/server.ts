@@ -11,6 +11,14 @@ function toolResult(result: BridgeResult) {
     isError: !result.ok,
   };
 }
+export function toolAnnotations(definition: (typeof mcpTools)[number]) {
+  return {
+    readOnlyHint: !definition.mutates && !definition.spends,
+    destructiveHint: false,
+    ...(definition.spends ? { idempotentHint: true } : {}),
+    ...(definition.openWorld ? { openWorldHint: true } : {}),
+  };
+}
 export function createMcpServer(directory = sessionDirectory()) {
   const server = new McpServer(
     { name: "showbiz", version: "1.0.0" },
@@ -69,10 +77,7 @@ export function createMcpServer(directory = sessionDirectory()) {
       {
         description: definition.description,
         inputSchema: definition.schema,
-        annotations: {
-          readOnlyHint: !definition.mutates,
-          destructiveHint: false,
-        },
+        annotations: toolAnnotations(definition),
       },
       async (args, context) =>
         toolResult(

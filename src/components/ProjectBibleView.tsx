@@ -11,6 +11,10 @@ import { GenerationCost } from "./GenerationCost";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
+import {
+  addPrimaryBibleTake,
+  prepareBibleImageDataUrl,
+} from "../lib/bible-takes";
 import { IMAGE_GENERATION_REQUEST } from "../../shared/generation-cost";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Loader2, Upload, Sparkles, Plus, X, ImageIcon } from "lucide-react";
@@ -68,8 +72,6 @@ type BibleDeletion =
   | { kind: "asset"; asset: BibleAsset }
   | { kind: "picture"; variant: BibleAssetVariant };
 
-const MAX_BIBLE_IMAGE_SIDE = 1600;
-const BIBLE_IMAGE_QUALITY = 0.9;
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -81,35 +83,6 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = () =>
       reject(reader.error ?? new Error("Failed to read file"));
     reader.readAsDataURL(file);
-  });
-}
-
-function prepareBibleImageDataUrl(dataUrl: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      const scale = Math.min(
-        1,
-        MAX_BIBLE_IMAGE_SIDE / Math.max(image.width, image.height),
-      );
-      if (scale === 1 && dataUrl.length < 4_000_000) {
-        resolve(dataUrl);
-        return;
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(image.width * scale));
-      canvas.height = Math.max(1, Math.round(image.height * scale));
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        reject(new Error("Failed to prepare image canvas"));
-        return;
-      }
-      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", BIBLE_IMAGE_QUALITY));
-    };
-    image.onerror = () =>
-      reject(new Error("Unsupported image format. Try PNG, JPEG, or WebP."));
-    image.src = dataUrl;
   });
 }
 
@@ -490,16 +463,7 @@ export default function ProjectBibleView({
     preparedDataUrl: string,
     prompt: string | null,
   ) {
-    const take = await createBibleAssetVariant(assetId, {
-      name: (prompt ?? "take").slice(0, 40),
-      image_base64: preparedDataUrl,
-      source_kind: "generated",
-      status: "approved",
-      prompt,
-      model_id: imageModel,
-      is_primary: false,
-    });
-    await updateBibleAssetVariantStatus(take.id, "approved", true);
+    await addPrimaryBibleTake(assetId, preparedDataUrl, prompt, imageModel);
     await refreshAsset(assetId);
   }
 

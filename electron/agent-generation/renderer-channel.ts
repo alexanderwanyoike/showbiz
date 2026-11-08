@@ -23,6 +23,8 @@ const answerSchema = z.discriminatedUnion("ok", [
   }),
 ]);
 const unavailable = (message: string) => agentFailure("UNAVAILABLE", message);
+// The window may have received the work, so callers must not assume it never ran.
+const noAnswer = (message: string) => agentFailure("NO_ANSWER", message);
 
 export function createRendererChannel(options: {
   target: () => AgentWindow | null;
@@ -43,7 +45,7 @@ export function createRendererChannel(options: {
       return new Promise((resolve) => {
         const timer = setTimeout(() => {
           pending.delete(request_id);
-          resolve(unavailable("Showbiz did not answer in time. Try again."));
+          resolve(noAnswer("Showbiz did not answer in time."));
         }, options.timeoutMs ?? 60_000);
         pending.set(request_id, {
           owner: target.id,
@@ -67,7 +69,7 @@ export function createRendererChannel(options: {
     abandon(owner: number): void {
       for (const entry of [...pending.values()])
         if (entry.owner === owner)
-          entry.settle(unavailable("The Showbiz window reloaded or closed. Try again."));
+          entry.settle(noAnswer("The Showbiz window reloaded or closed."));
     },
     respond(sender: number, requestId: string, answer: unknown): void {
       const entry = pending.get(requestId);

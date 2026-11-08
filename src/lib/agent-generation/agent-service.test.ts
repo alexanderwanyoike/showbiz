@@ -1,15 +1,21 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { connectAgentService } from "./agent-service";
 
-const planner = vi.hoisted(() => ({ planAgentQuote: vi.fn() }));
+const planner = vi.hoisted(() => ({ planAgentQuote: vi.fn(), resolveAgentTarget: vi.fn() }));
 vi.mock("./plan-quote", () => planner);
+const runner = vi.hoisted(() => ({ runAgentJob: vi.fn() }));
+vi.mock("./run-job", () => runner);
 
 type Request = { request_id: string; operation: string; input: unknown };
 function app() {
   let handler: ((request: Request) => void) | undefined;
   const respondAgentRequest = vi.fn(async () => undefined);
+  const reportAgentJob = vi.fn(async () => undefined);
+  const dispatchEvent = vi.fn();
   vi.stubGlobal("window", {
+    dispatchEvent,
     showbiz: {
+      reportAgentJob,
       onAgentRequest: (callback: (request: Request) => void) => {
         handler = callback;
         return () => (handler = undefined);
@@ -19,6 +25,8 @@ function app() {
   });
   return {
     respondAgentRequest,
+    reportAgentJob,
+    dispatchEvent,
     send: (request: Request) => handler?.(request),
     connected: () => !!handler,
   };
@@ -26,6 +34,8 @@ function app() {
 afterEach(() => {
   vi.unstubAllGlobals();
   planner.planAgentQuote.mockReset();
+  planner.resolveAgentTarget.mockReset();
+  runner.runAgentJob.mockReset();
 });
 
 const quoteInput = {
@@ -74,4 +84,94 @@ it("reports a planning crash instead of leaving the agent waiting", async () => 
       error: { code: "IO_ERROR", message: "pricing exploded" },
     }),
   );
+});
+
+const jobInput = {
+  job_id: "job-1",
+  usage_request_id: "usage-1",
+  request: quoteInput,
+  plan: {
+    model_id: "local-image",
+    provider: "local",
+    cost_request: { kind: "image", count: 1 },
+    subject: { project_id: "film", subject_id: "asset-1" },
+    estimate: { kind: "unavailable", reason: "none" },
+  },
+};
+
+it("accepts a job at once and reports its progress back to the main process", async () => {
+  const native = app();
+  let finish: (() => void) | undefined;
+  runner.runAgentJob.mockImplementation(
+    (_job, report: (update: unknown) => Promise<void>) =>
+      new Promise<void>((resolve) => {
+        finish = () => {
+          void report({ job_id: "job-1", status: "completed", result: {}, warnings: [] }).then(resolve);
+        };
+      }),
+  );
+  connectAgentService();
+  native.send({ request_id: "r5", operation: "start_job", input: jobInput });
+  await vi.waitFor(() =>
+    expect(native.respondAgentRequest).toHaveBeenCalledWith("r5", { ok: true, value: null }),
+  );
+  expect(runner.runAgentJob).toHaveBeenCalledWith(jobInput, expect.any(Function));
+  finish?.();
+  await vi.waitFor(() =>
+    expect(native.reportAgentJob).toHaveBeenCalledWith({
+      job_id: "job-1",
+      status: "completed",
+      result: {},
+      warnings: [],
+    }),
+  );
+  await vi.waitFor(() =>
+    expect(native.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "showbiz:project-changed" }),
+    ),
+  );
+});
+
+it("refuses a malformed job without running anything", async () => {
+  const native = app();
+  connectAgentService();
+  native.send({ request_id: "r6", operation: "start_job", input: { job_id: "job-1" } });
+  await vi.waitFor(() =>
+    expect(native.respondAgentRequest).toHaveBeenCalledWith("r6", {
+      ok: false,
+      error: { code: "INVALID_INPUT", message: expect.any(String) as string },
+    }),
+  );
+  expect(runner.runAgentJob).not.toHaveBeenCalled();
+});
+
+it("resolves a quote's target for a submit check", async () => {
+  const native = app();
+  planner.resolveAgentTarget.mockResolvedValue({ ok: true, value: "target" });
+  connectAgentService();
+  native.send({ request_id: "r7", operation: "resolve_target", input: quoteInput });
+  await vi.waitFor(() =>
+    expect(native.respondAgentRequest).toHaveBeenCalledWith("r7", { ok: true, value: "target" }),
+  );
+  expect(planner.planAgentQuote).not.toHaveBeenCalled();
+});
+
+it("retries a progress report that fails to reach the main process", async () => {
+  vi.useFakeTimers();
+  try {
+    const native = app();
+    native.reportAgentJob
+      .mockRejectedValueOnce(new Error("busy"))
+      .mockResolvedValueOnce(undefined);
+    runner.runAgentJob.mockImplementation(
+      async (_job, report: (update: unknown) => Promise<void>) =>
+        report({ job_id: "job-1", status: "failed", error: "x" }),
+    );
+    connectAgentService();
+    native.send({ request_id: "r9", operation: "start_job", input: jobInput });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(native.reportAgentJob).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.useRealTimers();
+  }
 });

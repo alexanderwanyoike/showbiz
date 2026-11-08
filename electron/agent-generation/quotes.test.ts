@@ -44,6 +44,7 @@ const budget = (overrides: Partial<AgentBudget["grant"]> = {}, remaining = 5_000
   },
   committed_microusd: 5_000_000 - remaining,
   remaining_microusd: remaining,
+  frozen: false,
 });
 const request = {
   target: "bible_asset",
@@ -233,6 +234,15 @@ describe("agent generation quotes", () => {
         planned: { ok: true, value: { model_id: "flux-dev-fal" } as unknown as AgentQuotePlan },
       }).quotes.quote_generation(request),
     ).toMatchObject({ ok: false, error: { code: "IO_ERROR" } });
+  });
+
+  it("refuses a budget frozen by a charge above its quote", async () => {
+    const { quotes, planner } = setup({ granted: { ...budget(), frozen: true } });
+    expect(await quotes.quote_generation(request)).toMatchObject({
+      ok: false,
+      error: { code: "NO_BUDGET" },
+    });
+    expect(planner).not.toHaveBeenCalled();
   });
 });
 

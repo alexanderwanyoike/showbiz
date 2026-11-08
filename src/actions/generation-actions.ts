@@ -2,6 +2,7 @@ import { resolveGenerationKey } from "../lib/generation-key";
 import { DEFAULT_BIBLE_IMAGE_MODEL } from "../lib/bible-assets";
 import {
   accountModelGeneration,
+  type AgentAccounting,
   type GenerationSubject,
 } from "../lib/model-generation-accounting";
 import {
@@ -24,6 +25,7 @@ export async function generateImageAction(
   prompt: string,
   modelId: ImageModelId = "imagen4",
   subject?: GenerationSubject,
+  agent?: AgentAccounting,
 ): Promise<string> {
   const model = getImageModel(modelId);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
@@ -35,6 +37,7 @@ export async function generateImageAction(
       IMAGE_GENERATION_REQUEST,
       subject,
       (observer) => model.generateImage(prompt, apiKey, observer),
+      agent,
     );
     if (!result.ok) throw new Error(result.error.message);
     return result.value;

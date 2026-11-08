@@ -3,6 +3,7 @@ import { openTestDb } from "../db.test";
 import path from "node:path";
 import { createAgentBudgetCommands } from "./agent-budget";
 import { createGenerationModelCommands } from "./generation-models";
+import { createAgentJobLedger } from "../agent-generation/job-ledger";
 
 const catalog = createGenerationModelCommands(
   path.resolve("src/lib/models/providers"),
@@ -56,6 +57,7 @@ describe("agent budget grants", () => {
         },
         committed_microusd: 0,
         remaining_microusd: 5_000_000,
+        frozen: false,
       },
     });
   });
@@ -161,4 +163,40 @@ describe("damaged budget settings", () => {
       });
     },
   );
+});
+
+describe("budget spend", () => {
+  it("subtracts held and confirmed agent spending and freezes after an overrun", () => {
+    const db = openTestDb();
+    const commands = createAgentBudgetCommands(db, {
+      readModels: catalog.get_generation_models,
+    });
+    const granted = commands.grant_agent_budget({
+      max_microusd: 1_000_000,
+      duration_minutes: 60,
+    });
+    if (!granted.ok) throw new Error("expected a grant");
+    const ledger = createAgentJobLedger(db);
+    ledger.insert({
+      job_id: "job-1",
+      request_id: "r1",
+      quote_id: "q1",
+      grant_id: granted.value.id,
+      project_id: "film",
+      subject_id: "asset-1",
+      usage_request_id: "u1",
+      model_id: "flux-dev-fal",
+      kind: "image",
+      reserved_microusd: 300_000,
+    });
+    expect(commands.get_agent_budget()).toMatchObject({
+      ok: true,
+      value: { committed_microusd: 300_000, remaining_microusd: 700_000, frozen: false },
+    });
+    ledger.update("job-1", { status: "completed", reported_microusd: 350_000 });
+    expect(commands.get_agent_budget()).toMatchObject({
+      ok: true,
+      value: { committed_microusd: 350_000, remaining_microusd: 650_000, frozen: true },
+    });
+  });
 });

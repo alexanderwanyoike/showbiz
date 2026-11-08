@@ -9,7 +9,10 @@ import { integrateLinuxDesktop } from "./linux-desktop-integration";
 import { createMcpSession } from "./mcp/session";
 import { createAgentGenerationRuntime } from "./agent-generation/runtime";
 import { readAgentBudgetResult } from "../shared/agent-budget";
-import { AGENT_RESPONSE_CHANNEL } from "../shared/agent-generation";
+import {
+  AGENT_JOB_REPORT_CHANNEL,
+  AGENT_RESPONSE_CHANNEL,
+} from "../shared/agent-generation";
 import { startLocalBridge } from "./mcp/local-bridge";
 import {
   createDesktopShell,
@@ -125,6 +128,14 @@ async function registerIpc(
     },
   });
   const updateHandler = createInvokeHandler(updates.commands);
+  const agentsCanEdit = () => {
+    const status = work.work.getStatus();
+    return (
+      status.unsaved.length === 0 &&
+      status.active.length === 0 &&
+      !status.closing
+    );
+  };
   const agentGeneration = createAgentGenerationRuntime({
     window: () =>
       mainWindow && !mainWindow.isDestroyed()
@@ -136,7 +147,13 @@ async function registerIpc(
         : null,
     budget: async () =>
       readAgentBudgetResult(await projects.invoke("get_agent_budget")),
+    deviceDb: db,
+    invoke: (command, args) => projects.invoke(command, args),
+    canEdit: agentsCanEdit,
   });
+  ipcMain.handle(AGENT_JOB_REPORT_CHANNEL, (event, update: unknown) =>
+    agentGeneration.report(event.sender.id, update),
+  );
   const agentHandler = createInvokeHandler(agentGeneration.commands);
   abandonAgentWork = agentGeneration.abandon;
   ipcMain.handle(
@@ -170,14 +187,7 @@ async function registerIpc(
       for (const window of BrowserWindow.getAllWindows())
         window.webContents.send("showbiz:data_changed");
     },
-    () => {
-      const status = work.work.getStatus();
-      return (
-        status.unsaved.length === 0 &&
-        status.active.length === 0 &&
-        !status.closing
-      );
-    },
+    agentsCanEdit,
   );
   ipcMain.handle(
     "showbiz:invoke",

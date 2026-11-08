@@ -29,11 +29,14 @@ export const agentQuoteRequestSchema = z.discriminatedUnion("target", [
 export type AgentQuoteRequest = z.infer<typeof agentQuoteRequestSchema>;
 
 
-export const agentQuotePlanSchema = z.strictObject({
+export const agentQuoteTargetSchema = z.strictObject({
   model_id: id,
   provider: id,
   cost_request: generationCostRequestSchema,
   subject: z.strictObject({ project_id: id, subject_id: id }),
+});
+export type AgentQuoteTarget = z.infer<typeof agentQuoteTargetSchema>;
+export const agentQuotePlanSchema = agentQuoteTargetSchema.extend({
   estimate: z.discriminatedUnion("kind", [
     z.strictObject({ kind: z.literal("unavailable"), reason: z.string() }),
     z
@@ -83,6 +86,10 @@ export const agentGenerationErrorCodes = [
   "PRICE_UNKNOWN",
   "QUOTE_EXPIRED",
   "QUOTE_NOT_FOUND",
+  "QUOTE_STALE",
+  "BUSY",
+  "JOB_LIMIT",
+  "NO_ANSWER",
 ] as const;
 export type AgentGenerationErrorCode = (typeof agentGenerationErrorCodes)[number];
 
@@ -100,3 +107,54 @@ export interface AgentRequest {
   operation: string;
   input: unknown;
 }
+
+export type AgentJobStatus =
+  | "accepted"
+  | "running"
+  | "completed"
+  | "failed"
+  | "interrupted";
+
+export interface AgentJob {
+  job_id: string;
+  request_id: string;
+  quote_id: string;
+  grant_id: string;
+  project_id: string;
+  subject_id: string;
+  usage_request_id: string;
+  model_id: string;
+  kind: string;
+  reserved_microusd: number;
+  reported_microusd: number | null;
+  /** null until the app knows whether a provider request was sent. */
+  provider_called: boolean | null;
+  status: AgentJobStatus;
+  /** confirmed once the provider reports a charge; released only if the provider was never called. */
+  charge_status: "confirmed" | "estimated" | "released";
+  result: { variant_id?: string } | null;
+  error: string | null;
+  warnings: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const agentJobStartSchema = z.strictObject({
+  job_id: id,
+  usage_request_id: id,
+  request: agentQuoteRequestSchema,
+  plan: agentQuotePlanSchema,
+});
+export type AgentJobStart = z.infer<typeof agentJobStartSchema>;
+
+export type AgentJobReport =
+  | { job_id: string; status: "running" }
+  | {
+      job_id: string;
+      status: "completed";
+      result: { variant_id?: string };
+      warnings: string[];
+    }
+  | { job_id: string; status: "failed"; error: string };
+
+export const AGENT_JOB_REPORT_CHANNEL = "showbiz:agent_job_report";

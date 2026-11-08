@@ -14,6 +14,7 @@ it("accepts only a well-formed budget answer", () => {
     },
     committed_microusd: 0,
     remaining_microusd: 1_000_000,
+    frozen: false,
   };
   expect(readAgentBudgetResult({ ok: true, value: budget })).toEqual({ ok: true, value: budget });
   expect(

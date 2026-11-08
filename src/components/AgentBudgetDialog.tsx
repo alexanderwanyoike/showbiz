@@ -101,6 +101,7 @@ export function AgentBudgetDialog() {
           <DialogDescription>
             Set how much an agent connected through MCP may spend on
             generation. Only you can grant or revoke it, here in Showbiz.
+            Requests without a known price are never allowed.
           </DialogDescription>
         </DialogHeader>
         {loadError && (

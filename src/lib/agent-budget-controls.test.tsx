@@ -10,14 +10,17 @@ import { createGenerationModelCommands } from "../../electron/commands/generatio
 import { AgentBudgetDialog } from "../components/AgentBudgetDialog";
 import { AgentBudgetBanner } from "../components/AgentBudgetBanner";
 import { usdToMicrousd } from "./agent-budget";
+import { createAgentJobLedger } from "../../electron/agent-generation/job-ledger";
 
 const native = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("./bridge", () => native);
 afterEach(cleanup);
 
+let db = openTestDb();
 function device() {
+  db = openTestDb();
   const commands: Record<string, (args?: Record<string, unknown>) => unknown> =
-    createAgentBudgetCommands(openTestDb(), {
+    createAgentBudgetCommands(db, {
       readModels: createGenerationModelCommands(
         path.resolve("src/lib/models/providers"),
       ).get_generation_models,
@@ -171,4 +174,19 @@ it("drops a budget that expired before Revoke was pressed, from the banner and t
   await vi.waitFor(() =>
     expect(within(dialog).queryByRole("button", { name: "Revoke" })).toBeNull(),
   );
+});
+
+it("says when a charge above its quote has frozen the budget", async () => {
+  const commands = device();
+  const granted = commands.grant_agent_budget({ max_microusd: 1_000_000, duration_minutes: 60 }) as { ok: true; value: { id: string } };
+  const ledger = createAgentJobLedger(db);
+  ledger.insert({
+    job_id: "job-1", request_id: "r1", quote_id: "q1", grant_id: granted.value.id,
+    project_id: "film", subject_id: "asset-1", usage_request_id: "u1",
+    model_id: "flux-dev-fal", kind: "image", reserved_microusd: 100_000,
+  });
+  ledger.update("job-1", { status: "completed", reported_microusd: 120_000 });
+  render(createElement(AgentBudgetBanner));
+  const banner = await screen.findByRole("status", { name: "Agent budget" });
+  expect(banner.textContent).toContain("frozen");
 });
