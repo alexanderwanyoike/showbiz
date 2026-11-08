@@ -17,6 +17,8 @@ import {
 } from "./quotes";
 
 const MAX_UNFINISHED_JOBS = 1;
+const providerCalled = (usage: Usage): boolean | null =>
+  usage === undefined ? null : usage !== null;
 const id = z.string().min(1).max(200);
 const submitSchema = z.strictObject({ quote_id: id, request_id: id });
 const jobIdSchema = z.strictObject({ job_id: id });
@@ -33,7 +35,7 @@ const reportSchema = z.strictObject({
   warnings: z.array(z.string().max(2000)).max(20).optional(),
 });
 
-type Usage = { reported_microusd: number | null } | null;
+type Usage = { reported_microusd: number | null } | null | undefined;
 
 export function createAgentJobs(options: {
   ledger: ReturnType<typeof createAgentJobLedger>;
@@ -41,7 +43,7 @@ export function createAgentJobs(options: {
   budget: () => Promise<AgentBudgetResult<AgentBudget>>;
   resolve: (request: AgentQuoteRequest) => Promise<AgentResult<unknown>>;
   start: (job: AgentJobStart) => Promise<AgentResult<unknown>>;
-  /** Reads the job's usage record in the open project, or null when none was started. */
+  /** null when no usage record was started; undefined when that cannot be known. */
   usage: (job: AgentJob) => Promise<Usage>;
   canEdit: () => boolean;
 }) {
@@ -166,7 +168,7 @@ export function createAgentJobs(options: {
         status === "completed"
           ? true
           : status === "failed"
-            ? (await options.usage(job)) !== null
+            ? providerCalled(await options.usage(job))
             : job.provider_called;
       const updated = ledger.update(job_id, { status, provider_called, ...details });
       if (updated && status === "completed") await confirmCharge(updated);
