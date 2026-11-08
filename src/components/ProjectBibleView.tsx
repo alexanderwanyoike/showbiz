@@ -11,6 +11,7 @@ import { GenerationCost } from "./GenerationCost";
 import { useAgentChanges } from "../hooks/useAgentChanges";
 import { useUnsavedWork } from "../hooks/useApplicationWork";
 import { withApplicationWork } from "../lib/application-work";
+import { composeBibleImage, editBibleImage } from "../lib/bible-generation";
 import {
   addPrimaryBibleTake,
   prepareBibleImageDataUrl,
@@ -49,8 +50,6 @@ import {
   type BibleAssetVariant,
 } from "../lib/backend-api";
 import {
-  composeFrameAction,
-  editImageAction,
   generateImageAction,
 } from "../actions/generation-actions";
 import {
@@ -435,29 +434,15 @@ export default function ProjectBibleView({
     }
   }
 
-  // Compose from reference pictures + a prompt (falls back to text-to-image when
-  // there are no references). Returns a prepared data URL.
-  async function composeFromVariantIds(
+  function composeFromVariantIds(
     variantIds: string[],
     prompt: string,
     subjectId: string,
   ): Promise<string> {
-    const images = (
-      await Promise.all(
-        variantIds.map((vid) => getBibleVariantImageBase64(vid)),
-      )
-    ).filter((x): x is string => !!x);
-    const raw =
-      images.length > 0
-        ? await composeFrameAction(prompt, images, imageModel, {
-            project_id: projectId,
-            subject_id: subjectId,
-          })
-        : await generateImageAction(prompt, imageModel, {
-            project_id: projectId,
-            subject_id: subjectId,
-          });
-    return prepareBibleImageDataUrl(raw);
+    return composeBibleImage(variantIds, prompt, imageModel, {
+      project_id: projectId,
+      subject_id: subjectId,
+    });
   }
 
   // Add a generated take to an asset and make it the new primary.
@@ -604,25 +589,14 @@ export default function ProjectBibleView({
       const result = await withApplicationWork(
         "generation",
         async (): Promise<Result<void>> => {
-          const source = await getBibleVariantImageBase64(variant.id);
-          if (!source) {
-            return {
-              ok: false,
-              error: {
-                code: "IO_ERROR",
-                message: "Couldn't read that picture.",
-              },
-            };
-          }
-          const raw = await editImageAction(source, instruction, imageModel, {
-            project_id: projectId,
-            subject_id: asset.id,
-          });
-          await addPrimaryTake(
-            asset.id,
-            await prepareBibleImageDataUrl(raw),
+          const edited = await editBibleImage(
+            variant.id,
             instruction,
+            imageModel,
+            { project_id: projectId, subject_id: asset.id },
           );
+          if (!edited.ok) return edited;
+          await addPrimaryTake(asset.id, edited.value, instruction);
           return { ok: true, value: undefined };
         },
       );
