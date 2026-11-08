@@ -42,7 +42,13 @@ export function createAgentBudgetCommands(
       .prepare("SELECT value FROM settings WHERE key = ?")
       .get(GRANT_KEY) as { value: string } | undefined;
     if (!row) return null;
-    const grant = agentBudgetGrantSchema.safeParse(JSON.parse(row.value));
+    let saved: unknown;
+    try {
+      saved = JSON.parse(row.value);
+    } catch {
+      saved = null;
+    }
+    const grant = agentBudgetGrantSchema.safeParse(saved);
     if (!grant.success)
       throw new Error(
         "The saved agent budget is unreadable. Grant a new budget.",
