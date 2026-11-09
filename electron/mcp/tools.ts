@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { frameAssetInput } from "../../shared/bible-frame";
-import { shotVideoSettingsSchema } from "../../shared/shot-video-settings";
+import {
+  shotVideoSettingsSchema,
+  unusableVideoSettings,
+  videoSettingNames,
+} from "../../shared/shot-video-settings";
 import {
   addBibleImageRequestSchema,
   MAX_BIBLE_IMAGE_BASE64,
@@ -426,7 +430,7 @@ export const mcpTools: ToolDefinition[] = [
     ...define(
       "set_shot_video_settings",
       {},
-      "Save a shot's video settings (duration such as 8s or auto, resolution, aspect_ratio, audio) for an installed video model, as the shot's video settings panel does. Settings the model cannot use fall back to its defaults.",
+      "Save a shot's video settings (duration such as 8s or auto, resolution, aspect_ratio, audio) for an installed video model, as the shot's video settings panel does. Settings the model does not offer, as listed by get_generation_models, are refused with INVALID_INPUT.",
       true,
     ),
     schema: shotVideoSettingsSchema.extend({
@@ -441,12 +445,36 @@ export const mcpTools: ToolDefinition[] = [
     }),
     check: async (read, args) => {
       const catalog = z
-        .object({ ok: z.literal(true), value: z.array(z.object({ id: z.string(), kind: z.string() })) })
+        .object({
+          ok: z.literal(true),
+          value: z.array(
+            z.object({
+              id: z.string(),
+              name: z.string(),
+              kind: z.string(),
+              capabilities: z
+                .object({
+                  durations: z.array(z.string()),
+                  resolutions: z.array(z.string()).optional(),
+                  aspectRatios: z.array(z.string()).optional(),
+                  hasAudio: z.boolean().optional(),
+                })
+                .optional(),
+            }),
+          ),
+        })
         .safeParse(await read("get_generation_models", {}));
-      return catalog.success &&
-        catalog.data.value.some((model) => model.id === args.model_id && model.kind === "video")
-        ? null
-        : "Choose an installed video model.";
+      const model = catalog.success
+        ? catalog.data.value.find((entry) => entry.id === args.model_id && entry.kind === "video")
+        : undefined;
+      if (!model?.capabilities) return "Choose an installed video model.";
+      const unusable = unusableVideoSettings(
+        shotVideoSettingsSchema.shape.settings.parse(args.settings),
+        model.capabilities,
+      );
+      return unusable.length
+        ? `${model.name} cannot use the given ${videoSettingNames(unusable)}. get_generation_models lists the settings it offers.`
+        : null;
     },
   },
   define(
