@@ -14,6 +14,7 @@ import { withApplicationWork } from "../lib/application-work";
 import { composeBibleImage, editBibleImage } from "../lib/bible-generation";
 import { frameAssetInput, frameName, frameRules } from "../../shared/bible-frame";
 import {
+  addBibleTake,
   addPrimaryBibleTake,
   prepareBibleImageDataUrl,
 } from "../lib/bible-takes";
@@ -228,16 +229,9 @@ export default function ProjectBibleView({
       prompt?: string | null;
     },
   ) {
-    const image_base64 = await prepareBibleImageDataUrl(dataUrl);
-    const isFirst = (variants[assetId] ?? []).length === 0;
-    await createBibleAssetVariant(assetId, {
-      name: meta.name,
-      image_base64,
-      source_kind: meta.source,
-      status: "approved",
-      prompt: meta.prompt ?? null,
-      model_id: meta.source === "generated" ? imageModel : null,
-      is_primary: isFirst,
+    await addBibleTake(assetId, dataUrl, {
+      ...meta,
+      modelId: meta.source === "generated" ? imageModel : null,
     });
     await refreshAsset(assetId);
   }
