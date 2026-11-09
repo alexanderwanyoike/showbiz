@@ -58,3 +58,11 @@ it("accepts job reports only from the app window", async () => {
   await runtime.report(1, { job_id: "job-1", status: "running" });
   expect(ledger.get("job-1")?.status).toBe("running");
 });
+
+it("asks the app window to add a Bible picture", async () => {
+  const { runtime, sent } = setup();
+  const answer = runtime.commands.add_bible_image({ bible_asset_id: "sock", mime_type: "image/png", base64: "iVBORw0KGgo=" });
+  expect(sent).toMatchObject([{ operation: "add_bible_image", input: { bible_asset_id: "sock" } }]);
+  runtime.respond(1, sent[0].request_id, { ok: true, value: { variant_id: "v1" } });
+  expect(await answer).toEqual({ ok: true, value: { variant_id: "v1" } });
+});

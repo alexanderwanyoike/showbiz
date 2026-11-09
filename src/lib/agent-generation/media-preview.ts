@@ -4,6 +4,7 @@ import {
   getVideoVersionUrl,
 } from "../backend-api";
 import { electronMediaUrlResolver } from "../electron-media-url";
+import { loadImage } from "../load-image";
 import {
   agentFailure,
   mediaPreviewRequestSchema,
@@ -16,15 +17,6 @@ type Shrink = (
   dataUrl: string,
   maxSide: number,
 ) => Promise<{ base64: string; width: number; height: number }>;
-
-function loadImage(dataUrl: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("The picture could not be read."));
-    image.src = dataUrl;
-  });
-}
 
 export const shrinkToJpeg: Shrink = async (dataUrl, maxSide) => {
   const image = await loadImage(dataUrl);

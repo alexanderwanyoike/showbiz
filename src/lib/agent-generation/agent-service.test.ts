@@ -7,6 +7,8 @@ const runner = vi.hoisted(() => ({ runAgentJob: vi.fn() }));
 vi.mock("./run-job", () => runner);
 const previews = vi.hoisted(() => ({ previewMedia: vi.fn() }));
 vi.mock("./media-preview", () => previews);
+const pictures = vi.hoisted(() => ({ addBibleImage: vi.fn() }));
+vi.mock("./add-bible-image", () => pictures);
 
 type Request = { request_id: string; operation: string; input: unknown };
 function app() {
@@ -168,6 +170,23 @@ it("answers preview requests", async () => {
     expect(native.respondAgentRequest).toHaveBeenCalledWith("r8", { ok: true, value: { images: [] } }),
   );
   expect(previews.previewMedia).toHaveBeenCalledWith({ bible_variant_id: "v1" });
+});
+
+it("adds a Bible picture and refreshes the window only when it was saved", async () => {
+  const native = app();
+  pictures.addBibleImage
+    .mockResolvedValueOnce({ ok: true, value: { variant_id: "v1" } })
+    .mockResolvedValueOnce({ ok: false, error: { code: "NOT_FOUND", message: "Missing" } });
+  connectAgentService();
+  native.send({ request_id: "r9", operation: "add_bible_image", input: { bible_asset_id: "sock" } });
+  await vi.waitFor(() =>
+    expect(native.respondAgentRequest).toHaveBeenCalledWith("r9", { ok: true, value: { variant_id: "v1" } }),
+  );
+  expect(pictures.addBibleImage).toHaveBeenCalledWith({ bible_asset_id: "sock" });
+  expect(native.dispatchEvent).toHaveBeenCalledTimes(1);
+  native.send({ request_id: "r10", operation: "add_bible_image", input: { bible_asset_id: "gone" } });
+  await vi.waitFor(() => expect(native.respondAgentRequest).toHaveBeenCalledTimes(2));
+  expect(native.dispatchEvent).toHaveBeenCalledTimes(1);
 });
 
 it("retries a progress report that fails to reach the main process", async () => {
