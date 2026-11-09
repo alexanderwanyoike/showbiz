@@ -430,7 +430,7 @@ export const mcpTools: ToolDefinition[] = [
     ...define(
       "set_shot_video_settings",
       {},
-      "Save a shot's video settings (duration such as 8s or auto, resolution, aspect_ratio, audio) for an installed video model, as the shot's video settings panel does. Settings the model does not offer, as listed by get_generation_models, are refused with INVALID_INPUT.",
+      "Save a shot's video settings (duration written exactly as the model's capabilities list it, such as 8, 8s or auto, resolution, aspect_ratio, audio) for an installed video model, as the shot's video settings panel does. Settings the model does not offer, as listed by get_generation_models, are refused with INVALID_INPUT.",
       true,
     ),
     schema: shotVideoSettingsSchema.extend({
