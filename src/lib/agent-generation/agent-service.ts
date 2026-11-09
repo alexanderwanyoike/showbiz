@@ -6,7 +6,7 @@ import {
   type AgentRequest,
   type AgentResult,
 } from "../../../shared/agent-generation";
-import { planAgentQuote, resolveAgentTarget } from "./plan-quote";
+import { planAgentQuote } from "./plan-quote";
 import { runAgentJob } from "./run-job";
 import { previewMedia } from "./media-preview";
 import { setShotFrameFromBible } from "./set-shot-frame";
@@ -24,12 +24,10 @@ async function handle(
   request: AgentRequest,
   report: (update: AgentJobReport) => Promise<void>,
 ): Promise<AgentResult<unknown>> {
-  if (request.operation === "plan_quote" || request.operation === "resolve_target") {
+  if (request.operation === "plan_quote") {
     const input = agentQuoteRequestSchema.safeParse(request.input);
     if (!input.success) return invalid(input.error.issues[0]);
-    return request.operation === "plan_quote"
-      ? planAgentQuote(input.data)
-      : resolveAgentTarget(input.data);
+    return planAgentQuote(input.data);
   }
   if (request.operation === "start_job") {
     const input = agentJobStartSchema.safeParse(request.input);

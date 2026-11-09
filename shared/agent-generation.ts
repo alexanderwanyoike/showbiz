@@ -56,7 +56,7 @@ export const agentQuoteTargetSchema = z.strictObject({
   provider: id,
   cost_request: generationCostRequestSchema,
   subject: z.strictObject({ project_id: id, subject_id: id }),
-  /** The resolved prompt and pictures the job will use, frozen into the quote. */
+  /** The resolved prompt and pictures the job will use, fixed when it is planned. */
   inputs: z.strictObject({
     // A video may have no prompt when it starts from a frame.
     prompt: z.string().trim().max(50000),
@@ -73,7 +73,7 @@ export const agentQuoteTargetSchema = z.strictObject({
           audio: z.boolean().optional(),
         }),
         uses_end_frame: z.boolean(),
-        /** The start frame take and end frame content the video was quoted with. */
+        /** The start frame take and end frame content the video was planned with. */
         start_take_id: id.optional(),
         end_frame_digest: z.string().regex(/^[0-9a-f]{64}$/).optional(),
       })
@@ -101,37 +101,11 @@ export const agentQuotePlanSchema = agentQuoteTargetSchema.extend({
 /** What the renderer resolves for a request: the same model, settings and estimate the app would use. */
 export type AgentQuotePlan = z.infer<typeof agentQuotePlanSchema>;
 
-export interface AgentQuote {
-  quote_id: string;
-  expires_at: string;
-  model_id: string;
-  provider: string;
-  kind: GenerationCostRequest["kind"];
-  min_microusd: number;
-  max_microusd: number;
-  price_source: string;
-  price_checked_at: string;
-  price_freshness: z.infer<typeof priceFreshnessSchema> | null;
-  price_stale: boolean;
-  price_basis: GenerationPrice;
-  excludes_input_cost: boolean;
-  fingerprint: string;
-  budget_remaining_microusd: number;
-}
-
 export const agentGenerationErrorCodes = [
   "INVALID_INPUT",
   "NOT_FOUND",
   "UNAVAILABLE",
   "IO_ERROR",
-  "NO_BUDGET",
-  "MODEL_NOT_ALLOWED",
-  "OVER_REQUEST_CAP",
-  "OVER_BUDGET",
-  "PRICE_UNKNOWN",
-  "QUOTE_EXPIRED",
-  "QUOTE_NOT_FOUND",
-  "QUOTE_STALE",
   "BUSY",
   "JOB_LIMIT",
   "NO_ANSWER",
@@ -160,23 +134,34 @@ export type AgentJobStatus =
   | "failed"
   | "interrupted";
 
+export const agentJobEstimateSchema = z.strictObject({
+  min_microusd: microusd,
+  max_microusd: microusd,
+  price_source: z.string(),
+  price_checked_at: z.string(),
+  price_stale: z.boolean(),
+  excludes_input_cost: z.boolean(),
+});
+export type AgentJobEstimate = z.infer<typeof agentJobEstimateSchema>;
+
 export interface AgentJob {
   job_id: string;
   request_id: string;
-  quote_id: string;
-  grant_id: string;
+  /** What the request asked for, so a retry with the same request ID but other arguments is refused. */
+  request_fingerprint: string;
   project_id: string;
   subject_id: string;
   usage_request_id: string;
   model_id: string;
   kind: string;
-  reserved_microusd: number;
+  /** null when no price was known when the job started; an unknown price never blocks generation. */
+  estimate: AgentJobEstimate | null;
   reported_microusd: number | null;
   /** null until the app knows whether a provider request was sent. */
   provider_called: boolean | null;
   status: AgentJobStatus;
-  /** confirmed once the provider reports a charge; released only if the provider was never called. */
-  charge_status: "confirmed" | "estimated" | "released";
+  /** confirmed once the provider reports a charge; released only if the provider was never called; unknown when the price was unknown and no charge is confirmed. */
+  charge_status: "confirmed" | "estimated" | "unknown" | "released";
   /** The new Bible take (variant_id), shot image take (take_id) or video take (video_take_id). */
   result: AgentJobResult | null;
   error: string | null;
