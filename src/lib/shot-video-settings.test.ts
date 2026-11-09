@@ -46,7 +46,7 @@ it("keeps the saved settings a model can use and falls back only for the ones it
   expect(resolveShotVideoSettings(withAudio, h3)).toEqual({
     source: "saved",
     settings: { duration: "8", resolution: "768P" },
-    notice: "Saved for this shot. MiniMax H3 cannot use the saved audio, so its default is used.",
+    notice: "Saved for this shot. MiniMax H3 cannot use the saved audio, so it is left to the model.",
   });
   const tooLong = JSON.stringify({
     model_id: h3.id,
@@ -55,6 +55,6 @@ it("keeps the saved settings a model can use and falls back only for the ones it
   expect(resolveShotVideoSettings(tooLong, h3)).toEqual({
     source: "saved",
     settings: { duration: "5", resolution: "480P" },
-    notice: "Saved for this shot. MiniMax H3 cannot use the saved duration and aspect ratio, so its defaults are used.",
+    notice: "Saved for this shot. MiniMax H3 cannot use the saved duration and aspect ratio, so they are left to the model.",
   });
 });
