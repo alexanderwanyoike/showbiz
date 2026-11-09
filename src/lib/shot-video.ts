@@ -10,7 +10,7 @@ import type {
 import type { VideoGenerationSettings, VideoModelInfo } from "./models/types";
 import type { GenerationCostRequest } from "../../shared/generation-cost";
 
-/** How a shot video is priced, in the storyboard, the video action and agent quotes alike. */
+/** How a shot video is priced, in the storyboard, the video action and agent jobs alike. */
 export function videoCostRequest(
   settings: VideoGenerationSettings,
   mode: VideoGenerationMode | undefined,

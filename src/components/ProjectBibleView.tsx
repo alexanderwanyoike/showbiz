@@ -14,6 +14,7 @@ import { withApplicationWork } from "../lib/application-work";
 import { composeBibleImage, editBibleImage } from "../lib/bible-generation";
 import { frameAssetInput, frameName, frameRules } from "../../shared/bible-frame";
 import {
+  addBibleTake,
   addPrimaryBibleTake,
   prepareBibleImageDataUrl,
 } from "../lib/bible-takes";
@@ -57,6 +58,7 @@ import {
 import {
   assetBasePrompt,
   assetReferences,
+  bibleImageShape,
   builtFromLabel,
   parseRecipe,
   primaryPicture,
@@ -228,16 +230,9 @@ export default function ProjectBibleView({
       prompt?: string | null;
     },
   ) {
-    const image_base64 = await prepareBibleImageDataUrl(dataUrl);
-    const isFirst = (variants[assetId] ?? []).length === 0;
-    await createBibleAssetVariant(assetId, {
-      name: meta.name,
-      image_base64,
-      source_kind: meta.source,
-      status: "approved",
-      prompt: meta.prompt ?? null,
-      model_id: meta.source === "generated" ? imageModel : null,
-      is_primary: isFirst,
+    await addBibleTake(assetId, dataUrl, {
+      ...meta,
+      modelId: meta.source === "generated" ? imageModel : null,
     });
     await refreshAsset(assetId);
   }
@@ -439,12 +434,16 @@ export default function ProjectBibleView({
   function composeFromVariantIds(
     variantIds: string[],
     prompt: string,
-    subjectId: string,
+    asset: BibleAsset,
   ): Promise<string> {
-    return composeBibleImage(variantIds, prompt, imageModel, {
-      project_id: projectId,
-      subject_id: subjectId,
-    });
+    return composeBibleImage(
+      variantIds,
+      prompt,
+      imageModel,
+      { project_id: projectId, subject_id: asset.id },
+      undefined,
+      bibleImageShape(asset.asset_type),
+    );
   }
 
   // Add a generated take to an asset and make it the new primary.
@@ -497,7 +496,7 @@ export default function ProjectBibleView({
         const dataUrl = await composeFromVariantIds(
           recipeVariantIds(recipe, variants),
           recipe.prompt,
-          asset.id,
+          asset,
         );
         await createBibleAssetVariant(asset.id, {
           name: recipe.prompt.slice(0, 40),
@@ -546,7 +545,7 @@ export default function ProjectBibleView({
           const dataUrl = await composeFromVariantIds(
             assetReferences(asset, variants),
             prompt,
-            asset.id,
+            asset,
           );
           await addPrimaryTake(asset.id, dataUrl, prompt);
           return { ok: true, value: undefined };
@@ -588,6 +587,8 @@ export default function ProjectBibleView({
             instruction,
             imageModel,
             { project_id: projectId, subject_id: asset.id },
+            undefined,
+            bibleImageShape(asset.asset_type),
           );
           if (!edited.ok) return edited;
           await addPrimaryTake(asset.id, edited.value, instruction);

@@ -15,6 +15,8 @@ export interface VideoGenerationSettings {
 import {
   VALID_VIDEO_TRANSPORTS,
   VALID_IMAGE_TRANSPORTS,
+  SHAPED_IMAGE_TRANSPORTS,
+  FAL_SHAPE_PARAMS,
 } from "./model-transports";
 import { isApiKeyProvider, type ApiKeyProvider } from "./provider-catalog";
 
@@ -102,8 +104,28 @@ export interface ImageModelConfig {
   // Multi-reference composition (compose a frame from several images). Distinct
   // from editing a single image; gates whether composeImage is exposed.
   supportsComposition?: boolean;
+  /** Shapes Showbiz can ask this model for, such as "16:9"; without one the provider picks. */
+  aspectRatios?: string[];
   paramMapping?: Record<string, string>;
   fixedParams?: Record<string, unknown>;
+}
+
+/** Frames and shot start frames belong to a 16:9 video. */
+export const FRAME_ASPECT_RATIO = "16:9" as const;
+export interface ImageRequestOptions {
+  aspectRatio?: string;
+}
+export const FRAME_SHAPE: Readonly<ImageRequestOptions> = Object.freeze({ aspectRatio: FRAME_ASPECT_RATIO });
+
+/** Why a model cannot be asked for the requested shape, or null when it can. */
+export function shapeRefusal(
+  model: { name: string; aspectRatios?: readonly string[] },
+  options?: ImageRequestOptions,
+): string | null {
+  const ratio = options?.aspectRatio;
+  return ratio && !model.aspectRatios?.includes(ratio)
+    ? `${model.name} cannot make ${ratio} pictures, which frames and shots need.`
+    : null;
 }
 
 function validateMetadata(
@@ -293,6 +315,27 @@ export function validateImageConfig(raw: unknown): ImageModelConfig {
   const models = config.models as Record<string, unknown>;
   if (!models.generate) {
     throw new Error(`Image config "${config.id}": models.generate is required`);
+  }
+
+  if (
+    config.aspectRatios !== undefined &&
+    (!Array.isArray(config.aspectRatios) ||
+      !config.aspectRatios.every((ratio) => typeof ratio === "string" && /^\d+:\d+$/.test(ratio)))
+  ) {
+    throw new Error(
+      `Image config "${config.id}": "aspectRatios" must be a list of ratios such as "16:9"`,
+    );
+  }
+  if (config.aspectRatios !== undefined) {
+    if (!SHAPED_IMAGE_TRANSPORTS.some((transport) => transport === config.transport))
+      throw new Error(
+        `Image config "${config.id}": "aspectRatios" is not supported by the ${String(config.transport)} transport, which cannot send a shape`,
+      );
+    const options = config.transportOptions as Record<string, unknown> | undefined;
+    if (config.transport === "fal-image" && !FAL_SHAPE_PARAMS.includes(String(options?.aspectRatioParam)))
+      throw new Error(
+        `Image config "${config.id}": fal models with "aspectRatios" need transportOptions.aspectRatioParam set to ${FAL_SHAPE_PARAMS.join(" or ")}`,
+      );
   }
 
   if (config.generationModes !== undefined) {

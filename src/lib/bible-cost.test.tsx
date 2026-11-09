@@ -79,6 +79,8 @@ it("retains the frame draft and its usage identity when generation fails", async
     "Saved frame draft",
     "nano-banana",
     { project_id: "film", subject_id: "new-frame" },
+    undefined,
+    { aspectRatio: "16:9" },
   );
   await user.click(screen.getByRole("button", { name: "Generate frame" }));
   await screen.findByText("Provider unavailable");

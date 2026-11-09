@@ -50,3 +50,5 @@ Config-driven model system. Adding a model = adding a JSON file.
 | `models.edit` | No | Model ID for editing (if different) |
 | `supportsEditing` | Yes | Whether editing is supported |
 | `supportsInpainting` | Yes | Whether inpainting is supported |
+| `aspectRatios` | No | Shapes Showbiz can ask the model for, such as `["16:9"]`. Frames and shot start frames need `16:9`; a model without it is refused for them |
+| `transportOptions.aspectRatioParam` | fal only | `aspect_ratio` or `image_size`, whichever the fal endpoint takes its shape in |

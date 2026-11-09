@@ -24,14 +24,23 @@ import {
   IMAGE_GENERATION_REQUEST,
   imageCostRequest,
 } from "../../shared/generation-cost";
+import { shapeRefusal, type ImageRequestOptions } from "../../shared/model-config";
+
+/** Refuses before any key is read or provider called, so a model never silently returns another shape. */
+function requireShape(model: { name: string; aspectRatios: string[] }, options?: ImageRequestOptions) {
+  const refusal = shapeRefusal(model, options);
+  if (refusal) throw new Error(`${refusal} Choose another image model.`);
+}
 
 export async function generateImageAction(
   prompt: string,
   modelId: ImageModelId = "imagen4",
   subject?: GenerationSubject,
   agent?: AgentAccounting,
+  options?: ImageRequestOptions,
 ): Promise<string> {
   const model = getImageModel(modelId);
+  requireShape(model, options);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
   if (!credential.ok) throw new Error(credential.error.message);
   const apiKey = credential.value;
@@ -40,7 +49,7 @@ export async function generateImageAction(
       modelId,
       IMAGE_GENERATION_REQUEST,
       subject,
-      (observer) => model.generateImage(prompt, apiKey, observer),
+      (observer) => model.generateImage(prompt, apiKey, observer, options),
       agent,
     );
     if (!result.ok) throw new Error(result.error.message);
@@ -136,8 +145,10 @@ export async function editImageAction(
   modelId: ImageModelId = DEFAULT_BIBLE_IMAGE_MODEL,
   subject?: GenerationSubject,
   agent?: AgentAccounting,
+  options?: ImageRequestOptions,
 ): Promise<string> {
   const model = getImageModel(modelId);
+  requireShape(model, options);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
   if (!credential.ok) throw new Error(credential.error.message);
   const apiKey = credential.value;
@@ -149,7 +160,7 @@ export async function editImageAction(
       imageCostRequest("image_edit"),
       subject,
       (observer) =>
-        model.editImage!(editPrompt, sourceImageBase64, apiKey, observer),
+        model.editImage!(editPrompt, sourceImageBase64, apiKey, observer, options),
       agent,
     );
     if (!result.ok) throw new Error(result.error.message);
@@ -168,8 +179,10 @@ export async function composeFrameAction(
   modelId: ImageModelId = DEFAULT_BIBLE_IMAGE_MODEL,
   subject?: GenerationSubject,
   agent?: AgentAccounting,
+  options?: ImageRequestOptions,
 ): Promise<string> {
   const model = getImageModel(modelId);
+  requireShape(model, options);
   const credential = await resolveGenerationKey(model.apiKeyProvider);
   if (!credential.ok) throw new Error(credential.error.message);
   const apiKey = credential.value;
@@ -185,7 +198,7 @@ export async function composeFrameAction(
       imageCostRequest("image_compose"),
       subject,
       (observer) =>
-        model.composeImage!(prompt, referenceImages, apiKey, observer),
+        model.composeImage!(prompt, referenceImages, apiKey, observer, options),
       agent,
     );
     if (!result.ok) throw new Error(result.error.message);

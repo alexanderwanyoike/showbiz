@@ -62,7 +62,7 @@ async function withRealDigest(start: AgentJobStart): Promise<AgentJobStart> {
   };
 }
 
-it("refuses to run when the frames changed after the quote", async () => {
+it("refuses to run when the frames changed after planning, and tells the agent to generate again", async () => {
   actions.generateAndSaveVideoRequestAction.mockReset();
   const report = vi.fn(async () => undefined);
   await runAgentJob(job, report);
@@ -72,7 +72,12 @@ it("refuses to run when the frames changed after the quote", async () => {
     { ...quotedTake, plan: { ...quotedTake.plan, inputs: { ...quotedTake.plan.inputs, video: { ...quotedTake.plan.inputs.video!, start_take_id: "older-take" } } } },
     report,
   );
-  expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ status: "failed" }));
+  expect(report).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      status: "failed",
+      error: "The shot's frames changed after planning. Call generate again with a new request_id.",
+    }),
+  );
   expect(actions.generateAndSaveVideoRequestAction).not.toHaveBeenCalled();
 });
 

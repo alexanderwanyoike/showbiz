@@ -2,6 +2,7 @@ import { fetch } from "../http";
 import { parseGoogleApiError } from "../types";
 import type { ImageTransport } from "./types";
 import type { ImageModelConfig } from "../config-schema";
+import type { ImageRequestOptions } from "../../../../shared/model-config";
 
 const BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -52,10 +53,16 @@ async function predictGenerate(
   throw new Error(`No image data found in ${config.name} response`);
 }
 
+const generationConfig = (options?: ImageRequestOptions) => ({
+  responseModalities: ["IMAGE", "TEXT"],
+  ...(options?.aspectRatio ? { imageConfig: { aspectRatio: options.aspectRatio } } : {}),
+});
+
 async function generateContentGenerate(
   config: ImageModelConfig,
   prompt: string,
-  apiKey: string
+  apiKey: string,
+  options?: ImageRequestOptions
 ): Promise<string> {
   const modelId = config.models.generate;
   const url = `${BASE_URL}/models/${modelId}:generateContent`;
@@ -68,7 +75,7 @@ async function generateContentGenerate(
     },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+      generationConfig: generationConfig(options),
     }),
   });
 
@@ -95,7 +102,8 @@ async function generateContentCompose(
   config: ImageModelConfig,
   prompt: string,
   referenceImages: string[],
-  apiKey: string
+  apiKey: string,
+  options?: ImageRequestOptions
 ): Promise<string> {
   const modelId = config.models.edit ?? config.models.generate;
   const url = `${BASE_URL}/models/${modelId}:generateContent`;
@@ -110,7 +118,7 @@ async function generateContentCompose(
     },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }, ...imageParts] }],
-      generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
+      generationConfig: generationConfig(options),
     }),
   });
 
@@ -124,37 +132,23 @@ async function generateContentCompose(
 }
 
 export const googleImageTransport: ImageTransport = {
-  async generateImage(
-    config: ImageModelConfig,
-    prompt: string,
-    apiKey: string
-  ): Promise<string> {
+  async generateImage(config, prompt, apiKey, _observer, options) {
     const apiPattern = config.transportOptions?.apiPattern as string | undefined;
     if (apiPattern === "predict") {
       return predictGenerate(config, prompt, apiKey);
     }
-    return generateContentGenerate(config, prompt, apiKey);
+    return generateContentGenerate(config, prompt, apiKey, options);
   },
 
-  async editImage(
-    config: ImageModelConfig,
-    editPrompt: string,
-    sourceImageBase64: string,
-    apiKey: string
-  ): Promise<string> {
+  async editImage(config, editPrompt, sourceImageBase64, apiKey, _observer, options) {
     const apiPattern = config.transportOptions?.apiPattern as string | undefined;
     if (apiPattern === "predict") {
       throw new Error(`${config.name} does not support image editing.`);
     }
-    return generateContentCompose(config, editPrompt, [sourceImageBase64], apiKey);
+    return generateContentCompose(config, editPrompt, [sourceImageBase64], apiKey, options);
   },
 
-  async composeImage(
-    config: ImageModelConfig,
-    prompt: string,
-    referenceImages: string[],
-    apiKey: string
-  ): Promise<string> {
+  async composeImage(config, prompt, referenceImages, apiKey, _observer, options) {
     const apiPattern = config.transportOptions?.apiPattern as string | undefined;
     if (apiPattern === "predict") {
       throw new Error(`${config.name} does not support multi-reference composition.`);
@@ -162,6 +156,6 @@ export const googleImageTransport: ImageTransport = {
     if (referenceImages.length === 0) {
       throw new Error("composeImage requires at least one reference image");
     }
-    return generateContentCompose(config, prompt, referenceImages, apiKey);
+    return generateContentCompose(config, prompt, referenceImages, apiKey, options);
   },
 };

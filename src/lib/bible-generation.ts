@@ -10,6 +10,7 @@ import type {
   GenerationSubject,
 } from "./model-generation-accounting";
 import type { Result } from "../../shared/result";
+import type { ImageRequestOptions } from "../../shared/model-config";
 
 /** Composes from reference pictures and a prompt, or generates from the prompt alone without references. */
 export async function composeBibleImage(
@@ -18,18 +19,18 @@ export async function composeBibleImage(
   modelId: string,
   subject: GenerationSubject,
   agent?: AgentAccounting,
+  options?: ImageRequestOptions,
 ): Promise<string> {
   const images = (
     await Promise.all(variantIds.map((id) => getBibleVariantImageBase64(id)))
   ).filter((image): image is string => !!image);
-  // An agent paid for exactly the quoted pictures, so it never falls back to fewer.
+  // An agent asked for exactly the planned pictures, so it never falls back to fewer.
   if (agent && images.length !== variantIds.length)
-    throw new Error("A quoted reference picture could not be read. Request a new quote.");
-  const accounting = agent ? ([agent] as const) : ([] as const);
+    throw new Error("A planned reference picture could not be read. Call generate again with a new request_id.");
   const raw =
     images.length > 0
-      ? await composeFrameAction(prompt, images, modelId, subject, ...accounting)
-      : await generateImageAction(prompt, modelId, subject, ...accounting);
+      ? await composeFrameAction(prompt, images, modelId, subject, agent, options)
+      : await generateImageAction(prompt, modelId, subject, agent, options);
   return prepareBibleImageDataUrl(raw);
 }
 
@@ -39,6 +40,7 @@ export async function editBibleImage(
   modelId: string,
   subject: GenerationSubject,
   agent?: AgentAccounting,
+  options?: ImageRequestOptions,
 ): Promise<Result<string>> {
   const source = await getBibleVariantImageBase64(sourceVariantId);
   if (!source)
@@ -51,7 +53,8 @@ export async function editBibleImage(
     instruction,
     modelId,
     subject,
-    ...(agent ? ([agent] as const) : ([] as const)),
+    agent,
+    options,
   );
   return { ok: true, value: await prepareBibleImageDataUrl(raw) };
 }

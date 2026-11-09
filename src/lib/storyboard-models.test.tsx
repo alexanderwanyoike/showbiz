@@ -694,7 +694,7 @@ it("waits for image model persistence before editing a frame and then uses the s
   const dialog = await screen.findByRole("dialog", { name: "Edit frame for shot 1" });
   await user.type(within(dialog).getByRole("textbox", { name: "Frame edit prompt" }), "Morning mist");
   await user.click(within(dialog).getByRole("button", { name: "Edit Image" }));
-  await waitFor(() => expect(editImageAction).toHaveBeenCalledWith(expect.any(String), "Morning mist", "nano-banana", expect.objectContaining({ subject_id: "shot-1" })));
+  await waitFor(() => expect(editImageAction).toHaveBeenCalledWith(expect.any(String), "Morning mist", "nano-banana", expect.objectContaining({ subject_id: "shot-1" }), undefined, { aspectRatio: "16:9" }));
 });
 
 it("saves settings for two shots independently and keeps only the pending shot disabled", async () => {

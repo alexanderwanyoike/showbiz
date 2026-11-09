@@ -4,7 +4,8 @@
   "description": "Black Forest Labs' high-quality image model via fal.ai",
   "transport": "fal-image",
   "transportOptions": {
-    "endpoint": "fal-ai/flux/dev"
+    "endpoint": "fal-ai/flux/dev",
+    "aspectRatioParam": "image_size"
   },
   "enabled": true,
   "apiKeyProvider": "fal",
@@ -14,5 +15,8 @@
     "generate": "flux-dev-fal"
   },
   "supportsEditing": false,
-  "supportsInpainting": false
+  "supportsInpainting": false,
+  "aspectRatios": [
+    "16:9"
+  ]
 }

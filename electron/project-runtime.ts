@@ -4,7 +4,6 @@ import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { createDataCommands } from "./command-map";
 import { createHttpCommands } from "./commands/http";
-import { createAgentBudgetCommands } from "./commands/agent-budget";
 import { createSettingsCommands } from "./commands/settings";
 import { createProjectDocuments } from "./project-documents";
 import { createProjectDocumentCommands } from "./project-document-commands";
@@ -41,9 +40,6 @@ export function createProjectRuntime(options: {
   const globals: CommandMap = {
     ...catalog,
     ...deviceSettings,
-    ...createAgentBudgetCommands(options.legacyDb, {
-      readModels: catalog.get_generation_models,
-    }),
     ...createHttpCommands(),
     ...createProjectDocumentCommands({ ...options, documents }),
   };

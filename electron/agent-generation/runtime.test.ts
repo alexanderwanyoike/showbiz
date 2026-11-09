@@ -1,48 +1,58 @@
-import path from "node:path";
 import { expect, it } from "vitest";
 import { openTestDb } from "../db.test";
-import { createAgentBudgetCommands } from "../commands/agent-budget";
-import { createGenerationModelCommands } from "../commands/generation-models";
 import { createAgentJobLedger } from "./job-ledger";
 import { createAgentGenerationRuntime } from "./runtime";
 
 function setup() {
   const db = openTestDb();
-  const budget = createAgentBudgetCommands(db, {
-    readModels: createGenerationModelCommands(path.resolve("src/lib/models/providers")).get_generation_models,
-  });
-  const granted = budget.grant_agent_budget({ max_microusd: 100_000, duration_minutes: 60 });
-  if (!granted.ok) throw new Error("expected grant");
-  const sent: { operation: string; request_id: string }[] = [];
+  const sent: { operation: string; request_id: string; input: unknown }[] = [];
   const runtime = createAgentGenerationRuntime({
     window: () => ({
       id: 1,
       send: (_channel, payload) => sent.push(payload as (typeof sent)[number]),
     }),
-    budget: async () => budget.get_agent_budget(),
     deviceDb: db,
-    invoke: async (command) =>
-      command === "get_project_document_state"
-        ? { ok: true, value: { current: { project_id: "film" } } }
-        : { ok: true, value: { items: [{ request_id: "u1", reported_microusd: 150_000 }], total_count: 1 } },
+    invoke: async () => ({ ok: true, value: { items: [], total_count: 0 } }),
     canEdit: () => true,
   });
   const ledger = createAgentJobLedger(db);
   ledger.insert({
-    job_id: "job-1", request_id: "r1", quote_id: "q1", grant_id: granted.value.id,
+    job_id: "job-1", request_id: "r1", request_fingerprint: "f1",
     project_id: "film", subject_id: "asset-1", usage_request_id: "u1",
-    model_id: "flux-dev-fal", kind: "image", reserved_microusd: 25_000,
+    model_id: "flux-dev-fal", kind: "image", estimate: null,
   });
   return { runtime, ledger, sent };
 }
 
-it("reads charges confirmed after a job finished before reporting the budget", async () => {
-  const { runtime, ledger } = setup();
+it("generates by asking the app window for a plan and then starting the job, with no budget", async () => {
+  const { runtime, ledger, sent } = setup();
   ledger.update("job-1", { status: "completed", provider_called: true });
-  expect(await runtime.commands.get_agent_budget()).toMatchObject({
+  const request = {
+    target: "bible_asset",
+    operation: "generate",
+    asset_id: "asset-1",
+    prompt: "A sock puppet detective",
+    model_id: "flux-kontext-fal",
+  };
+  const job = runtime.commands.generate({ ...request, request_id: "r2" });
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]).toMatchObject({ operation: "plan_quote", input: request });
+  runtime.respond(1, sent[0].request_id, {
     ok: true,
-    value: { committed_microusd: 150_000, frozen: true },
+    value: {
+      model_id: "flux-kontext-fal",
+      provider: "fal",
+      cost_request: { kind: "image", count: 1 },
+      subject: { project_id: "film", subject_id: "asset-1" },
+      inputs: { prompt: "A sock puppet detective", reference_variant_ids: [] },
+      estimate: { kind: "unavailable", reason: "FAL pricing refused the key." },
+    },
   });
+  await expect.poll(() => sent.length).toBe(2);
+  expect(sent[1]).toMatchObject({ operation: "start_job" });
+  runtime.respond(1, sent[1].request_id, { ok: true, value: null });
+  expect(await job).toMatchObject({ ok: true, value: { status: "accepted", estimate: null } });
+  expect(runtime.commands).not.toHaveProperty("get_agent_budget");
 });
 
 it("interrupts unfinished jobs when the app window goes away", () => {
@@ -57,4 +67,12 @@ it("accepts job reports only from the app window", async () => {
   expect(ledger.get("job-1")?.status).toBe("accepted");
   await runtime.report(1, { job_id: "job-1", status: "running" });
   expect(ledger.get("job-1")?.status).toBe("running");
+});
+
+it("asks the app window to add a Bible picture", async () => {
+  const { runtime, sent } = setup();
+  const answer = runtime.commands.add_bible_image({ bible_asset_id: "sock", mime_type: "image/png", base64: "iVBORw0KGgo=" });
+  expect(sent).toMatchObject([{ operation: "add_bible_image", input: { bible_asset_id: "sock" } }]);
+  runtime.respond(1, sent[0].request_id, { ok: true, value: { variant_id: "v1" } });
+  expect(await answer).toEqual({ ok: true, value: { variant_id: "v1" } });
 });

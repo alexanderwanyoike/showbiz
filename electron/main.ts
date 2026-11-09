@@ -8,7 +8,6 @@ import { desktopAppIconPath } from "./app-icon";
 import { integrateLinuxDesktop } from "./linux-desktop-integration";
 import { createMcpSession } from "./mcp/session";
 import { createAgentGenerationRuntime } from "./agent-generation/runtime";
-import { readAgentBudgetResult } from "../shared/agent-budget";
 import {
   AGENT_JOB_REPORT_CHANNEL,
   AGENT_RESPONSE_CHANNEL,
@@ -145,8 +144,6 @@ async function registerIpc(
               mainWindow?.webContents.send(channel, payload),
           }
         : null,
-    budget: async () =>
-      readAgentBudgetResult(await projects.invoke("get_agent_budget")),
     deviceDb: db,
     invoke: (command, args) => projects.invoke(command, args),
     canEdit: agentsCanEdit,

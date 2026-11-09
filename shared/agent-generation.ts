@@ -56,13 +56,14 @@ export const agentQuoteTargetSchema = z.strictObject({
   provider: id,
   cost_request: generationCostRequestSchema,
   subject: z.strictObject({ project_id: id, subject_id: id }),
-  /** The resolved prompt and pictures the job will use, frozen into the quote. */
+  /** The resolved prompt and pictures the job will use, fixed when it is planned. */
   inputs: z.strictObject({
     // A video may have no prompt when it starts from a frame.
     prompt: z.string().trim().max(50000),
     reference_variant_ids: z.array(id).max(MAX_REFERENCE_PICTURES),
     source_variant_id: id.optional(),
     source_take_id: id.optional(),
+    aspect_ratio: z.literal("16:9").optional(),
     video: z
       .strictObject({
         mode: z.enum(["text-to-video", "image-to-video"]),
@@ -73,7 +74,7 @@ export const agentQuoteTargetSchema = z.strictObject({
           audio: z.boolean().optional(),
         }),
         uses_end_frame: z.boolean(),
-        /** The start frame take and end frame content the video was quoted with. */
+        /** The start frame take and end frame content the video was planned with. */
         start_take_id: id.optional(),
         end_frame_digest: z.string().regex(/^[0-9a-f]{64}$/).optional(),
       })
@@ -101,37 +102,11 @@ export const agentQuotePlanSchema = agentQuoteTargetSchema.extend({
 /** What the renderer resolves for a request: the same model, settings and estimate the app would use. */
 export type AgentQuotePlan = z.infer<typeof agentQuotePlanSchema>;
 
-export interface AgentQuote {
-  quote_id: string;
-  expires_at: string;
-  model_id: string;
-  provider: string;
-  kind: GenerationCostRequest["kind"];
-  min_microusd: number;
-  max_microusd: number;
-  price_source: string;
-  price_checked_at: string;
-  price_freshness: z.infer<typeof priceFreshnessSchema> | null;
-  price_stale: boolean;
-  price_basis: GenerationPrice;
-  excludes_input_cost: boolean;
-  fingerprint: string;
-  budget_remaining_microusd: number;
-}
-
 export const agentGenerationErrorCodes = [
   "INVALID_INPUT",
   "NOT_FOUND",
   "UNAVAILABLE",
   "IO_ERROR",
-  "NO_BUDGET",
-  "MODEL_NOT_ALLOWED",
-  "OVER_REQUEST_CAP",
-  "OVER_BUDGET",
-  "PRICE_UNKNOWN",
-  "QUOTE_EXPIRED",
-  "QUOTE_NOT_FOUND",
-  "QUOTE_STALE",
   "BUSY",
   "JOB_LIMIT",
   "NO_ANSWER",
@@ -160,23 +135,34 @@ export type AgentJobStatus =
   | "failed"
   | "interrupted";
 
+export const agentJobEstimateSchema = z.strictObject({
+  min_microusd: microusd,
+  max_microusd: microusd,
+  price_source: z.string(),
+  price_checked_at: z.string(),
+  price_stale: z.boolean(),
+  excludes_input_cost: z.boolean(),
+});
+export type AgentJobEstimate = z.infer<typeof agentJobEstimateSchema>;
+
 export interface AgentJob {
   job_id: string;
   request_id: string;
-  quote_id: string;
-  grant_id: string;
+  /** What the request asked for, so a retry with the same request ID but other arguments is refused. */
+  request_fingerprint: string;
   project_id: string;
   subject_id: string;
   usage_request_id: string;
   model_id: string;
   kind: string;
-  reserved_microusd: number;
+  /** null when no price was known when the job started; an unknown price never blocks generation. */
+  estimate: AgentJobEstimate | null;
   reported_microusd: number | null;
   /** null until the app knows whether a provider request was sent. */
   provider_called: boolean | null;
   status: AgentJobStatus;
-  /** confirmed once the provider reports a charge; released only if the provider was never called. */
-  charge_status: "confirmed" | "estimated" | "released";
+  /** confirmed once the provider reports a charge; released only if the provider was never called; unknown when the price was unknown and no charge is confirmed. */
+  charge_status: "confirmed" | "estimated" | "unknown" | "released";
   /** The new Bible take (variant_id), shot image take (take_id) or video take (video_take_id). */
   result: AgentJobResult | null;
   error: string | null;
@@ -247,3 +233,40 @@ export const setShotFrameRequestSchema = z.strictObject({
   bible_variant_id: id,
 });
 export type SetShotFrameRequest = z.infer<typeof setShotFrameRequestSchema>;
+
+export const BIBLE_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+// About 730 KB of picture, which keeps the whole request under the 1 MiB bridge limit.
+export const MAX_BIBLE_IMAGE_BASE64 = 1_000_000;
+// Checked from the image header before full decoding, so a small file cannot claim an enormous canvas.
+export const MAX_BIBLE_IMAGE_PIXELS = 40_000_000;
+const byteLength = (base64: string) => (base64.length / 4) * 3 - (/=*$/.exec(base64)?.[0].length ?? 0);
+const uint32le = (bytes: string, at: number) =>
+  (bytes.charCodeAt(at) | (bytes.charCodeAt(at + 1) << 8) | (bytes.charCodeAt(at + 2) << 16) | (bytes.charCodeAt(at + 3) << 24)) >>> 0;
+// Browsers decode a cut-off PNG or JPEG without error, so the file's end marker or declared length is checked too.
+const completeImage: Record<
+  (typeof BIBLE_IMAGE_TYPES)[number],
+  (head: string, tail: string, length: number) => boolean
+> = {
+  "image/png": (head, tail) => head.startsWith("\x89PNG\r\n\x1a\n") && tail.endsWith("IEND\xaeB`\x82"),
+  "image/jpeg": (head, tail) => head.startsWith("\xff\xd8\xff") && tail.endsWith("\xff\xd9"),
+  "image/webp": (head, _tail, length) =>
+    head.startsWith("RIFF") && head.slice(8, 12) === "WEBP" && uint32le(head, 4) === length - 8,
+};
+export const addBibleImageRequestSchema = z
+  .strictObject({
+    bible_asset_id: id,
+    mime_type: z.enum(BIBLE_IMAGE_TYPES),
+    base64: z.base64().min(1).max(MAX_BIBLE_IMAGE_BASE64),
+    name: z.string().trim().min(1).max(200).optional(),
+  })
+  .refine(
+    ({ mime_type, base64 }) =>
+      completeImage[mime_type](atob(base64.slice(0, 16)), atob(base64.slice(-16)), byteLength(base64)),
+    {
+      message:
+        "The picture's bytes are not a complete PNG, JPEG or WebP of the declared mime_type. Send the whole file as plain base64.",
+      // Only well-formed base64 can be decoded to read its signature.
+      when: ({ issues }) => issues.length === 0,
+    },
+  );
+export type AddBibleImageRequest = z.infer<typeof addBibleImageRequestSchema>;
