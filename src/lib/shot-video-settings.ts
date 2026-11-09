@@ -81,7 +81,7 @@ export function resolveShotVideoSettings(
     ...(usable("audio") ? { audio: saved.audio } : {}),
   };
   const notice = unusable.length
-    ? `Saved for this shot. ${model.name} cannot use the saved ${videoSettingNames(unusable)}, so its ${unusable.length > 1 ? "defaults are" : "default is"} used.`
+    ? `Saved for this shot. ${model.name} cannot use the saved ${videoSettingNames(unusable)}, so ${unusable.length > 1 ? "they are" : "it is"} left to the model.`
     : "Saved for this shot.";
   return { settings, source: "saved", notice };
 }
