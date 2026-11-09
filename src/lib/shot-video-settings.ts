@@ -1,5 +1,7 @@
 import {
   shotVideoSettingsSchema,
+  unusableVideoSettings,
+  videoSettingNames,
   type StoredShotVideoSettings,
 } from "../../shared/shot-video-settings";
 import type { Result } from "../../shared/result";
@@ -68,23 +70,18 @@ export function resolveShotVideoSettings(
       `Using ${model.name} defaults. Saved settings belong to another model.`,
     );
   const saved = parsed.value.settings;
+  const unusable = unusableVideoSettings(saved, model.capabilities);
+  const usable = <K extends keyof typeof saved>(key: K) =>
+    saved[key] !== undefined && !unusable.includes(key);
   const settings: VideoGenerationSettings = {
     ...model.defaults,
-    duration: saved.duration,
-    ...(saved.resolution ? { resolution: saved.resolution } : {}),
-    ...(saved.aspect_ratio ? { aspectRatio: saved.aspect_ratio } : {}),
-    ...(saved.audio !== undefined ? { audio: saved.audio } : {}),
+    ...(usable("duration") ? { duration: saved.duration } : {}),
+    ...(usable("resolution") ? { resolution: saved.resolution } : {}),
+    ...(usable("aspect_ratio") ? { aspectRatio: saved.aspect_ratio } : {}),
+    ...(usable("audio") ? { audio: saved.audio } : {}),
   };
-  if (
-    !model.capabilities.durations.includes(settings.duration) ||
-    (settings.resolution &&
-      !model.capabilities.resolutions?.includes(settings.resolution)) ||
-    (settings.aspectRatio &&
-      !model.capabilities.aspectRatios?.includes(settings.aspectRatio)) ||
-    (settings.audio !== undefined && !model.capabilities.hasAudio)
-  )
-    return fallback(
-      "Saved video settings no longer match this model. Model defaults are shown.",
-    );
-  return { settings, source: "saved", notice: "Saved for this shot." };
+  const notice = unusable.length
+    ? `Saved for this shot. ${model.name} cannot use the saved ${videoSettingNames(unusable)}, so ${unusable.length > 1 ? "they are" : "it is"} left to the model.`
+    : "Saved for this shot.";
+  return { settings, source: "saved", notice };
 }
