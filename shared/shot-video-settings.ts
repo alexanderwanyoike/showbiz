@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { VideoModelCapabilities } from "./model-config";
 
 export const shotVideoSettingsSchema = z.strictObject({
   model_id: z.string().trim().min(1).max(200),
@@ -21,12 +22,6 @@ export const shotVideoSettingsSchema = z.strictObject({
 export type StoredShotVideoSettings = z.infer<typeof shotVideoSettingsSchema>;
 
 type StoredSettings = StoredShotVideoSettings["settings"];
-interface VideoCapabilities {
-  durations: string[];
-  resolutions?: string[];
-  aspectRatios?: string[];
-  hasAudio?: boolean;
-}
 const SETTING_LABELS: Record<keyof StoredSettings, string> = {
   duration: "duration",
   resolution: "resolution",
@@ -37,7 +32,7 @@ const SETTING_LABELS: Record<keyof StoredSettings, string> = {
 /** The saved settings a model cannot use, in display order. */
 export function unusableVideoSettings(
   settings: StoredSettings,
-  capabilities: VideoCapabilities,
+  capabilities: VideoModelCapabilities,
 ): (keyof StoredSettings)[] {
   return [
     ...(!capabilities.durations.includes(settings.duration) ? (["duration"] as const) : []),
