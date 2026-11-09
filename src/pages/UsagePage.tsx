@@ -21,7 +21,6 @@ import {
 } from "../lib/usage-presentation";
 import { UsageRequestDetails } from "./UsageRequestDetails";
 import { UsageCostHelp } from "./UsageCostHelp";
-import { AgentBudgetDialog } from "../components/AgentBudgetDialog";
 import "../usage.css";
 
 export default function UsagePage() {
@@ -90,7 +89,6 @@ export default function UsagePage() {
       <WorkspaceToolbar title="Usage & billing">
         <span className="usage-toolbar-scope">This project · USD</span>
         <UsageCostHelp />
-        <AgentBudgetDialog />
         <Button
           variant="ghost"
           size="sm"
@@ -205,7 +203,7 @@ export default function UsagePage() {
                             {item.agent_job_id && (
                               <span
                                 className="usage-agent"
-                                title="Submitted by an agent from its budget"
+                                title="Requested by an agent over MCP"
                               >
                                 Agent
                               </span>

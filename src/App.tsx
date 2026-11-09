@@ -11,7 +11,6 @@ import {
   useProjectDocument,
 } from "./contexts/ProjectDocumentContext";
 import UsagePage from "./pages/UsagePage";
-import { AgentBudgetBanner } from "./components/AgentBudgetBanner";
 import WorkspacePage from "./pages/WorkspacePage";
 import ProjectPage from "./pages/ProjectPage";
 import StoryboardPage from "./pages/StoryboardPage";
@@ -65,7 +64,6 @@ function DocumentWorkspace() {
             <button onClick={document.dismissError}>Dismiss</button>
           </div>
         )}
-        {document.current && <AgentBudgetBanner />}
         <div
           className="document-content"
           key={document.current?.file_path ?? "start"}

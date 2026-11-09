@@ -1,22 +1,26 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { agentJobResultSchema, type AgentJob } from "../../shared/agent-generation";
+import {
+  agentJobEstimateSchema,
+  agentJobResultSchema,
+  type AgentJob,
+} from "../../shared/agent-generation";
 
 const resultSchema = agentJobResultSchema.nullable();
+const estimateSchema = agentJobEstimateSchema.nullable();
 const warningsSchema = z.array(z.string());
 
 export type NewAgentJob = Pick<
   AgentJob,
   | "job_id"
   | "request_id"
-  | "quote_id"
-  | "grant_id"
+  | "request_fingerprint"
   | "project_id"
   | "subject_id"
   | "usage_request_id"
   | "model_id"
   | "kind"
-  | "reserved_microusd"
+  | "estimate"
 >;
 export type AgentJobUpdate = Partial<
   Pick<
@@ -29,24 +33,30 @@ export type AgentJobUpdate = Partial<
     | "warnings"
   >
 >;
-type Row = Omit<AgentJob, "provider_called" | "result" | "warnings" | "charge_status"> & {
+type Row = Omit<AgentJob, "provider_called" | "result" | "warnings" | "charge_status" | "estimate"> & {
   provider_called: number | null;
+  estimate_json: string | null;
   result_json: string | null;
   warnings_json: string;
 };
+const parseJson = (json: string | null): unknown => (json ? JSON.parse(json) : null);
 
-function fromRow({ provider_called, result_json, warnings_json, ...row }: Row): AgentJob {
+function fromRow({ provider_called, estimate_json, result_json, warnings_json, ...row }: Row): AgentJob {
   const called = provider_called === null ? null : provider_called === 1;
+  const estimate = estimateSchema.parse(parseJson(estimate_json));
   return {
     ...row,
+    estimate,
     provider_called: called,
     charge_status:
       row.reported_microusd !== null
         ? "confirmed"
         : called === false
           ? "released"
-          : "estimated",
-    result: resultSchema.parse(result_json ? JSON.parse(result_json) : null),
+          : estimate
+            ? "estimated"
+            : "unknown",
+    result: resultSchema.parse(parseJson(result_json)),
     warnings: warningsSchema.parse(JSON.parse(warnings_json)),
   };
 }
@@ -80,19 +90,18 @@ export function createAgentJobLedger(db: DatabaseSync, now: () => number = Date.
     insert(job: NewAgentJob): AgentJob {
       const at = timestamp();
       db.prepare(
-        `INSERT INTO agent_generation_jobs(request_id,job_id,quote_id,grant_id,project_id,subject_id,usage_request_id,model_id,kind,reserved_microusd,created_at,updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO agent_generation_jobs(request_id,job_id,request_fingerprint,project_id,subject_id,usage_request_id,model_id,kind,estimate_json,created_at,updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
       ).run(
         job.request_id,
         job.job_id,
-        job.quote_id,
-        job.grant_id,
+        job.request_fingerprint,
         job.project_id,
         job.subject_id,
         job.usage_request_id,
         job.model_id,
         job.kind,
-        job.reserved_microusd,
+        job.estimate ? JSON.stringify(job.estimate) : null,
         at,
         at,
       );
@@ -125,35 +134,10 @@ export function createAgentJobLedger(db: DatabaseSync, now: () => number = Date.
           .get() as { count: number }
       ).count;
     },
-    /** Finished or abandoned jobs whose charge may still be confirmed by the provider. */
-    unsettled(): AgentJob[] {
-      return (
-        db
-          .prepare(
-            "SELECT * FROM agent_generation_jobs WHERE reported_microusd IS NULL AND (provider_called IS NULL OR provider_called = 1)",
-          )
-          .all() as Row[]
-      ).map(fromRow);
-    },
     recoverInterrupted(): void {
       db.prepare(
         "UPDATE agent_generation_jobs SET status = 'interrupted', updated_at = ? WHERE status IN ('accepted','running')",
       ).run(timestamp());
-    },
-    /** A hold becomes the confirmed charge; it is released only when the provider was never called. */
-    spend(grantId: string): { committed_microusd: number; frozen: boolean } {
-      const row = db
-        .prepare(
-          `SELECT
-             COALESCE(SUM(CASE
-               WHEN reported_microusd IS NOT NULL THEN reported_microusd
-               WHEN provider_called = 0 THEN 0
-               ELSE reserved_microusd END), 0) AS committed,
-             COALESCE(MAX(reported_microusd > reserved_microusd), 0) AS frozen
-           FROM agent_generation_jobs WHERE grant_id = ?`,
-        )
-        .get(grantId) as { committed: number; frozen: number };
-      return { committed_microusd: row.committed, frozen: row.frozen === 1 };
     },
   };
 }

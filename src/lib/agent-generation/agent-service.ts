@@ -6,12 +6,17 @@ import {
   type AgentRequest,
   type AgentResult,
 } from "../../../shared/agent-generation";
-import { planAgentQuote, resolveAgentTarget } from "./plan-quote";
+import { planAgentQuote } from "./plan-quote";
 import { runAgentJob } from "./run-job";
 import { previewMedia } from "./media-preview";
 import { setShotFrameFromBible } from "./set-shot-frame";
+import { addBibleImage } from "./add-bible-image";
 
 const REPORT_ATTEMPTS = 3;
+const projectEdits = new Map<string, (input: unknown) => Promise<AgentResult<unknown>>>([
+  ["set_shot_frame", setShotFrameFromBible],
+  ["add_bible_image", addBibleImage],
+]);
 const invalid = (issue: { message: string } | undefined) =>
   agentFailure("INVALID_INPUT", issue?.message ?? "Invalid agent request.");
 
@@ -19,12 +24,10 @@ async function handle(
   request: AgentRequest,
   report: (update: AgentJobReport) => Promise<void>,
 ): Promise<AgentResult<unknown>> {
-  if (request.operation === "plan_quote" || request.operation === "resolve_target") {
+  if (request.operation === "plan_quote") {
     const input = agentQuoteRequestSchema.safeParse(request.input);
     if (!input.success) return invalid(input.error.issues[0]);
-    return request.operation === "plan_quote"
-      ? planAgentQuote(input.data)
-      : resolveAgentTarget(input.data);
+    return planAgentQuote(input.data);
   }
   if (request.operation === "start_job") {
     const input = agentJobStartSchema.safeParse(request.input);
@@ -33,8 +36,9 @@ async function handle(
     return { ok: true, value: null };
   }
   if (request.operation === "preview_media") return previewMedia(request.input);
-  if (request.operation === "set_shot_frame") {
-    const saved = await setShotFrameFromBible(request.input);
+  const edit = projectEdits.get(request.operation);
+  if (edit) {
+    const saved = await edit(request.input);
     if (saved.ok) window.dispatchEvent(new Event("showbiz:project-changed"));
     return saved;
   }

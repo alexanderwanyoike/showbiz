@@ -21,7 +21,7 @@ export interface GenerationSubject {
   project_id?: string;
   subject_id?: string;
 }
-/** An agent job runs with the estimate it was quoted, not a fresh one. */
+/** An agent job records the estimate it was planned with, not a fresh one. */
 export interface AgentAccounting extends AgentGenerationIdentity {
   estimate: GenerationCostEstimate;
 }

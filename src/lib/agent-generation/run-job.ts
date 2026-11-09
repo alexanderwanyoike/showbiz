@@ -29,7 +29,7 @@ async function createBiblePicture(job: BibleJob) {
   const { inputs } = plan;
   const shape = inputs.aspect_ratio ? { aspectRatio: inputs.aspect_ratio } : undefined;
   if (request.operation === "edit") {
-    if (!inputs.source_variant_id) throw new Error("The quote has no source picture to edit.");
+    if (!inputs.source_variant_id) throw new Error("The plan has no source picture to edit.");
     const edited = await editBibleImage(
       inputs.source_variant_id,
       inputs.prompt,
@@ -59,9 +59,9 @@ async function createVideo(job: AgentJobStart, shotId: string): Promise<AgentJob
   const { plan } = job;
   const video = plan.inputs.video;
   const model = getAvailableVideoModels().find((candidate) => candidate.id === plan.model_id);
-  if (!video) throw new Error("The quote has no video plan.");
-  if (!model) throw new Error("The quoted video model is not available.");
-  const changed = new Error("The shot's frames changed after the quote. Request a new quote.");
+  if (!video) throw new Error("The plan has no video inputs.");
+  if (!model) throw new Error("The planned video model is not available.");
+  const changed = new Error("The shot's frames changed after planning. Call generate again with a new request_id.");
   if (
     video.mode === "image-to-video" &&
     (await getCurrentImageVersion(shotId))?.id !== video.start_take_id
@@ -74,7 +74,7 @@ async function createVideo(job: AgentJobStart, shotId: string): Promise<AgentJob
     video.settings,
     plan.inputs.prompt,
   );
-  // A video made from other frames than quoted is not paid for.
+  // A video made from other frames than planned is not paid for.
   if (
     request.mode !== video.mode ||
     !!request.endImage !== video.uses_end_frame ||
@@ -101,7 +101,7 @@ async function createResult(job: AgentJobStart): Promise<AgentJobResult> {
   const agent = accountingFor(job);
   if (request.operation === "edit") {
     const sourceTake = plan.inputs.source_take_id;
-    if (!sourceTake) throw new Error("The quote has no source take to edit.");
+    if (!sourceTake) throw new Error("The plan has no source take to edit.");
     const take = await editShotStartFrame(
       request.shot_id,
       sourceTake,

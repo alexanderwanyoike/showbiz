@@ -1,5 +1,6 @@
 import {
   createBibleAssetVariant,
+  getBibleAssetVariants,
   updateBibleAssetVariantStatus,
 } from "./backend-api";
 import type { BibleAssetVariant } from "./backend-api";
@@ -33,6 +34,30 @@ export function prepareBibleImageDataUrl(dataUrl: string): Promise<string> {
     image.onerror = () =>
       reject(new Error("Unsupported image format. Try PNG, JPEG, or WebP."));
     image.src = dataUrl;
+  });
+}
+
+/** Saves a picture to a Bible entry as the Bible does; an entry's first picture becomes its current one. */
+export async function addBibleTake(
+  assetId: string,
+  dataUrl: string,
+  meta: {
+    name: string;
+    source: "generated" | "uploaded";
+    prompt?: string | null;
+    modelId?: string | null;
+  },
+): Promise<BibleAssetVariant> {
+  const image_base64 = await prepareBibleImageDataUrl(dataUrl);
+  const isFirst = (await getBibleAssetVariants(assetId)).length === 0;
+  return createBibleAssetVariant(assetId, {
+    name: meta.name,
+    image_base64,
+    source_kind: meta.source,
+    status: "approved",
+    prompt: meta.prompt ?? null,
+    model_id: meta.modelId ?? null,
+    is_primary: isFirst,
   });
 }
 
