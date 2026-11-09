@@ -36,3 +36,25 @@ it("restores matching shot settings and uses the new model defaults instead of i
     notice: expect.stringContaining("could not be read"),
   });
 });
+
+it("keeps the saved settings a model can use and falls back only for the ones it cannot", () => {
+  const h3 = getAvailableVideoModels().find((model) => model.id === "minimax-h3-fal")!;
+  const withAudio = JSON.stringify({
+    model_id: h3.id,
+    settings: { duration: "8", resolution: "768P", audio: true },
+  });
+  expect(resolveShotVideoSettings(withAudio, h3)).toEqual({
+    source: "saved",
+    settings: { duration: "8", resolution: "768P" },
+    notice: "Saved for this shot. MiniMax H3 cannot use the saved audio, so its default is used.",
+  });
+  const tooLong = JSON.stringify({
+    model_id: h3.id,
+    settings: { duration: "30", resolution: "480P", aspect_ratio: "21:9" },
+  });
+  expect(resolveShotVideoSettings(tooLong, h3)).toEqual({
+    source: "saved",
+    settings: { duration: "5", resolution: "480P" },
+    notice: "Saved for this shot. MiniMax H3 cannot use the saved duration and aspect ratio, so its defaults are used.",
+  });
+});
