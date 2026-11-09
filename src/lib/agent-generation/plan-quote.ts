@@ -15,6 +15,7 @@ import {
 import {
   assetBasePrompt,
   assetReferences,
+  bibleImageShape,
   parseRecipe,
   primaryPicture,
 } from "../bible-compose";
@@ -33,6 +34,7 @@ import {
   imageGenerationKind,
   type ImageGenerationKind,
 } from "../../../shared/generation-cost";
+import { FRAME_ASPECT_RATIO, FRAME_SHAPE, shapeRefusal } from "../../../shared/model-config";
 
 async function variantsOf(assets: BibleAsset[]) {
   const variants: Record<string, BibleAssetVariant[]> = {};
@@ -157,6 +159,8 @@ async function resolveShotTarget(
       "INVALID_INPUT",
       `${model.name} cannot edit pictures. Choose another image model with set_shot_models.`,
     );
+  const shape = shapeRefusal(model, FRAME_SHAPE);
+  if (shape) return agentFailure("INVALID_INPUT", `${shape} Choose another image model with set_shot_models.`);
   if (
     request.operation === "edit" &&
     !versionIds(await invoke("get_image_versions", { shotId: request.shot_id })).includes(
@@ -175,6 +179,7 @@ async function resolveShotTarget(
         prompt: request.prompt,
         reference_variant_ids: [],
         ...(request.operation === "edit" ? { source_take_id: request.source_take_id } : {}),
+        aspect_ratio: FRAME_ASPECT_RATIO,
       },
     },
   };
@@ -196,6 +201,9 @@ async function resolveBibleTarget(
   if (!found)
     return agentFailure("NOT_FOUND", "That Bible entry is not in the open project.");
   const { asset } = found;
+  const frameShape = bibleImageShape(asset.asset_type);
+  const shape = shapeRefusal(model, frameShape);
+  if (shape) return agentFailure("INVALID_INPUT", `${shape} Choose another image model_id.`);
   const target = (kind: ImageGenerationKind, inputs: AgentQuoteTarget["inputs"]) => ({
     ok: true as const,
     value: {
@@ -203,7 +211,7 @@ async function resolveBibleTarget(
       provider: model.apiKeyProvider,
       cost_request: imageCostRequest(kind),
       subject: { project_id: projectId, subject_id: asset.id },
-      inputs,
+      inputs: frameShape ? { ...inputs, aspect_ratio: FRAME_ASPECT_RATIO } : inputs,
     },
   });
   if (request.operation === "generate") {

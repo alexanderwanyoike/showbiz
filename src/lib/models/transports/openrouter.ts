@@ -16,32 +16,33 @@ async function media<T>(
   return result.value.media;
 }
 export const openRouterImageTransport: ImageTransport = {
-  async generateImage(config, prompt, apiKey, observer) {
+  async generateImage(config, prompt, apiKey, observer, options) {
     return media(
       await generateOpenRouterImage(
-        { model: config.models.generate, prompt },
+        { model: config.models.generate, prompt, aspectRatio: options?.aspectRatio },
         apiKey,
       ),
       observer,
     );
   },
-  async editImage(config, prompt, source, apiKey, observer) {
+  async editImage(config, prompt, source, apiKey, observer, options) {
     return media(
       await generateOpenRouterImage(
         {
           model: config.models.edit ?? config.models.generate,
           prompt,
           references: [source],
+          aspectRatio: options?.aspectRatio,
         },
         apiKey,
       ),
       observer,
     );
   },
-  async composeImage(config, prompt, references, apiKey, observer) {
+  async composeImage(config, prompt, references, apiKey, observer, options) {
     return media(
       await generateOpenRouterImage(
-        { model: config.models.generate, prompt, references },
+        { model: config.models.generate, prompt, references, aspectRatio: options?.aspectRatio },
         apiKey,
       ),
       observer,

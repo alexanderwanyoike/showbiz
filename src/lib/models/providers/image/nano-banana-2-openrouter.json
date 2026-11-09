@@ -13,5 +13,8 @@
   },
   "supportsEditing": true,
   "supportsInpainting": false,
-  "supportsComposition": true
+  "supportsComposition": true,
+  "aspectRatios": [
+    "16:9"
+  ]
 }

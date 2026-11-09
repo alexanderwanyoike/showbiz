@@ -1,4 +1,5 @@
 import { fetch } from "../http";
+import type { ImageRequestOptions } from "../../../../shared/model-config";
 import { parseGoogleApiError } from "../types";
 import type { ImageTransport } from "./types";
 import type { ImageModelConfig } from "../config-schema";
@@ -40,7 +41,8 @@ async function runInteraction(
   config: ImageModelConfig,
   prompt: string,
   referenceImages: string[],
-  apiKey: string
+  apiKey: string,
+  options?: ImageRequestOptions
 ): Promise<string> {
   const input: Array<Record<string, unknown>> = [{ type: "text", text: prompt }];
   for (const reference of referenceImages) {
@@ -59,7 +61,10 @@ async function runInteraction(
     body: JSON.stringify({
       model: config.models.generate,
       input,
-      response_format: { type: "image" },
+      response_format: {
+        type: "image",
+        ...(options?.aspectRatio ? { aspect_ratio: options.aspectRatio } : {}),
+      },
     }),
   });
 
@@ -72,18 +77,18 @@ async function runInteraction(
 }
 
 export const googleInteractionsImageTransport: ImageTransport = {
-  async generateImage(config, prompt, apiKey) {
-    return runInteraction(config, prompt, [], apiKey);
+  async generateImage(config, prompt, apiKey, _observer, options) {
+    return runInteraction(config, prompt, [], apiKey, options);
   },
 
-  async editImage(config, editPrompt, sourceImageBase64, apiKey) {
-    return runInteraction(config, editPrompt, [sourceImageBase64], apiKey);
+  async editImage(config, editPrompt, sourceImageBase64, apiKey, _observer, options) {
+    return runInteraction(config, editPrompt, [sourceImageBase64], apiKey, options);
   },
 
-  async composeImage(config, prompt, referenceImages, apiKey) {
+  async composeImage(config, prompt, referenceImages, apiKey, _observer, options) {
     if (referenceImages.length === 0) {
       throw new Error("composeImage requires at least one reference image");
     }
-    return runInteraction(config, prompt, referenceImages, apiKey);
+    return runInteraction(config, prompt, referenceImages, apiKey, options);
   },
 };

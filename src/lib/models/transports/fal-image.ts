@@ -1,6 +1,7 @@
 import type { GenerationObserver } from "../../../../shared/generation-output";
 import type { ImageTransport } from "./types";
 import type { ImageModelConfig } from "../config-schema";
+import type { ImageRequestOptions } from "../../../../shared/model-config";
 import { submitFalQueueRequest, pollFalResult, runFalInference, uploadImageToFal } from "../fal-shared";
 import { fetch } from "../http";
 import { blobToBase64 } from "../types";
@@ -25,6 +26,17 @@ async function downloadFirstImage(
   const blob = await imgRes.blob();
   const typedBlob = blob.type ? blob : new Blob([await blob.arrayBuffer()], { type: inferImageMimeType(imageUrl) });
   return blobToBase64(typedBlob);
+}
+
+// fal models take their shape either as aspect_ratio ("16:9") or as an image_size preset ("landscape_16_9").
+const IMAGE_SIZE_PRESETS: Record<string, string> = { "16:9": "landscape_16_9" };
+function shapeInput(config: ImageModelConfig, options?: ImageRequestOptions): Record<string, unknown> {
+  const ratio = options?.aspectRatio;
+  if (!ratio) return {};
+  const param = config.transportOptions?.aspectRatioParam;
+  if (param === "aspect_ratio") return { aspect_ratio: ratio };
+  if (param === "image_size" && IMAGE_SIZE_PRESETS[ratio]) return { image_size: IMAGE_SIZE_PRESETS[ratio] };
+  throw new Error(`${config.name} cannot make ${ratio} pictures.`);
 }
 
 // Submit an input to a fal image endpoint (direct or queued) and return the
@@ -55,11 +67,12 @@ export const falImageTransport: ImageTransport = {
     config: ImageModelConfig,
     prompt: string,
     apiKey: string,
-    observer?: GenerationObserver
+    observer?: GenerationObserver,
+    options?: ImageRequestOptions
   ): Promise<string> {
     const opts = (config.transportOptions ?? {}) as Record<string, string>;
     const endpointId = opts.endpoint ?? config.models.generate;
-    const input: Record<string, unknown> = { prompt, ...(config.fixedParams ?? {}) };
+    const input: Record<string, unknown> = { prompt, ...(config.fixedParams ?? {}), ...shapeInput(config, options) };
     return runFalImageRequest(config, endpointId, input, apiKey, observer);
   },
 
@@ -68,7 +81,8 @@ export const falImageTransport: ImageTransport = {
     editPrompt: string,
     sourceImageBase64: string,
     apiKey: string,
-    observer?: GenerationObserver
+    observer?: GenerationObserver,
+    options?: ImageRequestOptions
   ): Promise<string> {
     const opts = (config.transportOptions ?? {}) as Record<string, string>;
     const endpointId = opts.editEndpoint ?? config.models.edit ?? opts.endpoint ?? config.models.generate;
@@ -79,6 +93,7 @@ export const falImageTransport: ImageTransport = {
       prompt: editPrompt,
       [imageInput]: mode?.imageFormat === "array" ? [uploaded] : uploaded,
       ...(config.fixedParams ?? {}),
+      ...shapeInput(config, options),
     };
     return runFalImageRequest(config, endpointId, input, apiKey, observer);
   },
@@ -90,7 +105,8 @@ export const falImageTransport: ImageTransport = {
     prompt: string,
     referenceImages: string[],
     apiKey: string,
-    observer?: GenerationObserver
+    observer?: GenerationObserver,
+    options?: ImageRequestOptions
   ): Promise<string> {
     if (referenceImages.length === 0) {
       throw new Error("composeImage requires at least one reference image");
@@ -102,6 +118,7 @@ export const falImageTransport: ImageTransport = {
       prompt,
       [imageInput]: referenceImages.map((img) => uploadImageToFal(img)),
       ...(config.fixedParams ?? {}),
+      ...shapeInput(config, options),
     };
     return runFalImageRequest(config, endpointId, input, apiKey, observer);
   },

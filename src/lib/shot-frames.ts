@@ -10,9 +10,7 @@ import type {
   GenerationSubject,
 } from "./model-generation-accounting";
 import type { ShotFrameRole } from "../../shared/shot-frames";
-
-const accountingOf = (agent?: AgentAccounting) =>
-  agent ? ([agent] as const) : ([] as const);
+import { FRAME_SHAPE } from "../../shared/model-config";
 
 /** Generates a start frame from a prompt as a new take after the shot's current one. */
 export async function generateShotStartFrame(
@@ -23,7 +21,7 @@ export async function generateShotStartFrame(
   parentVersionId: string | null,
   agent?: AgentAccounting,
 ) {
-  const image = await generateImageAction(prompt, modelId, subject, ...accountingOf(agent));
+  const image = await generateImageAction(prompt, modelId, subject, agent, FRAME_SHAPE);
   return createGenerationVersion(shotId, prompt, image, parentVersionId);
 }
 
@@ -38,7 +36,7 @@ export async function editShotStartFrame(
 ) {
   const source = await getVersionImageBase64(sourceVersionId);
   if (!source) throw new Error("Failed to load source image");
-  const edited = await editImageAction(source, instruction, modelId, subject, ...accountingOf(agent));
+  const edited = await editImageAction(source, instruction, modelId, subject, agent, FRAME_SHAPE);
   return createRemixVersion(shotId, sourceVersionId, instruction, edited);
 }
 

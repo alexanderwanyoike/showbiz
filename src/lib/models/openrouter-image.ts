@@ -19,7 +19,7 @@ const responseSchema = z.object({
   usage: openRouterUsageSchema.optional(),
 });
 export async function generateOpenRouterImage(
-  request: { model: string; prompt: string; references?: string[] },
+  request: { model: string; prompt: string; references?: string[]; aspectRatio?: string },
   apiKey: string,
 ): Promise<GenerationOutput<string>> {
   try {
@@ -33,6 +33,7 @@ export async function generateOpenRouterImage(
         model: request.model,
         prompt: request.prompt,
         n: 1,
+        ...(request.aspectRatio ? { aspect_ratio: request.aspectRatio } : {}),
         ...(request.references?.length
           ? {
               input_references: request.references.map((url) => ({

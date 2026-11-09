@@ -48,8 +48,19 @@ it("generates a start frame with the storyboard's image model", async () => {
       provider: "gemini",
       cost_request: imageCostRequest("image"),
       subject: { project_id: film.id, subject_id: shot.id },
-      inputs: { prompt: "Sock enters the office", reference_variant_ids: [] },
+      inputs: { prompt: "Sock enters the office", reference_variant_ids: [], aspect_ratio: "16:9" },
     },
+  });
+});
+
+it("refuses a shot image model that cannot make 16:9 frames", async () => {
+  const { commands, shot } = storyboard();
+  commands.set_shot_models({ shot_id: shot.id, image_model: "local-image" });
+  expect(
+    await resolveAgentTarget({ target: "shot_start_frame", operation: "generate", shot_id: shot.id, prompt: "x" }),
+  ).toMatchObject({
+    ok: false,
+    error: { code: "INVALID_INPUT", message: expect.stringContaining("16:9") },
   });
 });
 
@@ -69,7 +80,7 @@ it("edits one of the shot's own takes", async () => {
     ok: true,
     value: {
       cost_request: imageCostRequest("image_edit"),
-      inputs: { prompt: "Darker", reference_variant_ids: [], source_take_id: take.id },
+      inputs: { prompt: "Darker", reference_variant_ids: [], source_take_id: take.id, aspect_ratio: "16:9" },
     },
   });
   expect(

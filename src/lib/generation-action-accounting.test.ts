@@ -238,3 +238,15 @@ it("quotes and records the stored end frame before submitting the effective vide
     expect(commands.get_generation_usage({ project_id: "film" })).toMatchObject({ ok: true, value: { items: [{ settings: { mode: "image-to-video", has_end_frame: true } }] } });
   } finally { db.close(); }
 });
+
+it("refuses a frame shape the model cannot make before reading a key or calling the provider", async () => {
+  mocks.invoke.mockReset();
+  mocks.fetch.mockReset();
+  await expect(
+    generateImageAction("A frame", "local-image", { project_id: "film", subject_id: "frame" }, undefined, {
+      aspectRatio: "16:9",
+    }),
+  ).rejects.toThrow("Local image cannot make 16:9 pictures");
+  expect(mocks.invoke).not.toHaveBeenCalled();
+  expect(mocks.fetch).not.toHaveBeenCalled();
+});

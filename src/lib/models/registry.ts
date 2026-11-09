@@ -153,33 +153,22 @@ function imageConfigToProvider(config: ImageModelConfig): ImageModelProvider {
     supportsImageEditing: config.supportsEditing,
     supportsInpainting: config.supportsInpainting,
     modeCapabilities: imageModeCapabilities(config),
+    aspectRatios: config.aspectRatios ?? [],
 
-    async generateImage(prompt: string, apiKey: string, observer?: GenerationObserver): Promise<string> {
-      return transport.generateImage(config, prompt, apiKey, observer);
+    async generateImage(prompt, apiKey, observer, options) {
+      return transport.generateImage(config, prompt, apiKey, observer, options);
     },
   };
 
   if (config.supportsEditing && transport.editImage) {
-    provider.editImage = async (
-      prompt: string,
-      sourceImageBase64: string,
-      apiKey: string,
-      observer?: GenerationObserver
-    ): Promise<string> => {
-      return transport.editImage!(config, prompt, sourceImageBase64, apiKey, observer);
-    };
+    provider.editImage = async (prompt, sourceImageBase64, apiKey, observer, options) =>
+      transport.editImage!(config, prompt, sourceImageBase64, apiKey, observer, options);
   }
 
   if (config.supportsComposition && transport.composeImage) {
     provider.supportsComposition = true;
-    provider.composeImage = async (
-      prompt: string,
-      referenceImages: string[],
-      apiKey: string,
-      observer?: GenerationObserver
-    ): Promise<string> => {
-      return transport.composeImage!(config, prompt, referenceImages, apiKey, observer);
-    };
+    provider.composeImage = async (prompt, referenceImages, apiKey, observer, options) =>
+      transport.composeImage!(config, prompt, referenceImages, apiKey, observer, options);
   }
 
   return provider;
